@@ -1,0 +1,75 @@
+<div class="wlt-c-furg-content-header">
+  <div class="container-fluid">
+    <div class="row mb-3">
+      <div class="col-12 col-sm-12 col-md-8 col-lg-5">
+        <h1 class="mb-1">Report / Finance / Sales Report</h1>
+      </div>
+      <div class="col-12 col-sm-12 col-md-8 col-lg-7 my-1">
+        <ol class="breadcrumb float-md-right">
+          <li class="breadcrumb-item"><a routerLink="/dashboard">Report</a></li>
+          <li class="breadcrumb-item">Finance</li>
+          <li class="breadcrumb-item active">Sales Report</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+
+<mat-card class="report-card">
+  <mat-card-content>
+
+    <form [formGroup]="frm">
+
+      <div class="row" *ngIf="warningMessage === ''">
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-left: 13px;">
+
+          <label style="font-weight: bold; white-space: nowrap; margin: 0 5px 17px 0;">Invoice Period:</label>
+
+          <mat-form-field appearance="outline" style="max-width: 180px;">
+            <mat-label>Start Date</mat-label>
+            <input matInput [matDatepicker]="picker1" formControlName="StartDate" autocomplete="off">
+            <mat-datepicker-toggle matSuffix [for]="picker1"></mat-datepicker-toggle>
+            <mat-datepicker #picker1></mat-datepicker>
+          </mat-form-field>
+
+          <span style="margin: 0 5px 17px 0;">to</span>
+
+          <mat-form-field appearance="outline" style="max-width: 180px;">
+            <mat-label>End Date</mat-label>
+            <input matInput [matDatepicker]="picker2" formControlName="EndDate" autocomplete="off">
+            <mat-datepicker-toggle matSuffix [for]="picker2"></mat-datepicker-toggle>
+            <mat-datepicker #picker2></mat-datepicker>
+          </mat-form-field>
+
+          <div style="margin-bottom: 17px; display: flex; gap: 8px;">
+            <button type="button" class="btn wlt-c-furg-btn-primary"
+              [disabled]="frm.invalid" (click)="onShowDetail()">Show</button>
+            <button type="button" class="btn wlt-c-furg-btn-secondary"
+              [disabled]="frm.invalid" (click)="onShowSummary()">Summary by Month</button>
+          </div>
+
+        </div>
+      </div>
+
+    </form>
+
+    <br />
+    <div *ngIf="warningMessage !== ''">
+      <mat-label style="color:red" [innerHTML]="warningMessage"></mat-label>
+    </div>
+    <div *ngIf="errorMessage !== ''">
+      <mat-label style="color:red" [innerHTML]="errorMessage"></mat-label>
+    </div>
+    <br />
+    <iframe *ngIf="urlSafe" class="report-wrapper fixed-height" [src]="urlSafe"></iframe>
+
+  </mat-card-content>
+</mat-card>
+
+<!-- Loading spinner -->
+<div [style.display]="showLoadingSpinner ? 'block' : 'none'"
+  style="margin-top: -10.5rem; display: block; margin-left: -6.5rem;">
+  <div class="d-flex justify-content-center">
+    <span class="loader"></span>
+  </div>
+</div>

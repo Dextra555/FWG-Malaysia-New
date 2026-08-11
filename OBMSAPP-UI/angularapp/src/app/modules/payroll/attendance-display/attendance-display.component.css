@@ -1,0 +1,33 @@
+.mat-column-sno {
+  width: 60px;
+  text-align: center;
+}
+
+.mat-column-action {
+  width: 100px;
+  text-align: center;
+}
+
+.mat-column-Punch {
+  width: 80px;
+  text-align: center;
+}
+
+.mat-column-AttendanceDate {
+  width: 120px;
+}
+
+th.mat-header-cell {
+  background-color: #7b0e10;
+  color: #fff;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+tr.mat-row:hover {
+  background-color: #fef3f3;
+}
+
+.table-responsive {
+  overflow-x: auto;
+}

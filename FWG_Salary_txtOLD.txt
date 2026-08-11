@@ -1,0 +1,649 @@
+0169778FREIGHTWATCH G PATOMOTOH SECURITY SERVIC080720260000000000000000  
+0235000007024922874      AARON AL LOUIS                          00000196157                              920822085595        2                    
+0235000007655766570      ABDUL NASRIH BIN ABDUL DURAJIK          00000207928                              960111126991        2                    
+0235000007073590809      ABU SUFIAN BIN ABU HASSAN               00000174987                              981118015955        2                    
+0235000007644412205      ACHARYA AMIT                            00000246764                              PA0205512           2                    
+0235000007649154822      ACHARYA PREM BAHADUR                    00000231968                              PA1509598           2                    
+0235000007654319916      ADAM MALEK BIN ALIAS                    00000220991                              060621030881        2                    
+0235000007648245097      ADHIKARI DHARMA PRASAD                  00000222685                              PA1790710           2                    
+0235000007078880530      ADHIKARI GOBINDA PRASAD                 00000235033                              BA0305907           2                    
+0235000007646398258      ADHIKARI NARAYAN                        00000231968                              PA2635244           2                    
+0235000007078865941      ADHIKARI SHEKHAR                        00000222685                              PA2398965           2                    
+0235000007652232257      ADHIKARI YOGENDRA                       00000181452                              PA1803791           2                    
+0235000007656269487      AFENDI BIN MUSTHAPAI                    00000239363                              881213115825        2                    
+0235000007656553647      AFFIAN BIN TUMIN                        00000199015                              860127385375        2                    
+0235000007634434685      AHMAD ALIFF RAFIQIN BIN AHMAD RIZAL     00000297171                              011105030251        2                    
+0235000007649805683      AHMAD AZMIL BIN MUSA                    00000199617                              910225085723        2                    
+0235000007614014007      AHMAD KAMAL BIN ABDUL RAHMAN            00000214631                              720511106073        2                    
+0235000007644409982      AIDEE MANBIR                            00000315590                              11934520            2                    
+0235000007641832560      AIDIL HUDA BIN SAHUD                    00000228351                              010410102499        2                    
+0235000007626597120      AINUL RAFIE BIN NOVBLI                  00000271176                              010810140849        2                    
+0235000007625855228      AIZAT AZRAN BIN MAMAT                   00000214631                              960325035673        2                    
+0235000007647257626      ALAZNISHA BINTI AZIZOL                  00000053651                              940303105134        2                    
+0235000007646294780      ALE MAGAR NARENDRA BAHADUR              00000218276                              10845101            2                    
+0235000007080015716      ALE TILAK BAHADUR                       00000235033                              PA2505803           2                    
+0235000007658145723      ALIF AFIZI                              00000210271                              050520080813        2                    
+0235000007023013013      AMBARASI AP SANGARAN                    00000218491                              701029075594        2                    
+0235000007080342450      AMGAI MOHAN                             00000216216                              PA0945357           2                    
+0235000007654563680      AMIR ADZHAR BIN HUSEIN                  00000209478                              720710086597        2                    
+0235000007656185808      AMIRUL ASYRAF BIN ZAHARIDIN             00000162265                              030104050203        2                    
+0235000007656660157      AMMAR MUKHRIZ BIN AHMAD DIMYATI         00000199015                              031227080319        2                    
+0235000007079997482      AMRIT BAHADUR LIMBU                     00000222685                              PA4741604           2                    
+0235000007080041262      ANGDEMBE KRANTI KUMAR                   00000216216                              PA3659112           2                    
+0235000007645554294      ANGDEMBE SANTOSH                        00000235033                              PA0818483           2                    
+0235000007640533215      ANGGAMAH AP MUNIAN @ THANGARAJ          00000257653                              731117016030        2                    
+0235000007607714862      ANIS SHAHIRAH BINTI YUNOS               00000504445                              950615125950        2                    
+0235000007640632069      AQRAMUL HAZIM BIN NASRULESLAM           00000019920                              020316030491        2                    
+0235000007647788384      ARIELL BIN NANDY                        00000214631                              050701120837        2                    
+0235000007024555694      ARUMUKAM AL KRISHNAN                    00000270621                              760516045237        2                    
+0235000007632506469      ASHWIN RAJ AL RAJENDRAN                 00000189350                              010522081055        2                    
+0235000007078873590      AYER DHARAM SINGH                       00000231968                              PA3649888           2                    
+0235000007080157244      AZAZI BIN MOHAMED                       00000214885                              800521016389        2                    
+0235000007608748487      AZILAH BINTI OTHMAN                     00000239445                              701028015944        2                    
+0235000007627138298      AZLINDAH BINTI JA'AFAR                  00000214885                              730720015644        2                    
+0235000007642364900      AZMI BIN YAAKUB                         00000215902                              660730035015        2                    
+0235000007648975724      AZRI BIN MOHAMAD                        00000230805                              760624105313        2                    
+0235000007080026247      B K BIR BAHADUR                         00000235033                              12097925            2                    
+0235000007646604282      B K KAMI BHIM BAHADUR                   00000302276                              PA0602261           2                    
+0235000007645127666      B K RABIN                               00000251084                              PA4787958           2                    
+0235000007642138557      B K RAJU                                00000132755                              11069061            2                    
+0235000007645546126      B K SURYA                               00000216216                              PA0363725           2                    
+0235000007653150545      B K UMESH                               00000201546                              PA1172300           2                    
+0235000007649427265      B K YAMAN                               00000245841                              PA1000204           2                    
+0235000007079642908      B SUREN                                 00000180866                              030207011303        2                    
+0235000007078900806      BADRISHAM BIN ZAINUDDIN                 00000242483                              650311085123        2                    
+0235000007651493200      BAGALE BISHNU                           00000223507                              09373818            2                    
+0235000007651671745      BALAYAR KAILASH KUMAR                   00000190276                              PA4788468           2                    
+0235000007645580376      BANJADE RISHIRAM                        00000338362                              07519504            2                    
+0235000007651692386      BASNET KEDAR                            00000288046                              12227983            2                    
+0235000007649836522      BASNET NAR BAHADUR                      00000218276                              BA0227451           2                    
+0235000007649039668      BASTOLA PARSURAM                        00000211057                              09076831            2                    
+0235000007078901065      BHANDARI MADHAV PRASAD                  00000235033                              12367013            2                    
+0235000007644375146      BHANDARI PADAM PRASAD                   00000298072                              PA0807863           2                    
+0235000007078873833      BHATTARAI PREM KUMAR                    00000222685                              PA3500116           2                    
+0235000007648243112      BHIM BAHADUR LIMBU                      00000225276                              PA1159582           2                    
+0235000007642057981      BIR BAHADUR BHAT                        00000206628                              PA0261875           2                    
+0235000007080017560      BISHWAKARMA MANOJ KUMAR                 00000210903                              PA4283964           2                    
+0235000007645973085      BISHWAKARMA SAL BAHADUR                 00000214406                              10317795            2                    
+0235000007078871041      BISHWAS BALRAM                          00000235033                              PA2882066           2                    
+0235000007644665627      BISHWOKARMA GOBINDA                     00000238410                              PA0681566           2                    
+0235000007630285972      BISTA BIR BAHADUR                       00000265024                              PA1130063           2                    
+0235000007069266988      BISTA DEBENDRA                          00000253276                              08292175            2                    
+0235000007642136927      BISTA NATI BABU                         00000228355                              12231509            2                    
+0235000007651692950      BISTA RUPESH RAJ                        00000223084                              PA1535367           2                    
+0235000007644683198      BISWAKARMA RAJ KUMAR                    00000212946                              PA0444916           2                    
+0235000007080016337      BOHARA TEK BAHADUR                      00000235033                              PA4735637           2                    
+0235000007079837126      BOHORA SUKARAM(AURA)                    00000162617                              11595265            2                    
+0235000007650146823      BUDHA RANGA BAHADUR                     00000253281                              09330796            2                    
+0235000007649155550      BUDHA TEK BAHADUR                       00000218276                              PA2875619           2                    
+0235000007644669320      BUDHAMAGAR BIRBAHADUR                   00000256662                              11140843            2                    
+0235000007645325264      CHANDA HARI BAHADUR                     00000172617                              BA0154520           2                    
+0235000007645544627      CHAUDHARI KAMAL PRASAD                  00000251869                              09279055            2                    
+0235000007656234326      CHAUDHARY ANIL KUMAR                    00000247662                              12578855            2                    
+0235000007645620062      CHAUDHARY BACHCHU LAL                   00000218276                              12553288            2                    
+0235000007078900268      CHAUDHARY BED PRAKASH                   00000235033                              BA0266052           2                    
+0235000007069858547      CHAUDHARY BINOD KUMAR                   00000232764                              06753969            2                    
+0235000007080034727      CHAUDHARY BISHNU                        00000231968                              PA2223294           2                    
+0235000007080027587      CHAUDHARY CHANDESHWAR                   00000235033                              PA2536012           2                    
+0235000007078876391      CHAUDHARY DHARMENDRA                    00000235033                              PA1047510           2                    
+0235000007656096421      CHAUDHARY DINESH                        00000247662                              10734355            2                    
+0235000007645556593      CHAUDHARY DIPENDRA KUMAR                00000216216                              PA0580835           2                    
+0235000007080044118      CHAUDHARY DURGANAND                     00000231968                              PA3352559           2                    
+0235000007643258241      CHAUDHARY GANESH                        00000232281                              PA1843268           2                    
+0235000007645547111      CHAUDHARY HARIRAM                       00000222685                              PA0756705           2                    
+0235000007655950096      CHAUDHARY KALURAM                       00000228355                              PA3962159           2                    
+0235000007648379376      CHAUDHARY KARAN KUMAR                   00000235033                              PA1011954           2                    
+0235000007658643912      CHAUDHARY KISHOR KUMAR                  00000228355                              PA1965575           2                    
+0235000007652946998      CHAUDHARY KISHOR KUMAR                  00000244084                              PA2399210           2                    
+0235000007651494176      CHAUDHARY MANI RAM                      00000235033                              PA1601868           2                    
+0235000007649043095      CHAUDHARY NIRAJ                         00000222685                              PA1362072           2                    
+0235000007066683359      CHAUDHARY RAJ KUMAR                     00000147976                              10186633            2                    
+0235000007645198757      CHAUDHARY RAJENDRA KUMAR                00000235033                              PA1658214           2                    
+0235000007649154860      CHAUDHARY RAM BHAJAN                    00000231968                              BA0059143           2                    
+0235000007645531835      CHAUDHARY RAMPAL                        00000181452                              PA0305380           2                    
+0235000007644411860      CHAUDHARY SANJAY                        00000208327                              10732154            2                    
+0235000007646604563      CHAUDHARY SANTA KUMAR                   00000218276                              PA0708179           2                    
+0235000007078900513      CHAUDHARY TEK BAHADUR                   00000220735                              BA0256418           2                    
+0235000007645194692      CHAUDHARY TULARAM                       00000182308                              12548115            2                    
+0235000007633657597      CHAUDHARY UMESH                         00000229662                              12589845            2                    
+0235000007619580879      CHE AMERUDDIN BIN CHE AHMAD             00000205560                              850117115313        2                    
+0235000007052220192      CHE SUHAIDI BIN CHE HASIM               00000243508                              790103035687        2                    
+0235000007645396355      CHEMJONG BASANTA                        00000210926                              PA0028223           2                    
+0235000007645327618      CHHANTEL KHAR BAHADUR                   00000190276                              BA0154372           2                    
+0235000007656095274      CHHETRI DIL BAHADUR                     00000274281                              PA3351540           2                    
+0235000007078876515      CHHETRI GOPAL BAHADUR                   00000219385                              PA3546972           2                    
+0235000007080439964      CHRISTOPER BIN SAMAN                    00000071677                              860709125127        2                    
+0235000007653708128      CHRISTOPHER JOSH ANAK JONI              00000179383                              031030130765        2                    
+0235000007645305701      DAHAL GANESH                            00000258387                              08761301            2                    
+0235000007649407845      DAHAL RAMESH KUMAR                      00000212952                              10873162            2                    
+0235000007658335477      DANAVALLI AP KALIAPAN                   00000277363                              770207075714        2                    
+0235000007080043054      DANGAL KOPIL PRASAD                     00000250934                              PA1837916           2                    
+0235000007649236188      DANGI PRAKASH                           00000222685                              PA0628640           2                    
+0235000007068507748      DANGI PREM                              00000307626                              06019387            2                    
+0235000007633629297      DANIAL BIN ISMAIL                       00000125158                              961001015785        2                    
+0235000007079894042      DANIAL SYAFWAN SHAH BIN WAN HENDRA      00000214631                              051027131183        2                    
+0235000007656046319      DANUWAR BIJAYA KUMAR                    00000229662                              PA3428844           2                    
+0235000007078900856      DARJI SUMAN                             00000218276                              PA1710497           2                    
+0235000007645622347      DAS DURGANAND                           00000216216                              09941335            2                    
+0235000007628268616      DASHWIN RAJ AL RAJENDRAN                00000187528                              000218080083        2                    
+0235000007642156454      DEUBA DHAN BAHADUR                      00000248332                              PA2966390           2                    
+0235000007646603554      DEUMAN JAISI                            00000212946                              PA0869410           2                    
+0235000007644398593      DEVKOTA DIVAKER                         00000223084                              10060523            2                    
+0235000007652404911      DHAMI ASHOK                             00000216250                              12210202            2                    
+0235000007658757376      DHITAL RAJAN                            00000219520                              PA3921192           2                    
+0235000007658748706      DIL BAHADUR THAPA                       00000194276                              10945832            2                    
+0235000007634024402      DINESH AL PERUMAL                       00000163475                              980630055337        2                    
+0235000007653693412      DOMINIC ANAK MAMPIE                     00000153670                              771006135121        2                    
+0235000007651494938      DURAL SUMAN BAHADUR                     00000219850                              09934105            2                    
+0235000007654965290      ELILYARASAN AL RAVICHANDRAN             00000187528                              021024081339        2                    
+0235000007654570375      ELLAVARESI AP BALASUBRAMANIAM           00000159382                              940801105962        2                    
+0235000007065855883      ERITA BINTI MOHD NASIR                  00000254528                              750320615032        2                    
+0235000007641123624      ERNAWATI                                00000219341                              730108615010        2                    
+0235000007080042207      FOMBO LIMBU ASHOK KUMAR                 00000190276                              PA2947151           2                    
+0235000007650243273      GACHCHHADAR BAL KRISHNA                 00000219520                              8284810             2                    
+0235000007645833256      GADDI SALIM                             00000240097                              10263272            2                    
+0235000007652977499      GAHATRAJ UPENDRA                        00000181452                              PA3864562           2                    
+0235000007052982741      GAJENDRAN AL VALLAKIAMALAI              00000138619                              860228025459        2                    
+0235000007637416116      GANESAH AL BALAKUMARAN                  00000018965                              000108140479        2                    
+0235000007656057890      GANESH KUNWAR                           00000205097                              10872913            2                    
+0235000007658760156      GANGA KUMAR LIMBU                       00000209390                              11484811            2                    
+0235000007649797271      GAUTAM DAMMAR                           00000207838                              PA0596872           2                    
+0235000007650756377      GAUTAM RAJU                             00000189489                              PA0060848           2                    
+0235000007638495505      GAYATIHRI AP REVINDRAN                  00000242578                              030716140832        2                    
+0235000007644684919      GHARTI MAGAR BHARAT                     00000242211                              PA3562792           2                    
+0235000007078865165      GHIMIRE KHYAM MANI                      00000231968                              PA1394310           2                    
+0235000007649563260      GHISING JHAMPAL                         00000218276                              PA1221452           2                    
+0235000007646605346      GHISING TAMANG GOPAL BAHADUR            00000197276                              PA5107217           2                    
+0235000007654890186      GIRI DORNA                              00000256738                              BA0315283           2                    
+0235000007651694011      GIRI PADAM PRASAD                       00000235033                              PA1932664           2                    
+0235000007656098625      GIRI RAJU                               00000219520                              PA0321345           2                    
+0235000007643265081      GODAME MAGAR TEK BAHADUR                00000129218                              07694841            2                    
+0235000007637790804      GUNASEELAN AL RAMACHANDRAN              00000202285                              020919081191        2                    
+0235000007642140192      GURAGAI HARI PRASAD                     00000222685                              09435727            2                    
+0235000007649962417      GURUNG BIR BAHADUR                      00000288046                              BA0289362           2                    
+0235000007645596507      GURUNG GAJ BAHADUR                      00000259070                              PA0654052           2                    
+0235000007649157566      GURUNG GAN BAHADUR                      00000222685                              11572439            2                    
+0235000007650242571      GURUNG GOPI RAJ                         00000260281                              10832180            2                    
+0235000007650191966      GURUNG KRISHNA                          00000279490                              BA0026765           2                    
+0235000007080394485      GURUNG KUMAR                            00000187456                              PA0849948           2                    
+0235000007644668323      GURUNG MEKHA BAHADUR                    00000232755                              08386103            2                    
+0235000007646145543      GURUNG MEN BAHADUR                      00000212952                              10499449            2                    
+0235000007632852221      GURUNG PREM BAHADUR                     00000235033                              PA2252739           2                    
+0235000007648380576      GURUNG PREM LAL                         00000181452                              PA2875700           2                    
+0235000007078877174      GURUNG RAJU                             00000231968                              BA0076219           2                    
+0235000007649040513      GURUNG SAMSHER                          00000244703                              12132696            2                    
+0235000007066426174      HANISH AL GOVINDAN                      00000196487                              980326085179        2                    
+0235000007640773495      HASROL BIN AJIP                         00000209791                              730104055423        2                    
+0235000007053367693      HEMA SUNDER AL SIVA KUMAR               00000190323                              971120106355        2                    
+0235000007079837821      INDRA PRASAD KAFLE(AURA)                00000197766                              PA1335940           2                    
+0235000007644113354      INTAN SHARINA BINTI MOHD SHAHIR         00000261105                              830502075436        2                    
+0235000007646285091      JA'AFAR BIN ABU BAKAR                   00000248863                              711221125239        2                    
+0235000007644772070      JAYASRI AP APLANAIDER                   00000209478                              860808335058        2                    
+0235000007080044744      JAYSAWAYAL AANAND KUMAR                 00000235033                              PA1699340           2                    
+0235000007080404653      JEEVA AL KANGATHARAN                    00000134269                              070119081033        2                    
+0235000007632756347      JEEVAN AL NADARAJAN                     00000241775                              970720085493        2                    
+0235000007637712561      JEGANRAJ AL PONNAMBALAM                 00000208624                              800531105473        2                    
+0235000007635146233      JINUS BIN DENNIS                        00000205926                              840727125181        2                    
+0235000007078839419      JIREL NIR BAHADUR                       00000216216                              PA1518253           2                    
+0235000007656942196      JIWA PRAKASH AL PONNUSAMY               00000190260                              870421435045        2                    
+0235000007651861275      JOSHI ASIT RAJ                          00000356343                              12629332            2                    
+0235000007644410344      JOSHI TARADATT                          00000239332                              12307788            2                    
+0235000007658673054      K C KIRAN                               00000229662                              PA3397062           2                    
+0235000007079995169      K C RAMESH                              00000218276                              PA4658822           2                    
+0235000007649573106      K C SUMAN                               00000222685                              12295971            2                    
+0235000007636385739      KABILAN AL NADARAJA                     00000225270                              850618026159        2                    
+0235000007645545098      KADAYAT HANSHA                          00000222685                              PA0559322           2                    
+0235000007021430476      KAMAL BIN OSMAN                         00000252021                              611028075681        2                    
+0235000007079773143      KAMALA AP VEERAPAN                      00000168800                              920102055400        2                    
+0235000007645921200      KAMI TILAK BAHADUR                      00000235033                              12131744            2                    
+0235000007632852483      KANDANGWA DIPAK                         00000186955                              PA3726412           2                    
+0235000007078881525      KANDEL BIJAY                            00000235033                              PA2893196           2                    
+0235000007644665065      KARAN B K                               00000239281                              10095378            2                    
+0235000007070758996      KARKI DEBENDRA BAHADUR                  00000226127                              08660892            2                    
+0235000007652947169      KARKI DEBINDRA                          00000231926                              PA2569440           2                    
+0235000007646219793      KARKI DHAN BAHADUR                      00000189541                              11703725            2                    
+0235000007652963167      KARKI KESHAB BAHADUR                    00000288281                              10439825            2                    
+0235000007080058888      KARKI LOKENDRA                          00000235033                              PA3901572           2                    
+0235000007651376597      KASAI AMRIT                             00000253281                              PA1027812           2                    
+0235000007639658879      KASWIN AL SELVARAJA                     00000182960                              020321080151        2                    
+0235000007078870620      KATTEL LEKHRAJ                          00000231968                              PA3720350           2                    
+0235000007649175437      KATUWAL THAL BAHADUR                    00000235033                              PA1848495           2                    
+0235000007652977168      KAVINRAJ AL B MANIMARAN                 00000181590                              940901016203        2                    
+0235000007004686849      KAVITHA AP BALACHANDRAN                 00000186264                              871031115534        2                    
+0235000007645197512      KHADKA BHARAT SINGH                     00000239276                              PA0014896           2                    
+0235000007646603904      KHADKA DHAN BAHADUR                     00000235033                              PA0851952           2                    
+0235000007644411365      KHADKA HARKA BAHADUR                    00000238662                              PA0156830           2                    
+0235000007649955110      KHADKA PREM KUMAR                       00000147781                              PA1487219           2                    
+0235000007649564017      KHADKA UDAYA BAHADUR                    00000235033                              12614858            2                    
+0235000007640735554      KHAIRUL FAZLAY BIN SAMSUDIN             00000199015                              870806435169        2                    
+0235000007078870375      KHAN THARU MANGALU                      00000235033                              PA3208788           2                    
+0235000007080014440      KHANAL YAGYAN PRASAD                    00000235033                              PA3043195           2                    
+0235000007649046060      KHAND SUNIL                             00000235033                              PA0093358           2                    
+0235000007633791574      KHARUDDIN BIN MOHD AMIN                 00000207928                              681201055339        2                    
+0235000007645531211      KHATRI CHHETRI PADAM                    00000181452                              12430493            2                    
+0235000007630406208      KHATRI LOKENDRA                         00000274281                              PA3191876           2                    
+0235000007645151487      KHATRI MAN BAHADUR                      00000235033                              PA0156873           2                    
+0235000007645166273      KHATRI MAN BAHADUR                      00000202452                              PA3051888           2                    
+0235000007078865765      KHATRI NIKHIL                           00000235033                              09280805            2                    
+0235000007649856378      KHATRI PRAKASH                          00000231968                              12160501            2                    
+0235000007075167427      KHOIRUL HISHAM BIN ZAKARIA              00000248713                              760409025345        2                    
+0235000007066085464      KHULAL DIPAK                            00000237626                              07071150            2                    
+0235000007077152489      KOKILA AP SUBRAMANIAM                   00000279245                              920729105598        2                    
+0235000007654566493      KRISHNAVENI AP KUNUDAIAN                00000160717                              920408105730        2                    
+0235000007642154779      KUMAL BAL BAHADUR                       00000207217                              BA0013892           2                    
+0235000007644956862      KUMAL BHUWAN BAHADUR                    00000267276                              PA0673156           2                    
+0235000007645898904      KUMAL DINESH                            00000216216                              PA0771947           2                    
+0235000007644377952      KUMAL MUKUNDA                           00000175781                              PA0457585           2                    
+0235000007656043982      KUMAL PURNA BAHADUR                     00000256662                              10677593            2                    
+0235000007644386203      KUNWAR GOVINDA BAHADUR                  00000118865                              PA3485045           2                    
+0235000007655816433      KUNWAR KAMAR BIPIN                      00000216216                              BA0121153           2                    
+0235000007078900694      KUNWAR TIL BIKRAM                       00000235033                              PA2835419           2                    
+0235000007645646553      KURMI RAM SUBHAG                        00000190276                              PA1962915           2                    
+0235000007644626846      KUSHWAHA RAMBABU PRASAD                 00000223452                              11128013            2                    
+0235000007007790986      L NILAMAH AP LATCHIMINAN                00000264787                              660322045126        2                    
+0235000007658689461      LAL BAHADUR DARJI                       00000180276                              12366238            2                    
+0235000007642140061      LAMA BUDDHA                             00000199956                              12220389            2                    
+0235000007645152189      LAWATI TARA KUMAR                       00000263734                              PA0055416           2                    
+0235000007642314105      LESTER DEAN BIN LAIDIN                  00000235439                              890826125035        2                    
+0235000007077625317      LETCHUMANAN AL SUPRAMANIYAM             00000305153                              960709025351        2                    
+0235000007652263227      LIMBU BUDHARAJ                          00000225057                              10690005            2                    
+0235000007655948213      LIMBU CHANDRAMAN                        00000228355                              PA1152952           2                    
+0235000007078839188      LIMBU JIBIT                             00000204873                              PA0553184           2                    
+0235000007078875899      LIMBU KURUMBANG GANESH BAHADUR          00000235033                              BA0168522           2                    
+0235000007064321794      LIMBU KUSUM                             00000212952                              08468442            2                    
+0235000007651377168      LIMBU MAHENDRA PRASAD                   00000271112                              10078741            2                    
+0235000007080124325      LIMBU SANJIV                            00000218276                              PA4712173           2                    
+0235000007648811646      LIMBU TEK BAHADUR                       00000209452                              PA0072938           2                    
+0235000007079993915      LIMBU YOGENDRA BAHADUR                  00000235033                              PA1339045           2                    
+0235000007654639472      LOGA PRASANT AL SIVAKUMAR               00000209478                              021118141689        2                    
+0235000007080401464      M.KUMARADEVA AL MUNIAYEE@MUNIANDY       00000209478                              730727075439        2                    
+0235000007654538874      M.VIJAYAN AL MARIAPPAN                  00000232168                              650412106667        2                    
+0235000007067916249      MAGAR AMBAR BAHADUR                     00000206737                              08857881            2                    
+0235000007648378531      MAGAR DEWARAJ                           00000205572                              PA1155880           2                    
+0235000007078508260      MAGAR KRISHNA PRASAD                    00000216216                              PA2495848           2                    
+0235000007649484024      MAGAR RUDRA BAHADUR                     00000190276                              PA0922005           2                    
+0235000007649236764      MAGAR SHYAM BAHADUR                     00000235033                              PA5107219           2                    
+0235000007645547135      MAGAR SUMAN                             00000231968                              11916719            2                    
+0235000007659009289      MAGESHWARAN AL MUNIANDY                 00000155776                              000613081289        2                    
+0235000007636959596      MAHATHIR BIN ABU YAZID                  00000195227                              770609105349        2                    
+0235000007633641609      MAHATO NIR BAHADUR                      00000221910                              05779544            2                    
+0235000007079838430      MAHESH LAL SAH (AURA)                   00000187276                              11949900            2                    
+0235000007633653913      MAJHI HARIBHAKTA                        00000253276                              09813431            2                    
+0235000007642145709      MAJHI JIVAN                             00000235033                              PA2616811           2                    
+0235000007633651371      MAJHI RAMESH                            00000253160                              08511163            2                    
+0235000007642353124      MALLA SANTOSH KUMAR                     00000181452                              BA0013656           2                    
+0235000007644404456      MALLA VIJAYA                            00000246747                              08048377            2                    
+0235000007644588223      MANDAL BIJAY KUMAR                      00000190276                              11750586            2                    
+0235000007644679616      MANDAL RAJESH KUMAR                     00000239281                              PA3615330           2                    
+0235000007637469429      MARIYA ADISAN AL TANGARAJAH             00000194404                              800105105059        2                    
+0235000007656071113      MASKE KRISHNA KUMAR                     00000247662                              PA1768266           2                    
+0235000007616911427      MASRA HAZALI BIN MUSTAPA                00000212269                              831209016239        2                    
+0235000007080034258      MASURI SALLAODDIN                       00000235033                              12577914            2                    
+0235000007024741538      MATT LATTANZI ANAK KEMI                 00000199383                              840209135603        2                    
+0235000007057348202      MAZIRA BINTI ISMAIL                     00000209478                              811012035518        2                    
+0235000007070417344      MEGANATHAN AL NAGALINGAM                00000192610                              910328075501        2                    
+0235000007633279850      MESMAN BIN JOKOSANTOSO                  00000302423                              910613126101        2                    
+0235000007645125286      MISHRA DIPAK                            00000061160                              08962247            2                    
+0235000007645304966      MISHRA JIBAN                            00000257321                              10349430            2                    
+0235000007068237237      MISHRA SHREERAM                         00000217282                              PA2875697           2                    
+0235000007644587064      MOCHI MAHINDRA                          00000190276                              10061087            2                    
+0235000007651249467      MOHAMAD AZAM BIN ABU BAKAR              00000277213                              010305080013        2                    
+0235000007642421910      MOHAMAD FATEH BIN MOHAMAD               00000218346                              900606085111        2                    
+0235000007659377253      MOHAMAD HASDIHISHAM BIN MOHAMAD SAUDI   00000137067                              930125065387        2                    
+0235000007651475234      MOHAMAD MAZLAN BIN MOHD MAZLI           00000141408                              981028087701        2                    
+0235000007069065246      MOHAMAD NOR HAZZIQ BIN MOHD HAZLI       00000190318                              000117050205        2                    
+0235000007652960366      MOHAMAD NURHAFZAN BIN SUBAKIN           00000203855                              900206015691        2                    
+0235000007654606789      MOHAMAD SHAFIQ BIN MASRAN               00000170287                              960329017165        2                    
+0235000007635777697      MOHAMED AZARUDEEN BIN KALILUR RAHUMAN   00000236291                              000827750011        2                    
+0235000007644321474      MOHAMMAD FAZLEE BIN AZMAN               00000205215                              010520120129        2                    
+0235000007057924016      MOHAMMAD HAFIZ BIN A RAHIM              00000253221                              950821036035        2                    
+0235000007634206769      MOHAMMAD RAZMAN BIN ZABRI               00000186230                              920220086283        2                    
+0235000007657454085      MOHD AFFENDY BIN MD HUSIN               00000117981                              800513075135        2                    
+0235000007035477879      MOHD AZLAN BIN AMIRUDIN                 00000180596                              840317085711        2                    
+0235000007642197003      MOHD BASHAHRUL BIN ABU BAKAR            00000267725                              900406025923        2                    
+0235000007632821918      MOHD FAIZAL BIN UYOP                    00000226979                              930205015427        2                    
+0235000007648764108      MOHD FARISAN BIN ZAKARIA                00000232246                              770203035897        2                    
+0235000007080271487      MOHD HAZLI BIN MOHAMMAD HASSAN          00000274551                              840606086403        2                    
+0235000007656794579      MOHD NUR IZZUDDIN BIN SAMUDIN           00000138787                              960526055099        2                    
+0235000007629272447      MOHD RAZAIEDY BIN ABDUL RAZAK           00000229153                              851222146159        2                    
+0235000007659407958      MOHD RAZWAN BIN ARIF                    00000178100                              930723015339        2                    
+0235000007014724301      MOHD ROSMAN BIN HAMZAH                  00000203376                              861007436865        2                    
+0235000007063664439      MOHD ZAINI BIN MOHD ZAINUDDIN           00000196157                              950110055133        2                    
+0235000007630348841      MOHD. AMIN BIN AZMEE                    00000244907                              891003136029        2                    
+0235000007651171564      MOHD.FADZERIN WALLUYO BIN PANUS         00000246061                              870815495147        2                    
+0235000007658687798      MOTI BAHADUR THAPA MAGAR                00000176699                              PA0764361           2                    
+0235000007658797530      MUHAMAD ADAM BIN ABDUL RAHMAN           00000212269                              060315101979        2                    
+0235000007037295146      MUHAMAD ASRI BIN ABDUL RASHID           00000209931                              870415065711        2                    
+0235000007631726413      MUHAMAD NORIZAN BIN HAMZAH              00000217422                              770503087445        2                    
+0235000007650220038      MUHAMMAD AIDIL FARHAN BIN MOHD FARIZAL  00000297980                              050610100849        2                    
+0235000007078449682      MUHAMMAD AIMAN BIN IZMAN                00000199931                              950819055069        2                    
+0235000007042248693      MUHAMMAD AL HAFIS BIN MOHD DARIL        00000215473                              920810016867        2                    
+0235000007639226008      MUHAMMAD ARIS BIN ABD RASHID            00000246706                              020520050051        2                    
+0235000007638060783      MUHAMMAD FITRI HAZIM BIN MOHD ALWI      00000196157                              021209050213        2                    
+0235000007654237274      MUHAMMAD HAIZAD RAMADAN BIN SAFERI      00000054248                              051016060463        2                    
+0235000007651512848      MUHAMMAD HAKIMI BIN MOHAMAD POAD        00000206471                              980301015959        2                    
+0235000007650746243      MUHAMMAD HIDAYATULLAH BIN ROSLI         00000239363                              980622075573        2                    
+0235000007634889865      MUHAMMAD IKMARIZAL BIN MOHD ROSLI       00000182964                              020313030197        2                    
+0235000007644202131      MUHAMMAD IRWANSHAH BIN PANDI            00000214631                              041220120321        2                    
+0235000007633213400      MUHAMMAD KHAIRUL FAHMIE BIN AZMAN       00000204850                              980524065523        2                    
+0235000007635766047      MUHAMMAD NAZRIN BIN MOHD ZAIDI          00000466045                              960202016229        2                    
+0235000007634199409      MUHAMMAD NUR BIN ISMAIL                 00000225369                              970502065881        2                    
+0235000007055122404      MUHAMMAD SHAMIL HAKIMI BIN RASHIKIN     00000303544                              960209145533        2                    
+0235000007636908213      MUHAMMAD SHUAIRY IKWAN BIN MASRAN       00000199931                              030414060415        2                    
+0235000007659312212      MUHAMMAD SYAIRAZI BIN MOHD SANUSI       00000179942                              980920036169        2                    
+0235000007645254277      MUHAMMAD SYUKREE ALHAFIZ BIN BORHAN     00000008748                              830418146545        2                    
+0235000007659130298      MUHAMMAD ZAID BIN MOHD RUZAIMI          00000139715                              070103050101        2                    
+0235000007615039971      MUHAMMAD ZAINI BIN MOHAMMED KEBUN       00000113034                              910119105161        2                    
+0235000007657816005      MUHAMMAD ZAMIR BIN HASHIM               00000216772                              000323050441        2                    
+0235000007658960196      MUHAMMAD ZULHAKIM BIN IDHAM             00000260014                              000311110021        2                    
+0235000007650507058      MUHAMMAD ZULHILMI BIN HASHIM            00000238004                              020621101727        2                    
+0235000007644666117      MUKHIYA SHYAM KUMAR                     00000190276                              12287517            2                    
+0235000007654551990      N SELVARATNAM AL S NAGARATNAM           00000232168                              660112106525        2                    
+0235000007014585011      NAGA RAJA AL NAGOOR                     00000028500                              590321105675        2                    
+0235000007645897688      NAGARKOTI AMRIT                         00000229662                              12507801            2                    
+0235000007642089372      NAGARKOTI SHYAM                         00000229662                              PA2837782           2                    
+0235000007658656809      NANDA KUMAR AL KARPAYA                  00000202869                              760321145211        2                    
+0235000007654962382      NASIR BIN JIM                           00000245523                              941128125377        2                    
+0235000007649520398      NEEVILA SREE AP R.R VASU TEVAN          00000197860                              010605070300        2                    
+0235000007649156371      NEPALI AKASH                            00000190098                              PA0511956           2                    
+0235000007078871372      NEPALI ARJUN BAHADUR                    00000235033                              12171077            2                    
+0235000007645327070      NEPALI BHIM BAHADUR                     00000142245                              10514927            2                    
+0235000007648377891      NEPALI CHANDRA BAHADUR                  00000235033                              PA1359869           2                    
+0235000007658761422      NEPALI NABIN                            00000238662                              PA3880230           2                    
+0235000007642151980      NEPALI SARKI RAJ KUMAR                  00000218276                              07096900            2                    
+0235000007080058557      NEPALI SHYAM BAHADUR                    00000222425                              PA4477215           2                    
+0235000007078875699      NEUPANE KUSH RAJ                        00000225276                              PA3569955           2                    
+0235000007080057893      NEUPANE TEK PRASAD                      00000235033                              PA4323358           2                    
+0235000007078873388      NIRAULA CHANDRA PRASAD                  00000231968                              PA3633842           2                    
+0235000007657361929      NOOR JAHAN BINTI SINTHA MADAR           00000189653                              720317075832        2                    
+0235000007079762767      NOOR SARAH BINTI MD YUSLI               00000244480                              980201025754        2                    
+0235000007608986413      NOORAINI BINTI ABDULLAH                 00000146571                              821031015984        2                    
+0235000007629836237      NOORLIZA BINTI RAJA SALIM               00000140371                              711221015160        2                    
+0235000007029492482      NOR AZMAN BIN ZAINUDDIN                 00000190380                              670201086035        2                    
+0235000007657419383      NOR FAIZ BIN AWANG                      00000239363                              781124035235        2                    
+0235000007049402899      NORAINI BINTI ABD WAHAB                 00000188587                              800513085392        2                    
+0235000007652919495      NORAZIDIN BIN MASOOD                    00000123500                              680720015705        2                    
+0235000007065470361      NORFADILLA BINTI MOHD RIDHWAN           00000199011                              940527085136        2                    
+0235000007648472047      NORHAYATI BINTI RAMLI                   00000019592                              790102105946        2                    
+0235000007655023075      NORHISAM BIN JEMAIN                     00000246706                              780519105299        2                    
+0235000007617273252      NORIAH BINTI ISMAIL                     00000203855                              750108016956        2                    
+0235000007624868985      NORINTAN ATIQAH BINTI ROSLAN            00000107571                              980827085740        2                    
+0235000007653178680      NORIZAN BINTI MOHD BAHRAN               00000216252                              780914015488        2                    
+0235000007624217806      NORLIDAWATI @ NUR'AIN BINTI RAHMAN      00000214885                              711220015572        2                    
+0235000007042864059      NORLIYANA BINTI ZULKIPLI                00000232626                              921202015160        2                    
+02350000012640014051520  NORLIZA BINTI HUSSEIN                   00000174149                              670417085234        2                    
+0235000007631990569      NORNADIRAH BINTI DAUD                   00000228596                              871213055042        2                    
+0235000007658256950      NUR AHADINA BINTI HARON                 00000229641                              851020075102        2                    
+0235000007014811160      NUR AIN BINTI MUSTAFA                   00000201398                              891121055684        2                    
+0235000007652984865      NUR ARISHA DALILA BINTI ABDULLAH        00000159695                              021018141470        2                    
+0235000007652414457      NUR FATIHAH BINTI MASRIAL               00000305191                              930429105456        2                    
+0235000007651329517      NUR FATIMAH BINTI MASRIAL               00000310923                              891102055558        2                    
+0235000007080408049      NUR HAFIZAH BINTI MOHD HAIRY            00000259693                              910202016274        2                    
+0235000007008518966      NUR SULAIMAN BIN MOHD YAZID             00000307228                              931109105945        2                    
+0235000007652342401      NURIN NAJWA SYAKIRA BINTI SUPIAN        00000188037                              951111105862        2                    
+0235000007080015423      OLI BIR BAHADUR                         00000235033                              PA4742515           2                    
+0235000007645972145      OLI DIPAK KUMAR                         00000235033                              PA0086390           2                    
+0235000007645620943      OLI SITARAM                             00000199108                              PA0152783           2                    
+0235000007658760956      PADAM PRASAD ROKAYA                     00000236832                              PA4679643           2                    
+0235000007658764742      PAKHRIN RODAN(AURA)                     00000189021                              PA3735877           2                    
+0235000007653792385      PALTINI ANAK SAMAT                      00000179383                              961001125335        2                    
+0235000007080016868      PARAJULI KHAGENDRA PRASAD               00000235033                              PA0924362           2                    
+0235000007649572080      PARAJULI NARAYAN BAHADUR                00000235033                              PA0973624           2                    
+0235000007642136460      PARAJULI PREM PRASAD                    00000218276                              07750190            2                    
+0235000007080025533      PARIYAR BINOD                           00000222685                              12117310            2                    
+0235000007066063090      PARIYAR DILIP KUMAR                     00000257375                              12227328            2                    
+0235000007642056427      PARIYAR DINESH                          00000235033                              PA2616679           2                    
+0235000007642350159      PASI DEEPAK                             00000158749                              11135682            2                    
+0235000007645665495      PASI PRABESH                            00000190276                              10168587            2                    
+0235000007642482353      PAUDEL PUSHPARAJ                        00000190276                              PA1712795           2                    
+0235000007080025052      PAUDEL RAJENDRA                         00000216216                              12116258            2                    
+0235000007655241681      PAVITHIRAN AL RAJESVARAN                00000195396                              030219050609        2                    
+0235000007044075366      PAVITRAN AL ASOKAN                      00000019000                              940131015561        2                    
+0235000007644412829      PEGNI BHARAT                            00000217887                              PA0423899           2                    
+0235000007645305656      PEGNI DIL BAHADUR                       00000212952                              PA0423715           2                    
+0235000007080057467      PODDAR BINIT KUMAR                      00000235033                              11796826            2                    
+0235000007649854267      POKHAREL PRAMOD                         00000235033                              09151933            2                    
+0235000007656069611      POKHREL SHIVA BAHADUR                   00000239332                              PA2227516           2                    
+0235000007631425437      PON PANDIAN AL MARIMUTHU                00000214449                              770710085143        2                    
+0235000007642076811      POUDEL GAJENDRA                         00000223084                              09160048            2                    
+0235000007080007400      POUDEL KHATRI SURENDRA                  00000235033                              PA1282318           2                    
+0235000007069906513      POUDEL SAROJ KUMAR                      00000247705                              PA3551011           2                    
+0235000007644400860      PUN MAGAR RUM BAHADUR                   00000235033                              11504279            2                    
+0235000007654849241      PUN THAG BAHADUR                        00000235033                              PA0204157           2                    
+0235000007628435937      PUNITHA AP KRISHNAN                     00000209408                              871222055052        2                    
+0235000007645327882      PURI TUL BAHADUR                        00000218276                              BA0154426           2                    
+0235000007650146104      PURNA BAHADUR SINGH THAKURI             00000370919                              PA3895669           2                    
+0235000007653985511      PUTRI WAN SHAHREEN BINTI RIDUANSAH      00000187638                              930704125516        2                    
+0235000007656170650      RABIL ANAS SAPUTRO BIN F ANASRI         00000214631                              030515140211        2                    
+0235000007024799046      RAGUNATHAN AL PERUMAL                   00000180596                              870126055031        2                    
+0235000007644385537      RAI BIM BAHADUR                         00000118865                              11167340            2                    
+0235000007652979243      RAI DILIP                               00000161946                              PA2401455           2                    
+0235000007632853242      RAI DIPAK                               00000216447                              11533280            2                    
+0235000007648379857      RAI GAJENDRA                            00000212946                              10355385            2                    
+0235000007650611474      RAI GAJENDRA                            00000302281                              12028266            2                    
+0235000007658711477      RAI GYANENDRA                           00000239281                              PA4474811           2                    
+0235000007078880859      RAI MANOJ                               00000222685                              11278036            2                    
+0235000007630287619      RAI PREM KUMAR                          00000230897                              PA2837790           2                    
+0235000007649063041      RAI RUPAN KUMAR                         00000235033                              PA1109137           2                    
+0235000007080006146      RAI SHYAM KUMAR                         00000216216                              BA0334604           2                    
+0235000007645557940      RAI SUBASH                              00000245078                              PA3485630           2                    
+0235000007079994524      RAI TIKA RAM                            00000231968                              BA0334594           2                    
+0235000007644042474      RAJA LECHUMY AP PANDIYAN                00000182439                              941120105662        2                    
+0235000007016248958      RAJAKUMAR AL SHANMUGAM                  00000391028                              720330085365        2                    
+0235000007649406967      RAJALI HUM BAHADUR                      00000233952                              12398634            2                    
+0235000007080043642      RAJDHAMI SANDESH                        00000235033                              PA0354317           2                    
+0235000007647853967      RAMLI BIN HAMID                         00000219341                              740523715085        2                    
+0235000007645146803      RANA AMRIT KUMAR                        00000235033                              12038957            2                    
+0235000007648242634      RANA DIL BAHADUR                        00000190276                              PA2635521           2                    
+0235000007078870820      RANA DIPENDRA                           00000235033                              BA0306034           2                    
+0235000007078878290      RANA JAYA BAHADUR                       00000235033                              12306256            2                    
+0235000007656057226      RANA MAGAR RAJAN                        00000256662                              PA3982119           2                    
+0235000007645230047      RANA MAGAR SAMIR                        00000231968                              08501127            2                    
+0235000007648381173      RAUT JAY KISHOR                         00000339444                              11764485            2                    
+0235000007642693717      RAVINDRAN AL VADEVAIL KUMAR             00000209478                              900916145079        2                    
+0235000007658759394      RAWAL RAJ KUMAR                         00000257332                              BA0193756           2                    
+0235000007645623170      RAWAT DEVI LAL                          00000190276                              PA3487493           2                    
+0235000007077475596      RAWAT RAGHUBIR SINGH                    00000172617                              11855105            2                    
+0235000007644682553      RAY SANJAY KUMAR                        00000282193                              9791958             2                    
+0235000007630394498      RAY THARU SIKINDRA                      00000212383                              10147859            2                    
+0235000007642141482      RAYA RITA BAHADUR                       00000256155                              09062998            2                    
+0235000007656572365      REGMI BINOD                             00000208276                              PA0872259           2                    
+0235000007638007796      REMASHRI AP RAJANDREN                   00000209478                              030831050592        2                    
+0235000007656466276      RHEIMIY BIN MUHAMMAD RUSYDI RAMESH      00000189350                              921018086313        2                    
+0235000007646605815      RIJAL BEL BAHADUR                       00000192677                              12208963            2                    
+0235000007644399138      ROKA MAGAR KHADAK                       00000236390                              12002320            2                    
+0235000007078881175      ROKAYA KRISHNA BAHADUR                  00000235033                              BA0137085           2                    
+0235000007019915569      ROMZI BIN ABDUL RASHID                  00000240155                              720301095089        2                    
+0235000007635876522      ROSLAN BIN SHAFIE                       00000208624                              800118035731        2                    
+0235000007644422989      SAFUAN BIN SAEDIN                       00000307153                              860211356649        2                    
+0235000007645691408      SAH ANIL KUMAR                          00000235033                              PA4787930           2                    
+0235000007645629708      SAH NETRA NARAYAN                       00000288276                              PA0205698           2                    
+0235000007078878521      SAH RAJESHWAR PRASAD                    00000212252                              PA3987128           2                    
+0235000007642139342      SAH RAM SAGAR                           00000112980                              08644133            2                    
+0235000007644680054      SAH SANJAY KUMAR                        00000224998                              PA3551014           2                    
+0235000007644685835      SAH SANJIB KUMAR                        00000288281                              PA3562795           2                    
+0235000007644396775      SAMAHAMPHE SANTA KUMAR                  00000223084                              07854595            2                    
+0235000007644680597      SANBA LIMBU BUDDHA RAJ                  00000210926                              PA0243345           2                    
+0235000007622349919      SANIMAH BTE JAIS                        00000207177                              660714015604        2                    
+0235000007080342331      SANJEL DILLI RAM                        00000216216                              PA0675856           2                    
+0235000007649796400      SAPKOTA KRISHNA PRASAD                  00000225276                              09416864            2                    
+0235000007078465735      SARASWATHY AP A KARUPPIAH               00000215552                              600221055152        2                    
+0235000007629972137      SARASWATHY AP VELOO                     00000186225                              800705075180        2                    
+0235000007656005996      SARAVANA KUMAR AL SELVARAJA             00000459961                              780706145413        2                    
+0235000007079997056      SARDAR AKSHAY KUMAR                     00000235033                              11873746            2                    
+0235000007656045479      SARKI BHAKTA BAHADUR                    00000238662                              11942037            2                    
+0235000007633652235      SARU PURNA SING                         00000218276                              08687406            2                    
+0235000007067668952      SARU SOM BAHADUR                        00000164461                              PA4210007           2                    
+0235000007632438823      SATHY VELL AL MUNIANDY                  00000245549                              741222075437        2                    
+0235000007630734137      SEGARAN AL KOVILAN                      00000197712                              941116085953        2                    
+0235000007076330520      SHAH MOHAMED RAZAK BIN SHAH MOHAMED OSMA00000226254                              030104070079        2                    
+0235000007645533065      SHAH NARENDRA                           00000256738                              PA4787935           2                    
+0235000007644401736      SHAHI AMRIT                             00000203391                              07575848            2                    
+0235000007645545824      SHAHI DINESH                            00000195452                              11740965            2                    
+0235000007646606555      SHAHI SHER BAHADUR                      00000247687                              09612496            2                    
+0235000007024870331      SHAHIR RAZIENI BIN CHUKUNI              00000142376                              861231496299        2                    
+0235000007024826007      SHAHRIZAN BIN YUSOF                     00000189622                              830216045287        2                    
+0235000007067537800      SHAHRULNIZAM BIN MOHD RASIDI            00000204742                              720114086283        2                    
+0235000007658347450      SHAIFUL ANUAR BIN AHAMD SABRI           00000199617                              021012080187        2                    
+0235000007063710249      SHAKTISH AL NARAYANAN                   00000279492                              980915086655        2                    
+0235000007047344389      SHAMSHUL SHARIZAL BIN MOHAMAD           00000249865                              750217026299        2                    
+0235000007080210482      SHANMUGAM AL MUNIANDY                   00000166504                              770818086279        2                    
+0235000007621537372      SHARMILA BINTI AWANG                    00000239363                              711122075256        2                    
+0235000007080117385      SHER BAHADUR GIRI                       00000219520                              PA2332103           2                    
+0235000007649234196      SHERPA JANGBU                           00000218276                              PA3051898           2                    
+0235000007069566943      SHERPA NIMA                             00000235033                              10548763            2                    
+0235000007632244521      SHERPA PHURBA RIJEN                     00000216447                              05483237            2                    
+0235000007644376262      SHIVARAJ PANDEY                         00000235087                              PA0427034           2                    
+0235000007646605065      SHREEBAN CHAUDHARY                      00000295276                              PA0427348           2                    
+0235000007659005386      SHRESTA BISHAL                          00000191936                              10739164            2                    
+0235000007078878838      SHRESTHA EGINDRA                        00000249603                              PA2415642           2                    
+0235000007652959716      SHRESTHA GAJINDRA KUMAR                 00000077965                              PA1524149           2                    
+0235000007649063403      SHRESTHA JIT BAHADUR                    00000235033                              PA1696833           2                    
+0235000007078875487      SHRESTHA KHAGENDRA LAL                  00000222685                              10556459            2                    
+0235000007080043078      SHRESTHA NARESH KUMAR                   00000235033                              PA1239102           2                    
+0235000007650224612      SHRESTHA RAJU KUMAR                     00000216216                              PA1317942           2                    
+0235000007070327960      SHRESTHA RAM BAHADUR                    00000260988                              10628458            2                    
+0235000007650613028      SHRESTHA RUDRA MAN                      00000281731                              BA0070874           2                    
+0235000007658687429      SHRESTHA SURENDRA BAHADUR(AURA)         00000187160                              PA2882420           2                    
+0235000007078145631      SHUBASINI AP THANARAJAH                 00000197529                              031214060554        2                    
+0235000007642140009      SILWAL BASANTA                          00000190276                              PA0106371           2                    
+0235000007651375902      SINGH THAKURI SANDIP                    00000280662                              10687309            2                    
+0235000007077904250      SINJALI BIR BAHADUR                     00000231968                              PA0951429           2                    
+0235000007633654772      SIRMAN MAJHI                            00000307379                              10726874            2                    
+0235000007651323903      SITI AMINAH BINTI JAMALUDIN             00000218806                              870629235624        2                    
+0235000007647204820      SITI ASMAH BINTI PAIMIN                 00000161972                              870926235954        2                    
+0235000007080102187      SITI NAJIHAH BINTI HAIRUDIN             00000226541                              981005065438        2                    
+0235000007653737570      SITI NOOR LIYANA BINTI MOHD RAZI        00000259987                              990829025230        2                    
+0235000007071610260      SITI NOR AISHAH BINTI SUZAIDEEN         00000297269                              980217065590        2                    
+0235000007658872978      SRAWAN TAJPURIYA (AURA)                 00000194276                              11085782            2                    
+0235000007072984911      SRI NURAZIMAH BINTI YUSRI               00000057000                              970914015100        2                    
+0235000007078407381      SRIKANTHAN AL RAJENDRAN                 00000231746                              800501075429        2                    
+0235000007647114177      SRITHEARAN AL RAMAN                     00000204850                              810721105545        2                    
+0235000007077188692      STEVEN PAUL AL SUBRAMANIAM              00000219791                              791108075113        2                    
+0235000007658938755      SUBASH CHANDRA YEKTEN                   00000316732                              PA3901323           2                    
+0235000007642153439      SUBASH MAJHI                            00000288276                              10018986            2                    
+0235000007079993765      SUBBA BIJAYA                            00000222685                              10745948            2                    
+0235000007630286993      SUBBA LIMBU BAL BAHADUR                 00000218276                              BA0057528           2                    
+0235000007645569254      SUBEDI BHIMNATH                         00000218276                              PA0517822           2                    
+0235000007652978103      SUBEDI HIMAL                            00000216447                              09518247            2                    
+0235000007013930059      SUBENDRAN AL CHIVARAM                   00000314653                              760720086669        2                    
+0235000007055562062      SUBHA AP MUNIANDY                       00000222788                              800923055532        2                    
+0235000007063787687      SUBRAMANI AL CHANDRAKASU                00000011084                              860319235371        2                    
+0235000007047261826      SUBRAMANIAM AL SEKAR                    00000206038                              891002435211        2                    
+0235000007644409106      SUGENDRA LIMBU                          00000181452                              PA3339050           2                    
+0235000007056340119      SUJAIE BIN MARKASAN                     00000283565                              871102055103        2                    
+0235000007639916345      SUMITHA AP SANKER                       00000249297                              030501010926        2                    
+0235000007080014890      SUNAR BIPESH                            00000203460                              PA4130289           2                    
+0235000007080006803      SUNAR RAMESH                            00000235033                              11255295            2                    
+0235000007651672392      SUNRAIT YADAV ASHOK KUMAR               00000190276                              12126606            2                    
+0235000007079766458      SUNUWAR RATAN BAHADUR                   00000247410                              09462512            2                    
+0235000007080117909      SURENDRA URAW                           00000245832                              PA1989271           2                    
+0235000007658673173      SURYA BAHADUR ADHIKARI                  00000247662                              PA4006948           2                    
+0235000007649157766      SURYA BAHADUR THAPA                     00000190276                              11818725            2                    
+0235000007645694835      SURYA PRASAD PURI                       00000045591                              11792557            2                    
+0235000007646606200      SYANGTAN RAJ KUMAR                      00000229123                              PA2464179           2                    
+0235000007651488440      SYED MOHAMED TUAH BIN SYED HUSIN AFFANDI00000187028                              650908015531        2                    
+0235000007046595765      TACHINA MOORTHY AL MURUGAYA             00000222021                              610626025831        2                    
+0235000007622388526      TAMANG BIR BAHADUR                      00000226127                              09274977            2                    
+0235000007644398131      TAMANG BUDDHI SING                      00000330281                              11667036            2                    
+0235000007646294578      TAMANG DEVENDRA                         00000244703                              PA0421740           2                    
+0235000007642292647      TAMANG DHAN BAHADUR                     00000280058                              09057022            2                    
+0235000007645567993      TAMANG DHAN BAHADUR                     00000218276                              PA0218259           2                    
+0235000007642134680      TAMANG DHANARASEE                       00000230084                              07532868            2                    
+0235000007633657573      TAMANG DHANJIT                          00000217541                              11542012            2                    
+0235000007078864982      TAMANG HARKA BAHADUR                    00000235033                              PA3666876           2                    
+0235000007649060721      TAMANG HOM BAHADUR                      00000222685                              PA1689043           2                    
+0235000007080058157      TAMANG JANASER                          00000235033                              PA1781491           2                    
+0235000007648381880      TAMANG JIBAN                            00000218276                              PA1216392           2                    
+0235000007074770316      TAMANG KARNA BAHADUR                    00000228355                              07325995            2                    
+0235000007645594246      TAMANG KASTUP                           00000231968                              PA4788470           2                    
+0235000007649062032      TAMANG PRAKASH                          00000235033                              PA1454614           2                    
+0235000007078878319      TAMANG RAM KUMAR                        00000235033                              PA3506062           2                    
+0235000007649416346      TAMANG SHANTA KUMAR                     00000223084                              PA1733151           2                    
+0235000007078874109      TAMANG SHER BAHADUR                     00000235033                              12543562            2                    
+0235000007656235135      TAMANG SHYAM                            00000229662                              PA2555683           2                    
+0235000007079996516      TAMANG TEK BAHADUR                      00000235033                              12243690            2                    
+0235000007658752533      TAMATA PRAKASH NEPALI                   00000225739                              PA4663587           2                    
+0235000007652962427      TAMATTA JANAK BAHADUR                   00000216447                              PA2479983           2                    
+0235000007645648002      TARA BAHADUR ALE                        00000218057                              10188231            2                    
+0235000007652946493      THADA BABU RAM                          00000180761                              PA2560970           2                    
+0235000007656236837      THAKUR SAMPAIT                          00000218390                              PA2203327           2                    
+0235000007656047023      THAMDEN SUBBA RAM KUMAR                 00000274281                              PA0882695           2                    
+0235000007642080329      THAMI KHADGA BAHADUR                    00000223084                              PA4901706           2                    
+0235000007019737636      THAMILSELVI AP ETHRAJOO                 00000243323                              800624085256        2                    
+0235000007080147934      THANEMOLLE AP KRISHNA                   00000135428                              920804045282        2                    
+0235000007080059211      THAPA ADINDRA                           00000235033                              PA3901591           2                    
+0235000007646604137      THAPA BHUWAN SINGH                      00000263755                              09394343            2                    
+0235000007644406474      THAPA BIRENDRA                          00000218276                              PA0643717           2                    
+0235000007080033770      THAPA DEEPAK                            00000216216                              PA0586730           2                    
+0235000007651693440      THAPA DEU BAHADUR                       00000235033                              PA1498191           2                    
+0235000007649085465      THAPA DHAN BAHADUR                      00000250325                              PA1434912           2                    
+0235000007644408854      THAPA DHOL BAHADUR                      00000193695                              BA0154519           2                    
+0235000007645570109      THAPA DIPENDRA                          00000235033                              PA3189530           2                    
+0235000007649408428      THAPA DURGA BAHADUR                     00000235033                              PA1589390           2                    
+0235000007649956800      THAPA GAUTAM KUMAR                      00000190057                              BA0264871           2                    
+0235000007642154036      THAPA HOM BAHADUR                       00000235033                              PA1570316           2                    
+0235000007080342793      THAPA ISHWOR                            00000216216                              PA1769434           2                    
+0235000007646054879      THAPA KAMAL                             00000235033                              12158010            2                    
+0235000007646603728      THAPA KHIL BAHADUR                      00000133281                              PA0200306           2                    
+0235000007648962556      THAPA KIL BAHADUR                       00000235033                              PA1226648           2                    
+0235000007651824462      THAPA MAGAR BHARAT                      00000276211                              10302974            2                    
+0235000007080007836      THAPA MAGAR BIPIN                       00000231968                              10974395            2                    
+0235000007649044292      THAPA MAGAR PREM BAHADUR                00000216216                              PA0606513           2                    
+0235000007645126788      THAPA MAGAR SUNIL                       00000137419                              07584752            2                    
+0235000007080005563      THAPA MAGAR YAM BAHADUR                 00000235033                              PA4382804           2                    
+0235000007658757726      THAPA MAN BAHADUR                       00000246281                              PA0956636           2                    
+0235000007651692700      THAPA NAR BAHADUR                       00000235033                              PA1268936           2                    
+0235000007065595525      THAPA PARAS                             00000219473                              08799723            2                    
+0235000007080057748      THAPA SAKASH                            00000235033                              PA1781807           2                    
+0235000007649961391      THAPA SANJIB                            00000223084                              11917932            2                    
+0235000007080067846      THAPA SASTA KUMAR                       00000212946                              PA1905596           2                    
+0235000007080042669      THAPA SHANKAR                           00000235033                              PA3901539           2                    
+0235000007658865326      THARSHINI AP MORGAN                     00000202421                              060930011422        2                    
+0235000007650061366      THARU ARJUN                             00000260281                              09879144            2                    
+0235000007078759064      THARU BALIRAM                           00000222685                              12561839            2                    
+0235000007651656451      THARU RAM BAHADUR                       00000235033                              BA0152542           2                    
+0235000007023125328      THERESA ELIZABETH AP ANNATHURAI         00000268932                              930810075348        2                    
+0235000007617517386      THIAGU AL MUTU                          00000218346                              841229146099        2                    
+0235000007079589746      THILAGAVATHI AP MUNIANDY                00000198675                              841122145002        2                    
+0235000007654512745      THILLYNATHARAJAN AL M KANAN             00000242782                              600624105679        2                    
+0235000007080069157      THING JEEVAN                            00000225276                              11585366            2                    
+0235000007656309797      TIMSINA RAM BAHADUR                     00000421812                              11928999            2                    
+0235000007649413038      TIWARI KARNA JUNG                       00000288046                              PA0679340           2                    
+0235000007653397205      TONY SEBASTIAN AL KULANDAI IRUDAYANDAN  00000388560                              741009075235        2                    
+0235000007645324798      TUL BAHADUR KARKI                       00000274276                              09266869            2                    
+0235000007658672883      TUL BAHADUR RANA MAGAR                  00000219520                              PA4614026           2                    
+0235000007633657004      TUL BAHADUR SARU                        00000223084                              11521051            2                    
+0235000007659381466      UMAS SHANKAR AL VEERAMALY               00000184258                              070712080939        2                    
+0235000007649813020      UMESH KUMAR MAHATO                      00000190276                              11939608            2                    
+0235000007642152418      UPARKOTI NABIN                          00000157649                              09294289            2                    
+0235000007645125343      UPERKOTI PADAM                          00000238662                              11313971            2                    
+0235000007632033062      VAIDHEGI AP PANNEERSELVAM               00000172676                              950124105808        2                    
+0235000007654620969      VASALI AP SINNAYAH                      00000225456                              030625060706        2                    
+0235000007654808804      VASAN AL KIRISHNA KUMAR                 00000171118                              010427050621        2                    
+0235000007080402580      VIJAYA PRIYA AP RAMAKRISHNA             00000124552                              971213145468        2                    
+0235000007063953325      VIKRAMITHRA AL MK.V.RAVINDRAN           00000172301                              981212055435        2                    
+0235000007642312832      WAN SITI FATIMAH NOR BINTI WAN MAJID    00000199617                              830820115034        2                    
+0235000007645165319      YADAB SUNAR                             00000015111                              PA0633819           2                    
+0235000007646147828      YADAV ABADHESH                          00000270626                              PA3615148           2                    
+0235000007645726041      YADAV BIJAY KUMAR                       00000222685                              PA0310597           2                    
+0235000007645693569      YADAV CHANDRA BHAL                      00000223084                              07660945            2                    
+0235000007645974549      YADAV JAGATRAM                          00000235033                              PA0774513           2                    
+0235000007078878626      YADAV MANOJ KUMAR                       00000235033                              PA1729185           2                    
+0235000007080026809      YADAV NIRMAL KUMAR                      00000235033                              PA0671836           2                    
+0235000007633654215      YADAV RABINDRA                          00000223084                              PA4786488           2                    
+0235000007078880716      YADAV RAMDEV                            00000235033                              PA3330774           2                    
+0235000007652103735      YADAV RAMDINESH                         00000204057                              PA1453922           2                    
+0235000007078865527      YADAV RAMESH KUMAR                      00000235033                              PA3217002           2                    
+0235000007645555241      YADAV SHAMBHU                           00000222685                              PA3487724           2                    
+0235000007658712012      YADAV UMESH KUMAR                       00000235771                              11306701            2                    
+0235000007622387317      YAKHA NABIN                             00000260988                              12626140            2                    
+0235000007658611995      YOGI KASINATH                           00000229717                              PA4740597           2                    
+0235000007656097323      YONGHANG BIRAHANG                       00000238410                              PA1041876           2                    
+0235000007644405796      YUGESH KUMAR CHAUDHARY                  00000230084                              PA0466680           2                    
+0235000007641960980      ZUELLAH BINTI ABDUL KALLAM              00000198143                              780206016762        2                    
+0235000007656427419      ZUHAIR BIN ZAINAL ABIDIN                00000205555                              011108080393        2                    
+0235000007633050423      ZULHILMI ZAKWAN BIN ZAINUDDIN           00000250301                              990316026895        2                    
+0235000007642399978      ZULKIFLI BIN JUMARI                     00000178500                              880622105607        2                    
+0235000007657794309      ZULZACKRY BIN RASID                     00000177948                              070812011631        2                    
+030006470000142026274

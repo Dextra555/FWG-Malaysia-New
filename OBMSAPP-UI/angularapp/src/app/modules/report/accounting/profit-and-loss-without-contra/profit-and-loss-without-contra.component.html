@@ -1,0 +1,77 @@
+<div class="wlt-c-furg-content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-12 col-sm-12 col-md-4 col-lg-4">
+        <h1 class="mb-1">Report/ Accounting / Profit And Loss Statement</h1>
+      </div>
+      <div class="col-12 col-sm-12 col-md-8 col-lg-8 my-1">
+        <ol class="breadcrumb float-md-right">
+          <li class="breadcrumb-item"><a routerLink="/dashboard">Report</a></li>
+          <li class="breadcrumb-item">Accounting</li>
+          <li class="breadcrumb-item active">Profit And Loss Statement</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+
+<mat-card class="report-card">
+  <mat-card-content>
+
+    <form [formGroup]="frm" (ngSubmit)="onSubmit()">
+      <div class="row" *ngIf="warningMessage === ''">
+
+        <!-- From Date -->
+        <div class="payment-period-container" style="display: flex; align-items: center; gap: 8px;">
+          <label style="font-weight: bold; white-space: nowrap; margin: 0px 5px 17px 13px;">
+            From:
+          </label>
+          <mat-form-field appearance="outline" style="flex: 1; max-width: 200px;">
+            <mat-label>From Date</mat-label>
+            <input type="text" formControlName="FromDate" matInput [matDatepicker]="pickerFrom"
+              placeholder="" autocomplete="off">
+            <mat-datepicker-toggle matSuffix [for]="pickerFrom"></mat-datepicker-toggle>
+            <mat-datepicker #pickerFrom></mat-datepicker>
+          </mat-form-field>
+
+          <!-- To Date -->
+          <label style="font-weight: bold; white-space: nowrap; margin: 0px 5px 17px 8px;">
+            To:
+          </label>
+          <mat-form-field appearance="outline" style="flex: 1; max-width: 200px;">
+            <mat-label>To Date</mat-label>
+            <input type="text" formControlName="ToDate" matInput [matDatepicker]="pickerTo"
+              placeholder="" autocomplete="off">
+            <mat-datepicker-toggle matSuffix [for]="pickerTo"></mat-datepicker-toggle>
+            <mat-datepicker #pickerTo></mat-datepicker>
+          </mat-form-field>
+
+          <!-- Show Button -->
+          <div style="margin-bottom: 17px;">
+            <button class="btn wlt-c-furg-btn-primary m-1">Show</button>
+          </div>
+          <!-- Excel Export Button -->
+          <div style="margin-bottom: 17px;" *ngIf="reportUrl !== ''">
+            <button type="button" class="btn btn-success m-1" (click)="exportExcel()">
+              <i class="fa fa-file-excel-o"></i> Export Excel
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </form>
+
+    <br />
+
+    <div *ngIf="warningMessage !== ''">
+      <mat-label style="color:red" [innerHTML]="warningMessage"></mat-label>
+    </div>
+    <div *ngIf="errorMessage !== ''">
+      <mat-label style="color:red" [innerHTML]="errorMessage"></mat-label>
+    </div>
+
+    <br />
+    <iframe class="report-wrapper fixed-height" [src]="urlSafe"></iframe>
+
+  </mat-card-content>
+</mat-card>

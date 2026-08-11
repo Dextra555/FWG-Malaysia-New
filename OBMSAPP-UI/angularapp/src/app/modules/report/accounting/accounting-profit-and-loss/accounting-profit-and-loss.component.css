@@ -1,0 +1,11 @@
+/* PDF rendered in iframe - browser handles all pages natively */
+.report-wrapper.fixed-height {
+  height: calc(100vh - 200px) !important;
+  overflow: hidden !important;
+}
+
+.report-wrapper.fixed-height iframe {
+  width: 100% !important;
+  height: 100% !important;
+  border: none;
+}

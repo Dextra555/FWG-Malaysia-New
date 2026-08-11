@@ -1,0 +1,195 @@
+<div class="wlt-c-furg-content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-12 col-sm-12 col-md-4 col-lg-4">
+        <h1 class="mb-1">Today's Attendance</h1>
+      </div>
+      <div class="col-12 col-sm-12 col-md-8 col-lg-8 my-1">
+        <ol class="breadcrumb float-md-right">
+          <li class="breadcrumb-item"><a routerLink="/dashboard">Payroll</a></li>
+          <li class="breadcrumb-item active">Attendance Display</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+
+<mat-card *ngIf="warningMessage == ''">
+  <mat-card-content>
+
+    <!-- Filter Row -->
+    <form [formGroup]="filterForm">
+      <div class="row align-items-end">
+
+        <!-- Attendance Date -->
+        <div class="col-12 col-sm-6 col-md-3 col-lg-2">
+          <mat-form-field appearance="outline">
+            <mat-label>Attendance Date <span style="color:red">*</span></mat-label>
+            <div style="display:flex; align-items:center;">
+              <input matInput [matDatepicker]="datePicker" formControlName="AttendanceDate">
+              <mat-datepicker-toggle matIconSuffix [for]="datePicker"></mat-datepicker-toggle>
+            </div>
+            <mat-datepicker #datePicker></mat-datepicker>
+          </mat-form-field>
+        </div>
+
+        <!-- Branch -->
+        <div class="col-12 col-sm-6 col-md-3 col-lg-2">
+          <mat-form-field appearance="outline">
+            <mat-label>Branch</mat-label>
+            <mat-select formControlName="Branch" (selectionChange)="onBranchChange($event.value)"
+              [panelClass]="'custom-dropdown-panel'">
+              <mat-option value="">All Branches</mat-option>
+              <mat-option *ngFor="let b of branchModel" [value]="b.Code">{{ b.Code }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <!-- Client -->
+        <div class="col-12 col-sm-6 col-md-3 col-lg-2">
+          <mat-form-field appearance="outline">
+            <mat-label>Client</mat-label>
+            <mat-select formControlName="Client" [panelClass]="'custom-dropdown-panel'">
+              <mat-option value="">All Clients</mat-option>
+              <mat-option *ngFor="let c of clientList" [value]="c.Code">{{ c.Name }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <!-- Status -->
+        <div class="col-12 col-sm-6 col-md-2 col-lg-2">
+          <mat-form-field appearance="outline">
+            <mat-label>Status</mat-label>
+            <mat-select formControlName="Status" [panelClass]="'custom-dropdown-panel'">
+              <mat-option *ngFor="let s of statusList" [value]="s">{{ s }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <!-- Employee Code -->
+        <div class="col-12 col-sm-6 col-md-2 col-lg-2">
+          <mat-form-field appearance="outline">
+            <mat-label>Employee Code</mat-label>
+            <input matInput formControlName="EmployeeCode" placeholder="Employee Code" autocomplete="off">
+          </mat-form-field>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="col-12 col-sm-12 col-md-12 col-lg-2 d-flex align-items-center mb-3" style="gap:8px; flex-wrap:wrap;">
+          <button class="btn wlt-c-furg-btn-primary" (click)="onRefresh()">
+            <mat-icon style="vertical-align:middle; font-size:18px;">refresh</mat-icon> Refresh
+          </button>
+          <button class="btn wlt-c-furg-btn-secondary" (click)="onExport()" style="background:#6c757d; color:#fff; border:none;">
+            <mat-icon style="vertical-align:middle; font-size:18px;">download</mat-icon> Export
+          </button>
+          <button class="btn wlt-c-furg-btn-gray" (click)="onClear()">
+            <mat-icon style="vertical-align:middle; font-size:18px;">close</mat-icon> Clear
+          </button>
+        </div>
+
+      </div>
+    </form>
+
+    <!-- Error Message -->
+    <div *ngIf="errorMessage !== ''" class="row">
+      <div class="col-12">
+        <mat-label style="color:red">{{ errorMessage }}</mat-label>
+      </div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div *ngIf="showLoadingSpinner" class="d-flex justify-content-center my-3">
+      <span class="loader"></span>
+    </div>
+
+    <!-- Data Table -->
+    <div class="row mt-2" *ngIf="!showLoadingSpinner">
+      <div class="col-12">
+        <div class="table-responsive">
+          <table mat-table [dataSource]="dataSource" matSort class="mat-elevation-z2 w-100">
+
+            <!-- S.No Column -->
+            <ng-container matColumnDef="sno">
+              <th mat-header-cell *matHeaderCellDef> ID </th>
+              <td mat-cell *matCellDef="let row; let i = index">
+                {{ (paginator?.pageIndex || 0) * (paginator?.pageSize || 10) + i + 1 }}
+              </td>
+            </ng-container>
+
+            <!-- Employee Code -->
+            <ng-container matColumnDef="EmployeeCode">
+              <th mat-header-cell *matHeaderCellDef mat-sort-header> Employee Code </th>
+              <td mat-cell *matCellDef="let row"> {{ row.EmployeeCode }} </td>
+            </ng-container>
+
+            <!-- Employee Name -->
+            <ng-container matColumnDef="EmployeeName">
+              <th mat-header-cell *matHeaderCellDef mat-sort-header> Employee Name </th>
+              <td mat-cell *matCellDef="let row"> {{ row.EmployeeName }} </td>
+            </ng-container>
+
+            <!-- Client -->
+            <ng-container matColumnDef="Client">
+              <th mat-header-cell *matHeaderCellDef mat-sort-header> Client </th>
+              <td mat-cell *matCellDef="let row"> {{ row.Client || 'Not Assigned' }} </td>
+            </ng-container>
+
+            <!-- Branch Name -->
+            <ng-container matColumnDef="BranchName">
+              <th mat-header-cell *matHeaderCellDef mat-sort-header> Branch Name </th>
+              <td mat-cell *matCellDef="let row"> {{ row.BranchName }} </td>
+            </ng-container>
+
+            <!-- Date -->
+            <ng-container matColumnDef="AttendanceDate">
+              <th mat-header-cell *matHeaderCellDef mat-sort-header> Date </th>
+              <td mat-cell *matCellDef="let row"> {{ row.AttendanceDate | date:'dd MMM yyyy' }} </td>
+            </ng-container>
+
+            <!-- Punch -->
+            <ng-container matColumnDef="Punch">
+              <th mat-header-cell *matHeaderCellDef mat-sort-header> Punch </th>
+              <td mat-cell *matCellDef="let row"> {{ row.Punch }} </td>
+            </ng-container>
+
+            <!-- Action -->
+            <ng-container matColumnDef="action">
+              <th mat-header-cell *matHeaderCellDef> Action </th>
+              <td mat-cell *matCellDef="let row">
+                <button mat-icon-button color="primary" title="View Details" (click)="onViewDetail(row)">
+                  <mat-icon>visibility</mat-icon>
+                </button>
+                <button mat-icon-button color="warn" title="Delete"
+                  *ngIf="currentUser === 'superadmin' || userAccessModel.deleteAccess"
+                  (click)="onDelete(row)">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+
+            <!-- No Data Row -->
+            <tr class="mat-row" *matNoDataRow>
+              <td class="mat-cell text-center" [attr.colspan]="displayedColumns.length" style="padding:16px;">
+                No attendance records found.
+              </td>
+            </tr>
+
+          </table>
+        </div>
+
+        <mat-paginator [pageSizeOptions]="[10, 25, 50, 100]" showFirstLastButtons></mat-paginator>
+      </div>
+    </div>
+
+  </mat-card-content>
+</mat-card>
+
+<!-- Warning Access Denied -->
+<mat-card *ngIf="warningMessage !== ''">
+  <mat-card-content>
+    <mat-label style="color:red" [innerHTML]="warningMessage"></mat-label>
+  </mat-card-content>
+</mat-card>

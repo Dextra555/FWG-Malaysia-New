@@ -1,0 +1,7 @@
+
+insert into screenlist (screenName,category,lastupdate)
+values('Branch Transactions Report (Manager)','Finance',getdate())
+
+
+insert into obmspermissions(userid,screenname,crud,lastupdatedby)
+values('superadmin','Branch Transactions Report (Manager)','1','superadmin')

@@ -1,0 +1,8 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+*.vsidx
+/.vs/OBMS.WebAPI/v17/.suo
+/.vs/OBMS.WebAPI/DesignTimeBuild/.dtbcache.v2
+/.vs/OBMS.WebAPI/v17/DocumentLayout.json

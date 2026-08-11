@@ -1,0 +1,12 @@
+.vs/
+.vscode/
+bin/
+obj/
+node_modules/
+dist/
+
+*.zip
+*.rar
+*.bak
+*.log
+build_output.txt

@@ -1,0 +1,21 @@
+.required-star { color: #e53935; }
+
+.selected-row { background-color: #fff8e1 !important; }
+
+/* Action icon buttons */
+.action-col { white-space: nowrap; }
+
+.action-btn { width: 32px; height: 32px; line-height: 32px; }
+.action-btn .mat-icon { font-size: 18px; width: 18px; height: 18px; }
+
+.action-print  { color: #1565c0; }
+.action-edit   { color: #2e7d32; }
+.action-delete { color: #c62828; }
+
+.action-btn:hover.action-print  { background-color: #e3f2fd; }
+.action-btn:hover.action-edit   { background-color: #e8f5e9; }
+.action-btn:hover.action-delete { background-color: #ffebee; }
+
+.text-right { text-align: right !important; }
+
+th.mat-header-cell { font-weight: 700; font-size: 13px; }
