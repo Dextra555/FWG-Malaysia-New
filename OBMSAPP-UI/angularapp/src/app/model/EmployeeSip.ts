@@ -4,7 +4,7 @@ export class EmployeeSip {
   EMPICNO: string = '';
   EmployeeName: string = '';
   Period:  Date = new Date();
-  SIPTotal: string = '';
+  SIPTotal: number = 0;
   EMPJoinDate:  Date = new Date();
   EmpStatus: string = '';
  

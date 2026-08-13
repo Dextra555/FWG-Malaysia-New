@@ -242,14 +242,66 @@ export class SocsoStatementReportComponent implements OnInit {
     this.reportPageName = "SOCSOReport.aspx?"
   }
   // Generate Socso to Text File
-  // Returns SOCSO employer code based on branch
-  private getSocsoCompanyCodeByBranch(branch: string): string {
-    const branchSocsoMap: { [key: string]: string } = {
-      'FWG002-PCH': 'B3502056993B',
-      'FWG003-JB':  'E1102071173P',
-      'FWG012-KDH': 'C5202057292M',
-    };
-    return branchSocsoMap[branch] ?? environment.SocsoCompanyCode; // D4100019020Z for all others
+
+  // SOCSO employer code rules:
+  //   Foreign Guard (Nepal)  → always D4100019020Z  (no branch distinction)
+  //   Local Guard / Staff    → by branch:
+  //     FWG002-PCH           → B3502056993B
+  //     FWG003-JB            → E1102071173P
+  //     FWG012-KDH           → C5202057292M
+  //     all other branches   → D4100019020Z  (SBAN, MLK, KLIA, SRWK, KLG, MUAR, SABAH, KUN, HQ, PRK)
+  private readonly SOCSO_FOREIGN = environment.SocsoCompanyCode; // D4100019020Z
+  private readonly branchSocsoMap: { [key: string]: string } = {
+    'FWG002-PCH': 'B3502056993B',
+    'FWG003-JB':  'E1102071173P',
+    'FWG012-KDH': 'C5202057292M',
+  };
+
+  // Returns the SOCSO code for local guards/staff by branch
+  private getLocalSocsoCodeByBranch(branch: string): string {
+    return this.branchSocsoMap[branch] ?? this.SOCSO_FOREIGN; // D4100019020Z for all other branches
+  }
+
+  // Build the list of API requests needed for one branch given the selected employeeType
+  private buildSocsoRequests(
+    branchCode: string,
+    period: string,
+    employeeType: string,
+    empTempType: string,
+    companyRegNumber: string
+  ): Observable<string[]>[] {
+    const requests: Observable<string[]>[] = [];
+
+    if (employeeType === 'Foreign Guard') {
+      // Nepal / foreign guards always use D4100019020Z
+      requests.push(
+        this._payrollService.getSocsoToCIMBList(
+          companyRegNumber, this.SOCSO_FOREIGN, branchCode, period, 'Foreign Guard', empTempType
+        )
+      );
+    } else if (employeeType === 'All') {
+      // Local guards/staff — use branch-specific SOCSO code
+      requests.push(
+        this._payrollService.getSocsoToCIMBList(
+          companyRegNumber, this.getLocalSocsoCodeByBranch(branchCode), branchCode, period, 'Guard', empTempType
+        )
+      );
+      // Foreign guards — always D4100019020Z
+      requests.push(
+        this._payrollService.getSocsoToCIMBList(
+          companyRegNumber, this.SOCSO_FOREIGN, branchCode, period, 'Foreign Guard', empTempType
+        )
+      );
+    } else {
+      // Explicit type: Guard / Staff / Others — use branch-specific SOCSO code
+      requests.push(
+        this._payrollService.getSocsoToCIMBList(
+          companyRegNumber, this.getLocalSocsoCodeByBranch(branchCode), branchCode, period, employeeType, empTempType
+        )
+      );
+    }
+
+    return requests;
   }
 
   generateSocsoToTextFile(branch: string, period: string, employeeType: string, empTempType: string): void {
@@ -257,29 +309,30 @@ export class SocsoStatementReportComponent implements OnInit {
     const fileName = `${environment.PayTypeSOCSO}_${environment.PayTypeSOCSO}_${period.replace(/-/g, '')}_${Date.now()}_${this.currentUser}.txt`;
 
     if (branch && branch !== '' && branch !== '0') {
-      // Single branch — existing behaviour
-      const socsoCompanyCode = this.getSocsoCompanyCodeByBranch(branch);
-      this._payrollService.getSocsoToCIMBList(companyRegNumber, socsoCompanyCode, branch, period, employeeType, empTempType)
-        .subscribe({
-          next: (data) => this.downloadFile(data, fileName),
-          error: (error) => console.error('Error generating Socso text file:', error)
-        });
+      // Single branch selected
+      const requests = this.buildSocsoRequests(branch, period, employeeType, empTempType, companyRegNumber);
+      forkJoin(requests).subscribe({
+        next: (results: string[][]) => {
+          const allLines: string[] = ([] as string[]).concat(...results);
+          this.downloadFile(allLines, fileName);
+        },
+        error: (error) => console.error('Error generating Socso text file:', error)
+      });
     } else {
-      // No branch selected — call API for every branch using its own SOCSO code, then merge
+      // No branch selected — process every branch
       const branches: string[] = this.filteredBranchList.map((b: any) => b.Code);
       if (branches.length === 0) {
         console.warn('No branches available to generate file.');
         return;
       }
 
-      const requests: Observable<string[]>[] = branches.map((branchCode: string) => {
-        const socsoCompanyCode = this.getSocsoCompanyCodeByBranch(branchCode);
-        return this._payrollService.getSocsoToCIMBList(companyRegNumber, socsoCompanyCode, branchCode, period, employeeType, empTempType);
-      });
+      // Build all requests across all branches
+      const allRequests: Observable<string[]>[] = branches.flatMap((branchCode: string) =>
+        this.buildSocsoRequests(branchCode, period, employeeType, empTempType, companyRegNumber)
+      );
 
-      forkJoin(requests).subscribe({
+      forkJoin(allRequests).subscribe({
         next: (results: string[][]) => {
-          // Flatten all branch results into one list
           const allLines: string[] = ([] as string[]).concat(...results);
           this.downloadFile(allLines, fileName);
         },

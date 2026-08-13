@@ -206,9 +206,8 @@ export class SipStatementReportComponent implements OnInit {
             employee.SSM = item.SSM || '';
             employee.EMPICNO = item.EMPICNO || '';
             employee.EmployeeName = item.EmployeeName || '';
-            // employee.Period = new Date(item.Period) || new Date();
             employee.Period = item.Period || '';
-            employee.SIPTotal = item.SIPTotal || '';
+            employee.SIPTotal = item.SIPTotal != null && item.SIPTotal !== '' ? parseFloat(item.SIPTotal) : 0;
             employee.EMPJoinDate = item.EMPJoinDate ? new Date(item.EMPJoinDate) : null;
             employee.EmpStatus = item.EmpStatus || '';
             this.employeeSipArray.push(employee);
@@ -228,13 +227,17 @@ export class SipStatementReportComponent implements OnInit {
             employee.EMPICNO,
             employee.EmployeeName,
             employee.Period,
-            employee.SIPTotal,
+            employee.SIPTotal,         // numeric — Excel SUM() will work
             employee.EMPJoinDate ? employee.EMPJoinDate.toISOString().split('T')[0] : '',
             employee.EmpStatus,
           ]);
 
-          // Combine headers and employee data
-          const combinedData = [...headers, ...employeeData];
+          // Total row — sum the SIPTotal (column index 5)
+          const sipGrandTotal = this.employeeSipArray.reduce((sum, emp) => sum + (emp.SIPTotal || 0), 0);
+          const totalRow = ['', '', '', '', 'TOTAL', sipGrandTotal, '', ''];
+
+          // Combine headers, employee data, and total row
+          const combinedData = [...headers, ...employeeData, totalRow];
 
           // Create worksheet and workbook
           const worksheet: XLSX.WorkSheet = XLSX.utils.aoa_to_sheet(combinedData);
