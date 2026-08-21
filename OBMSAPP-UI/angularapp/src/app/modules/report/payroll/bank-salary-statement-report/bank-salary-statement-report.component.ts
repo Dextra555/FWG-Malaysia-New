@@ -216,7 +216,7 @@ export class BankSalaryStatementReportComponent implements OnInit {
       const branchCode = this.frm.get('Branch')?.value == '' ? '0' : this.frm.get('Branch')?.value;
       const employeeType = this.frm.get('EmployeeType')?.value;
       const bank = this.frm.get('BankCode')?.value == '' ? '0' : this.frm.get('BankCode')?.value;
-      const payType = "Salary";
+      const payType = this.frm.get('PaymentType')?.value || 'Salary';
       const companyCode = environment.CompanyCode.toUpperCase().trim(); // Replace with actual environment variable service
       const currentDateTime = new Date();
 

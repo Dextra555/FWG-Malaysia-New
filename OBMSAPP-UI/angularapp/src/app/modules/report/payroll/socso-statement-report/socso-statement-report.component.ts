@@ -216,8 +216,7 @@ export class SocsoStatementReportComponent implements OnInit {
     }
     const branchCode = this.frm.get("Branch")?.value != undefined ? this.frm.get("Branch")?.value : ''
     if (this.reportType != 2 && this.reportType != 3) {
-      // For SSRS report viewer, map "All" back to "Guard" as the report doesn't support "All"
-      const empTypeForReport = this.frm.get("EmployeeType")?.value === 'All' ? 'Guard' : this.frm.get("EmployeeType")?.value;
+      const empTypeForReport = this.frm.get("EmployeeType")?.value;
       localURL += "Branch=" + branchCode
       localURL += "&Period=" + this.dtAdvanceDate
       localURL += "&EmployeeType=" + empTypeForReport
@@ -280,16 +279,11 @@ export class SocsoStatementReportComponent implements OnInit {
         )
       );
     } else if (employeeType === 'All') {
-      // Local guards/staff — use branch-specific SOCSO code
+      // All = Normal Guard + Staff ONLY (local, passport length <= 3).
+      // Foreign Guard (EMP_ROLE='Guard' AND LEN(EMP_PASSPORT_NO) > 3) is excluded.
       requests.push(
         this._payrollService.getSocsoToCIMBList(
           companyRegNumber, this.getLocalSocsoCodeByBranch(branchCode), branchCode, period, 'Guard', empTempType
-        )
-      );
-      // Foreign guards — always D4100019020Z
-      requests.push(
-        this._payrollService.getSocsoToCIMBList(
-          companyRegNumber, this.SOCSO_FOREIGN, branchCode, period, 'Foreign Guard', empTempType
         )
       );
     } else {

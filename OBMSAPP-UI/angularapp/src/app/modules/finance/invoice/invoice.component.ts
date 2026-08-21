@@ -183,6 +183,7 @@ export class InvoiceComponent implements AfterViewInit {
   //edit button click
   getAgreement(client: any) {
     this.isEditMode = true;
+    this.invoiceId = 0;
     const branch = this.frm.get("branch")?.value;
     this.client = client;
     const invoicePeriod = this.returnDate(this.frm.get("invoice_period")?.value);

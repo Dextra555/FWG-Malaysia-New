@@ -661,16 +661,14 @@ namespace OBMS.WebAPI.Repositories.Implementation
         {
             try
             {
-                // ✅ BUG FIX: Use Date-only comparison instead of exact DateTime match.
-                // The frontend sends "2025-07-31T00:00:00" but the DB may have stored
-                // a different time component. Comparing only the Date part prevents
-                // a mismatch that causes attendanceData to return null, which triggers
-                // addFormFields() (blank form) even though data exists in the DB.
+                // ✅ BUG FIX: Match by Year+Month only (not Day).
+                // The frontend sends the last day of the month (e.g. 2026-08-31)
+                // but DB stores Period as first day of the month (e.g. 2026-08-01).
+                // Comparing Day caused a mismatch → blank form even when data exists.
                 var attendance = _oBMSDbContext.Attendances
                     .Where(e => e.EmployeeID == employeeID
                              && e.Period.Year == Period.Year
-                             && e.Period.Month == Period.Month
-                             && e.Period.Day == Period.Day)
+                             && e.Period.Month == Period.Month)
                     .FirstOrDefault();
 
                 return attendance;

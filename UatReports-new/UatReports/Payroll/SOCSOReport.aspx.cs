@@ -42,8 +42,13 @@ public partial class _Default : System.Web.UI.Page
             ParameterDiscreteValue paramPhone = new ParameterDiscreteValue();
             paramPhone.Value = ConfigurationManager.AppSettings["Phone"];
            
+            string employeeTypeRaw = Request.QueryString["EmployeeType"] ?? "Guard";
+            bool isAllTypes = string.IsNullOrEmpty(employeeTypeRaw) || employeeTypeRaw.Equals("All", StringComparison.OrdinalIgnoreCase);
+
+            // Crystal Report {?EmployeeType} parameter does not support "All" — pass "Guard" as a dummy value
+            // and override the selection formula below when "All" is requested
             ParameterDiscreteValue paramEmployeeType = new ParameterDiscreteValue();
-            paramEmployeeType.Value = Request.QueryString["EmployeeType"];
+            paramEmployeeType.Value = isAllTypes ? "Guard" : employeeTypeRaw;
 
             string period = Request.QueryString["Period"];
             DateTime periodDate;
@@ -51,7 +56,6 @@ public partial class _Default : System.Web.UI.Page
 
             if (DateTime.TryParse(period, out periodDate))
             {
-
                 paramPeriod.Value = periodDate;
             }
             else
@@ -59,8 +63,7 @@ public partial class _Default : System.Web.UI.Page
                 paramPeriod.Value = DateTime.Now;
             }
 
-            string employeeTypeCheck = Request.QueryString["EmployeeType"];
-            string branch = Request.QueryString["Branch"];
+            string branch = Request.QueryString["Branch"] ?? "";
 
             CrystalReportViewerView.ParameterFieldInfo["CompanyName"].CurrentValues.Add(paramCompanyName);
             CrystalReportViewerView.ParameterFieldInfo["CompanyAddress1"].CurrentValues.Add(paramAddress1);
@@ -72,11 +75,39 @@ public partial class _Default : System.Web.UI.Page
             CrystalReportViewerView.ParameterFieldInfo["EmployeeType"].CurrentValues.Add(paramEmployeeType);
             CrystalReportViewerView.ParameterFieldInfo["Period"].CurrentValues.Add(paramPeriod);
 
-            // Branch filter — .rpt handles EmployeeType via {?EmployeeType} parameter, no need to append here
+            // Get the existing formula set by the .rpt so we can append safely
+            string existingFormula = CrystalReportSourceData.ReportDocument.RecordSelectionFormula ?? "";
+
+            // Branch filter
             if (!string.IsNullOrEmpty(branch))
-                CrystalReportSourceData.ReportDocument.RecordSelectionFormula += " AND {BranchMaster.Code} = '" + branch + "'";
-            else
-                CrystalReportSourceData.ReportDocument.RecordSelectionFormula += " AND {OBMSBranches.Name} = '" + Request.QueryString["LoginID"] + "'";
+            {
+                string prefix = string.IsNullOrEmpty(existingFormula) ? "" : " AND ";
+                CrystalReportSourceData.ReportDocument.RecordSelectionFormula = existingFormula + prefix + "{BranchMaster.Code} = '" + branch + "'";
+                existingFormula = CrystalReportSourceData.ReportDocument.RecordSelectionFormula;
+            }
+            // If branch is empty → no branch filter, show all branches
+
+            // EmployeeType filter override
+            // When "All" is selected we remove any EmployeeType restriction from the formula
+            // so all employee types (Guard, Staff, Foreign Guard, Others) are included
+            if (isAllTypes)
+            {
+                // Strip out existing EmployeeType condition added by the .rpt (e.g. {Employee.EMP_TYPE} = {?EmployeeType})
+                // by replacing the formula with one that has no EmployeeType restriction.
+                // Crystal Reports evaluates {?EmployeeType} at render time — we override by setting
+                // a RecordSelectionFormula that does NOT filter on EMP_TYPE at all.
+                string newFormula = existingFormula;
+                // Remove any segment that filters on EMP_TYPE or EmployeeType parameter
+                newFormula = System.Text.RegularExpressions.Regex.Replace(
+                    newFormula,
+                    @"\s*(AND\s+)?(\{[^}]*EMP_TYPE[^}]*\}\s*=\s*\{[^\}]*EmployeeType[^\}]*\}|\{[^}]*EmployeeType[^}]*\}\s*=\s*\{[^}]*EMP_TYPE[^}]*\})",
+                    "",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase
+                );
+                // Clean up leading AND if it became the first condition
+                newFormula = System.Text.RegularExpressions.Regex.Replace(newFormula.Trim(), @"^AND\s+", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                CrystalReportSourceData.ReportDocument.RecordSelectionFormula = newFormula;
+            }
 
         }
         catch (ArgumentNullException ex)
