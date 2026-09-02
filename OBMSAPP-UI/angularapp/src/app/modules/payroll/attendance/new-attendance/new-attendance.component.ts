@@ -762,7 +762,17 @@ export class NewAttendanceComponent implements OnInit {
         TimeEnd: [row?.TimeEnd || null],
         StartTime: this.getDayOfWeek(row?.TimeStart) || '',
         EndTime: this.getDayOfWeek(row?.TimeEnd) || '',
-        Hours: this.getDayOfHoursEdited(row?.TimeStart, row?.TimeEnd) || '0',
+        // ✅ FIX: Off Day (2), Unpaid Leave (6), Absent (7) always display 0 hours.
+        // Old DB records may have equal TimeStart/TimeEnd which getDayOfHoursEdited
+        // would incorrectly compute as 24 hours.
+        // All other types use their saved times to compute hours as normal.
+        Hours: (() => {
+          const zeroHourTypes = [2, 6, 7];
+          if (zeroHourTypes.includes(Number(row?.Type))) {
+            return '0';
+          }
+          return this.getDayOfHoursEdited(row?.TimeStart, row?.TimeEnd) || '0';
+        })(),
         OTClient: [(row?.OTClient || '')],
         OTClientCode: [row?.OTClient || ''],
         OTTimeStart: [row?.OTTimeStart || null],
@@ -1378,7 +1388,27 @@ export class NewAttendanceComponent implements OnInit {
       control.get('Client')?.patchValue(this.dynamicForm.value.formArray[i].ClientCode || '', { emitEvent: false });
       control.get('StartTime')?.patchValue(this.dynamicForm.value.formArray[i].StartTime == 0 ? '' : this.dynamicForm.value.formArray[i].StartTime, { emitEvent: false });
       control.get('EndTime')?.patchValue(this.dynamicForm.value.formArray[i].EndTime == 0 ? '' : this.dynamicForm.value.formArray[i].EndTime, { emitEvent: false });
-      control.get('Hours')?.patchValue(this.getDayOfHours(this.dynamicForm.value.formArray[i].StartTime, this.dynamicForm.value.formArray[i].EndTime), { emitEvent: false });
+      // ✅ FIX: Working types (1,3,5) compute hours from start/end times.
+      // Zero-hour types (2=Off Day, 6=Unpaid Leave, 7=Absent) always show '0'.
+      // All other types (Holiday, Annual Leave etc.) keep the stored hours value.
+      const workingTypeIds = [1, 3, 5];
+      const zeroHourTypes = [2, 6, 7];
+      const currentTypeValue = Number(this.dynamicForm.value.formArray[i].Type);
+      let hoursValue: any;
+      if (workingTypeIds.includes(currentTypeValue)) {
+        // Working row — compute from times
+        const computedHours = this.getDayOfHours(this.dynamicForm.value.formArray[i].StartTime, this.dynamicForm.value.formArray[i].EndTime);
+        hoursValue = (computedHours !== '' && computedHours !== null && computedHours !== undefined)
+          ? computedHours
+          : (this.dynamicForm.value.formArray[i].Hours ?? '0');
+      } else if (zeroHourTypes.includes(currentTypeValue)) {
+        // Off Day, Unpaid Leave, Absent — always 0
+        hoursValue = '0';
+      } else {
+        // Holiday, Annual Leave, Medical Leave etc. — keep stored value
+        hoursValue = this.dynamicForm.value.formArray[i].Hours ?? '';
+      }
+      control.get('Hours')?.patchValue(hoursValue, { emitEvent: false });
       control.get('OTClientCode')?.patchValue('', { emitEvent: false });
       control.get('OTClient')?.patchValue('', { emitEvent: false });
       control.get('StartTimeOT')?.patchValue('', { emitEvent: false });
@@ -1712,7 +1742,10 @@ export class NewAttendanceComponent implements OnInit {
         endHour = 0; // cap at 24
       }
     } else {
-      endHour = startHour
+      // ✅ FIX: When hours = 0 (e.g. Off Day), set endHour = 0 instead of startHour.
+      // Previously endHour was set equal to startHour (both = 1), which caused
+      // normalTimeChange to see startTime == endTime and incorrectly compute 24 hours.
+      endHour = 0;
     }
 
     // Update component-level startTime and endTime (as string with leading zero)
@@ -1733,14 +1766,20 @@ export class NewAttendanceComponent implements OnInit {
     );
     newDateEnd.setHours(endHour, 0, 0, 0);
 
-    formArray.at(indexValue).get('StartTime')?.patchValue(this.startTime)
-    formArray.at(indexValue).get('EndTime')?.patchValue(this.endTime)
-    formArray.at(indexValue).get('TimeStart')?.patchValue(this.formatDate(newDateStart), { emitEvent: false });
-    formArray.at(indexValue).get('TimeEnd')?.patchValue(this.formatDate(newDateEnd), { emitEvent: false });
-
     if (Number.isNaN(numericValue) || numericValue === 0) {
+      // ✅ FIX: For Off Day / 0-hour rows, clear StartTime and EndTime so that
+      // normalTimeChange does not re-compute hours from a non-empty time pair
+      // and incorrectly set hours to 23 or 24.
+      formArray.at(indexValue).get('StartTime')?.patchValue('', { emitEvent: false });
+      formArray.at(indexValue).get('EndTime')?.patchValue('', { emitEvent: false });
+      formArray.at(indexValue).get('TimeStart')?.patchValue(null, { emitEvent: false });
+      formArray.at(indexValue).get('TimeEnd')?.patchValue(null, { emitEvent: false });
       formArray.at(indexValue).get('Hours')?.patchValue('0', { emitEvent: false });
     } else {
+      formArray.at(indexValue).get('StartTime')?.patchValue(this.startTime)
+      formArray.at(indexValue).get('EndTime')?.patchValue(this.endTime)
+      formArray.at(indexValue).get('TimeStart')?.patchValue(this.formatDate(newDateStart), { emitEvent: false });
+      formArray.at(indexValue).get('TimeEnd')?.patchValue(this.formatDate(newDateEnd), { emitEvent: false });
       formArray.at(indexValue).get('Hours')?.patchValue(numericValue, { emitEvent: false });
     }
   }
@@ -1899,18 +1938,40 @@ export class NewAttendanceComponent implements OnInit {
   onWorkTypeChange(event: MatSelectChange, index: number) {
     const formArray = this.dynamicForm.get('formArray') as FormArray;
     const group = formArray.at(index) as FormGroup;
+    const selectedType = Number(event.value);
+
+    // Types that always show 0 hours (no work done):
+    // 2 = Off Day, 6 = Unpaid Leave, 7 = Absent
+    const zeroHourTypes = [2, 6, 7];
 
     if (this.employeeSelectedType == 'Guard' || this.employeeSelectedType == 'Others') {
       // Working types that require Client, Start Time, End Time:
       // 1 = General Working, 3 = Off Day Working, 5 = Holiday Working
       const workingTypeIds = [1, 3, 5];
-      if (!workingTypeIds.includes(Number(event.value))) {
-        // Reset fields for non-working types
+      if (!workingTypeIds.includes(selectedType)) {
+        // Clear Client and times for non-working types
         group.get('Client')?.setValue('');
         group.get('ClientCode')?.setValue('');
         group.get('StartTime')?.setValue('');
         group.get('EndTime')?.setValue('');
-        group.get('Hours')?.setValue('');
+        if (zeroHourTypes.includes(selectedType)) {
+          // Off Day, Unpaid Leave, Absent → always 0
+          group.get('Hours')?.setValue('0');
+        } else {
+          // Holiday, Annual Leave, Medical Leave etc. → user enters manually
+          group.get('Hours')?.setValue('');
+        }
+      }
+    } else if (this.employeeSelectedType == 'Staff') {
+      const workingTypeIds = [1, 3, 5];
+      if (!workingTypeIds.includes(selectedType)) {
+        group.get('StartTime')?.setValue('');
+        group.get('EndTime')?.setValue('');
+        if (zeroHourTypes.includes(selectedType)) {
+          // Off Day, Unpaid Leave, Absent → always 0
+          group.get('Hours')?.setValue('0');
+        }
+        // Holiday, Annual Leave, Medical Leave etc. → leave Hours as-is (user enters)
       }
     }
   }
