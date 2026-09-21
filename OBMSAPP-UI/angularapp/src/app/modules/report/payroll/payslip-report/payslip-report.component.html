@@ -43,6 +43,20 @@
                         </mat-select>
                     </mat-form-field>
                 </div>
+                <div class="col-12 col-sm-12 col-md-12 col-lg-4">
+                    <mat-form-field appearance="outline">
+                        <mat-label>Client Name</mat-label>
+                        <mat-select formControlName="ClientCode"
+                            (keydown)="onKeyDropdown($event, 'clientSearchString', 'clientModel', 'filteredClientList', 'Name', clientSearchSubject)"
+                            (selectionChange)="onClientSelectionChange($event)"
+                            [panelClass]="'custom-dropdown-panel'">
+                            <mat-option [value]="" class="highlight-option"></mat-option>
+                            <mat-option *ngFor="let client of clientModel" [value]="client.Code">
+                                {{ client.Name }}
+                            </mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                </div>
                 <div class="col-12 col-sm-12 col-md-12 col-lg-4" *ngIf="errorMessage !==''">
                     <mat-label style="color:red">{{errorMessage}}</mat-label>
                 </div>

@@ -13,6 +13,7 @@ namespace OBMS.WebAPI.Repositories.Interface
         Task<List<SalaryAdvanceDto>> GetListByEmplyeeType(DateTime advanceDate, string branch, string employeeType, int transType, decimal advanceAmount, string race);
         Task<List<SalaryAdvanceDto>> GetEmployeeAdvanceList(DateTime advanceDate, string branch, string employeeType, string client, int transType, decimal advanceAmount, string race);
         Task<SalaryAdvance> SaveAndUpdateSalaryMonthlyAdvance(SalaryAdvance salaryAdvance);
+        Task<bool> GetSalaryAdvanceDuplicateAsync(int employeeId, DateTime advanceTakenDate, string voucherNo, decimal amount, int transType, DateTime cutoff);
         Task SaveEmployeeItemIssuesAsync(List<EmployeeItemIssue> items);
         Task<List<SalaryAdvance>> GetSalaryAdvanceById(int employeeId,int id);
         Task<List<Employee>> GetEmployeeById(int employeeId);

@@ -5,6 +5,7 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { NavigationEnd, Router } from '@angular/router';
 import { debounceTime, forkJoin, Observable, Subject } from 'rxjs';
 import { BranchModel } from 'src/app/model/branchModel';
+import { ClientModel } from 'src/app/model/clientModel';
 import { EmployeeAdvanceListModel } from 'src/app/model/empolyeeAdvanceListModel';
 import { UserAccessModel } from 'src/app/model/userAccesModel';
 import { DatasharingService } from 'src/app/service/datasharing.service';
@@ -21,6 +22,10 @@ export class PayslipReportComponent implements OnInit {
   payslipForm!: FormGroup;
   showLoadingSpinner: boolean = false;
   branchModel!: BranchModel[];
+  clientModel: ClientModel[] = [];
+  filteredClientList: ClientModel[] = [];
+  clientSearchString: string = '';
+  clientSearchSubject = new Subject<string>();
   currentUser: string = '';
   advanceType: string = '';
   paymentType: string = '';
@@ -57,6 +62,7 @@ export class PayslipReportComponent implements OnInit {
     this.payslipForm = this.fb.group({
       AdvanceDate: [this.formatDate(new Date)],
       BranchCode: [''],
+      ClientCode: [''],
       EmployeeCode: [''],
       EmployeeType: ['Guard'],
       LanguageType: ['E'],
@@ -80,6 +86,12 @@ export class PayslipReportComponent implements OnInit {
     this.branchSearchSubject.pipe(debounceTime(3000)).subscribe(() => {
       this.branchSearchString = '';
       this.branchModel = [...this.filteredBranchList];
+    });
+
+    // Client search debounce
+    this.clientSearchSubject.pipe(debounceTime(3000)).subscribe(() => {
+      this.clientSearchString = '';
+      this.clientModel = [...this.filteredClientList];
     });
     this.router.events.subscribe(event => {
       if (event instanceof NavigationEnd) {
@@ -122,11 +134,42 @@ export class PayslipReportComponent implements OnInit {
     );
   }
   changeAdvanceDate(type: string, event: MatDatepickerInputEvent<Date>) {
-    this.payslipForm.value.AdvanceDate = this.formatDate(`${type}: ${event.value}`);
-    let dtAdvanceDate = new Date(this.payslipForm.value.AdvanceDate);
+    if (!event.value) return;
+    const selectedDate = event.value;
+    this.payslipForm.patchValue({ AdvanceDate: this.formatDate(selectedDate) });
     this.dtAdvanceDate = this.formatDate(
-      new Date(dtAdvanceDate.getFullYear(), dtAdvanceDate.getMonth() + 1, 0)
+      new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0)
     );
+    this.StartPeriod = this.formatDate(this.firstOfMonth(new Date(selectedDate)));
+    this.EndPeriod = this.formatDate(this.lastOfMonth(new Date(selectedDate)));
+    const branchCode = this.payslipForm.get('BranchCode')?.value;
+    if (branchCode && branchCode !== '' && this.StartPeriod && this.StartPeriod !== 'NaN-NaN-NaN') {
+      this.errorMessage = '';
+      const employeeType = this.payslipForm.get('EmployeeType')?.value;
+      const clientCode = this.payslipForm.get('ClientCode')?.value;
+      if (clientCode && clientCode !== '') {
+        this.showLoadingSpinner = true;
+        forkJoin({
+          employeeList: this._payrollService.getListEmployeeByClient(branchCode, employeeType, this.StartPeriod, this.EndPeriod, 'Active', clientCode),
+          salaryProcessStatus: this._payrollService.getIsSalaryProcessDoneForCurrentPeriod(branchCode, employeeType, this.dtAdvanceDate),
+          nameList: this._payrollService.getEmployeeAttendanceList(this.dtAdvanceDate, branchCode),
+          temporaryList: this._payrollService.getTemporaryEmployeeList(branchCode)
+        }).subscribe(
+          ({ employeeList, salaryProcessStatus, nameList, temporaryList }) => {
+            this.payslipForm.patchValue({ EmployeeCode: '' });
+            this.employeeListModel = employeeList;
+            this.filteredEmployeeList = [...this.employeeListModel];
+            this.salaryProcessStatus = salaryProcessStatus;
+            this.nameList = nameList;
+            this.temporaryEmployeeList = temporaryList;
+            this.showLoadingSpinner = false;
+          },
+          (error) => this.handleErrors(error)
+        );
+      } else {
+        this.getEmployeeListByEmployeeType(branchCode, employeeType, this.StartPeriod, this.EndPeriod, 'Active');
+      }
+    }
   }
   onBranchSelectionChange(event: any) {
     if (event.value != '' && event.value != undefined) {
@@ -140,6 +183,12 @@ export class PayslipReportComponent implements OnInit {
       const branchCode = this.payslipForm.get('BranchCode')?.value;
       if (advanceDate != null && advanceDate != 'NaN-NaN-NaN' && branchCode != '') {
         this.errorMessage = '';
+        // Reset client dropdown
+        this.payslipForm.patchValue({ ClientCode: '', EmployeeCode: '' });
+        this.clientModel = [];
+        this.filteredClientList = [];
+        // Load clients for selected branch
+        this.getClientListByBranch(branchCode);
         this.getEmployeeListByEmployeeType(branchCode, this.payslipForm.value.EmployeeType, this.StartPeriod, this.EndPeriod, 'Active');
       } else {
         this.errorMessage = 'Please select advance date selection.';
@@ -149,14 +198,76 @@ export class PayslipReportComponent implements OnInit {
       }
     }
   }
+  getClientListByBranch(branchCode: string): void {
+    this._masterService.getClientMsterListByBranch(branchCode).subscribe(
+      (data) => {
+        this.clientModel = data || [];
+        this.filteredClientList = [...this.clientModel];
+      },
+      (error) => this.handleErrors(error)
+    );
+  }
+  onClientSelectionChange(event: any): void {
+    const branchCode = this.payslipForm.get('BranchCode')?.value;
+    const employeeType = this.payslipForm.get('EmployeeType')?.value;
+    const clientCode = event.value;
+    this.payslipForm.patchValue({ EmployeeCode: '' });
+    this.showLoadingSpinner = true;
+    if (clientCode && clientCode !== '') {
+      // Load employees for selected client only
+      forkJoin({
+        employeeList: this._payrollService.getListEmployeeByClient(branchCode, employeeType, this.StartPeriod, this.EndPeriod, 'Active', clientCode),
+        salaryProcessStatus: this._payrollService.getIsSalaryProcessDoneForCurrentPeriod(branchCode, employeeType, this.dtAdvanceDate),
+        nameList: this._payrollService.getEmployeeAttendanceList(this.dtAdvanceDate, branchCode),
+        temporaryList: this._payrollService.getTemporaryEmployeeList(branchCode)
+      }).subscribe(
+        ({ employeeList, salaryProcessStatus, nameList, temporaryList }) => {
+          this.employeeListModel = employeeList;
+          this.filteredEmployeeList = [...this.employeeListModel];
+          this.salaryProcessStatus = salaryProcessStatus;
+          this.nameList = nameList;
+          this.temporaryEmployeeList = temporaryList;
+          this.showLoadingSpinner = false;
+        },
+        (error) => this.handleErrors(error)
+      );
+    } else {
+      // Client cleared — reload all employees for this branch
+      this.getEmployeeListByEmployeeType(branchCode, employeeType, this.StartPeriod, this.EndPeriod, 'Active');
+    }
+  }
   radioButtonTypeSelectionChange(event: any) {
     const attendancePeriod = this.formatDate(this.payslipForm.get('AdvanceDate')?.value);
     const branchCode = this.payslipForm.get('BranchCode')?.value;
+    const clientCode = this.payslipForm.get('ClientCode')?.value;
     this.StartPeriod = this.formatDate(this.firstOfMonth(new Date(attendancePeriod)));
     this.EndPeriod = this.formatDate(this.lastOfMonth(new Date(attendancePeriod)));
     if (branchCode != undefined && branchCode != 'NaN-NaN-NaN' && branchCode != '') {
       this.errorMessage = '';
-      this.getEmployeeListByEmployeeType(branchCode, event.value, this.StartPeriod, this.EndPeriod, 'Active');
+      this.payslipForm.patchValue({ EmployeeCode: '' });
+      if (clientCode && clientCode !== '') {
+        // Client selected — reload filtered employees for that client + new type
+        this.showLoadingSpinner = true;
+        forkJoin({
+          employeeList: this._payrollService.getListEmployeeByClient(branchCode, event.value, this.StartPeriod, this.EndPeriod, 'Active', clientCode),
+          salaryProcessStatus: this._payrollService.getIsSalaryProcessDoneForCurrentPeriod(branchCode, event.value, this.dtAdvanceDate),
+          nameList: this._payrollService.getEmployeeAttendanceList(this.dtAdvanceDate, branchCode),
+          temporaryList: this._payrollService.getTemporaryEmployeeList(branchCode)
+        }).subscribe(
+          ({ employeeList, salaryProcessStatus, nameList, temporaryList }) => {
+            this.employeeListModel = employeeList;
+            this.filteredEmployeeList = [...this.employeeListModel];
+            this.salaryProcessStatus = salaryProcessStatus;
+            this.nameList = nameList;
+            this.temporaryEmployeeList = temporaryList;
+            this.showLoadingSpinner = false;
+          },
+          (error) => this.handleErrors(error)
+        );
+      } else {
+        // No client — load all employees for this branch
+        this.getEmployeeListByEmployeeType(branchCode, event.value, this.StartPeriod, this.EndPeriod, 'Active');
+      }
     } else {
       this.errorMessage = 'Please select advance date and branch selection.';
       this.payslipForm.patchValue({
@@ -216,9 +327,9 @@ export class PayslipReportComponent implements OnInit {
 
   onKeyDropdown(
     event: KeyboardEvent,
-    searchStringProp: 'employeeSearchString' | 'branchSearchString',
-    listProp: 'employeeListModel' | 'branchModel',
-    filteredListProp: 'filteredEmployeeList' | 'filteredBranchList',
+    searchStringProp: 'employeeSearchString' | 'branchSearchString' | 'clientSearchString',
+    listProp: 'employeeListModel' | 'branchModel' | 'clientModel',
+    filteredListProp: 'filteredEmployeeList' | 'filteredBranchList' | 'filteredClientList',
     keyName: string,
     subject: Subject<string>
   ) {
@@ -260,6 +371,7 @@ export class PayslipReportComponent implements OnInit {
     this.url += "&Period=" + this.dtAdvanceDate
     this.url += "&EmployeeType=" + this.payslipForm.get("EmployeeType")?.value
     this.url += "&Employee=" + (this.payslipForm.get("EmployeeCode")?.value || '0')
+    this.url += "&ClientCode=" + (this.payslipForm.get("ClientCode")?.value || '')
     this.url += "&Lang=" + this.payslipForm.get("LanguageType")?.value
     this.urlSafe = this.sanitizer.bypassSecurityTrustResourceUrl(this.url);
   }
@@ -271,6 +383,7 @@ export class PayslipReportComponent implements OnInit {
     this.url += "&Period=" + this.dtAdvanceDate
     this.url += "&EmployeeType=" + this.payslipForm.get("EmployeeType")?.value
     this.url += "&Employee=" + (this.payslipForm.get("EmployeeCode")?.value || '0')
+    this.url += "&ClientCode=" + (this.payslipForm.get("ClientCode")?.value || '')
     this.url += "&Lang=" + this.payslipForm.get("LanguageType")?.value
     this.urlSafe = this.sanitizer.bypassSecurityTrustResourceUrl(this.url);
   }
@@ -282,6 +395,7 @@ export class PayslipReportComponent implements OnInit {
     this.url += "&Period=" + this.dtAdvanceDate
     this.url += "&EmployeeType=" + this.payslipForm.get("EmployeeType")?.value
     this.url += "&Employee=" + (this.payslipForm.get("EmployeeCode")?.value || '0')
+    this.url += "&ClientCode=" + (this.payslipForm.get("ClientCode")?.value || '')
     this.url += "&Lang=" + this.payslipForm.get("LanguageType")?.value
     this.urlSafe = this.sanitizer.bypassSecurityTrustResourceUrl(this.url);
   }
@@ -293,6 +407,7 @@ export class PayslipReportComponent implements OnInit {
     this.url += "&Period=" + this.dtAdvanceDate
     this.url += "&EmployeeType=" + this.payslipForm.get("EmployeeType")?.value
     this.url += "&Employee=" + (this.payslipForm.get("EmployeeCode")?.value || '0')
+    this.url += "&ClientCode=" + (this.payslipForm.get("ClientCode")?.value || '')
     this.url += "&Lang=" + this.payslipForm.get("LanguageType")?.value
     this.urlSafe = this.sanitizer.bypassSecurityTrustResourceUrl(this.url);
   }
@@ -304,6 +419,7 @@ export class PayslipReportComponent implements OnInit {
     this.url += "&Period=" + this.dtAdvanceDate
     this.url += "&EmployeeType=" + this.payslipForm.get("EmployeeType")?.value
     this.url += "&Employee=" + (this.payslipForm.get("EmployeeCode")?.value || '0')
+    this.url += "&ClientCode=" + (this.payslipForm.get("ClientCode")?.value || '')
     this.url += "&Lang=" + this.payslipForm.get("LanguageType")?.value
     this.urlSafe = this.sanitizer.bypassSecurityTrustResourceUrl(this.url);
   }
@@ -315,6 +431,7 @@ export class PayslipReportComponent implements OnInit {
     this.url += "&Period=" + this.dtAdvanceDate
     this.url += "&EmployeeType=" + this.payslipForm.get("EmployeeType")?.value
     this.url += "&Employee=" + (this.payslipForm.get("EmployeeCode")?.value || '0')
+    this.url += "&ClientCode=" + (this.payslipForm.get("ClientCode")?.value || '')
     this.url += "&Lang=" + this.payslipForm.get("LanguageType")?.value
     this.urlSafe = this.sanitizer.bypassSecurityTrustResourceUrl(this.url);
   }
@@ -326,6 +443,7 @@ export class PayslipReportComponent implements OnInit {
     this.url += "&Period=" + this.dtAdvanceDate
     this.url += "&EmployeeType=" + this.payslipForm.get("EmployeeType")?.value
     this.url += "&Employee=" + (this.payslipForm.get("EmployeeCode")?.value || '0')
+    this.url += "&ClientCode=" + (this.payslipForm.get("ClientCode")?.value || '')
     this.url += "&Lang=" + this.payslipForm.get("LanguageType")?.value
     this.urlSafe = this.sanitizer.bypassSecurityTrustResourceUrl(this.url);
   }

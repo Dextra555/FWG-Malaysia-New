@@ -39,7 +39,7 @@ export const environment = {
   // baseReportUrl: 'http://124.217.236.37:8585/'
 
   //FWG Server configuration 
-  baseUrl: 'http://124.217.236.37:63399/api/',
-  baseReportUrl: 'http://124.217.236.37:8009/'
+  baseUrl: 'http://124.217.236.37:64499/api/',
+  baseReportUrl: 'http://124.217.236.37:8008/'
 
 };

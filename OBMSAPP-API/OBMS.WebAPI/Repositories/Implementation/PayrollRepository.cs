@@ -272,6 +272,19 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
         }
 
+        public async Task<bool> GetSalaryAdvanceDuplicateAsync(int employeeId, DateTime advanceTakenDate, string voucherNo, decimal amount, int transType, DateTime cutoff)
+        {
+            return await _oBMSDbContext.SalaryAdvances
+                .AnyAsync(s =>
+                    s.EmployeeID == employeeId &&
+                    s.AdvanceTakenDate == advanceTakenDate &&
+                    s.VoucherNo == voucherNo &&
+                    s.Amount == amount &&
+                    s.TransType == transType &&
+                    s.IsDeleted == false &&
+                    s.LastUpdate >= cutoff);
+        }
+
         public async Task SaveEmployeeItemIssuesAsync(List<EmployeeItemIssue> items)
         {
             foreach (var item in items)
@@ -1790,6 +1803,9 @@ namespace OBMS.WebAPI.Repositories.Implementation
                         q.Employee.EMP_ROLE != "Staff" &&
                         q.Employee.EMP_ROLE != "Foreign Guard" &&
                         q.Employee.EMP_ROLE != "FGuard");
+                else if (employeeType == "FGuard" || employeeType == "Foreign Guard")
+                    // Foreign Guards are stored as EMP_ROLE = "Guard" with EMP_CITIZEN = 1
+                    baseQuery = baseQuery.Where(q => q.Employee.EMP_ROLE == "Guard" && q.Employee.EMP_CITIZEN == 1);
                 else
                     baseQuery = baseQuery.Where(q => q.Employee.EMP_ROLE == employeeType);
             }

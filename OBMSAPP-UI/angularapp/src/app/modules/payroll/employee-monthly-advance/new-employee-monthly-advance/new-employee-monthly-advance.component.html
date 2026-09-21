@@ -184,9 +184,9 @@
                                                         <button
                                                             *ngIf="(this.userAccessModel.updateAccess == true || this.userAccessModel.createAccess == true || currentUser == 'superadmin')"
                                                             class="btn wlt-c-furg-btn-primary"
+                                                            [disabled]="isSaving"
                                                             (click)="savebuttonClick()">
-                                                            {{isEmployeeIdValid() === false ? 'Save' :
-                                                            'Update' }}</button>
+                                                            {{ isSaving ? 'Saving...' : (isEmployeeIdValid() === false ? 'Save' : 'Update') }}</button>
                                                     </div>
                                                 </div>
                                             </div>

@@ -25,6 +25,7 @@ export class NewEmployeeMonthlyAdvanceComponent implements OnInit {
   employeeAdvanceForm!: FormGroup;
   dynamicForm!: FormGroup;
   showLoadingSpinner: boolean = false;
+  isSaving: boolean = false;
   employeeAdvanceTitleStatus: string = 'new';
   branchCode: string = 'null';
   clientCode: string = 'null';
@@ -545,6 +546,8 @@ export class NewEmployeeMonthlyAdvanceComponent implements OnInit {
   }
 
   savebuttonClick(): void {
+    if (this.isSaving) return;  // prevent duplicate submissions
+    this.isSaving = true;
     this.showLoadingSpinner = true;
     this.salaryMonthlyAdvance = this.employeeAdvanceForm.value;
     this.salaryMonthlyAdvance.AdvanceDate = new Date(this.formatDate(this.employeeAdvanceForm.value.AdvanceDate));
@@ -587,6 +590,7 @@ export class NewEmployeeMonthlyAdvanceComponent implements OnInit {
           'warning',
           'Warning Message'
         );
+        this.isSaving = false;
         this.hideSpinner();
         return;
       }
@@ -612,9 +616,11 @@ export class NewEmployeeMonthlyAdvanceComponent implements OnInit {
           }
 
           this._dataService.setUsername(this.currentUser);
+          this.isSaving = false;
           this.hideSpinner();
         },
         (error) => {
+          this.isSaving = false;
           this.handleErrors(error);
         }
       );

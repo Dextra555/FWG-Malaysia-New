@@ -159,6 +159,30 @@ namespace OBMS.WebAPI.Controllers
                     LastUpdate = DateTime.Now,
                     LastUpdatedBy = salaryAdvanceRequestDto.LastUpdatedBy,
                 };
+
+                // Duplicate guard: for new records (ID == 0), reject if an identical
+                // EmployeeID + AdvanceTakenDate + VoucherNo + Amount + TransType row
+                // was already inserted within the last 10 seconds (prevents rapid re-clicks).
+                if (salaryAdvanceDetails.ID == 0)
+                {
+                    var cutoff = DateTime.Now.AddSeconds(-10);
+                    var duplicate = await _payrollRepository.GetSalaryAdvanceDuplicateAsync(
+                        salaryAdvanceDetails.EmployeeID,
+                        salaryAdvanceDetails.AdvanceTakenDate,
+                        salaryAdvanceDetails.VoucherNo,
+                        salaryAdvanceDetails.Amount,
+                        salaryAdvanceDetails.TransType,
+                        cutoff);
+
+                    if (duplicate)
+                    {
+                        Dictionary<string, object> dupResult = new Dictionary<string, object>();
+                        dupResult.Add("Success", "Success");
+                        dupResult.Add("Message", "Record already saved. Duplicate submission ignored.");
+                        return Ok(dupResult);
+                    }
+                }
+
                 await _payrollRepository.SaveAndUpdateSalaryMonthlyAdvance(salaryAdvanceDetails);
 
                 if (salaryAdvanceDetails != null)
