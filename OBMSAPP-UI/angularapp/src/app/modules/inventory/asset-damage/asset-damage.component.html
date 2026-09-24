@@ -1,0 +1,132 @@
+<!-- Page Header -->
+<div class="wlt-c-furg-content-header"><div class="container-fluid"><div class="row mb-2">
+  <div class="col-12 col-md-6"><h1 class="mb-1">Asset Damage</h1></div>
+  <div class="col-12 col-md-6 my-1"><ol class="breadcrumb float-md-right">
+    <li class="breadcrumb-item"><a routerLink="/dashboard">Inventory</a></li>
+    <li class="breadcrumb-item active">Asset Damage</li>
+  </ol></div>
+</div></div></div>
+
+<!-- Form -->
+<mat-card *ngIf="showForm" class="mb-3">
+  <mat-card-content>
+    <div class="row mb-2"><div class="col-12"><h6 class="wlt-c-section-label"><strong>Record Damage — {{damageNo}}</strong></h6><hr class="mt-0"></div></div>
+    <form [formGroup]="frm" (ngSubmit)="onSubmit()">
+      <div class="row">
+        <div class="col-12 col-md-5">
+          <mat-form-field appearance="outline">
+            <mat-label>Asset <span style="color:red">*</span></mat-label>
+            <mat-select formControlName="AssetID" (openedChange)="onAssetOpen($event)">
+              <mat-option disabled style="position:sticky;top:0;background:#fff;z-index:1;padding:0">
+                <div style="padding:4px 10px">
+                  <input type="text" placeholder="Search asset…" [value]="assetSearch"
+                    (input)="onAssetSearch($any($event.target).value)"
+                    (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()"
+                    style="width:100%;border:1px solid #ccc;border-radius:4px;padding:6px 8px;font-size:13px;outline:none">
+                </div>
+              </mat-option>
+              <mat-option [value]="0">-- Select Asset --</mat-option>
+              <mat-option *ngFor="let a of filteredAssets" [value]="a.ID">{{a.AssetCode}} — {{a.Name}}</mat-option>
+              <mat-option disabled *ngIf="filteredAssets.length === 0 && assetSearch.length > 0">No results found.</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+        <div class="col-12 col-md-3">
+          <mat-form-field appearance="outline">
+            <mat-label>Damage Date <span style="color:red">*</span></mat-label>
+            <input matInput [matDatepicker]="dp" formControlName="DamageDate">
+            <mat-datepicker-toggle matSuffix [for]="dp"></mat-datepicker-toggle>
+            <mat-datepicker #dp></mat-datepicker>
+          </mat-form-field>
+        </div>
+        <div class="col-12 col-md-2">
+          <mat-form-field appearance="outline">
+            <mat-label>Damage Type</mat-label>
+            <mat-select formControlName="DamageType">
+              <mat-option *ngFor="let t of damageTypes" [value]="t">{{t}}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+        <div class="col-12 col-md-2">
+          <mat-form-field appearance="outline">
+            <mat-label>Condition</mat-label>
+            <mat-select formControlName="DamageCondition">
+              <mat-option *ngFor="let c of damageConditions" [value]="c">{{c.replace('_',' ')}}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-12 col-md-8">
+          <mat-form-field appearance="outline">
+            <mat-label>Damage Description <span style="color:red">*</span></mat-label>
+            <input matInput formControlName="DamageDescription" placeholder="Describe the damage clearly">
+            <mat-error *ngIf="frm.get('DamageDescription')?.hasError('required')">Please enter a description of the damage.</mat-error>
+          </mat-form-field>
+        </div>
+        <div class="col-12 col-md-4">
+          <mat-form-field appearance="outline">
+            <mat-label>Reported By</mat-label>
+            <input matInput formControlName="ReportedBy" placeholder="Name of person reporting">
+          </mat-form-field>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-12 col-md-3">
+          <mat-form-field appearance="outline">
+            <mat-label>Est. Repair Cost (RM)</mat-label>
+            <input matInput type="number" formControlName="EstimatedRepairCost" min="0" step="0.01" placeholder="0.00">
+          </mat-form-field>
+        </div>
+        <div class="col-12 col-md-9">
+          <mat-form-field appearance="outline">
+            <mat-label>Remarks</mat-label>
+            <input matInput formControlName="Remarks" placeholder="Optional">
+          </mat-form-field>
+        </div>
+      </div>
+      <div class="row mt-2"><div class="col-12 text-right">
+        <button type="button" class="btn wlt-c-furg-btn-gray mr-3" (click)="cancelForm()">Cancel</button>
+        <button type="submit" class="btn wlt-c-furg-btn-danger" [disabled]="showLoadingSpinner">Record Damage</button>
+      </div></div>
+    </form>
+  </mat-card-content>
+</mat-card>
+
+<!-- List -->
+<mat-card>
+  <mat-card-content>
+    <div *ngIf="warningMessage !== ''"><mat-label style="color:red" [innerHTML]="warningMessage"></mat-label></div>
+    <div *ngIf="errorMessage !== '' && warningMessage === ''"><mat-label style="color:red">{{errorMessage}}</mat-label></div>
+    <div class="row" *ngIf="warningMessage === ''">
+      <div class="col-12 col-md-4 order-2 order-md-1"><mat-form-field appearance="outline"><mat-label>Search</mat-label><input matInput (keyup)="applyFilter($event)" placeholder="Damage no, asset, type…"></mat-form-field></div>
+      <div class="col-12 col-md-8 order-1 order-md-2 text-right pt-2">
+        <button *ngIf="(userAccessModel.createAccess || currentUser === 'superadmin') && !showForm" class="btn wlt-c-furg-btn-danger" (click)="openNewForm()"><mat-icon>add</mat-icon> Record Damage</button>
+      </div>
+    </div>
+    <div class="table-responsive" *ngIf="warningMessage === ''">
+      <table mat-table [dataSource]="dataSource" class="wlt-table table-striped" matSort (matSortChange)="announceSortChange($event)">
+        <ng-container matColumnDef="DamageNo"><th mat-header-cell *matHeaderCellDef mat-sort-header>Damage No</th><td mat-cell *matCellDef="let r"><strong>{{r.DamageNo}}</strong></td></ng-container>
+        <ng-container matColumnDef="AssetCode"><th mat-header-cell *matHeaderCellDef mat-sort-header>Code</th><td mat-cell *matCellDef="let r">{{r.AssetCode}}</td></ng-container>
+        <ng-container matColumnDef="AssetName"><th mat-header-cell *matHeaderCellDef mat-sort-header>Asset</th><td mat-cell *matCellDef="let r">{{r.AssetName}}</td></ng-container>
+        <ng-container matColumnDef="DamageDate"><th mat-header-cell *matHeaderCellDef mat-sort-header>Date</th><td mat-cell *matCellDef="let r">{{formatDate(r.DamageDate)}}</td></ng-container>
+        <ng-container matColumnDef="DamageType"><th mat-header-cell *matHeaderCellDef>Type</th><td mat-cell *matCellDef="let r"><span class="badge badge-warning">{{r.DamageType || '—'}}</span></td></ng-container>
+        <ng-container matColumnDef="DamageCondition"><th mat-header-cell *matHeaderCellDef>Condition</th>
+          <td mat-cell *matCellDef="let r"><span class="badge" [class.badge-warning]="r.DamageCondition==='Repairable'" [class.badge-danger]="r.DamageCondition==='Beyond_Repair'">{{r.DamageCondition?.replace('_',' ') || '—'}}</span></td>
+        </ng-container>
+        <ng-container matColumnDef="ReportedBy"><th mat-header-cell *matHeaderCellDef>Reported By</th><td mat-cell *matCellDef="let r">{{r.ReportedBy || '—'}}</td></ng-container>
+        <ng-container matColumnDef="EstimatedRepairCost"><th mat-header-cell *matHeaderCellDef style="text-align:right">Est. Cost (RM)</th><td mat-cell *matCellDef="let r" style="text-align:right">{{formatNumber(r.EstimatedRepairCost)}}</td></ng-container>
+        <ng-container matColumnDef="action" stickyEnd><th mat-header-cell *matHeaderCellDef style="text-align:center;width:70px">History</th>
+          <td mat-cell *matCellDef="let r" style="text-align:center"><a style="cursor:pointer" class="wlt-c-furg-text-primary" matTooltip="View History" [routerLink]="['/inventory/asset-movement-history', r.AssetID]"><mat-icon>history</mat-icon></a></td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        <tr class="mat-row" *matNoDataRow><td class="mat-cell" [attr.colspan]="displayedColumns.length" style="text-align:center;padding:24px;color:#888">
+          <span *ngIf="!filterValue">No damage records found.</span><span *ngIf="filterValue">No records match "<strong>{{filterValue}}</strong>".</span>
+        </td></tr>
+      </table>
+    </div>
+    <mat-paginator [pageSizeOptions]="pageSizeOptions" showFirstLastButtons></mat-paginator>
+  </mat-card-content>
+</mat-card>
+<div [style.display]="showLoadingSpinner ? 'block' : 'none'" style="margin-top:-20.5rem;display:block;margin-left:-6.5rem;"><div class="d-flex justify-content-center"><span class="loader"></span></div></div>

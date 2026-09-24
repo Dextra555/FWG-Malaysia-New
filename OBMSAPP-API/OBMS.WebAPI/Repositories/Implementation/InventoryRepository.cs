@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using OBMS.WebAPI.Models;
 using OBMS.WebAPI.Models.Domain;
+using OBMS.WebAPI.Models.DTO;
 using OBMS.WebAPI.Repositories.Interface;
 using OBMS.WebAPI.Utility;
 using SkiaSharp;
@@ -11,11 +12,25 @@ namespace OBMS.WebAPI.Repositories.Implementation
     public class InventoryRepository : IInventoryRepository
     {
         private readonly OBMSDbContext _oBMSDbContext;
+        // Part 7: injected for history recording + notifications
+        private readonly INotificationRepository? _notif;
+        private readonly IApprovalRepository?     _approval;
 
+        /// <summary>Legacy constructor — keeps existing DI registrations working.</summary>
         public InventoryRepository(OBMSDbContext oBMSDbContext)
         {
             _oBMSDbContext = oBMSDbContext;
+        }
 
+        /// <summary>Full constructor with Part 7 services.</summary>
+        public InventoryRepository(
+            OBMSDbContext oBMSDbContext,
+            INotificationRepository notif,
+            IApprovalRepository approval)
+        {
+            _oBMSDbContext = oBMSDbContext;
+            _notif         = notif;
+            _approval      = approval;
         }
 
         public async Task<InventoryCategory> SaveAndUpdateCategory(InventoryCategory category)
@@ -39,8 +54,22 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
         public async Task<List<Object>> GetCategories()
         {
-            var ret = _oBMSDbContext.InventoryCategories.ToList().OrderBy(x => x.Name);
-            return new List<Object>(ret);
+            var query = from cat in _oBMSDbContext.InventoryCategories
+                        join parent in _oBMSDbContext.InventoryCategories
+                            on cat.ParentCategoryID equals parent.ID into parentJoin
+                        from parent in parentJoin.DefaultIfEmpty()
+                        orderby cat.Name
+                        select new
+                        {
+                            cat.ID,
+                            cat.Name,
+                            cat.Cat,
+                            cat.AssetType,
+                            cat.ParentCategoryID,
+                            cat.LastUpdatedBy,
+                            ParentCategoryName = parent != null ? parent.Name : ""
+                        };
+            return new List<Object>(query.ToList());
         }
 
         public async Task<ActionResult<InventoryCategory>> GetCategoryByID(int ID)
@@ -89,46 +118,45 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
         public async Task<List<Object>> GetItems()
         {
-            var ret = _oBMSDbContext.ItemMasters.ToList().OrderBy(x => x.Name);
             var query = from item in _oBMSDbContext.ItemMasters
                         join category in _oBMSDbContext.InventoryCategories on item.CategoryID equals category.ID
+                        join brand in _oBMSDbContext.BrandMasters on item.BrandID equals brand.ID into brandJoin
+                        from brand in brandJoin.DefaultIfEmpty()
+                        join uom in _oBMSDbContext.UOMMasters on item.UOMID equals uom.ID into uomJoin
+                        from uom in uomJoin.DefaultIfEmpty()
                         select new
                         {
                             ID = item.ID,
+                            Code = item.Code,
                             ItemName = item.Name,
                             CategoryName = category.Name,
-                            Quantity = item.Quantity,
+                            BrandName = brand != null ? brand.Name : "",
+                            UOMName = uom != null ? uom.Name : "",
                             Price = item.Price,
-                            SellPrice = item.SellPrice,
+                            ReorderLevel = item.ReorderLevel,
+                            ReorderQuantity = item.ReorderQuantity,
                             Remarks = item.Remarks
                         };
-            return new List<Object>(query);
+            return new List<Object>(query.OrderBy(x => x.ItemName).ToList());
         }
 
         public async Task<Dictionary<string, Object>> GetItemByID(int ID)
         {
-            var category = new InventoryCategory();
-
-
             var results = new Dictionary<string, Object>();
 
-
             var item = _oBMSDbContext.ItemMasters.Where(x => x.ID == ID).FirstOrDefault();
+            if (item == null) return results;
 
-            if(ID  > 0)
-            {
-                category = _oBMSDbContext.InventoryCategories.Where(x => x.ID == ID).FirstOrDefault();
-            }
-            else
-            {
-                category = _oBMSDbContext.InventoryCategories.FirstOrDefault();
-            }
-            
+            // Fix: look up category by item's CategoryID, not by item's ID
+            var category = _oBMSDbContext.InventoryCategories
+                .Where(x => x.ID == item.CategoryID)
+                .FirstOrDefault();
+
+            if (category == null) category = _oBMSDbContext.InventoryCategories.FirstOrDefault();
 
             results.Add("item", item);
-            results.Add("type", category.Cat);
-            results.Add("categories", GetCategoriesByCat(category.Cat));
-
+            results.Add("type", category?.Cat ?? "P");
+            results.Add("categories", GetCategoriesByCat(category?.Cat ?? "P"));
 
             return results;
         }
@@ -629,6 +657,4567 @@ namespace OBMS.WebAPI.Repositories.Implementation
             _oBMSDbContext.suppliers.Remove(supplier);
             _oBMSDbContext.SaveChanges();
             return true;
+        }
+
+        // Part 1: New Inventory Masters - Brand
+        public async Task<BrandMaster> SaveAndUpdateBrandMaster(BrandMaster brand)
+        {
+            if (brand.ID == 0)
+            {
+                _oBMSDbContext.BrandMasters.Add(brand);
+            }
+            else
+            {
+                _oBMSDbContext.BrandMasters.Update(brand);
+            }
+
+            await _oBMSDbContext.SaveChangesAsync();
+
+            return brand;
+
+            throw new NotImplementedException();
+        }
+
+        public async Task<List<Object>> GetBrandMasters()
+        {
+            var ret = await _oBMSDbContext.BrandMasters.ToListAsync();
+            return new List<Object>(ret.OrderBy(x => x.Name).ToList());
+        }
+
+        public async Task<BrandMaster> GetBrandByID(int ID)
+        {
+            var ret = await _oBMSDbContext.BrandMasters.FindAsync(ID);
+            return ret;
+        }
+
+        // Part 1: New Inventory Masters - UOM
+        public async Task<UOMMaster> SaveAndUpdateUOMMaster(UOMMaster uom)
+        {
+            if (uom.ID == 0)
+            {
+                _oBMSDbContext.UOMMasters.Add(uom);
+            }
+            else
+            {
+                _oBMSDbContext.UOMMasters.Update(uom);
+            }
+
+            await _oBMSDbContext.SaveChangesAsync();
+
+            return uom;
+        }
+
+        public async Task<List<Object>> GetUOMMasters()
+        {
+            var ret = await _oBMSDbContext.UOMMasters.ToListAsync();
+            return new List<Object>(ret.OrderBy(x => x.Name).ToList());
+        }
+
+        public async Task<UOMMaster> GetUOMByID(int ID)
+        {
+            var ret = await _oBMSDbContext.UOMMasters.FindAsync(ID);
+            return ret;
+        }
+
+        // Part 1: New Inventory Masters - Warehouse
+        public async Task<WarehouseMaster> SaveAndUpdateWarehouseMaster(WarehouseMaster warehouse)
+        {
+            if (warehouse.ID == 0)
+            {
+                _oBMSDbContext.WarehouseMasters.Add(warehouse);
+            }
+            else
+            {
+                _oBMSDbContext.WarehouseMasters.Update(warehouse);
+            }
+
+            await _oBMSDbContext.SaveChangesAsync();
+
+            return warehouse;
+        }
+
+        public async Task<List<Object>> GetWarehouseMasters()
+        {
+            var ret = await _oBMSDbContext.WarehouseMasters.ToListAsync();
+            return new List<Object>(ret.OrderBy(x => x.Name).ToList());
+        }
+
+        public async Task<WarehouseMaster> GetWarehouseByID(int ID)
+        {
+            var ret = await _oBMSDbContext.WarehouseMasters.FindAsync(ID);
+            return ret;
+        }
+
+        public bool DeleteBrandAsync(int id)
+        {
+            var brand = _oBMSDbContext.BrandMasters.FirstOrDefault(a => a.ID == id);
+            if (brand == null)
+                return false;
+
+            _oBMSDbContext.BrandMasters.Remove(brand);
+            _oBMSDbContext.SaveChanges();
+            return true;
+        }
+
+        public bool DeleteUOMAsync(int id)
+        {
+            var uom = _oBMSDbContext.UOMMasters.FirstOrDefault(a => a.ID == id);
+            if (uom == null)
+                return false;
+
+            _oBMSDbContext.UOMMasters.Remove(uom);
+            _oBMSDbContext.SaveChanges();
+            return true;
+        }
+
+        public bool DeleteWarehouseAsync(int id)
+        {
+            var warehouse = _oBMSDbContext.WarehouseMasters.FirstOrDefault(a => a.ID == id);
+            if (warehouse == null)
+                return false;
+
+            _oBMSDbContext.WarehouseMasters.Remove(warehouse);
+            _oBMSDbContext.SaveChanges();
+            return true;
+        }
+
+        // ── Part 2: Opening Stock ────────────────────────────────────────────────
+
+        public async Task<List<OpeningStockListDto>> GetOpeningStockList()
+        {
+            var result = await (
+                from os in _oBMSDbContext.OpeningStocks
+                join wh in _oBMSDbContext.WarehouseMasters   on os.WarehouseID equals wh.ID
+                join im in _oBMSDbContext.ItemMasters         on os.ItemID       equals im.ID
+                join ic in _oBMSDbContext.InventoryCategories on im.CategoryID   equals ic.ID into icJoin
+                from ic in icJoin.DefaultIfEmpty()
+                join br in _oBMSDbContext.BrandMasters on im.BrandID equals br.ID into brJoin
+                from br in brJoin.DefaultIfEmpty()
+                join um in _oBMSDbContext.UOMMasters   on im.UOMID   equals um.ID into umJoin
+                from um in umJoin.DefaultIfEmpty()
+                where os.IsActive == true
+                orderby os.OpeningDate descending, os.ID descending
+                select new OpeningStockListDto
+                {
+                    ID            = os.ID,
+                    ReferenceNo   = os.ReferenceNo,
+                    WarehouseID   = os.WarehouseID,
+                    WarehouseName = wh.Name,
+                    ItemID        = os.ItemID,
+                    ItemCode      = im.Code ?? "",
+                    ItemName      = im.Name,
+                    CategoryName  = ic != null ? ic.Name : "",
+                    BrandName     = br != null ? br.Name : "",
+                    UOMName       = um != null ? um.Name : "",
+                    OpeningDate   = os.OpeningDate,
+                    OpeningQty    = os.OpeningQty,
+                    UnitCost      = os.UnitCost,
+                    TotalValue    = os.TotalValue,
+                    Remarks       = os.Remarks,
+                    LASTUPDATE    = os.LASTUPDATE,
+                    LastUpdatedBy = os.LastUpdatedBy
+                }
+            ).ToListAsync();
+            return result;
+        }
+
+        public async Task<OpeningStockListDto?> GetOpeningStockByID(int id)
+        {
+            var result = await (
+                from os in _oBMSDbContext.OpeningStocks
+                join wh in _oBMSDbContext.WarehouseMasters   on os.WarehouseID equals wh.ID
+                join im in _oBMSDbContext.ItemMasters         on os.ItemID       equals im.ID
+                join ic in _oBMSDbContext.InventoryCategories on im.CategoryID   equals ic.ID into icJoin
+                from ic in icJoin.DefaultIfEmpty()
+                join br in _oBMSDbContext.BrandMasters on im.BrandID equals br.ID into brJoin
+                from br in brJoin.DefaultIfEmpty()
+                join um in _oBMSDbContext.UOMMasters   on im.UOMID   equals um.ID into umJoin
+                from um in umJoin.DefaultIfEmpty()
+                where os.ID == id
+                select new OpeningStockListDto
+                {
+                    ID            = os.ID,
+                    ReferenceNo   = os.ReferenceNo,
+                    WarehouseID   = os.WarehouseID,
+                    WarehouseName = wh.Name,
+                    ItemID        = os.ItemID,
+                    ItemCode      = im.Code ?? "",
+                    ItemName      = im.Name,
+                    CategoryName  = ic != null ? ic.Name : "",
+                    BrandName     = br != null ? br.Name : "",
+                    UOMName       = um != null ? um.Name : "",
+                    OpeningDate   = os.OpeningDate,
+                    OpeningQty    = os.OpeningQty,
+                    UnitCost      = os.UnitCost,
+                    TotalValue    = os.TotalValue,
+                    Remarks       = os.Remarks,
+                    LASTUPDATE    = os.LASTUPDATE,
+                    LastUpdatedBy = os.LastUpdatedBy
+                }
+            ).FirstOrDefaultAsync();
+            return result;
+        }
+
+        public async Task<(bool Success, string Message, OpeningStock? Record)> SaveOpeningStock(
+            OpeningStockRequestDto dto)
+        {
+            // ── Application-layer duplicate check ──────────────────────────────
+            if (dto.ID == 0)
+            {
+                bool duplicate = await _oBMSDbContext.OpeningStocks
+                    .AnyAsync(x => x.WarehouseID == dto.WarehouseID
+                                && x.ItemID      == dto.ItemID
+                                && x.IsActive    == true);
+                if (duplicate)
+                    return (false,
+                        "Opening stock for this item already exists in the selected warehouse. " +
+                        "Please edit the existing entry instead.",
+                        null);
+            }
+
+            // ── Validate item and warehouse still exist ─────────────────────────
+            var item      = await _oBMSDbContext.ItemMasters.FindAsync(dto.ItemID);
+            var warehouse = await _oBMSDbContext.WarehouseMasters.FindAsync(dto.WarehouseID);
+
+            if (item == null)
+                return (false, "The selected item is no longer available. Please choose a different item.", null);
+            if (warehouse == null)
+                return (false, "The selected warehouse is no longer available. Please choose a different warehouse.", null);
+
+            // ── Generate reference code ─────────────────────────────────────────
+            string referenceNo;
+            if (dto.ID == 0)
+            {
+                var maxRow = await _oBMSDbContext.OpeningStocks
+                    .Where(x => x.ReferenceNo != null && x.ReferenceNo.StartsWith("OS"))
+                    .OrderByDescending(x => x.ReferenceNo)
+                    .FirstOrDefaultAsync();
+
+                if (maxRow == null || string.IsNullOrEmpty(maxRow.ReferenceNo))
+                    referenceNo = "OS0001";
+                else if (int.TryParse(maxRow.ReferenceNo.Substring(2), out int num))
+                    referenceNo = "OS" + (num + 1).ToString("D4");
+                else
+                    referenceNo = "OS0001";
+            }
+            else
+            {
+                var existing = await _oBMSDbContext.OpeningStocks.FindAsync(dto.ID);
+                if (existing == null)
+                    return (false, "The opening stock entry could not be found. It may have been deleted.", null);
+                referenceNo = existing.ReferenceNo;
+            }
+
+            decimal totalValue = dto.OpeningQty * dto.UnitCost;
+
+            // ── Transactional save using execution strategy (required when EnableRetryOnFailure is configured) ──
+            OpeningStock? savedRecord = null;
+            string savedMessage = "";
+
+            var strategy = _oBMSDbContext.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                using var dbTransaction = await _oBMSDbContext.Database.BeginTransactionAsync();
+                try
+                {
+                    OpeningStock record;
+
+                    if (dto.ID == 0)
+                    {
+                        record = new OpeningStock
+                        {
+                            ReferenceNo   = referenceNo,
+                            WarehouseID   = dto.WarehouseID,
+                            ItemID        = dto.ItemID,
+                            OpeningDate   = dto.OpeningDate,
+                            OpeningQty    = dto.OpeningQty,
+                            UnitCost      = dto.UnitCost,
+                            TotalValue    = totalValue,
+                            Remarks       = dto.Remarks,
+                            IsActive      = true,
+                            LASTUPDATE    = DateTime.Now,
+                            LastUpdatedBy = dto.LastUpdatedBy
+                        };
+                        _oBMSDbContext.OpeningStocks.Add(record);
+                        await _oBMSDbContext.SaveChangesAsync(); // get new ID before creating ledger row
+
+                        _oBMSDbContext.StockLedgers.Add(new StockLedger
+                        {
+                            TransactionNo   = await GenerateStockLedgerNo(),
+                            TransactionDate = dto.OpeningDate,
+                            TransactionType = "OPENING",
+                            WarehouseID     = dto.WarehouseID,
+                            ItemID          = dto.ItemID,
+                            InQty           = dto.OpeningQty,
+                            OutQty          = 0,
+                            UnitCost        = dto.UnitCost,
+                            ReferenceType   = "Opening Stock",
+                            ReferenceID     = record.ID,
+                            ReferenceNo     = referenceNo,
+                            Remarks         = dto.Remarks,
+                            LASTUPDATE      = DateTime.Now,
+                            LastUpdatedBy   = dto.LastUpdatedBy
+                        });
+                        await _oBMSDbContext.SaveChangesAsync();
+                        savedRecord  = record;
+                        savedMessage = "Opening stock saved successfully.";
+                    }
+                    else
+                    {
+                        record = await _oBMSDbContext.OpeningStocks.FindAsync(dto.ID)
+                            ?? throw new InvalidOperationException("Opening stock record not found.");
+
+                        record.WarehouseID   = dto.WarehouseID;
+                        record.ItemID        = dto.ItemID;
+                        record.OpeningDate   = dto.OpeningDate;
+                        record.OpeningQty    = dto.OpeningQty;
+                        record.UnitCost      = dto.UnitCost;
+                        record.TotalValue    = totalValue;
+                        record.Remarks       = dto.Remarks;
+                        record.LASTUPDATE    = DateTime.Now;
+                        record.LastUpdatedBy = dto.LastUpdatedBy;
+
+                        _oBMSDbContext.OpeningStocks.Update(record);
+                        await _oBMSDbContext.SaveChangesAsync();
+
+                        // Update corresponding OPENING ledger row in-place (no duplicate)
+                        var ledgerEntry = await _oBMSDbContext.StockLedgers
+                            .FirstOrDefaultAsync(x => x.ReferenceID    == dto.ID
+                                                   && x.TransactionType == "OPENING");
+
+                        if (ledgerEntry != null)
+                        {
+                            ledgerEntry.TransactionDate = dto.OpeningDate;
+                            ledgerEntry.WarehouseID     = dto.WarehouseID;
+                            ledgerEntry.ItemID          = dto.ItemID;
+                            ledgerEntry.InQty           = dto.OpeningQty;
+                            ledgerEntry.UnitCost        = dto.UnitCost;
+                            ledgerEntry.Remarks         = dto.Remarks;
+                            ledgerEntry.LASTUPDATE      = DateTime.Now;
+                            ledgerEntry.LastUpdatedBy   = dto.LastUpdatedBy;
+                            _oBMSDbContext.StockLedgers.Update(ledgerEntry);
+                        }
+                        else
+                        {
+                            // Safety net: missing ledger row — create it
+                            _oBMSDbContext.StockLedgers.Add(new StockLedger
+                            {
+                                TransactionNo   = await GenerateStockLedgerNo(),
+                                TransactionDate = dto.OpeningDate,
+                                TransactionType = "OPENING",
+                                WarehouseID     = dto.WarehouseID,
+                                ItemID          = dto.ItemID,
+                                InQty           = dto.OpeningQty,
+                                OutQty          = 0,
+                                UnitCost        = dto.UnitCost,
+                                ReferenceType   = "Opening Stock",
+                                ReferenceID     = dto.ID,
+                                ReferenceNo     = referenceNo,
+                                Remarks         = dto.Remarks,
+                                LASTUPDATE      = DateTime.Now,
+                                LastUpdatedBy   = dto.LastUpdatedBy
+                            });
+                        }
+
+                        await _oBMSDbContext.SaveChangesAsync();
+                        savedRecord  = record;
+                        savedMessage = "Opening stock updated successfully.";
+                    }
+
+                    await dbTransaction.CommitAsync();
+                }
+                catch
+                {
+                    await dbTransaction.RollbackAsync();
+                    throw;
+                }
+            });
+
+            return (true, savedMessage, savedRecord);
+        }
+
+        public async Task<(bool Success, string Message)> DeleteOpeningStock(int id, string currentUser)
+        {
+            var record = await _oBMSDbContext.OpeningStocks.FindAsync(id);
+            if (record == null)
+                return (false, "The opening stock entry could not be found. It may have already been removed.");
+
+            var strategy2 = _oBMSDbContext.Database.CreateExecutionStrategy();
+            bool deleteSuccess = false;
+            string deleteMessage = "";
+
+            await strategy2.ExecuteAsync(async () =>
+            {
+                using var dbTransaction = await _oBMSDbContext.Database.BeginTransactionAsync();
+                try
+                {
+                    record.IsActive      = false;
+                    record.LASTUPDATE    = DateTime.Now;
+                    record.LastUpdatedBy = currentUser;
+                    _oBMSDbContext.OpeningStocks.Update(record);
+                    await _oBMSDbContext.SaveChangesAsync();
+
+                    var ledgerEntry = await _oBMSDbContext.StockLedgers
+                        .FirstOrDefaultAsync(x => x.ReferenceID    == id
+                                               && x.TransactionType == "OPENING");
+                    if (ledgerEntry != null)
+                    {
+                        _oBMSDbContext.StockLedgers.Remove(ledgerEntry);
+                        await _oBMSDbContext.SaveChangesAsync();
+                    }
+
+                    await dbTransaction.CommitAsync();
+                    deleteSuccess = true;
+                    deleteMessage = "Opening stock entry removed successfully.";
+                }
+                catch
+                {
+                    await dbTransaction.RollbackAsync();
+                    throw;
+                }
+            });
+
+            return (deleteSuccess, deleteMessage);
+        }
+
+        // ── Part 2: Stock Ledger ─────────────────────────────────────────────────
+
+        public async Task<List<StockLedgerRowDto>> GetStockLedger(
+            int warehouseID,
+            int? itemID,
+            DateTime dateFrom,
+            DateTime dateTo,
+            string? transactionType)
+        {
+            var typeLabels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                { "OPENING",      "Opening Stock"    },
+                { "STOCK_IN",     "Stock In"         },
+                { "ISSUE",        "Stock Issue"      },
+                { "ISSUE_RETURN", "Issue Return"     },
+                { "TRANSFER_IN",  "Transfer In"      },
+                { "TRANSFER_OUT", "Transfer Out"     },
+                { "ADJ_PLUS",     "Adjustment (In)"  },
+                { "ADJ_MINUS",    "Adjustment (Out)" },
+                { "PURCHASE_RTN", "Purchase Return"  },
+                { "DAMAGE_LOSS",  "Damage / Loss"    },
+            };
+
+            var dateToEnd = dateTo.Date.AddDays(1).AddSeconds(-1);
+
+            var query = _oBMSDbContext.StockLedgers
+                .Where(sl => sl.WarehouseID     == warehouseID
+                          && sl.TransactionDate >= dateFrom.Date
+                          && sl.TransactionDate <= dateToEnd);
+
+            if (itemID.HasValue && itemID.Value > 0)
+                query = query.Where(sl => sl.ItemID == itemID.Value);
+
+            if (!string.IsNullOrWhiteSpace(transactionType) && transactionType != "ALL")
+                query = query.Where(sl => sl.TransactionType == transactionType);
+
+            var rows = await (
+                from sl in query
+                join wh in _oBMSDbContext.WarehouseMasters on sl.WarehouseID equals wh.ID
+                join im in _oBMSDbContext.ItemMasters       on sl.ItemID       equals im.ID
+                join um in _oBMSDbContext.UOMMasters   on im.UOMID equals um.ID into umJoin
+                from um in umJoin.DefaultIfEmpty()
+                orderby sl.ItemID, sl.TransactionDate, sl.ID
+                select new
+                {
+                    sl.ID, sl.TransactionNo, sl.TransactionDate, sl.TransactionType,
+                    sl.WarehouseID, WarehouseName = wh.Name,
+                    sl.ItemID, ItemCode = im.Code ?? "", ItemName = im.Name,
+                    UOMName = um != null ? um.Name : "",
+                    sl.InQty, sl.OutQty, sl.UnitCost,
+                    sl.ReferenceNo, sl.ReferenceType, sl.Remarks,
+                    sl.LASTUPDATE, sl.LastUpdatedBy
+                }
+            ).ToListAsync();
+
+            var result = new List<StockLedgerRowDto>();
+            var runningBalances = new Dictionary<(int, int), decimal>();
+
+            foreach (var row in rows)
+            {
+                var key = (row.WarehouseID, row.ItemID);
+                if (!runningBalances.ContainsKey(key))
+                    runningBalances[key] = 0;
+                runningBalances[key] += row.InQty - row.OutQty;
+
+                result.Add(new StockLedgerRowDto
+                {
+                    ID                   = row.ID,
+                    TransactionNo        = row.TransactionNo,
+                    TransactionDate      = row.TransactionDate,
+                    TransactionType      = row.TransactionType,
+                    TransactionTypeLabel = typeLabels.TryGetValue(row.TransactionType, out var lbl) ? lbl : row.TransactionType,
+                    WarehouseID          = row.WarehouseID,
+                    WarehouseName        = row.WarehouseName,
+                    ItemID               = row.ItemID,
+                    ItemCode             = row.ItemCode,
+                    ItemName             = row.ItemName,
+                    UOMName              = row.UOMName,
+                    InQty                = row.InQty,
+                    OutQty               = row.OutQty,
+                    RunningBalance       = runningBalances[key],
+                    UnitCost             = row.UnitCost,
+                    ReferenceNo          = row.ReferenceNo,
+                    ReferenceType        = row.ReferenceType,
+                    Remarks              = row.Remarks,
+                    LASTUPDATE           = row.LASTUPDATE,
+                    LastUpdatedBy        = row.LastUpdatedBy
+                });
+            }
+            return result;
+        }
+
+        public async Task<decimal> GetCurrentStock(int warehouseID, int itemID)
+        {
+            var balance = await _oBMSDbContext.StockLedgers
+                .Where(sl => sl.WarehouseID == warehouseID && sl.ItemID == itemID)
+                .SumAsync(sl => (decimal?)(sl.InQty - sl.OutQty));
+            return balance ?? 0;
+        }
+
+        // ── Private helpers ──────────────────────────────────────────────────────
+
+        private async Task<string> GenerateStockLedgerNo()
+        {
+            var maxRow = await _oBMSDbContext.StockLedgers
+                .Where(x => x.TransactionNo != null && x.TransactionNo.StartsWith("SL"))
+                .OrderByDescending(x => x.TransactionNo)
+                .FirstOrDefaultAsync();
+
+            if (maxRow == null || string.IsNullOrEmpty(maxRow.TransactionNo))
+                return "SL00001";
+            if (int.TryParse(maxRow.TransactionNo.Substring(2), out int num))
+                return "SL" + (num + 1).ToString("D5");
+            return "SL00001";
+        }
+
+        // ════════════════════════════════════════════════════════════════════════
+        // PART 3 — PURCHASE REQUISITION
+        // ════════════════════════════════════════════════════════════════════════
+
+        // ── Shared enrichment query ───────────────────────────────────────────
+
+        private IQueryable<PRListDto> PRListQuery() =>
+            from pr in _oBMSDbContext.PurchaseRequisitions
+            where pr.IsActive == true
+            orderby pr.PRDate descending, pr.ID descending
+            select new PRListDto
+            {
+                ID              = pr.ID,
+                PRNumber        = pr.PRNumber,
+                PRDate          = pr.PRDate,
+                RequiredByDate  = pr.RequiredByDate,
+                Status          = pr.Status,
+                Remarks         = pr.Remarks,
+                ApprovedBy      = pr.ApprovedBy,
+                ApprovedDate    = pr.ApprovedDate,
+                ApprovalRemarks = pr.ApprovalRemarks,
+                // Part 7: SubmittedBy/SubmittedDate must be in the DTO so the
+                // frontend can pass the correct requesterUser to IsCurrentUserApprover.
+                SubmittedBy     = pr.SubmittedBy,
+                SubmittedDate   = pr.SubmittedDate,
+                LASTUPDATE      = pr.LASTUPDATE,
+                LastUpdatedBy   = pr.LastUpdatedBy
+            };
+
+        public async Task<List<PRListDto>> GetPRList()
+        {
+            var list = await PRListQuery().ToListAsync();
+            foreach (var pr in list)
+            {
+                pr.Details = await GetPRDetails(pr.ID);
+
+                // ── Compute DisplayStatus ──────────────────────────────────
+                // Only Approved PRs can have further progression
+                if (pr.Status == "Approved")
+                {
+                    // Check if a PO exists for this PR
+                    var po = await _oBMSDbContext.PurchaseOrders
+                        .Where(p => p.PRID == pr.ID && p.IsActive)
+                        .Select(p => new { p.ID, p.Status })
+                        .FirstOrDefaultAsync();
+
+                    if (po != null)
+                    {
+                        // Check if a GRN exists for that PO
+                        bool grnExists = await _oBMSDbContext.GoodsReceiptNotes
+                            .AnyAsync(g => g.POID == po.ID && g.IsActive);
+
+                        pr.DisplayStatus = grnExists ? "GRN Posted" : "PO Posted";
+                    }
+                    else
+                    {
+                        pr.DisplayStatus = pr.Status; // "Approved" — no PO yet
+                    }
+                }
+                else
+                {
+                    pr.DisplayStatus = pr.Status;
+                }
+            }
+            return list;
+        }
+
+        public async Task<PRListDto?> GetPRByID(int id)
+        {
+            var pr = await PRListQuery().FirstOrDefaultAsync(x => x.ID == id);
+            if (pr != null)
+                pr.Details = await GetPRDetails(id);
+            return pr;
+        }
+
+        private async Task<List<PRDetailListDto>> GetPRDetails(int prID)
+        {
+            return await (
+                from d in _oBMSDbContext.PurchaseRequisitionDetails
+                join im in _oBMSDbContext.ItemMasters on d.ItemID equals im.ID
+                join ic in _oBMSDbContext.InventoryCategories on im.CategoryID equals ic.ID into icJoin
+                from ic in icJoin.DefaultIfEmpty()
+                join um in _oBMSDbContext.UOMMasters on d.UOMID equals um.ID into umJoin
+                from um in umJoin.DefaultIfEmpty()
+                where d.PRID == prID
+                select new PRDetailListDto
+                {
+                    ID           = d.ID,
+                    PRID         = d.PRID,
+                    ItemID       = d.ItemID,
+                    ItemCode     = im.Code ?? "",
+                    ItemName     = im.Name,
+                    CategoryName = ic != null ? ic.Name : "",
+                    RequiredQty  = d.RequiredQty,
+                    UOMID        = d.UOMID,
+                    UOMName      = um != null ? um.Name : "",
+                    Remarks      = d.Remarks
+                }
+            ).ToListAsync();
+        }
+
+        public async Task<(bool Success, string Message, PurchaseRequisition? Record)> SavePR(PRRequestDto dto)
+        {
+            if (!dto.Details.Any())
+                return (false, "Please add at least one item to the requisition.", null);
+
+            if (dto.Details.Any(d => d.RequiredQty <= 0))
+            {
+                var bad = dto.Details.First(d => d.RequiredQty <= 0);
+                var badItem = await _oBMSDbContext.ItemMasters.FindAsync(bad.ItemID);
+                return (false, $"Quantity for \"{badItem?.Name ?? "the item"}\" must be greater than zero.", null);
+            }
+
+            // On edit: confirm it is still Draft
+            if (dto.ID != 0)
+            {
+                var existing = await _oBMSDbContext.PurchaseRequisitions.FindAsync(dto.ID);
+                if (existing == null)
+                    return (false, "This requisition could not be found. It may have been removed.", null);
+                if (existing.Status != "Draft")
+                    return (false, $"This purchase requisition has already been {existing.Status.ToLower()} and cannot be edited.", null);
+            }
+
+            // Generate code
+            string prNumber = dto.PRNumber ?? "";
+            if (dto.ID == 0)
+            {
+                var maxRow = await _oBMSDbContext.PurchaseRequisitions
+                    .Where(x => x.PRNumber != null && x.PRNumber.StartsWith("PR"))
+                    .OrderByDescending(x => x.PRNumber)
+                    .FirstOrDefaultAsync();
+                prNumber = (maxRow == null || string.IsNullOrEmpty(maxRow.PRNumber))
+                    ? "PR0001"
+                    : int.TryParse(maxRow.PRNumber.Substring(2), out int n)
+                        ? "PR" + (n + 1).ToString("D4")
+                        : "PR0001";
+            }
+
+            var strategy = _oBMSDbContext.Database.CreateExecutionStrategy();
+            PurchaseRequisition? savedRecord = null;
+
+            await strategy.ExecuteAsync(async () =>
+            {
+                using var tx = await _oBMSDbContext.Database.BeginTransactionAsync();
+                try
+                {
+                    PurchaseRequisition pr;
+                    if (dto.ID == 0)
+                    {
+                        pr = new PurchaseRequisition
+                        {
+                            PRNumber       = prNumber,
+                            PRDate         = dto.PRDate,
+                            RequiredByDate = dto.RequiredByDate,
+                            Status         = "Draft",
+                            Remarks        = dto.Remarks,
+                            IsActive       = true,
+                            LASTUPDATE     = DateTime.Now,
+                            LastUpdatedBy  = dto.LastUpdatedBy
+                        };
+                        _oBMSDbContext.PurchaseRequisitions.Add(pr);
+                        await _oBMSDbContext.SaveChangesAsync();
+                    }
+                    else
+                    {
+                        pr = await _oBMSDbContext.PurchaseRequisitions.FindAsync(dto.ID)!;
+                        pr.PRDate         = dto.PRDate;
+                        pr.RequiredByDate = dto.RequiredByDate;
+                        pr.Remarks        = dto.Remarks;
+                        pr.LASTUPDATE     = DateTime.Now;
+                        pr.LastUpdatedBy  = dto.LastUpdatedBy;
+                        _oBMSDbContext.PurchaseRequisitions.Update(pr);
+                        await _oBMSDbContext.SaveChangesAsync();
+
+                        // Remove existing detail lines before re-adding
+                        var oldDetails = _oBMSDbContext.PurchaseRequisitionDetails.Where(x => x.PRID == pr.ID);
+                        _oBMSDbContext.PurchaseRequisitionDetails.RemoveRange(oldDetails);
+                        await _oBMSDbContext.SaveChangesAsync();
+                    }
+
+                    foreach (var d in dto.Details)
+                    {
+                        _oBMSDbContext.PurchaseRequisitionDetails.Add(new PurchaseRequisitionDetail
+                        {
+                            PRID          = pr.ID,
+                            ItemID        = d.ItemID,
+                            RequiredQty   = d.RequiredQty,
+                            UOMID         = d.UOMID == 0 ? null : d.UOMID,
+                            Remarks       = d.Remarks,
+                            LASTUPDATE    = DateTime.Now,
+                            LastUpdatedBy = d.LastUpdatedBy ?? dto.LastUpdatedBy
+                        });
+                    }
+                    await _oBMSDbContext.SaveChangesAsync();
+                    await tx.CommitAsync();
+                    savedRecord = pr;
+                }
+                catch { await tx.RollbackAsync(); throw; }
+            });
+
+            return (true, dto.ID == 0 ? "Purchase requisition saved successfully." : "Purchase requisition updated successfully.", savedRecord);
+        }
+
+        public async Task<(bool Success, string Message)> SubmitPR(int id, string currentUser)
+        {
+            var pr = await _oBMSDbContext.PurchaseRequisitions.FindAsync(id);
+            if (pr == null) return (false, "This purchase requisition could not be found.");
+            if (pr.Status != "Draft")
+                return (false, $"Only a Draft requisition can be submitted. This requisition is currently {pr.Status}.");
+
+            var hasDetails = await _oBMSDbContext.PurchaseRequisitionDetails.AnyAsync(x => x.PRID == id);
+            if (!hasDetails)
+                return (false, "Please add at least one item to the requisition before submitting.");
+
+            // ── Routing check: find the configured approver before committing ──
+            // Design note: ApprovalConfiguration.ApprovalRequired is informational only
+            // and is NOT enforced here. Approval requirement is determined solely by
+            // whether an active ApprovalRouting row exists for this requester+documentType.
+            // If no routing exists → direct-approve flow. If routing exists → submit flow.
+            if (_approval != null)
+            {
+                var approverUser = await _approval.GetApproverForUser(
+                    currentUser, "PURCHASE_REQUISITION");
+
+                if (string.IsNullOrEmpty(approverUser))
+                {
+                    // ── No approval routing configured → direct approved flow ──
+                    // PR goes straight to Approved so it can be used for PO immediately.
+                    // No Pending Approval, no notification, no ApprovalHistory.
+                    string prevDirect = pr.Status;
+                    pr.Status        = "Approved";
+                    pr.ApprovedBy    = currentUser;
+                    pr.ApprovedDate  = DateTime.Now;
+                    pr.SubmittedBy   = currentUser;
+                    pr.SubmittedDate = DateTime.Now;
+                    pr.LASTUPDATE    = DateTime.Now;
+                    pr.LastUpdatedBy = currentUser;
+                    await _oBMSDbContext.SaveChangesAsync();
+                    return (true, $"Purchase Requisition {pr.PRNumber} has been approved. You can now create a Purchase Order.");
+                }
+
+                string prev = pr.Status;
+                pr.Status        = "Submitted";
+                pr.SubmittedBy   = currentUser;
+                pr.SubmittedDate = DateTime.Now;
+                pr.LASTUPDATE    = DateTime.Now;
+                pr.LastUpdatedBy = currentUser;
+                await _oBMSDbContext.SaveChangesAsync();
+
+                // Record history (awaited — must succeed)
+                await _approval.RecordHistory("PURCHASE_REQUISITION", pr.ID, pr.PRNumber,
+                    "Submitted", currentUser, prev, "Submitted", null);
+
+                // Notify the actual configured approver — awaited so we know it succeeded
+                if (_notif != null)
+                    await _notif.SendApprovalNotification(
+                        "PENDING_APPROVAL", "PURCHASE_REQUISITION", pr.PRNumber, pr.ID,
+                        approverUser, currentUser, null);
+            }
+            else
+            {
+                // Fallback if approval service not injected (should not happen in production)
+                string prev = pr.Status;
+                pr.Status        = "Submitted";
+                pr.SubmittedBy   = currentUser;
+                pr.SubmittedDate = DateTime.Now;
+                pr.LASTUPDATE    = DateTime.Now;
+                pr.LastUpdatedBy = currentUser;
+                await _oBMSDbContext.SaveChangesAsync();
+            }
+
+            return (true, $"Purchase Requisition {pr.PRNumber} has been submitted for approval.");
+        }
+
+        public async Task<(bool Success, string Message)> ApprovePR(int id, PRApprovalDto dto)
+        {
+            var pr = await _oBMSDbContext.PurchaseRequisitions.FindAsync(id);
+            if (pr == null) return (false, "This purchase requisition could not be found.");
+            if (pr.Status != "Submitted")
+                return (false, "Only a Submitted requisition can be approved. Please ensure the requisition has been submitted first.");
+
+            // ── Security: verify the authenticated user is the configured approver ──
+            var submitter = pr.SubmittedBy ?? pr.LastUpdatedBy ?? string.Empty;
+            bool isSuperAdmin = string.Equals(dto.ApprovedBy, "superadmin",
+                                              StringComparison.OrdinalIgnoreCase);
+            if (!isSuperAdmin && _approval != null)
+            {
+                var authorized = await _approval.IsAuthorizedApprover(
+                    dto.ApprovedBy, submitter, "PURCHASE_REQUISITION");
+                if (!authorized)
+                    return (false, "You are not authorized to approve this document.");
+            }
+
+            string prev        = pr.Status;
+            pr.Status          = "Approved";
+            pr.ApprovedBy      = dto.ApprovedBy;
+            pr.ApprovedDate    = DateTime.Now;
+            pr.ApprovalRemarks = dto.ApprovalRemarks;
+            pr.LASTUPDATE      = DateTime.Now;
+            pr.LastUpdatedBy   = dto.ApprovedBy;
+            await _oBMSDbContext.SaveChangesAsync();
+
+            // Part 7: record history + notify requester
+            if (_approval != null)
+                await _approval.RecordHistory("PURCHASE_REQUISITION", pr.ID, pr.PRNumber,
+                    "Approved", dto.ApprovedBy, prev, "Approved", dto.ApprovalRemarks);
+            if (_notif != null && !string.IsNullOrEmpty(pr.SubmittedBy))
+                await _notif.SendApprovalNotification(
+                    "APPROVED", "PURCHASE_REQUISITION", pr.PRNumber, pr.ID,
+                    pr.SubmittedBy, dto.ApprovedBy, dto.ApprovalRemarks);
+
+            return (true, $"Purchase Requisition {pr.PRNumber} has been approved. You can now create a Purchase Order.");
+        }
+
+        public async Task<(bool Success, string Message)> RejectPR(int id, PRApprovalDto dto)
+        {
+            var pr = await _oBMSDbContext.PurchaseRequisitions.FindAsync(id);
+            if (pr == null) return (false, "This purchase requisition could not be found.");
+            if (pr.Status != "Submitted")
+                return (false, "Only a Submitted requisition can be rejected.");
+            if (string.IsNullOrWhiteSpace(dto.ApprovalRemarks))
+                return (false, "Please enter a reason for rejection so the requester knows what to correct.");
+
+            // ── Security: verify the authenticated user is the configured approver ──
+            var submitter = pr.SubmittedBy ?? pr.LastUpdatedBy ?? string.Empty;
+            bool isSuperAdmin = string.Equals(dto.ApprovedBy, "superadmin",
+                                              StringComparison.OrdinalIgnoreCase);
+            if (!isSuperAdmin && _approval != null)
+            {
+                var authorized = await _approval.IsAuthorizedApprover(
+                    dto.ApprovedBy, submitter, "PURCHASE_REQUISITION");
+                if (!authorized)
+                    return (false, "You are not authorized to reject this document.");
+            }
+
+            string prev        = pr.Status;
+            pr.Status          = "Rejected";
+            pr.ApprovedBy      = dto.ApprovedBy;
+            pr.ApprovedDate    = DateTime.Now;
+            pr.ApprovalRemarks = dto.ApprovalRemarks;
+            pr.LASTUPDATE      = DateTime.Now;
+            pr.LastUpdatedBy   = dto.ApprovedBy;
+            await _oBMSDbContext.SaveChangesAsync();
+
+            // Part 7: record history + notify requester
+            if (_approval != null)
+                await _approval.RecordHistory("PURCHASE_REQUISITION", pr.ID, pr.PRNumber,
+                    "Rejected", dto.ApprovedBy, prev, "Rejected", dto.ApprovalRemarks);
+            if (_notif != null && !string.IsNullOrEmpty(pr.SubmittedBy))
+                await _notif.SendApprovalNotification(
+                    "REJECTED", "PURCHASE_REQUISITION", pr.PRNumber, pr.ID,
+                    pr.SubmittedBy, dto.ApprovedBy, dto.ApprovalRemarks);
+
+            return (true, $"Purchase Requisition {pr.PRNumber} has been rejected.");
+        }
+
+        public async Task<(bool Success, string Message)> DeletePR(int id, string currentUser)
+        {
+            var pr = await _oBMSDbContext.PurchaseRequisitions.FindAsync(id);
+            if (pr == null) return (false, "This purchase requisition could not be found.");
+            if (pr.Status != "Draft")
+                return (false, $"This purchase requisition cannot be deleted because it has already been {pr.Status.ToLower()}. Only Draft requisitions can be deleted.");
+
+            pr.IsActive      = false;
+            pr.LASTUPDATE    = DateTime.Now;
+            pr.LastUpdatedBy = currentUser;
+            await _oBMSDbContext.SaveChangesAsync();
+            return (true, "Purchase requisition removed successfully.");
+        }
+
+
+        // ════════════════════════════════════════════════════════════════════════
+        // PART 3 — PURCHASE ORDER
+        // ════════════════════════════════════════════════════════════════════════
+
+        private IQueryable<POListDto> POListQuery() =>
+            from po in _oBMSDbContext.PurchaseOrders
+            join sup in _oBMSDbContext.Suppliers    on po.SupplierID  equals sup.Id
+            join wh  in _oBMSDbContext.WarehouseMasters on po.WarehouseID equals wh.ID
+            join pr  in _oBMSDbContext.PurchaseRequisitions on po.PRID equals pr.ID into prJoin
+            from pr in prJoin.DefaultIfEmpty()
+            where po.IsActive == true
+            orderby po.PODate descending, po.ID descending
+            select new POListDto
+            {
+                ID            = po.ID,
+                PONumber      = po.PONumber,
+                PRID          = po.PRID,
+                PRNumber      = pr != null ? pr.PRNumber : "",
+                SupplierID    = po.SupplierID,
+                SupplierName  = sup.Name,
+                WarehouseID   = po.WarehouseID,
+                WarehouseName = wh.Name,
+                PODate        = po.PODate,
+                ExpectedDate  = po.ExpectedDate,
+                Status        = po.Status,
+                TotalAmount   = po.TotalAmount,
+                Remarks       = po.Remarks,
+                ApprovedBy    = po.ApprovedBy,
+                ApprovedDate  = po.ApprovedDate,
+                SubmittedBy   = po.SubmittedBy,
+                SubmittedDate = po.SubmittedDate,
+                RejectReason  = po.RejectReason,
+                LASTUPDATE    = po.LASTUPDATE,
+                LastUpdatedBy = po.LastUpdatedBy
+            };
+
+        public async Task<List<POListDto>> GetPOList()
+        {
+            var list = await POListQuery().ToListAsync();
+            foreach (var po in list)
+                po.Details = await GetPODetails(po.ID);
+            return list;
+        }
+
+        public async Task<POListDto?> GetPOByID(int id)
+        {
+            var po = await POListQuery().FirstOrDefaultAsync(x => x.ID == id);
+            if (po != null)
+                po.Details = await GetPODetails(id);
+            return po;
+        }
+
+        /// <summary>
+        /// Returns the existing active PO for a given PRID, or null if none exists.
+        /// Used to prevent duplicate POs when an approved-PR notification is clicked
+        /// more than once.
+        /// </summary>
+        public async Task<POListDto?> GetPOByPRID(int prID)
+        {
+            // POListQuery already filters po.IsActive == true
+            var po = await POListQuery()
+                .FirstOrDefaultAsync(x => x.PRID == prID);
+            if (po != null)
+                po.Details = await GetPODetails(po.ID);
+            return po;
+        }
+
+        private async Task<List<PODetailListDto>> GetPODetails(int poID)
+        {
+            return await (
+                from d  in _oBMSDbContext.PurchaseOrderDetails
+                join im in _oBMSDbContext.ItemMasters on d.ItemID equals im.ID
+                join ic in _oBMSDbContext.InventoryCategories on im.CategoryID equals ic.ID into icJoin
+                from ic in icJoin.DefaultIfEmpty()
+                join um in _oBMSDbContext.UOMMasters on d.UOMID equals um.ID into umJoin
+                from um in umJoin.DefaultIfEmpty()
+                where d.POID == poID
+                select new PODetailListDto
+                {
+                    ID           = d.ID,
+                    POID         = d.POID,
+                    ItemID       = d.ItemID,
+                    ItemCode     = im.Code ?? "",
+                    ItemName     = im.Name,
+                    CategoryName = ic != null ? ic.Name : "",
+                    UOMID        = d.UOMID,
+                    UOMName      = um != null ? um.Name : "",
+                    OrderedQty   = d.OrderedQty,
+                    ReceivedQty  = d.ReceivedQty,
+                    PendingQty   = d.OrderedQty - d.ReceivedQty,
+                    UnitPrice    = d.UnitPrice,
+                    TotalPrice   = d.TotalPrice,
+                    Remarks      = d.Remarks
+                }
+            ).ToListAsync();
+        }
+
+        public async Task<List<PRListDto>> GetApprovedPRsForPO()
+        {
+            // Return approved PRs that have NOT yet been converted to a PO
+            var prIdsWithPO = _oBMSDbContext.PurchaseOrders
+                .Where(po => po.PRID != null && po.IsActive)
+                .Select(po => po.PRID!.Value);
+
+            var list = await PRListQuery()
+                .Where(pr => pr.Status == "Approved" && !prIdsWithPO.Contains(pr.ID))
+                .ToListAsync();
+            return list;
+        }
+
+        public async Task<(bool Success, string Message, PurchaseOrder? Record)> SavePO(PORequestDto dto)
+        {
+            if (!dto.Details.Any())
+                return (false, "Please add at least one item to the purchase order.", null);
+
+            if (dto.Details.Any(d => d.OrderedQty <= 0))
+            {
+                var bad = dto.Details.First(d => d.OrderedQty <= 0);
+                var badItem = await _oBMSDbContext.ItemMasters.FindAsync(bad.ItemID);
+                return (false, $"Quantity for \"{badItem?.Name ?? "the item"}\" must be greater than zero.", null);
+            }
+
+            if (dto.Details.Any(d => d.UnitPrice < 0))
+                return (false, "Unit price cannot be negative. Please enter a valid price for all items.", null);
+
+            // Validate status on edit
+            if (dto.ID != 0)
+            {
+                var existing = await _oBMSDbContext.PurchaseOrders.FindAsync(dto.ID);
+                if (existing == null) return (false, "This purchase order could not be found.", null);
+                if (existing.Status != "Draft")
+                    return (false, $"This purchase order cannot be edited because it has already been {existing.Status.ToLower()}.", null);
+            }
+
+            // Validate linked PR if provided
+            if (dto.PRID.HasValue && dto.PRID > 0)
+            {
+                var pr = await _oBMSDbContext.PurchaseRequisitions.FindAsync(dto.PRID.Value);
+                if (pr == null)
+                    return (false, "The selected purchase requisition could not be found.", null);
+                if (pr.Status != "Approved")
+                    return (false, $"Purchase Requisition {pr.PRNumber} has not been approved yet. It must be approved before a Purchase Order can be created.", null);
+
+                // ── Duplicate PO guard ─────────────────────────────────────
+                // A new PO (dto.ID == 0) must not be created if an active PO
+                // already references the same PR. This prevents duplicate POs
+                // when the user clicks the same approval notification twice.
+                if (dto.ID == 0)
+                {
+                    var existingPO = await _oBMSDbContext.PurchaseOrders
+                        .Where(po => po.PRID == dto.PRID.Value && po.IsActive)
+                        .Select(po => new { po.PONumber })
+                        .FirstOrDefaultAsync();
+
+                    if (existingPO != null)
+                        return (false,
+                            $"A Purchase Order ({existingPO.PONumber}) already exists for Purchase Requisition {pr.PRNumber}. " +
+                            "Please open the existing Purchase Order instead of creating a new one.", null);
+                }
+            }
+
+            // Generate PO number
+            string poNumber = dto.PONumber ?? "";
+            if (dto.ID == 0)
+            {
+                var maxRow = await _oBMSDbContext.PurchaseOrders
+                    .Where(x => x.PONumber != null && x.PONumber.StartsWith("PO"))
+                    .OrderByDescending(x => x.PONumber)
+                    .FirstOrDefaultAsync();
+                poNumber = (maxRow == null || string.IsNullOrEmpty(maxRow.PONumber))
+                    ? "PO0001"
+                    : int.TryParse(maxRow.PONumber.Substring(2), out int n)
+                        ? "PO" + (n + 1).ToString("D4")
+                        : "PO0001";
+            }
+
+            decimal totalAmount = dto.Details.Sum(d => d.OrderedQty * d.UnitPrice);
+
+            var strategy = _oBMSDbContext.Database.CreateExecutionStrategy();
+            PurchaseOrder? savedRecord = null;
+
+            await strategy.ExecuteAsync(async () =>
+            {
+                using var tx = await _oBMSDbContext.Database.BeginTransactionAsync();
+                try
+                {
+                    PurchaseOrder po;
+                    if (dto.ID == 0)
+                    {
+                        po = new PurchaseOrder
+                        {
+                            PONumber      = poNumber,
+                            PRID          = dto.PRID.HasValue && dto.PRID > 0 ? dto.PRID : null,
+                            SupplierID    = dto.SupplierID,
+                            WarehouseID   = dto.WarehouseID,
+                            PODate        = dto.PODate,
+                            ExpectedDate  = dto.ExpectedDate,
+                            Status        = "Draft",
+                            TotalAmount   = totalAmount,
+                            Remarks       = dto.Remarks,
+                            IsActive      = true,
+                            LASTUPDATE    = DateTime.Now,
+                            LastUpdatedBy = dto.LastUpdatedBy
+                        };
+                        _oBMSDbContext.PurchaseOrders.Add(po);
+                        await _oBMSDbContext.SaveChangesAsync();
+                    }
+                    else
+                    {
+                        po = await _oBMSDbContext.PurchaseOrders.FindAsync(dto.ID)!;
+                        po.PRID          = dto.PRID.HasValue && dto.PRID > 0 ? dto.PRID : null;
+                        po.SupplierID    = dto.SupplierID;
+                        po.WarehouseID   = dto.WarehouseID;
+                        po.PODate        = dto.PODate;
+                        po.ExpectedDate  = dto.ExpectedDate;
+                        po.TotalAmount   = totalAmount;
+                        po.Remarks       = dto.Remarks;
+                        po.LASTUPDATE    = DateTime.Now;
+                        po.LastUpdatedBy = dto.LastUpdatedBy;
+                        _oBMSDbContext.PurchaseOrders.Update(po);
+                        await _oBMSDbContext.SaveChangesAsync();
+
+                        var oldDetails = _oBMSDbContext.PurchaseOrderDetails.Where(x => x.POID == po.ID);
+                        _oBMSDbContext.PurchaseOrderDetails.RemoveRange(oldDetails);
+                        await _oBMSDbContext.SaveChangesAsync();
+                    }
+
+                    foreach (var d in dto.Details)
+                    {
+                        _oBMSDbContext.PurchaseOrderDetails.Add(new PurchaseOrderDetail
+                        {
+                            POID          = po.ID,
+                            ItemID        = d.ItemID,
+                            UOMID         = d.UOMID == 0 ? null : d.UOMID,
+                            OrderedQty    = d.OrderedQty,
+                            ReceivedQty   = 0,
+                            UnitPrice     = d.UnitPrice,
+                            TotalPrice    = d.OrderedQty * d.UnitPrice,
+                            Remarks       = d.Remarks,
+                            LASTUPDATE    = DateTime.Now,
+                            LastUpdatedBy = d.LastUpdatedBy ?? dto.LastUpdatedBy
+                        });
+                    }
+                    await _oBMSDbContext.SaveChangesAsync();
+                    await tx.CommitAsync();
+                    savedRecord = po;
+                }
+                catch { await tx.RollbackAsync(); throw; }
+            });
+
+            return (true, dto.ID == 0 ? $"Purchase Order {poNumber} saved successfully." : "Purchase order updated successfully.", savedRecord);
+        }
+
+        public async Task<(bool Success, string Message)> ApprovePO(int id, POApprovalDto dto)
+        {
+            var po = await _oBMSDbContext.PurchaseOrders.FindAsync(id);
+            if (po == null) return (false, "This purchase order could not be found.");
+            // Accept Draft (legacy flow) or Submitted (new Part 7 flow)
+            if (po.Status != "Draft" && po.Status != "Submitted")
+                return (false, $"Only a Draft or Submitted purchase order can be approved. This order is currently {po.Status}.");
+
+            // ── Security: verify the authenticated user is the configured approver ──
+            var submitter = po.SubmittedBy ?? po.LastUpdatedBy ?? string.Empty;
+            bool isSuperAdmin = string.Equals(dto.ApprovedBy, "superadmin",
+                                              StringComparison.OrdinalIgnoreCase);
+            if (!isSuperAdmin && _approval != null)
+            {
+                var authorized = await _approval.IsAuthorizedApprover(
+                    dto.ApprovedBy, submitter, "PURCHASE_ORDER");
+                if (!authorized)
+                    return (false, "You are not authorized to approve this document.");
+            }
+
+            string prev      = po.Status;
+            po.Status        = "Approved";
+            po.ApprovedBy    = dto.ApprovedBy;
+            po.ApprovedDate  = DateTime.Now;
+            po.LASTUPDATE    = DateTime.Now;
+            po.LastUpdatedBy = dto.ApprovedBy;
+            await _oBMSDbContext.SaveChangesAsync();
+
+            // Part 7: record history + notify requester (awaited — not fire-and-forget)
+            if (_approval != null)
+                await _approval.RecordHistory("PURCHASE_ORDER", po.ID, po.PONumber,
+                    "Approved", dto.ApprovedBy, prev, "Approved", null);
+            if (_notif != null && !string.IsNullOrEmpty(po.SubmittedBy))
+                await _notif.SendApprovalNotification(
+                    "APPROVED", "PURCHASE_ORDER", po.PONumber, po.ID,
+                    po.SubmittedBy, dto.ApprovedBy, null);
+
+            return (true, $"Purchase Order {po.PONumber} has been approved. Goods can now be received against this order.");
+        }
+
+        public async Task<(bool Success, string Message)> CancelPO(int id, string currentUser)
+        {
+            var po = await _oBMSDbContext.PurchaseOrders.FindAsync(id);
+            if (po == null) return (false, "This purchase order could not be found.");
+            if (po.Status == "Fully Received")
+                return (false, $"Purchase Order {po.PONumber} cannot be cancelled because all goods have already been received.");
+            if (po.Status == "Partially Received")
+                return (false, $"Purchase Order {po.PONumber} cannot be cancelled because goods have already been partially received against it.");
+            if (po.Status == "Cancelled")
+                return (false, "This purchase order has already been cancelled.");
+
+            po.Status        = "Cancelled";
+            po.IsActive      = false;
+            po.LASTUPDATE    = DateTime.Now;
+            po.LastUpdatedBy = currentUser;
+            await _oBMSDbContext.SaveChangesAsync();
+            return (true, $"Purchase Order {po.PONumber} has been cancelled.");
+        }
+
+
+        // ════════════════════════════════════════════════════════════════════════
+        // PART 3 — GOODS RECEIPT NOTE
+        // ════════════════════════════════════════════════════════════════════════
+
+        public async Task<List<GRNListDto>> GetGRNList()
+        {
+            var list = await (
+                from grn in _oBMSDbContext.GoodsReceiptNotes
+                join po  in _oBMSDbContext.PurchaseOrders      on grn.POID        equals po.ID
+                join sup in _oBMSDbContext.Suppliers           on po.SupplierID   equals sup.Id
+                join wh  in _oBMSDbContext.WarehouseMasters    on grn.WarehouseID equals wh.ID
+                where grn.IsActive == true
+                orderby grn.GRNDate descending, grn.ID descending
+                select new GRNListDto
+                {
+                    ID            = grn.ID,
+                    GRNNumber     = grn.GRNNumber,
+                    POID          = grn.POID,
+                    PONumber      = po.PONumber,
+                    SupplierName  = sup.Name,
+                    WarehouseID   = grn.WarehouseID,
+                    WarehouseName = wh.Name,
+                    GRNDate       = grn.GRNDate,
+                    DeliveryNoteRef = grn.DeliveryNoteRef,
+                    Remarks       = grn.Remarks,
+                    LASTUPDATE    = grn.LASTUPDATE,
+                    LastUpdatedBy = grn.LastUpdatedBy
+                }
+            ).ToListAsync();
+
+            foreach (var g in list)
+                g.Details = await GetGRNDetails(g.ID);
+            return list;
+        }
+
+        public async Task<GRNListDto?> GetGRNByID(int id)
+        {
+            var grn = await (
+                from g   in _oBMSDbContext.GoodsReceiptNotes
+                join po  in _oBMSDbContext.PurchaseOrders   on g.POID        equals po.ID
+                join sup in _oBMSDbContext.Suppliers        on po.SupplierID equals sup.Id
+                join wh  in _oBMSDbContext.WarehouseMasters on g.WarehouseID equals wh.ID
+                where g.ID == id
+                select new GRNListDto
+                {
+                    ID              = g.ID,
+                    GRNNumber       = g.GRNNumber,
+                    POID            = g.POID,
+                    PONumber        = po.PONumber,
+                    SupplierName    = sup.Name,
+                    WarehouseID     = g.WarehouseID,
+                    WarehouseName   = wh.Name,
+                    GRNDate         = g.GRNDate,
+                    DeliveryNoteRef = g.DeliveryNoteRef,
+                    Remarks         = g.Remarks,
+                    LASTUPDATE      = g.LASTUPDATE,
+                    LastUpdatedBy   = g.LastUpdatedBy
+                }
+            ).FirstOrDefaultAsync();
+
+            if (grn != null)
+                grn.Details = await GetGRNDetails(id);
+            return grn;
+        }
+
+        /// <summary>
+        /// Returns the first active GRN linked to a given PO ID, or null if none exists.
+        /// Used by the PO screen to show a "GRN already posted" banner.
+        /// </summary>
+        public async Task<GRNListDto?> GetGRNByPOID(int poID)
+        {
+            var grn = await (
+                from g   in _oBMSDbContext.GoodsReceiptNotes
+                join po  in _oBMSDbContext.PurchaseOrders   on g.POID        equals po.ID
+                join sup in _oBMSDbContext.Suppliers        on po.SupplierID equals sup.Id
+                join wh  in _oBMSDbContext.WarehouseMasters on g.WarehouseID equals wh.ID
+                where g.POID == poID && g.IsActive == true
+                orderby g.GRNDate descending
+                select new GRNListDto
+                {
+                    ID              = g.ID,
+                    GRNNumber       = g.GRNNumber,
+                    POID            = g.POID,
+                    PONumber        = po.PONumber,
+                    SupplierName    = sup.Name,
+                    WarehouseID     = g.WarehouseID,
+                    WarehouseName   = wh.Name,
+                    GRNDate         = g.GRNDate,
+                    DeliveryNoteRef = g.DeliveryNoteRef,
+                    Remarks         = g.Remarks,
+                    LASTUPDATE      = g.LASTUPDATE,
+                    LastUpdatedBy   = g.LastUpdatedBy
+                }
+            ).FirstOrDefaultAsync();
+
+            if (grn != null)
+                grn.Details = await GetGRNDetails(grn.ID);
+            return grn;
+        }
+
+        private async Task<List<GRNDetailListDto>> GetGRNDetails(int grnID)
+        {
+            return await (
+                from d  in _oBMSDbContext.GoodsReceiptNoteDetails
+                join im in _oBMSDbContext.ItemMasters on d.ItemID equals im.ID
+                join ic in _oBMSDbContext.InventoryCategories on im.CategoryID equals ic.ID into icJoin
+                from ic in icJoin.DefaultIfEmpty()
+                join um in _oBMSDbContext.UOMMasters on d.UOMID equals um.ID into umJoin
+                from um in umJoin.DefaultIfEmpty()
+                where d.GRNID == grnID
+                select new GRNDetailListDto
+                {
+                    ID           = d.ID,
+                    GRNID        = d.GRNID,
+                    PODetailID   = d.PODetailID,
+                    ItemID       = d.ItemID,
+                    ItemCode     = im.Code ?? "",
+                    ItemName     = im.Name,
+                    CategoryName = ic != null ? ic.Name : "",
+                    UOMID        = d.UOMID,
+                    UOMName      = um != null ? um.Name : "",
+                    ReceivedQty  = d.ReceivedQty,
+                    UnitCost     = d.UnitCost
+                }
+            ).ToListAsync();
+        }
+
+        public async Task<List<POListDto>> GetApprovedPOsForGRN()
+        {
+            var list = await POListQuery()
+                .Where(po => po.Status == "Approved" || po.Status == "Partially Received")
+                .ToListAsync();
+            return list;
+        }
+
+        public async Task<List<POLineForGRNDto>> GetPOLinesForGRN(int poID)
+        {
+            return await (
+                from d  in _oBMSDbContext.PurchaseOrderDetails
+                join im in _oBMSDbContext.ItemMasters on d.ItemID equals im.ID
+                join ic in _oBMSDbContext.InventoryCategories on im.CategoryID equals ic.ID into icJoin
+                from ic in icJoin.DefaultIfEmpty()
+                join um in _oBMSDbContext.UOMMasters on d.UOMID equals um.ID into umJoin
+                from um in umJoin.DefaultIfEmpty()
+                where d.POID == poID && (d.OrderedQty - d.ReceivedQty) > 0
+                select new POLineForGRNDto
+                {
+                    PODetailID   = d.ID,
+                    ItemID       = d.ItemID,
+                    ItemCode     = im.Code ?? "",
+                    ItemName     = im.Name,
+                    CategoryName = ic != null ? ic.Name : "",
+                    UOMID        = d.UOMID,
+                    UOMName      = um != null ? um.Name : "",
+                    OrderedQty   = d.OrderedQty,
+                    ReceivedQty  = d.ReceivedQty,
+                    PendingQty   = d.OrderedQty - d.ReceivedQty,
+                    UnitCost     = d.UnitPrice
+                }
+            ).ToListAsync();
+        }
+
+        public async Task<(bool Success, string Message, GoodsReceiptNote? Record)> SaveGRN(GRNRequestDto dto)
+        {
+            // Validate PO
+            var po = await _oBMSDbContext.PurchaseOrders.FindAsync(dto.POID);
+            if (po == null)
+                return (false, "The selected purchase order could not be found.", null);
+            if (po.Status != "Approved" && po.Status != "Partially Received")
+                return (false, $"Goods can only be received against an Approved purchase order. Purchase Order {po.PONumber} is currently {po.Status}.", null);
+
+            // Filter to lines with actual qty entered
+            var linesWithQty = dto.Details.Where(d => d.ReceivedQty > 0).ToList();
+            if (!linesWithQty.Any())
+                return (false, "Please enter the received quantity for at least one item.", null);
+
+            // Per-line over-receive validation
+            foreach (var line in linesWithQty)
+            {
+                var poDetail = await _oBMSDbContext.PurchaseOrderDetails.FindAsync(line.PODetailID);
+                if (poDetail == null) continue;
+                var pending = poDetail.OrderedQty - poDetail.ReceivedQty;
+                if (line.ReceivedQty > pending)
+                {
+                    var item = await _oBMSDbContext.ItemMasters.FindAsync(line.ItemID);
+                    return (false,
+                        $"Received quantity is more than the remaining quantity for \"{item?.Name ?? "the item"}\".\n" +
+                        $"Ordered: {poDetail.OrderedQty}   Already Received: {poDetail.ReceivedQty}   Remaining: {pending}\n" +
+                        $"Please enter {pending} or less.", null);
+                }
+            }
+
+            // Generate GRN number
+            var maxGRN = await _oBMSDbContext.GoodsReceiptNotes
+                .Where(x => x.GRNNumber != null && x.GRNNumber.StartsWith("GRN"))
+                .OrderByDescending(x => x.GRNNumber)
+                .FirstOrDefaultAsync();
+            string grnNumber = (maxGRN == null || string.IsNullOrEmpty(maxGRN.GRNNumber))
+                ? "GRN0001"
+                : int.TryParse(maxGRN.GRNNumber.Substring(3), out int n)
+                    ? "GRN" + (n + 1).ToString("D4")
+                    : "GRN0001";
+
+            var strategy = _oBMSDbContext.Database.CreateExecutionStrategy();
+            GoodsReceiptNote? savedRecord = null;
+
+            await strategy.ExecuteAsync(async () =>
+            {
+                using var tx = await _oBMSDbContext.Database.BeginTransactionAsync();
+                try
+                {
+                    // Save GRN header
+                    var grn = new GoodsReceiptNote
+                    {
+                        GRNNumber       = grnNumber,
+                        POID            = dto.POID,
+                        WarehouseID     = dto.WarehouseID,
+                        GRNDate         = dto.GRNDate,
+                        DeliveryNoteRef = dto.DeliveryNoteRef,
+                        Remarks         = dto.Remarks,
+                        IsActive        = true,
+                        LASTUPDATE      = DateTime.Now,
+                        LastUpdatedBy   = dto.LastUpdatedBy
+                    };
+                    _oBMSDbContext.GoodsReceiptNotes.Add(grn);
+                    await _oBMSDbContext.SaveChangesAsync();
+
+                    // Save GRN detail lines + update PO received qty + create StockLedger entries
+                    foreach (var line in linesWithQty)
+                    {
+                        _oBMSDbContext.GoodsReceiptNoteDetails.Add(new GoodsReceiptNoteDetail
+                        {
+                            GRNID         = grn.ID,
+                            PODetailID    = line.PODetailID,
+                            ItemID        = line.ItemID,
+                            UOMID         = line.UOMID == 0 ? null : line.UOMID,
+                            ReceivedQty   = line.ReceivedQty,
+                            UnitCost      = line.UnitCost,
+                            LASTUPDATE    = DateTime.Now,
+                            LastUpdatedBy = line.LastUpdatedBy ?? dto.LastUpdatedBy
+                        });
+
+                        // Update PO detail received qty
+                        var poDetail = await _oBMSDbContext.PurchaseOrderDetails.FindAsync(line.PODetailID);
+                        if (poDetail != null)
+                        {
+                            poDetail.ReceivedQty  += line.ReceivedQty;
+                            poDetail.LASTUPDATE    = DateTime.Now;
+                            poDetail.LastUpdatedBy = dto.LastUpdatedBy;
+                            _oBMSDbContext.PurchaseOrderDetails.Update(poDetail);
+                        }
+
+                        // StockLedger STOCK_IN entry
+                        _oBMSDbContext.StockLedgers.Add(new StockLedger
+                        {
+                            TransactionNo   = await GenerateStockLedgerNo(),
+                            TransactionDate = dto.GRNDate,
+                            TransactionType = "STOCK_IN",
+                            WarehouseID     = dto.WarehouseID,
+                            ItemID          = line.ItemID,
+                            InQty           = line.ReceivedQty,
+                            OutQty          = 0,
+                            UnitCost        = line.UnitCost,
+                            ReferenceType   = "Goods Receipt",
+                            ReferenceID     = grn.ID,
+                            ReferenceNo     = grnNumber,
+                            Remarks         = dto.Remarks,
+                            LASTUPDATE      = DateTime.Now,
+                            LastUpdatedBy   = dto.LastUpdatedBy
+                        });
+                    }
+                    await _oBMSDbContext.SaveChangesAsync();
+
+                    // Recalculate PO status based on all lines
+                    var allPODetails = await _oBMSDbContext.PurchaseOrderDetails
+                        .Where(x => x.POID == dto.POID).ToListAsync();
+                    bool allReceived = allPODetails.All(x => x.ReceivedQty >= x.OrderedQty);
+                    po.Status        = allReceived ? "Fully Received" : "Partially Received";
+                    po.LASTUPDATE    = DateTime.Now;
+                    po.LastUpdatedBy = dto.LastUpdatedBy;
+                    _oBMSDbContext.PurchaseOrders.Update(po);
+                    await _oBMSDbContext.SaveChangesAsync();
+
+                    await tx.CommitAsync();
+                    savedRecord = grn;
+
+                    // Part 7: low-stock check for each received item
+                    if (_notif != null)
+                    {
+                        foreach (var line in linesWithQty)
+                            _ = _notif.CheckAndNotifyLowStock(dto.WarehouseID, line.ItemID, dto.LastUpdatedBy ?? "system");
+                    }
+                }
+                catch { await tx.RollbackAsync(); throw; }
+            });
+
+            return (true, $"Goods Receipt {grnNumber} saved successfully. Stock has been updated.", savedRecord);
+        }
+
+
+        // ════════════════════════════════════════════════════════════════════════
+        // PART 3 — PURCHASE RETURN
+        // ════════════════════════════════════════════════════════════════════════
+
+        public async Task<List<PurchaseReturnListDto>> GetPurchaseReturnList()
+        {
+            var list = await (
+                from ret in _oBMSDbContext.PurchaseReturns
+                join grn in _oBMSDbContext.GoodsReceiptNotes on ret.GRNID       equals grn.ID
+                join po  in _oBMSDbContext.PurchaseOrders    on grn.POID        equals po.ID
+                join sup in _oBMSDbContext.Suppliers         on po.SupplierID   equals sup.Id
+                join wh  in _oBMSDbContext.WarehouseMasters  on ret.WarehouseID equals wh.ID
+                where ret.IsActive == true
+                orderby ret.ReturnDate descending, ret.ID descending
+                select new PurchaseReturnListDto
+                {
+                    ID            = ret.ID,
+                    ReturnNumber  = ret.ReturnNumber,
+                    GRNID         = ret.GRNID,
+                    GRNNumber     = grn.GRNNumber,
+                    PONumber      = po.PONumber,
+                    SupplierName  = sup.Name,
+                    WarehouseID   = ret.WarehouseID,
+                    WarehouseName = wh.Name,
+                    ReturnDate    = ret.ReturnDate,
+                    Reason        = ret.Reason,
+                    LASTUPDATE    = ret.LASTUPDATE,
+                    LastUpdatedBy = ret.LastUpdatedBy
+                }
+            ).ToListAsync();
+
+            foreach (var r in list)
+                r.Details = await GetReturnDetails(r.ID);
+            return list;
+        }
+
+        public async Task<PurchaseReturnListDto?> GetPurchaseReturnByID(int id)
+        {
+            var ret = await (
+                from r   in _oBMSDbContext.PurchaseReturns
+                join grn in _oBMSDbContext.GoodsReceiptNotes on r.GRNID        equals grn.ID
+                join po  in _oBMSDbContext.PurchaseOrders    on grn.POID       equals po.ID
+                join sup in _oBMSDbContext.Suppliers         on po.SupplierID  equals sup.Id
+                join wh  in _oBMSDbContext.WarehouseMasters  on r.WarehouseID  equals wh.ID
+                where r.ID == id
+                select new PurchaseReturnListDto
+                {
+                    ID            = r.ID,
+                    ReturnNumber  = r.ReturnNumber,
+                    GRNID         = r.GRNID,
+                    GRNNumber     = grn.GRNNumber,
+                    PONumber      = po.PONumber,
+                    SupplierName  = sup.Name,
+                    WarehouseID   = r.WarehouseID,
+                    WarehouseName = wh.Name,
+                    ReturnDate    = r.ReturnDate,
+                    Reason        = r.Reason,
+                    LASTUPDATE    = r.LASTUPDATE,
+                    LastUpdatedBy = r.LastUpdatedBy
+                }
+            ).FirstOrDefaultAsync();
+
+            if (ret != null)
+                ret.Details = await GetReturnDetails(id);
+            return ret;
+        }
+
+        private async Task<List<PurchaseReturnDetailListDto>> GetReturnDetails(int returnID)
+        {
+            return await (
+                from d  in _oBMSDbContext.PurchaseReturnDetails
+                join im in _oBMSDbContext.ItemMasters on d.ItemID equals im.ID
+                join ic in _oBMSDbContext.InventoryCategories on im.CategoryID equals ic.ID into icJoin
+                from ic in icJoin.DefaultIfEmpty()
+                join um in _oBMSDbContext.UOMMasters on d.UOMID equals um.ID into umJoin
+                from um in umJoin.DefaultIfEmpty()
+                where d.ReturnID == returnID
+                select new PurchaseReturnDetailListDto
+                {
+                    ID           = d.ID,
+                    ReturnID     = d.ReturnID,
+                    GRNDetailID  = d.GRNDetailID,
+                    ItemID       = d.ItemID,
+                    ItemCode     = im.Code ?? "",
+                    ItemName     = im.Name,
+                    CategoryName = ic != null ? ic.Name : "",
+                    UOMID        = d.UOMID,
+                    UOMName      = um != null ? um.Name : "",
+                    ReturnQty    = d.ReturnQty,
+                    UnitCost     = d.UnitCost
+                }
+            ).ToListAsync();
+        }
+
+        public async Task<List<GRNListDto>> GetGRNsForReturn()
+        {
+            var list = await (
+                from grn in _oBMSDbContext.GoodsReceiptNotes
+                join po  in _oBMSDbContext.PurchaseOrders   on grn.POID        equals po.ID
+                join sup in _oBMSDbContext.Suppliers        on po.SupplierID   equals sup.Id
+                join wh  in _oBMSDbContext.WarehouseMasters on grn.WarehouseID equals wh.ID
+                where grn.IsActive == true
+                orderby grn.GRNDate descending
+                select new GRNListDto
+                {
+                    ID            = grn.ID,
+                    GRNNumber     = grn.GRNNumber,
+                    POID          = grn.POID,
+                    PONumber      = po.PONumber,
+                    SupplierName  = sup.Name,
+                    WarehouseID   = grn.WarehouseID,
+                    WarehouseName = wh.Name,
+                    GRNDate       = grn.GRNDate,
+                    DeliveryNoteRef = grn.DeliveryNoteRef,
+                    Remarks       = grn.Remarks,
+                    LASTUPDATE    = grn.LASTUPDATE,
+                    LastUpdatedBy = grn.LastUpdatedBy
+                }
+            ).ToListAsync();
+            return list;
+        }
+
+        public async Task<List<GRNLineForReturnDto>> GetGRNLinesForReturn(int grnID)
+        {
+            var grnDetails = await (
+                from d  in _oBMSDbContext.GoodsReceiptNoteDetails
+                join im in _oBMSDbContext.ItemMasters on d.ItemID equals im.ID
+                join ic in _oBMSDbContext.InventoryCategories on im.CategoryID equals ic.ID into icJoin
+                from ic in icJoin.DefaultIfEmpty()
+                join um in _oBMSDbContext.UOMMasters on d.UOMID equals um.ID into umJoin
+                from um in umJoin.DefaultIfEmpty()
+                where d.GRNID == grnID
+                select new { d.ID, d.ItemID, im.Code, im.Name, Cat = ic != null ? ic.Name : "", d.UOMID, UOM = um != null ? um.Name : "", d.ReceivedQty, d.UnitCost }
+            ).ToListAsync();
+
+            var result = new List<GRNLineForReturnDto>();
+            foreach (var row in grnDetails)
+            {
+                decimal alreadyReturned = await _oBMSDbContext.PurchaseReturnDetails
+                    .Where(x => x.GRNDetailID == row.ID)
+                    .SumAsync(x => (decimal?)x.ReturnQty) ?? 0;
+
+                decimal returnable = row.ReceivedQty - alreadyReturned;
+                if (returnable > 0)
+                {
+                    result.Add(new GRNLineForReturnDto
+                    {
+                        GRNDetailID        = row.ID,
+                        ItemID             = row.ItemID,
+                        ItemCode           = row.Code ?? "",
+                        ItemName           = row.Name,
+                        CategoryName       = row.Cat,
+                        UOMID              = row.UOMID,
+                        UOMName            = row.UOM,
+                        ReceivedQty        = row.ReceivedQty,
+                        AlreadyReturnedQty = alreadyReturned,
+                        ReturnableQty      = returnable,
+                        UnitCost           = row.UnitCost
+                    });
+                }
+            }
+            return result;
+        }
+
+        public async Task<(bool Success, string Message, PurchaseReturn? Record)> SavePurchaseReturn(PurchaseReturnRequestDto dto)
+        {
+            // Validate GRN exists
+            var grn = await _oBMSDbContext.GoodsReceiptNotes.FindAsync(dto.GRNID);
+            if (grn == null)
+                return (false, "The selected goods receipt could not be found.", null);
+
+            if (string.IsNullOrWhiteSpace(dto.Reason))
+                return (false, "Please enter a reason for the return.", null);
+
+            var linesWithQty = dto.Details.Where(d => d.ReturnQty > 0).ToList();
+            if (!linesWithQty.Any())
+                return (false, "Please enter a return quantity for at least one item.", null);
+
+            // Per-line over-return validation
+            foreach (var line in linesWithQty)
+            {
+                var grnDetail = await _oBMSDbContext.GoodsReceiptNoteDetails.FindAsync(line.GRNDetailID);
+                if (grnDetail == null) continue;
+
+                decimal alreadyReturned = await _oBMSDbContext.PurchaseReturnDetails
+                    .Where(x => x.GRNDetailID == line.GRNDetailID)
+                    .SumAsync(x => (decimal?)x.ReturnQty) ?? 0;
+
+                decimal returnable = grnDetail.ReceivedQty - alreadyReturned;
+                if (line.ReturnQty > returnable)
+                {
+                    var item = await _oBMSDbContext.ItemMasters.FindAsync(line.ItemID);
+                    return (false,
+                        $"Return quantity is more than the available return quantity for \"{item?.Name ?? "the item"}\".\n" +
+                        $"Received: {grnDetail.ReceivedQty}   Already Returned: {alreadyReturned}   Returnable: {returnable}\n" +
+                        $"Please enter {returnable} or less.", null);
+                }
+            }
+
+            // Generate return number
+            var maxRtn = await _oBMSDbContext.PurchaseReturns
+                .Where(x => x.ReturnNumber != null && x.ReturnNumber.StartsWith("RTN"))
+                .OrderByDescending(x => x.ReturnNumber)
+                .FirstOrDefaultAsync();
+            string rtnNumber = (maxRtn == null || string.IsNullOrEmpty(maxRtn.ReturnNumber))
+                ? "RTN0001"
+                : int.TryParse(maxRtn.ReturnNumber.Substring(3), out int n)
+                    ? "RTN" + (n + 1).ToString("D4")
+                    : "RTN0001";
+
+            var strategy = _oBMSDbContext.Database.CreateExecutionStrategy();
+            PurchaseReturn? savedRecord = null;
+
+            await strategy.ExecuteAsync(async () =>
+            {
+                using var tx = await _oBMSDbContext.Database.BeginTransactionAsync();
+                try
+                {
+                    var ret = new PurchaseReturn
+                    {
+                        ReturnNumber  = rtnNumber,
+                        GRNID         = dto.GRNID,
+                        WarehouseID   = dto.WarehouseID,
+                        ReturnDate    = dto.ReturnDate,
+                        Reason        = dto.Reason,
+                        IsActive      = true,
+                        LASTUPDATE    = DateTime.Now,
+                        LastUpdatedBy = dto.LastUpdatedBy
+                    };
+                    _oBMSDbContext.PurchaseReturns.Add(ret);
+                    await _oBMSDbContext.SaveChangesAsync();
+
+                    foreach (var line in linesWithQty)
+                    {
+                        var grnDetail = await _oBMSDbContext.GoodsReceiptNoteDetails.FindAsync(line.GRNDetailID);
+
+                        _oBMSDbContext.PurchaseReturnDetails.Add(new PurchaseReturnDetail
+                        {
+                            ReturnID      = ret.ID,
+                            GRNDetailID   = line.GRNDetailID,
+                            ItemID        = line.ItemID,
+                            UOMID         = line.UOMID == 0 ? null : line.UOMID,
+                            ReturnQty     = line.ReturnQty,
+                            UnitCost      = line.UnitCost,
+                            LASTUPDATE    = DateTime.Now,
+                            LastUpdatedBy = line.LastUpdatedBy ?? dto.LastUpdatedBy
+                        });
+
+                        // StockLedger PURCHASE_RTN (Out) entry
+                        _oBMSDbContext.StockLedgers.Add(new StockLedger
+                        {
+                            TransactionNo   = await GenerateStockLedgerNo(),
+                            TransactionDate = dto.ReturnDate,
+                            TransactionType = "PURCHASE_RTN",
+                            WarehouseID     = dto.WarehouseID,
+                            ItemID          = line.ItemID,
+                            InQty           = 0,
+                            OutQty          = line.ReturnQty,
+                            UnitCost        = line.UnitCost,
+                            ReferenceType   = "Purchase Return",
+                            ReferenceID     = ret.ID,
+                            ReferenceNo     = rtnNumber,
+                            Remarks         = dto.Reason,
+                            LASTUPDATE      = DateTime.Now,
+                            LastUpdatedBy   = dto.LastUpdatedBy
+                        });
+                    }
+                    await _oBMSDbContext.SaveChangesAsync();
+                    await tx.CommitAsync();
+                    savedRecord = ret;
+                }
+                catch { await tx.RollbackAsync(); throw; }
+            });
+
+            return (true, $"Purchase Return {rtnNumber} saved successfully. Stock has been updated.", savedRecord);
+        }
+
+        // ════════════════════════════════════════════════════════════════════════
+        // PART 4 — STOCK OPERATIONS
+        // ════════════════════════════════════════════════════════════════════════
+
+        // ── Shared helpers ───────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Returns the current available stock (InQty - OutQty) for an item in a warehouse.
+        /// This is the single source of truth — never read from ItemMaster.Quantity.
+        /// </summary>
+        private async Task<decimal> GetCurrentStockInternal(int warehouseID, int itemID)
+        {
+            var inQty  = await _oBMSDbContext.StockLedgers
+                .Where(l => l.WarehouseID == warehouseID && l.ItemID == itemID)
+                .SumAsync(l => (decimal?)l.InQty) ?? 0;
+            var outQty = await _oBMSDbContext.StockLedgers
+                .Where(l => l.WarehouseID == warehouseID && l.ItemID == itemID)
+                .SumAsync(l => (decimal?)l.OutQty) ?? 0;
+            return inQty - outQty;
+        }
+
+        // ────────────────────────────────────────────────────────────────────────
+        // A. STOCK ISSUE
+        // ────────────────────────────────────────────────────────────────────────
+
+        public async Task<List<StockIssueDocListDto>> GetStockIssueList()
+        {
+            var docs = await (
+                from sid in _oBMSDbContext.StockIssueDocs
+                join wh in _oBMSDbContext.WarehouseMasters on sid.WarehouseID equals wh.ID
+                where sid.IsActive == true
+                orderby sid.IssueDate descending, sid.ID descending
+                select new StockIssueDocListDto
+                {
+                    ID            = sid.ID,
+                    IssueNo       = sid.IssueNo,
+                    IssueDate     = sid.IssueDate,
+                    WarehouseID   = sid.WarehouseID,
+                    WarehouseName = wh.Name,
+                    IssueToType   = sid.IssueToType,
+                    IssueToID     = sid.IssueToID,
+                    IssueToName   = sid.IssueToName,
+                    Remarks       = sid.Remarks,
+                    LASTUPDATE    = sid.LASTUPDATE,
+                    LastUpdatedBy = sid.LastUpdatedBy,
+                    Details       = new List<StockIssueDocDetailListDto>()
+                }
+            ).ToListAsync();
+            return docs;
+        }
+
+        public async Task<StockIssueDocListDto?> GetStockIssueByID(int id)
+        {
+            var doc = await (
+                from sid in _oBMSDbContext.StockIssueDocs
+                join wh in _oBMSDbContext.WarehouseMasters on sid.WarehouseID equals wh.ID
+                where sid.ID == id && sid.IsActive == true
+                select new StockIssueDocListDto
+                {
+                    ID            = sid.ID,
+                    IssueNo       = sid.IssueNo,
+                    IssueDate     = sid.IssueDate,
+                    WarehouseID   = sid.WarehouseID,
+                    WarehouseName = wh.Name,
+                    IssueToType   = sid.IssueToType,
+                    IssueToID     = sid.IssueToID,
+                    IssueToName   = sid.IssueToName,
+                    Remarks       = sid.Remarks,
+                    LASTUPDATE    = sid.LASTUPDATE,
+                    LastUpdatedBy = sid.LastUpdatedBy,
+                    Details       = new List<StockIssueDocDetailListDto>()
+                }
+            ).FirstOrDefaultAsync();
+
+            if (doc == null) return null;
+
+            doc.Details = await BuildIssueDetailList(id);
+            return doc;
+        }
+
+        /// <summary>Builds enriched detail lines for a given issue doc ID.</summary>
+        private async Task<List<StockIssueDocDetailListDto>> BuildIssueDetailList(int issueDocID)
+        {
+            var details = await (
+                from d in _oBMSDbContext.StockIssueDocDetails
+                join im in _oBMSDbContext.ItemMasters on d.ItemID equals im.ID
+                join ic in _oBMSDbContext.InventoryCategories on im.CategoryID equals ic.ID into icJoin
+                from ic in icJoin.DefaultIfEmpty()
+                join um in _oBMSDbContext.UOMMasters on d.UOMID equals um.ID into umJoin
+                from um in umJoin.DefaultIfEmpty()
+                where d.IssueDocID == issueDocID
+                select new StockIssueDocDetailListDto
+                {
+                    ID           = d.ID,
+                    IssueDocID   = d.IssueDocID,
+                    ItemID       = d.ItemID,
+                    ItemCode     = im.Code ?? "",
+                    ItemName     = im.Name,
+                    CategoryName = ic != null ? ic.Name : "",
+                    UOMID        = d.UOMID,
+                    UOMName      = um != null ? um.Name : "",
+                    IssueQty     = d.IssueQty,
+                    UnitCost     = d.UnitCost,
+                    TotalValue   = d.IssueQty * d.UnitCost,
+                    Remarks      = d.Remarks
+                }
+            ).ToListAsync();
+
+            // Compute already-returned quantities per detail line
+            foreach (var line in details)
+            {
+                line.AlreadyReturnedQty = await _oBMSDbContext.StockIssueReturnDetails
+                    .Where(r => r.OriginalIssueDetailID == line.ID)
+                    .SumAsync(r => (decimal?)r.ReturnQty) ?? 0;
+                line.ReturnableQty = line.IssueQty - line.AlreadyReturnedQty;
+            }
+            return details;
+        }
+
+        public async Task<(bool Success, string Message, StockIssueDoc? Record)> SaveStockIssue(
+            StockIssueDocRequestDto dto)
+        {
+            // ── Validate warehouse ──────────────────────────────────────────────
+            var warehouse = await _oBMSDbContext.WarehouseMasters.FindAsync(dto.WarehouseID);
+            if (warehouse == null)
+                return (false, "The selected warehouse is no longer available.", null);
+
+            if (!dto.Details.Any())
+                return (false, "Please add at least one item to the stock issue.", null);
+
+            // ── Per-item stock availability check (backend) ─────────────────────
+            foreach (var line in dto.Details)
+            {
+                if (line.IssueQty <= 0)
+                    return (false, "Issue quantity must be greater than zero.", null);
+
+                var available = await GetCurrentStockInternal(dto.WarehouseID, line.ItemID);
+                if (line.IssueQty > available)
+                {
+                    var item = await _oBMSDbContext.ItemMasters.FindAsync(line.ItemID);
+                    var itemName = item?.Name ?? $"Item #{line.ItemID}";
+                    return (false,
+                        $"Insufficient stock for '{itemName}'. Available quantity is {available:N2}.",
+                        null);
+                }
+            }
+
+            // ── Generate issue number ───────────────────────────────────────────
+            string issueNo = dto.IssueNo ?? "";
+            if (string.IsNullOrEmpty(issueNo))
+            {
+                var maxRow = await _oBMSDbContext.StockIssueDocs
+                    .Where(x => x.IssueNo.StartsWith("SI"))
+                    .OrderByDescending(x => x.IssueNo)
+                    .FirstOrDefaultAsync();
+                issueNo = (maxRow == null || string.IsNullOrEmpty(maxRow.IssueNo))
+                    ? "SI0001"
+                    : int.TryParse(maxRow.IssueNo.Substring(2), out int n)
+                        ? "SI" + (n + 1).ToString("D4") : "SI0001";
+            }
+
+            StockIssueDoc? savedRecord = null;
+            var strategy = _oBMSDbContext.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                using var tx = await _oBMSDbContext.Database.BeginTransactionAsync();
+                try
+                {
+                    StockIssueDoc doc;
+                    if (dto.ID > 0)
+                    {
+                        doc = await _oBMSDbContext.StockIssueDocs.FindAsync(dto.ID)
+                              ?? throw new InvalidOperationException("Stock issue not found.");
+                        // Remove old detail lines and their ledger rows
+                        var oldDetails = await _oBMSDbContext.StockIssueDocDetails
+                            .Where(d => d.IssueDocID == dto.ID).ToListAsync();
+                        var oldLedgers = await _oBMSDbContext.StockLedgers
+                            .Where(l => l.ReferenceType == "Stock Issue" && l.ReferenceID == dto.ID)
+                            .ToListAsync();
+                        _oBMSDbContext.StockIssueDocDetails.RemoveRange(oldDetails);
+                        _oBMSDbContext.StockLedgers.RemoveRange(oldLedgers);
+                        await _oBMSDbContext.SaveChangesAsync();
+                    }
+                    else
+                    {
+                        doc = new StockIssueDoc();
+                        _oBMSDbContext.StockIssueDocs.Add(doc);
+                    }
+
+                    doc.IssueNo       = issueNo;
+                    doc.IssueDate     = dto.IssueDate;
+                    doc.WarehouseID   = dto.WarehouseID;
+                    doc.IssueToType   = dto.IssueToType;
+                    doc.IssueToID     = dto.IssueToID;
+                    doc.IssueToName   = dto.IssueToName;
+                    doc.Remarks       = dto.Remarks;
+                    doc.IsActive      = true;
+                    doc.LASTUPDATE    = DateTime.Now;
+                    doc.LastUpdatedBy = dto.LastUpdatedBy;
+
+                    await _oBMSDbContext.SaveChangesAsync(); // get doc.ID
+
+                    foreach (var line in dto.Details)
+                    {
+                        var detail = new StockIssueDocDetail
+                        {
+                            IssueDocID    = doc.ID,
+                            ItemID        = line.ItemID,
+                            UOMID         = line.UOMID,
+                            IssueQty      = line.IssueQty,
+                            UnitCost      = line.UnitCost,
+                            Remarks       = line.Remarks,
+                            LASTUPDATE    = DateTime.Now,
+                            LastUpdatedBy = line.LastUpdatedBy
+                        };
+                        _oBMSDbContext.StockIssueDocDetails.Add(detail);
+
+                        // StockLedger ISSUE (Out)
+                        _oBMSDbContext.StockLedgers.Add(new StockLedger
+                        {
+                            TransactionNo   = await GenerateStockLedgerNo(),
+                            TransactionDate = dto.IssueDate,
+                            TransactionType = "ISSUE",
+                            WarehouseID     = dto.WarehouseID,
+                            ItemID          = line.ItemID,
+                            InQty           = 0,
+                            OutQty          = line.IssueQty,
+                            UnitCost        = line.UnitCost,
+                            ReferenceType   = "Stock Issue",
+                            ReferenceID     = doc.ID,
+                            ReferenceNo     = issueNo,
+                            Remarks         = dto.Remarks,
+                            LASTUPDATE      = DateTime.Now,
+                            LastUpdatedBy   = dto.LastUpdatedBy
+                        });
+                    }
+
+                    await _oBMSDbContext.SaveChangesAsync();
+                    await tx.CommitAsync();
+                    savedRecord = doc;
+
+                    // Part 7: low-stock check after issue reduces stock
+                    if (_notif != null)
+                    {
+                        foreach (var line in dto.Details)
+                            _ = _notif.CheckAndNotifyLowStock(dto.WarehouseID, line.ItemID, dto.LastUpdatedBy ?? "system");
+                    }
+                }
+                catch { await tx.RollbackAsync(); throw; }
+            });
+
+            return (true, $"Stock Issue {issueNo} saved successfully.", savedRecord);
+        }
+
+        public async Task<(bool Success, string Message)> DeleteStockIssue(int id, string currentUser)
+        {
+            var doc = await _oBMSDbContext.StockIssueDocs.FindAsync(id);
+            if (doc == null) return (false, "Stock issue not found.");
+
+            // Block delete if any returns exist against this issue
+            bool hasReturns = await _oBMSDbContext.StockIssueReturns
+                .AnyAsync(r => r.OriginalIssueDocID == id && r.IsActive == true);
+            if (hasReturns)
+                return (false, "This stock issue cannot be deleted because one or more returns have been recorded against it.");
+
+            var strategy = _oBMSDbContext.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                using var tx = await _oBMSDbContext.Database.BeginTransactionAsync();
+                try
+                {
+                    var ledgers = await _oBMSDbContext.StockLedgers
+                        .Where(l => l.ReferenceType == "Stock Issue" && l.ReferenceID == id)
+                        .ToListAsync();
+                    _oBMSDbContext.StockLedgers.RemoveRange(ledgers);
+
+                    doc.IsActive      = false;
+                    doc.LASTUPDATE    = DateTime.Now;
+                    doc.LastUpdatedBy = currentUser;
+
+                    await _oBMSDbContext.SaveChangesAsync();
+                    await tx.CommitAsync();
+                }
+                catch { await tx.RollbackAsync(); throw; }
+            });
+
+            return (true, "Stock issue deleted successfully. Stock has been restored.");
+        }
+
+        // ────────────────────────────────────────────────────────────────────────
+        // B. STOCK ISSUE RETURN
+        // ────────────────────────────────────────────────────────────────────────
+
+        public async Task<List<StockIssueDocListDto>> GetIssuableDocsForReturn()
+        {
+            // Return issue docs that have at least one line with remaining returnable qty
+            var docs = await (
+                from sid in _oBMSDbContext.StockIssueDocs
+                join wh in _oBMSDbContext.WarehouseMasters on sid.WarehouseID equals wh.ID
+                where sid.IsActive == true
+                orderby sid.IssueDate descending, sid.IssueNo descending
+                select new StockIssueDocListDto
+                {
+                    ID            = sid.ID,
+                    IssueNo       = sid.IssueNo,
+                    IssueDate     = sid.IssueDate,
+                    WarehouseID   = sid.WarehouseID,
+                    WarehouseName = wh.Name,
+                    IssueToType   = sid.IssueToType,
+                    IssueToID     = sid.IssueToID,
+                    IssueToName   = sid.IssueToName,
+                    Remarks       = sid.Remarks,
+                    LASTUPDATE    = sid.LASTUPDATE,
+                    LastUpdatedBy = sid.LastUpdatedBy,
+                    Details       = new List<StockIssueDocDetailListDto>()
+                }
+            ).ToListAsync();
+            return docs;
+        }
+
+        public async Task<List<StockIssueDocDetailListDto>> GetIssueDetailsForReturn(int issueDocID)
+        {
+            return await BuildIssueDetailList(issueDocID);
+        }
+
+        public async Task<List<StockIssueReturnListDto>> GetStockIssueReturnList()
+        {
+            var returns = await (
+                from sir in _oBMSDbContext.StockIssueReturns
+                join sid in _oBMSDbContext.StockIssueDocs on sir.OriginalIssueDocID equals sid.ID
+                join wh  in _oBMSDbContext.WarehouseMasters on sir.WarehouseID equals wh.ID
+                where sir.IsActive == true
+                orderby sir.ReturnDate descending, sir.ID descending
+                select new StockIssueReturnListDto
+                {
+                    ID                 = sir.ID,
+                    ReturnNo           = sir.ReturnNo,
+                    ReturnDate         = sir.ReturnDate,
+                    OriginalIssueDocID = sir.OriginalIssueDocID,
+                    OriginalIssueNo    = sid.IssueNo,
+                    WarehouseID        = sir.WarehouseID,
+                    WarehouseName      = wh.Name,
+                    IssueToName        = sid.IssueToName,
+                    Remarks            = sir.Remarks,
+                    LASTUPDATE         = sir.LASTUPDATE,
+                    LastUpdatedBy      = sir.LastUpdatedBy,
+                    Details            = new List<StockIssueReturnDetailListDto>()
+                }
+            ).ToListAsync();
+            return returns;
+        }
+
+        public async Task<StockIssueReturnListDto?> GetStockIssueReturnByID(int id)
+        {
+            var ret = await (
+                from sir in _oBMSDbContext.StockIssueReturns
+                join sid in _oBMSDbContext.StockIssueDocs on sir.OriginalIssueDocID equals sid.ID
+                join wh  in _oBMSDbContext.WarehouseMasters on sir.WarehouseID equals wh.ID
+                where sir.ID == id && sir.IsActive == true
+                select new StockIssueReturnListDto
+                {
+                    ID                 = sir.ID,
+                    ReturnNo           = sir.ReturnNo,
+                    ReturnDate         = sir.ReturnDate,
+                    OriginalIssueDocID = sir.OriginalIssueDocID,
+                    OriginalIssueNo    = sid.IssueNo,
+                    WarehouseID        = sir.WarehouseID,
+                    WarehouseName      = wh.Name,
+                    IssueToName        = sid.IssueToName,
+                    Remarks            = sir.Remarks,
+                    LASTUPDATE         = sir.LASTUPDATE,
+                    LastUpdatedBy      = sir.LastUpdatedBy,
+                    Details            = new List<StockIssueReturnDetailListDto>()
+                }
+            ).FirstOrDefaultAsync();
+
+            if (ret == null) return null;
+
+            ret.Details = await (
+                from d  in _oBMSDbContext.StockIssueReturnDetails
+                join im in _oBMSDbContext.ItemMasters on d.ItemID equals im.ID
+                join um in _oBMSDbContext.UOMMasters on d.UOMID equals um.ID into umJoin
+                from um in umJoin.DefaultIfEmpty()
+                where d.ReturnID == id
+                select new StockIssueReturnDetailListDto
+                {
+                    ID                    = d.ID,
+                    ReturnID              = d.ReturnID,
+                    OriginalIssueDetailID = d.OriginalIssueDetailID,
+                    ItemID                = d.ItemID,
+                    ItemCode              = im.Code ?? "",
+                    ItemName              = im.Name,
+                    UOMName               = um != null ? um.Name : "",
+                    ReturnQty             = d.ReturnQty,
+                    UnitCost              = d.UnitCost,
+                    TotalValue            = d.ReturnQty * d.UnitCost,
+                    Remarks               = d.Remarks
+                }
+            ).ToListAsync();
+
+            return ret;
+        }
+
+        public async Task<(bool Success, string Message, StockIssueReturn? Record)> SaveStockIssueReturn(
+            StockIssueReturnRequestDto dto)
+        {
+            var issueDoc = await _oBMSDbContext.StockIssueDocs.FindAsync(dto.OriginalIssueDocID);
+            if (issueDoc == null)
+                return (false, "The original stock issue document was not found.", null);
+
+            var warehouse = await _oBMSDbContext.WarehouseMasters.FindAsync(dto.WarehouseID);
+            if (warehouse == null)
+                return (false, "The selected warehouse is no longer available.", null);
+
+            if (!dto.Details.Any())
+                return (false, "Please add at least one item to the return.", null);
+
+            // ── Validate each return line against remaining returnable qty ───────
+            foreach (var line in dto.Details)
+            {
+                if (line.ReturnQty <= 0)
+                    return (false, "Return quantity must be greater than zero.", null);
+
+                var issueDetail = await _oBMSDbContext.StockIssueDocDetails.FindAsync(line.OriginalIssueDetailID);
+                if (issueDetail == null)
+                    return (false, "One or more referenced issue lines are no longer valid.", null);
+
+                var alreadyReturned = await _oBMSDbContext.StockIssueReturnDetails
+                    .Where(r => r.OriginalIssueDetailID == line.OriginalIssueDetailID)
+                    .SumAsync(r => (decimal?)r.ReturnQty) ?? 0;
+
+                var remainingQty = issueDetail.IssueQty - alreadyReturned;
+
+                if (line.ReturnQty > remainingQty)
+                {
+                    var item = await _oBMSDbContext.ItemMasters.FindAsync(line.ItemID);
+                    return (false,
+                        $"Return quantity for '{item?.Name ?? "item"}' ({line.ReturnQty:N2}) exceeds the returnable quantity ({remainingQty:N2}).",
+                        null);
+                }
+            }
+
+            // ── Generate return number ──────────────────────────────────────────
+            string returnNo = dto.ReturnNo ?? "";
+            if (string.IsNullOrEmpty(returnNo))
+            {
+                var maxRow = await _oBMSDbContext.StockIssueReturns
+                    .Where(x => x.ReturnNo.StartsWith("SIR"))
+                    .OrderByDescending(x => x.ReturnNo)
+                    .FirstOrDefaultAsync();
+                returnNo = (maxRow == null || string.IsNullOrEmpty(maxRow.ReturnNo))
+                    ? "SIR0001"
+                    : int.TryParse(maxRow.ReturnNo.Substring(3), out int n)
+                        ? "SIR" + (n + 1).ToString("D4") : "SIR0001";
+            }
+
+            StockIssueReturn? savedRecord = null;
+            var strategy = _oBMSDbContext.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                using var tx = await _oBMSDbContext.Database.BeginTransactionAsync();
+                try
+                {
+                    var ret = new StockIssueReturn
+                    {
+                        ReturnNo           = returnNo,
+                        ReturnDate         = dto.ReturnDate,
+                        OriginalIssueDocID = dto.OriginalIssueDocID,
+                        WarehouseID        = dto.WarehouseID,
+                        Remarks            = dto.Remarks,
+                        IsActive           = true,
+                        LASTUPDATE         = DateTime.Now,
+                        LastUpdatedBy      = dto.LastUpdatedBy
+                    };
+                    _oBMSDbContext.StockIssueReturns.Add(ret);
+                    await _oBMSDbContext.SaveChangesAsync(); // get ret.ID
+
+                    foreach (var line in dto.Details)
+                    {
+                        _oBMSDbContext.StockIssueReturnDetails.Add(new StockIssueReturnDetail
+                        {
+                            ReturnID              = ret.ID,
+                            OriginalIssueDetailID = line.OriginalIssueDetailID,
+                            ItemID                = line.ItemID,
+                            UOMID                 = line.UOMID,
+                            ReturnQty             = line.ReturnQty,
+                            UnitCost              = line.UnitCost,
+                            Remarks               = line.Remarks,
+                            LASTUPDATE            = DateTime.Now,
+                            LastUpdatedBy         = line.LastUpdatedBy
+                        });
+
+                        // StockLedger ISSUE_RETURN (In — restores stock)
+                        _oBMSDbContext.StockLedgers.Add(new StockLedger
+                        {
+                            TransactionNo   = await GenerateStockLedgerNo(),
+                            TransactionDate = dto.ReturnDate,
+                            TransactionType = "ISSUE_RETURN",
+                            WarehouseID     = dto.WarehouseID,
+                            ItemID          = line.ItemID,
+                            InQty           = line.ReturnQty,
+                            OutQty          = 0,
+                            UnitCost        = line.UnitCost,
+                            ReferenceType   = "Stock Issue Return",
+                            ReferenceID     = ret.ID,
+                            ReferenceNo     = returnNo,
+                            Remarks         = dto.Remarks,
+                            LASTUPDATE      = DateTime.Now,
+                            LastUpdatedBy   = dto.LastUpdatedBy
+                        });
+                    }
+
+                    await _oBMSDbContext.SaveChangesAsync();
+                    await tx.CommitAsync();
+                    savedRecord = ret;
+                }
+                catch { await tx.RollbackAsync(); throw; }
+            });
+
+            return (true, $"Stock Issue Return {returnNo} saved successfully. Stock has been updated.", savedRecord);
+        }
+
+        // ────────────────────────────────────────────────────────────────────────
+        // C. STOCK TRANSFER
+        // ────────────────────────────────────────────────────────────────────────
+
+        public async Task<List<StockTransferListDto>> GetStockTransferList()
+        {
+            var list = await (
+                from st in _oBMSDbContext.StockTransfers
+                join sw in _oBMSDbContext.WarehouseMasters on st.SourceWarehouseID equals sw.ID
+                join dw in _oBMSDbContext.WarehouseMasters on st.DestWarehouseID   equals dw.ID
+                where st.IsActive == true
+                orderby st.TransferDate descending, st.ID descending
+                select new StockTransferListDto
+                {
+                    ID                   = st.ID,
+                    TransferNo           = st.TransferNo,
+                    TransferDate         = st.TransferDate,
+                    SourceWarehouseID    = st.SourceWarehouseID,
+                    SourceWarehouseName  = sw.Name,
+                    DestWarehouseID      = st.DestWarehouseID,
+                    DestWarehouseName    = dw.Name,
+                    Remarks              = st.Remarks,
+                    LASTUPDATE           = st.LASTUPDATE,
+                    LastUpdatedBy        = st.LastUpdatedBy,
+                    Details              = new List<StockTransferDetailListDto>()
+                }
+            ).ToListAsync();
+            return list;
+        }
+
+        public async Task<StockTransferListDto?> GetStockTransferByID(int id)
+        {
+            var transfer = await (
+                from st in _oBMSDbContext.StockTransfers
+                join sw in _oBMSDbContext.WarehouseMasters on st.SourceWarehouseID equals sw.ID
+                join dw in _oBMSDbContext.WarehouseMasters on st.DestWarehouseID   equals dw.ID
+                where st.ID == id && st.IsActive == true
+                select new StockTransferListDto
+                {
+                    ID                  = st.ID,
+                    TransferNo          = st.TransferNo,
+                    TransferDate        = st.TransferDate,
+                    SourceWarehouseID   = st.SourceWarehouseID,
+                    SourceWarehouseName = sw.Name,
+                    DestWarehouseID     = st.DestWarehouseID,
+                    DestWarehouseName   = dw.Name,
+                    Remarks             = st.Remarks,
+                    LASTUPDATE          = st.LASTUPDATE,
+                    LastUpdatedBy       = st.LastUpdatedBy,
+                    Details             = new List<StockTransferDetailListDto>()
+                }
+            ).FirstOrDefaultAsync();
+
+            if (transfer == null) return null;
+
+            transfer.Details = await (
+                from d  in _oBMSDbContext.StockTransferDetails
+                join im in _oBMSDbContext.ItemMasters on d.ItemID equals im.ID
+                join um in _oBMSDbContext.UOMMasters on d.UOMID equals um.ID into umJoin
+                from um in umJoin.DefaultIfEmpty()
+                where d.TransferID == id
+                select new StockTransferDetailListDto
+                {
+                    ID          = d.ID,
+                    TransferID  = d.TransferID,
+                    ItemID      = d.ItemID,
+                    ItemCode    = im.Code ?? "",
+                    ItemName    = im.Name,
+                    UOMName     = um != null ? um.Name : "",
+                    TransferQty = d.TransferQty,
+                    UnitCost    = d.UnitCost,
+                    TotalValue  = d.TransferQty * d.UnitCost,
+                    Remarks     = d.Remarks
+                }
+            ).ToListAsync();
+
+            return transfer;
+        }
+
+        public async Task<(bool Success, string Message, StockTransfer? Record)> SaveStockTransfer(
+            StockTransferRequestDto dto)
+        {
+            if (dto.SourceWarehouseID == dto.DestWarehouseID)
+                return (false, "Source and destination warehouses must be different.", null);
+
+            var srcWh = await _oBMSDbContext.WarehouseMasters.FindAsync(dto.SourceWarehouseID);
+            var dstWh = await _oBMSDbContext.WarehouseMasters.FindAsync(dto.DestWarehouseID);
+            if (srcWh == null) return (false, "Source warehouse not found.", null);
+            if (dstWh == null) return (false, "Destination warehouse not found.", null);
+
+            if (!dto.Details.Any())
+                return (false, "Please add at least one item to the transfer.", null);
+
+            // ── Stock availability check per line ───────────────────────────────
+            foreach (var line in dto.Details)
+            {
+                if (line.TransferQty <= 0)
+                    return (false, "Transfer quantity must be greater than zero.", null);
+
+                var available = await GetCurrentStockInternal(dto.SourceWarehouseID, line.ItemID);
+                if (line.TransferQty > available)
+                {
+                    var item = await _oBMSDbContext.ItemMasters.FindAsync(line.ItemID);
+                    return (false,
+                        $"Insufficient stock for '{item?.Name ?? $"Item #{line.ItemID}"}' in {srcWh.Name}. Available quantity is {available:N2}.",
+                        null);
+                }
+            }
+
+            // ── Generate transfer number ────────────────────────────────────────
+            string transferNo = dto.TransferNo ?? "";
+            if (string.IsNullOrEmpty(transferNo))
+            {
+                var maxRow = await _oBMSDbContext.StockTransfers
+                    .Where(x => x.TransferNo.StartsWith("TRF"))
+                    .OrderByDescending(x => x.TransferNo)
+                    .FirstOrDefaultAsync();
+                transferNo = (maxRow == null || string.IsNullOrEmpty(maxRow.TransferNo))
+                    ? "TRF0001"
+                    : int.TryParse(maxRow.TransferNo.Substring(3), out int n)
+                        ? "TRF" + (n + 1).ToString("D4") : "TRF0001";
+            }
+
+            StockTransfer? savedRecord = null;
+            var strategy = _oBMSDbContext.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                using var tx = await _oBMSDbContext.Database.BeginTransactionAsync();
+                try
+                {
+                    StockTransfer transfer;
+                    if (dto.ID > 0)
+                    {
+                        transfer = await _oBMSDbContext.StockTransfers.FindAsync(dto.ID)
+                                   ?? throw new InvalidOperationException("Stock transfer not found.");
+                        var oldDetails = await _oBMSDbContext.StockTransferDetails
+                            .Where(d => d.TransferID == dto.ID).ToListAsync();
+                        var oldLedgers = await _oBMSDbContext.StockLedgers
+                            .Where(l => (l.ReferenceType == "Stock Transfer OUT" || l.ReferenceType == "Stock Transfer IN")
+                                     && l.ReferenceID == dto.ID)
+                            .ToListAsync();
+                        _oBMSDbContext.StockTransferDetails.RemoveRange(oldDetails);
+                        _oBMSDbContext.StockLedgers.RemoveRange(oldLedgers);
+                        await _oBMSDbContext.SaveChangesAsync();
+                    }
+                    else
+                    {
+                        transfer = new StockTransfer();
+                        _oBMSDbContext.StockTransfers.Add(transfer);
+                    }
+
+                    transfer.TransferNo        = transferNo;
+                    transfer.TransferDate      = dto.TransferDate;
+                    transfer.SourceWarehouseID = dto.SourceWarehouseID;
+                    transfer.DestWarehouseID   = dto.DestWarehouseID;
+                    transfer.Remarks           = dto.Remarks;
+                    transfer.IsActive          = true;
+                    transfer.LASTUPDATE        = DateTime.Now;
+                    transfer.LastUpdatedBy     = dto.LastUpdatedBy;
+
+                    await _oBMSDbContext.SaveChangesAsync(); // get transfer.ID
+
+                    foreach (var line in dto.Details)
+                    {
+                        _oBMSDbContext.StockTransferDetails.Add(new StockTransferDetail
+                        {
+                            TransferID    = transfer.ID,
+                            ItemID        = line.ItemID,
+                            UOMID         = line.UOMID,
+                            TransferQty   = line.TransferQty,
+                            UnitCost      = line.UnitCost,
+                            Remarks       = line.Remarks,
+                            LASTUPDATE    = DateTime.Now,
+                            LastUpdatedBy = line.LastUpdatedBy
+                        });
+
+                        // StockLedger TRANSFER_OUT (from source)
+                        _oBMSDbContext.StockLedgers.Add(new StockLedger
+                        {
+                            TransactionNo   = await GenerateStockLedgerNo(),
+                            TransactionDate = dto.TransferDate,
+                            TransactionType = "TRANSFER_OUT",
+                            WarehouseID     = dto.SourceWarehouseID,
+                            ItemID          = line.ItemID,
+                            InQty           = 0,
+                            OutQty          = line.TransferQty,
+                            UnitCost        = line.UnitCost,
+                            ReferenceType   = "Stock Transfer OUT",
+                            ReferenceID     = transfer.ID,
+                            ReferenceNo     = transferNo,
+                            Remarks         = $"Transfer to {dstWh.Name}. {dto.Remarks}".Trim('.', ' '),
+                            LASTUPDATE      = DateTime.Now,
+                            LastUpdatedBy   = dto.LastUpdatedBy
+                        });
+
+                        // StockLedger TRANSFER_IN (to destination)
+                        _oBMSDbContext.StockLedgers.Add(new StockLedger
+                        {
+                            TransactionNo   = await GenerateStockLedgerNo(),
+                            TransactionDate = dto.TransferDate,
+                            TransactionType = "TRANSFER_IN",
+                            WarehouseID     = dto.DestWarehouseID,
+                            ItemID          = line.ItemID,
+                            InQty           = line.TransferQty,
+                            OutQty          = 0,
+                            UnitCost        = line.UnitCost,
+                            ReferenceType   = "Stock Transfer IN",
+                            ReferenceID     = transfer.ID,
+                            ReferenceNo     = transferNo,
+                            Remarks         = $"Transfer from {srcWh.Name}. {dto.Remarks}".Trim('.', ' '),
+                            LASTUPDATE      = DateTime.Now,
+                            LastUpdatedBy   = dto.LastUpdatedBy
+                        });
+                    }
+
+                    await _oBMSDbContext.SaveChangesAsync();
+                    await tx.CommitAsync();
+                    savedRecord = transfer;
+                }
+                catch { await tx.RollbackAsync(); throw; }
+            });
+
+            return (true, $"Stock Transfer {transferNo} saved successfully. Stock has been updated in both warehouses.", savedRecord);
+        }
+
+        public async Task<(bool Success, string Message)> DeleteStockTransfer(int id, string currentUser)
+        {
+            var transfer = await _oBMSDbContext.StockTransfers.FindAsync(id);
+            if (transfer == null) return (false, "Stock transfer not found.");
+
+            var strategy = _oBMSDbContext.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                using var tx = await _oBMSDbContext.Database.BeginTransactionAsync();
+                try
+                {
+                    var ledgers = await _oBMSDbContext.StockLedgers
+                        .Where(l => (l.ReferenceType == "Stock Transfer OUT" || l.ReferenceType == "Stock Transfer IN")
+                                 && l.ReferenceID == id)
+                        .ToListAsync();
+                    _oBMSDbContext.StockLedgers.RemoveRange(ledgers);
+
+                    transfer.IsActive      = false;
+                    transfer.LASTUPDATE    = DateTime.Now;
+                    transfer.LastUpdatedBy = currentUser;
+
+                    await _oBMSDbContext.SaveChangesAsync();
+                    await tx.CommitAsync();
+                }
+                catch { await tx.RollbackAsync(); throw; }
+            });
+
+            return (true, "Stock transfer cancelled successfully. Stock has been restored.");
+        }
+
+        // ────────────────────────────────────────────────────────────────────────
+        // D. STOCK ADJUSTMENT
+        // ────────────────────────────────────────────────────────────────────────
+
+        public async Task<List<StockAdjustmentListDto>> GetStockAdjustmentList()
+        {
+            var list = await (
+                from sa in _oBMSDbContext.StockAdjustments
+                join wh in _oBMSDbContext.WarehouseMasters   on sa.WarehouseID equals wh.ID
+                join im in _oBMSDbContext.ItemMasters         on sa.ItemID       equals im.ID
+                join ic in _oBMSDbContext.InventoryCategories on im.CategoryID   equals ic.ID into icJoin
+                from ic in icJoin.DefaultIfEmpty()
+                join um in _oBMSDbContext.UOMMasters on im.UOMID equals um.ID into umJoin
+                from um in umJoin.DefaultIfEmpty()
+                where sa.IsActive == true
+                orderby sa.AdjustmentDate descending, sa.ID descending
+                select new StockAdjustmentListDto
+                {
+                    ID             = sa.ID,
+                    AdjustmentNo   = sa.AdjustmentNo,
+                    AdjustmentDate = sa.AdjustmentDate,
+                    WarehouseID    = sa.WarehouseID,
+                    WarehouseName  = wh.Name,
+                    ItemID         = sa.ItemID,
+                    ItemCode       = im.Code ?? "",
+                    ItemName       = im.Name,
+                    CategoryName   = ic != null ? ic.Name : "",
+                    UOMName        = um != null ? um.Name : "",
+                    AdjustmentType = sa.AdjustmentType,
+                    AdjustmentQty  = sa.AdjustmentQty,
+                    UnitCost       = sa.UnitCost,
+                    TotalValue     = sa.AdjustmentQty * sa.UnitCost,
+                    Reason         = sa.Reason,
+                    Remarks        = sa.Remarks,
+                    LASTUPDATE     = sa.LASTUPDATE,
+                    LastUpdatedBy  = sa.LastUpdatedBy
+                }
+            ).ToListAsync();
+            return list;
+        }
+
+        public async Task<StockAdjustmentListDto?> GetStockAdjustmentByID(int id)
+        {
+            return await (
+                from sa in _oBMSDbContext.StockAdjustments
+                join wh in _oBMSDbContext.WarehouseMasters   on sa.WarehouseID equals wh.ID
+                join im in _oBMSDbContext.ItemMasters         on sa.ItemID       equals im.ID
+                join ic in _oBMSDbContext.InventoryCategories on im.CategoryID   equals ic.ID into icJoin
+                from ic in icJoin.DefaultIfEmpty()
+                join um in _oBMSDbContext.UOMMasters on im.UOMID equals um.ID into umJoin
+                from um in umJoin.DefaultIfEmpty()
+                where sa.ID == id && sa.IsActive == true
+                select new StockAdjustmentListDto
+                {
+                    ID             = sa.ID,
+                    AdjustmentNo   = sa.AdjustmentNo,
+                    AdjustmentDate = sa.AdjustmentDate,
+                    WarehouseID    = sa.WarehouseID,
+                    WarehouseName  = wh.Name,
+                    ItemID         = sa.ItemID,
+                    ItemCode       = im.Code ?? "",
+                    ItemName       = im.Name,
+                    CategoryName   = ic != null ? ic.Name : "",
+                    UOMName        = um != null ? um.Name : "",
+                    AdjustmentType = sa.AdjustmentType,
+                    AdjustmentQty  = sa.AdjustmentQty,
+                    UnitCost       = sa.UnitCost,
+                    TotalValue     = sa.AdjustmentQty * sa.UnitCost,
+                    Reason         = sa.Reason,
+                    Remarks        = sa.Remarks,
+                    LASTUPDATE     = sa.LASTUPDATE,
+                    LastUpdatedBy  = sa.LastUpdatedBy
+                }
+            ).FirstOrDefaultAsync();
+        }
+
+        public async Task<(bool Success, string Message, StockAdjustment? Record)> SaveStockAdjustment(
+            StockAdjustmentRequestDto dto)
+        {
+            if (dto.AdjustmentQty <= 0)
+                return (false, "Adjustment quantity must be greater than zero.", null);
+
+            if (string.IsNullOrWhiteSpace(dto.Reason))
+                return (false, "Please enter a reason for the adjustment.", null);
+
+            if (dto.AdjustmentType != "PLUS" && dto.AdjustmentType != "MINUS")
+                return (false, "Adjustment type must be PLUS or MINUS.", null);
+
+            var warehouse = await _oBMSDbContext.WarehouseMasters.FindAsync(dto.WarehouseID);
+            if (warehouse == null) return (false, "Warehouse not found.", null);
+
+            var item = await _oBMSDbContext.ItemMasters.FindAsync(dto.ItemID);
+            if (item == null) return (false, "Item not found.", null);
+
+            // MINUS: check against available stock
+            if (dto.AdjustmentType == "MINUS")
+            {
+                var available = await GetCurrentStockInternal(dto.WarehouseID, dto.ItemID);
+                if (dto.AdjustmentQty > available)
+                    return (false,
+                        $"Insufficient stock. Available quantity for '{item.Name}' in {warehouse.Name} is {available:N2}.",
+                        null);
+            }
+
+            // ── Generate adjustment number ──────────────────────────────────────
+            string adjNo = dto.AdjustmentNo ?? "";
+            if (string.IsNullOrEmpty(adjNo))
+            {
+                var maxRow = await _oBMSDbContext.StockAdjustments
+                    .Where(x => x.AdjustmentNo.StartsWith("ADJ"))
+                    .OrderByDescending(x => x.AdjustmentNo)
+                    .FirstOrDefaultAsync();
+                adjNo = (maxRow == null || string.IsNullOrEmpty(maxRow.AdjustmentNo))
+                    ? "ADJ0001"
+                    : int.TryParse(maxRow.AdjustmentNo.Substring(3), out int n)
+                        ? "ADJ" + (n + 1).ToString("D4") : "ADJ0001";
+            }
+
+            StockAdjustment? savedRecord = null;
+            var strategy = _oBMSDbContext.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                using var tx = await _oBMSDbContext.Database.BeginTransactionAsync();
+                try
+                {
+                    StockAdjustment adj;
+                    if (dto.ID > 0)
+                    {
+                        adj = await _oBMSDbContext.StockAdjustments.FindAsync(dto.ID)
+                              ?? throw new InvalidOperationException("Adjustment not found.");
+                        // Remove old ledger row
+                        var oldLedger = await _oBMSDbContext.StockLedgers
+                            .Where(l => l.ReferenceType == "Stock Adjustment" && l.ReferenceID == dto.ID)
+                            .ToListAsync();
+                        _oBMSDbContext.StockLedgers.RemoveRange(oldLedger);
+                        await _oBMSDbContext.SaveChangesAsync();
+                    }
+                    else
+                    {
+                        adj = new StockAdjustment();
+                        _oBMSDbContext.StockAdjustments.Add(adj);
+                    }
+
+                    adj.AdjustmentNo   = adjNo;
+                    adj.AdjustmentDate = dto.AdjustmentDate;
+                    adj.WarehouseID    = dto.WarehouseID;
+                    adj.ItemID         = dto.ItemID;
+                    adj.AdjustmentType = dto.AdjustmentType;
+                    adj.AdjustmentQty  = dto.AdjustmentQty;
+                    adj.UnitCost       = dto.UnitCost;
+                    adj.Reason         = dto.Reason;
+                    adj.Remarks        = dto.Remarks;
+                    adj.IsActive       = true;
+                    adj.LASTUPDATE     = DateTime.Now;
+                    adj.LastUpdatedBy  = dto.LastUpdatedBy;
+
+                    await _oBMSDbContext.SaveChangesAsync(); // get adj.ID
+
+                    // StockLedger — PLUS = In, MINUS = Out
+                    bool isPlus = dto.AdjustmentType == "PLUS";
+                    _oBMSDbContext.StockLedgers.Add(new StockLedger
+                    {
+                        TransactionNo   = await GenerateStockLedgerNo(),
+                        TransactionDate = dto.AdjustmentDate,
+                        TransactionType = isPlus ? "ADJ_PLUS" : "ADJ_MINUS",
+                        WarehouseID     = dto.WarehouseID,
+                        ItemID          = dto.ItemID,
+                        InQty           = isPlus ? dto.AdjustmentQty : 0,
+                        OutQty          = isPlus ? 0 : dto.AdjustmentQty,
+                        UnitCost        = dto.UnitCost,
+                        ReferenceType   = "Stock Adjustment",
+                        ReferenceID     = adj.ID,
+                        ReferenceNo     = adjNo,
+                        Remarks         = dto.Reason,
+                        LASTUPDATE      = DateTime.Now,
+                        LastUpdatedBy   = dto.LastUpdatedBy
+                    });
+
+                    await _oBMSDbContext.SaveChangesAsync();
+                    await tx.CommitAsync();
+                    savedRecord = adj;
+                }
+                catch { await tx.RollbackAsync(); throw; }
+            });
+
+            return (true, $"Stock Adjustment {adjNo} saved successfully. Stock has been updated.", savedRecord);
+        }
+
+        public async Task<(bool Success, string Message)> DeleteStockAdjustment(int id, string currentUser)
+        {
+            var adj = await _oBMSDbContext.StockAdjustments.FindAsync(id);
+            if (adj == null) return (false, "Stock adjustment not found.");
+
+            var strategy = _oBMSDbContext.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                using var tx = await _oBMSDbContext.Database.BeginTransactionAsync();
+                try
+                {
+                    var ledgers = await _oBMSDbContext.StockLedgers
+                        .Where(l => l.ReferenceType == "Stock Adjustment" && l.ReferenceID == id)
+                        .ToListAsync();
+                    _oBMSDbContext.StockLedgers.RemoveRange(ledgers);
+
+                    adj.IsActive      = false;
+                    adj.LASTUPDATE    = DateTime.Now;
+                    adj.LastUpdatedBy = currentUser;
+
+                    await _oBMSDbContext.SaveChangesAsync();
+                    await tx.CommitAsync();
+                }
+                catch { await tx.RollbackAsync(); throw; }
+            });
+
+            return (true, "Stock adjustment deleted successfully. Stock balance has been reversed.");
+        }
+
+        // ────────────────────────────────────────────────────────────────────────
+        // E. DAMAGE / LOSS
+        // ────────────────────────────────────────────────────────────────────────
+
+        public async Task<List<StockDamageLossListDto>> GetStockDamageLossList()
+        {
+            var list = await (
+                from dl in _oBMSDbContext.StockDamageLosses
+                join wh in _oBMSDbContext.WarehouseMasters   on dl.WarehouseID equals wh.ID
+                join im in _oBMSDbContext.ItemMasters         on dl.ItemID       equals im.ID
+                join ic in _oBMSDbContext.InventoryCategories on im.CategoryID   equals ic.ID into icJoin
+                from ic in icJoin.DefaultIfEmpty()
+                join um in _oBMSDbContext.UOMMasters on im.UOMID equals um.ID into umJoin
+                from um in umJoin.DefaultIfEmpty()
+                where dl.IsActive == true
+                orderby dl.RecordDate descending, dl.ID descending
+                select new StockDamageLossListDto
+                {
+                    ID            = dl.ID,
+                    RecordNo      = dl.RecordNo,
+                    RecordDate    = dl.RecordDate,
+                    WarehouseID   = dl.WarehouseID,
+                    WarehouseName = wh.Name,
+                    ItemID        = dl.ItemID,
+                    ItemCode      = im.Code ?? "",
+                    ItemName      = im.Name,
+                    CategoryName  = ic != null ? ic.Name : "",
+                    UOMName       = um != null ? um.Name : "",
+                    LossType      = dl.LossType,
+                    Quantity      = dl.Quantity,
+                    UnitCost      = dl.UnitCost,
+                    TotalValue    = dl.Quantity * dl.UnitCost,
+                    Reason        = dl.Reason,
+                    Remarks       = dl.Remarks,
+                    LASTUPDATE    = dl.LASTUPDATE,
+                    LastUpdatedBy = dl.LastUpdatedBy
+                }
+            ).ToListAsync();
+            return list;
+        }
+
+        public async Task<StockDamageLossListDto?> GetStockDamageLossByID(int id)
+        {
+            return await (
+                from dl in _oBMSDbContext.StockDamageLosses
+                join wh in _oBMSDbContext.WarehouseMasters   on dl.WarehouseID equals wh.ID
+                join im in _oBMSDbContext.ItemMasters         on dl.ItemID       equals im.ID
+                join ic in _oBMSDbContext.InventoryCategories on im.CategoryID   equals ic.ID into icJoin
+                from ic in icJoin.DefaultIfEmpty()
+                join um in _oBMSDbContext.UOMMasters on im.UOMID equals um.ID into umJoin
+                from um in umJoin.DefaultIfEmpty()
+                where dl.ID == id && dl.IsActive == true
+                select new StockDamageLossListDto
+                {
+                    ID            = dl.ID,
+                    RecordNo      = dl.RecordNo,
+                    RecordDate    = dl.RecordDate,
+                    WarehouseID   = dl.WarehouseID,
+                    WarehouseName = wh.Name,
+                    ItemID        = dl.ItemID,
+                    ItemCode      = im.Code ?? "",
+                    ItemName      = im.Name,
+                    CategoryName  = ic != null ? ic.Name : "",
+                    UOMName       = um != null ? um.Name : "",
+                    LossType      = dl.LossType,
+                    Quantity      = dl.Quantity,
+                    UnitCost      = dl.UnitCost,
+                    TotalValue    = dl.Quantity * dl.UnitCost,
+                    Reason        = dl.Reason,
+                    Remarks       = dl.Remarks,
+                    LASTUPDATE    = dl.LASTUPDATE,
+                    LastUpdatedBy = dl.LastUpdatedBy
+                }
+            ).FirstOrDefaultAsync();
+        }
+
+        public async Task<(bool Success, string Message, StockDamageLoss? Record)> SaveStockDamageLoss(
+            StockDamageLossRequestDto dto)
+        {
+            if (dto.Quantity <= 0)
+                return (false, "Quantity must be greater than zero.", null);
+
+            if (string.IsNullOrWhiteSpace(dto.Reason))
+                return (false, "Please enter a reason for the damage/loss record.", null);
+
+            var warehouse = await _oBMSDbContext.WarehouseMasters.FindAsync(dto.WarehouseID);
+            if (warehouse == null) return (false, "Warehouse not found.", null);
+
+            var item = await _oBMSDbContext.ItemMasters.FindAsync(dto.ItemID);
+            if (item == null) return (false, "Item not found.", null);
+
+            // ── Stock availability check ────────────────────────────────────────
+            var available = await GetCurrentStockInternal(dto.WarehouseID, dto.ItemID);
+            if (dto.Quantity > available)
+                return (false,
+                    $"Insufficient stock. Available quantity for '{item.Name}' in {warehouse.Name} is {available:N2}.",
+                    null);
+
+            // ── Generate record number ──────────────────────────────────────────
+            string recordNo = dto.RecordNo ?? "";
+            if (string.IsNullOrEmpty(recordNo))
+            {
+                var maxRow = await _oBMSDbContext.StockDamageLosses
+                    .Where(x => x.RecordNo.StartsWith("DL"))
+                    .OrderByDescending(x => x.RecordNo)
+                    .FirstOrDefaultAsync();
+                recordNo = (maxRow == null || string.IsNullOrEmpty(maxRow.RecordNo))
+                    ? "DL0001"
+                    : int.TryParse(maxRow.RecordNo.Substring(2), out int n)
+                        ? "DL" + (n + 1).ToString("D4") : "DL0001";
+            }
+
+            StockDamageLoss? savedRecord = null;
+            var strategy = _oBMSDbContext.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                using var tx = await _oBMSDbContext.Database.BeginTransactionAsync();
+                try
+                {
+                    StockDamageLoss dl;
+                    if (dto.ID > 0)
+                    {
+                        dl = await _oBMSDbContext.StockDamageLosses.FindAsync(dto.ID)
+                             ?? throw new InvalidOperationException("Record not found.");
+                        var oldLedger = await _oBMSDbContext.StockLedgers
+                            .Where(l => l.ReferenceType == "Damage/Loss" && l.ReferenceID == dto.ID)
+                            .ToListAsync();
+                        _oBMSDbContext.StockLedgers.RemoveRange(oldLedger);
+                        await _oBMSDbContext.SaveChangesAsync();
+                    }
+                    else
+                    {
+                        dl = new StockDamageLoss();
+                        _oBMSDbContext.StockDamageLosses.Add(dl);
+                    }
+
+                    dl.RecordNo      = recordNo;
+                    dl.RecordDate    = dto.RecordDate;
+                    dl.WarehouseID   = dto.WarehouseID;
+                    dl.ItemID        = dto.ItemID;
+                    dl.LossType      = dto.LossType;
+                    dl.Quantity      = dto.Quantity;
+                    dl.UnitCost      = dto.UnitCost;
+                    dl.Reason        = dto.Reason;
+                    dl.Remarks       = dto.Remarks;
+                    dl.IsActive      = true;
+                    dl.LASTUPDATE    = DateTime.Now;
+                    dl.LastUpdatedBy = dto.LastUpdatedBy;
+
+                    await _oBMSDbContext.SaveChangesAsync(); // get dl.ID
+
+                    // StockLedger DAMAGE_LOSS (Out)
+                    _oBMSDbContext.StockLedgers.Add(new StockLedger
+                    {
+                        TransactionNo   = await GenerateStockLedgerNo(),
+                        TransactionDate = dto.RecordDate,
+                        TransactionType = "DAMAGE_LOSS",
+                        WarehouseID     = dto.WarehouseID,
+                        ItemID          = dto.ItemID,
+                        InQty           = 0,
+                        OutQty          = dto.Quantity,
+                        UnitCost        = dto.UnitCost,
+                        ReferenceType   = "Damage/Loss",
+                        ReferenceID     = dl.ID,
+                        ReferenceNo     = recordNo,
+                        Remarks         = $"{dto.LossType}: {dto.Reason}",
+                        LASTUPDATE      = DateTime.Now,
+                        LastUpdatedBy   = dto.LastUpdatedBy
+                    });
+
+                    await _oBMSDbContext.SaveChangesAsync();
+                    await tx.CommitAsync();
+                    savedRecord = dl;
+
+                    // Part 7: low-stock check after damage/loss reduces stock
+                    if (_notif != null)
+                        _ = _notif.CheckAndNotifyLowStock(dto.WarehouseID, dto.ItemID, dto.LastUpdatedBy ?? "system");
+                }
+                catch { await tx.RollbackAsync(); throw; }
+            });
+
+            return (true, $"Damage/Loss record {recordNo} saved successfully. Stock has been updated.", savedRecord);
+        }
+
+        public async Task<(bool Success, string Message)> DeleteStockDamageLoss(int id, string currentUser)
+        {
+            var dl = await _oBMSDbContext.StockDamageLosses.FindAsync(id);
+            if (dl == null) return (false, "Damage/loss record not found.");
+
+            var strategy = _oBMSDbContext.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                using var tx = await _oBMSDbContext.Database.BeginTransactionAsync();
+                try
+                {
+                    var ledgers = await _oBMSDbContext.StockLedgers
+                        .Where(l => l.ReferenceType == "Damage/Loss" && l.ReferenceID == id)
+                        .ToListAsync();
+                    _oBMSDbContext.StockLedgers.RemoveRange(ledgers);
+
+                    dl.IsActive      = false;
+                    dl.LASTUPDATE    = DateTime.Now;
+                    dl.LastUpdatedBy = currentUser;
+
+                    await _oBMSDbContext.SaveChangesAsync();
+                    await tx.CommitAsync();
+                }
+                catch { await tx.RollbackAsync(); throw; }
+            });
+
+            return (true, "Damage/loss record deleted successfully. Stock balance has been restored.");
+        }
+
+        // ════════════════════════════════════════════════════════════════════════
+        // PART 5 — EMPLOYEE/GUARD ITEM TRACKING + REPORTS
+        // ════════════════════════════════════════════════════════════════════════
+
+        // ────────────────────────────────────────────────────────────────────────
+        // A. EMPLOYEE / GUARD ITEM HOLDING
+        // ────────────────────────────────────────────────────────────────────────
+
+        public async Task<List<EmployeeHoldingSummaryDto>> GetEmployeeHoldingSummaryList()
+        {
+            // Build per-employee, per-item net holdings from issue + return tables
+            var holdings = await BuildRawHoldings(null, null);
+
+            // Aggregate to one row per employee
+            var summary = holdings
+                .GroupBy(h => new { h.EmployeeID, h.EmployeeName, h.IssueToType })
+                .Select(g => new EmployeeHoldingSummaryDto
+                {
+                    EmployeeID   = g.Key.EmployeeID,
+                    EmployeeName = g.Key.EmployeeName,
+                    IssueToType  = g.Key.IssueToType,
+                    ItemCount    = g.Count(x => x.NetHolding > 0),
+                    TotalValue   = g.Sum(x => x.TotalValue),
+                    LastIssueDate = g.Max(x => x.LastIssueDate)
+                })
+                .Where(s => s.ItemCount > 0 || s.TotalValue > 0)
+                .OrderBy(s => s.IssueToType)
+                .ThenBy(s => s.EmployeeName)
+                .ToList();
+
+            return summary;
+        }
+
+        public async Task<List<EmployeeHoldingDto>> GetEmployeeHoldingDetail(
+            int employeeID, string? issueToType)
+        {
+            var holdings = await BuildRawHoldings(employeeID, issueToType);
+            return holdings.OrderBy(h => h.ItemName).ToList();
+        }
+
+        public async Task<List<EmployeeHoldingDto>> GetAllEmployeeHoldings(string? issueToType)
+        {
+            var holdings = await BuildRawHoldings(null, issueToType);
+            return holdings
+                .Where(h => h.NetHolding > 0)
+                .OrderBy(h => h.IssueToType)
+                .ThenBy(h => h.EmployeeName)
+                .ThenBy(h => h.ItemName)
+                .ToList();
+        }
+
+        /// <summary>
+        /// Core helper: computes net holding (issued − returned) per
+        /// employee × item. Optionally filtered by employeeID and/or issueToType.
+        /// </summary>
+        private async Task<List<EmployeeHoldingDto>> BuildRawHoldings(
+            int? employeeID, string? issueToType)
+        {
+            // ── Step 1: all issue lines for Employee / Guard type docs ────────────
+            var issueQuery =
+                from doc    in _oBMSDbContext.StockIssueDocs
+                join detail in _oBMSDbContext.StockIssueDocDetails on doc.ID equals detail.IssueDocID
+                join item   in _oBMSDbContext.ItemMasters on detail.ItemID equals item.ID
+                join ic     in _oBMSDbContext.InventoryCategories on item.CategoryID equals ic.ID into icJoin
+                from ic     in icJoin.DefaultIfEmpty()
+                join um     in _oBMSDbContext.UOMMasters on item.UOMID equals um.ID into umJoin
+                from um     in umJoin.DefaultIfEmpty()
+                where doc.IsActive == true
+                   && (doc.IssueToType == "Staff" || doc.IssueToType == "Guard")
+                select new
+                {
+                    doc.IssueToID,
+                    doc.IssueToName,
+                    doc.IssueToType,
+                    doc.IssueDate,
+                    doc.IssueNo,
+                    detail.ID,          // StockIssueDocDetail.ID
+                    detail.ItemID,
+                    ItemCode     = item.Code ?? "",
+                    ItemName     = item.Name,
+                    CategoryName = ic != null ? ic.Name : "",
+                    UOMName      = um != null ? um.Name : "",
+                    UOMShort     = um != null ? um.ShortName : "",
+                    detail.IssueQty,
+                    detail.UnitCost
+                };
+
+            // Optional filters
+            if (employeeID.HasValue && employeeID > 0)
+                issueQuery = issueQuery.Where(x => x.IssueToID == employeeID);
+
+            if (!string.IsNullOrEmpty(issueToType) && issueToType != "ALL")
+                issueQuery = issueQuery.Where(x => x.IssueToType == issueToType);
+
+            var issueLines = await issueQuery.ToListAsync();
+
+            if (!issueLines.Any()) return new List<EmployeeHoldingDto>();
+
+            // Collect all issue detail IDs to look up returns efficiently
+            var detailIDs = issueLines.Select(x => x.ID).Distinct().ToList();
+
+            // ── Step 2: returns against those lines ──────────────────────────────
+            var returnedQtyMap = await _oBMSDbContext.StockIssueReturnDetails
+                .Where(r => detailIDs.Contains(r.OriginalIssueDetailID))
+                .GroupBy(r => r.OriginalIssueDetailID)
+                .Select(g => new { DetailID = g.Key, ReturnedQty = g.Sum(r => r.ReturnQty) })
+                .ToDictionaryAsync(x => x.DetailID, x => x.ReturnedQty);
+
+            // ── Step 3: aggregate per employee × item ────────────────────────────
+            var grouped = issueLines
+                .GroupBy(x => new
+                {
+                    x.IssueToID,
+                    x.IssueToName,
+                    x.IssueToType,
+                    x.ItemID,
+                    x.ItemCode,
+                    x.ItemName,
+                    x.CategoryName,
+                    x.UOMName
+                })
+                .Select(g =>
+                {
+                    decimal totalIssued   = g.Sum(x => x.IssueQty);
+                    decimal totalReturned = g.Sum(x => returnedQtyMap.TryGetValue(x.ID, out var r) ? r : 0);
+                    decimal netHolding    = totalIssued - totalReturned;
+                    decimal unitCost      = g.OrderByDescending(x => x.IssueDate).First().UnitCost;
+
+                    return new EmployeeHoldingDto
+                    {
+                        EmployeeID    = g.Key.IssueToID,
+                        EmployeeName  = g.Key.IssueToName ?? "",
+                        IssueToType   = g.Key.IssueToType,
+                        ItemID        = g.Key.ItemID,
+                        ItemCode      = g.Key.ItemCode,
+                        ItemName      = g.Key.ItemName,
+                        CategoryName  = g.Key.CategoryName,
+                        UOMName       = g.Key.UOMName,
+                        TotalIssued   = totalIssued,
+                        TotalReturned = totalReturned,
+                        NetHolding    = netHolding,
+                        UnitCost      = unitCost,
+                        TotalValue    = netHolding * unitCost,
+                        LastIssueDate = g.Max(x => (DateTime?)x.IssueDate),
+                        LastIssueNo   = g.OrderByDescending(x => x.IssueDate).First().IssueNo
+                    };
+                })
+                .ToList();
+
+            return grouped;
+        }
+
+        // ────────────────────────────────────────────────────────────────────────
+        // B. STOCK BALANCE SUMMARY
+        // ────────────────────────────────────────────────────────────────────────
+
+        public async Task<List<StockBalanceSummaryDto>> GetStockBalanceSummary(
+            int? warehouseID, int? itemID)
+        {
+            // Get all (warehouseID, itemID) pairs that have ledger entries
+            var ledgerPairsQuery = _oBMSDbContext.StockLedgers
+                .GroupBy(l => new { l.WarehouseID, l.ItemID })
+                .Select(g => new
+                {
+                    g.Key.WarehouseID,
+                    g.Key.ItemID,
+                    InQty         = g.Sum(l => l.InQty),
+                    OutQty        = g.Sum(l => l.OutQty),
+                    LastMoveDate  = g.Max(l => (DateTime?)l.TransactionDate),
+                    LastTxType    = g.OrderByDescending(l => l.TransactionDate)
+                                     .ThenByDescending(l => l.ID)
+                                     .Select(l => l.TransactionType)
+                                     .FirstOrDefault(),
+                    LastUnitCost  = g.OrderByDescending(l => l.TransactionDate)
+                                     .ThenByDescending(l => l.ID)
+                                     .Select(l => l.UnitCost)
+                                     .FirstOrDefault()
+                });
+
+            if (warehouseID.HasValue && warehouseID > 0)
+                ledgerPairsQuery = ledgerPairsQuery.Where(x => x.WarehouseID == warehouseID);
+
+            if (itemID.HasValue && itemID > 0)
+                ledgerPairsQuery = ledgerPairsQuery.Where(x => x.ItemID == itemID);
+
+            var ledgerPairs = await ledgerPairsQuery.ToListAsync();
+
+            if (!ledgerPairs.Any()) return new List<StockBalanceSummaryDto>();
+
+            // Collect IDs for lookups
+            var whIDs   = ledgerPairs.Select(x => x.WarehouseID).Distinct().ToList();
+            var itemIDs = ledgerPairs.Select(x => x.ItemID).Distinct().ToList();
+
+            var warehouses = await _oBMSDbContext.WarehouseMasters
+                .Where(w => whIDs.Contains(w.ID))
+                .ToDictionaryAsync(w => w.ID, w => w.Name);
+
+            var items = await (
+                from im in _oBMSDbContext.ItemMasters
+                join ic in _oBMSDbContext.InventoryCategories on im.CategoryID equals ic.ID into icJoin
+                from ic in icJoin.DefaultIfEmpty()
+                join br in _oBMSDbContext.BrandMasters on im.BrandID equals br.ID into brJoin
+                from br in brJoin.DefaultIfEmpty()
+                join um in _oBMSDbContext.UOMMasters on im.UOMID equals um.ID into umJoin
+                from um in umJoin.DefaultIfEmpty()
+                where itemIDs.Contains(im.ID)
+                select new
+                {
+                    im.ID,
+                    im.Code,
+                    im.Name,
+                    im.ReorderLevel,
+                    CategoryName = ic != null ? ic.Name : "",
+                    BrandName    = br != null ? br.Name : "",
+                    UOMName      = um != null ? um.Name : "",
+                    UOMShort     = um != null ? um.ShortName : ""
+                }
+            ).ToDictionaryAsync(x => x.ID);
+
+            var result = ledgerPairs
+                .Select(p =>
+                {
+                    var currentStock = p.InQty - p.OutQty;
+                    var lastCost     = p.LastUnitCost ?? 0;
+                    items.TryGetValue(p.ItemID, out var itemInfo);
+                    warehouses.TryGetValue(p.WarehouseID, out var whName);
+
+                    decimal? reorderLevel = itemInfo?.ReorderLevel;
+                    bool belowReorder = reorderLevel.HasValue && reorderLevel > 0
+                                        && currentStock <= reorderLevel;
+
+                    return new StockBalanceSummaryDto
+                    {
+                        WarehouseID          = p.WarehouseID,
+                        WarehouseName        = whName ?? "",
+                        ItemID               = p.ItemID,
+                        ItemCode             = itemInfo?.Code ?? "",
+                        ItemName             = itemInfo?.Name ?? "",
+                        CategoryName         = itemInfo?.CategoryName ?? "",
+                        BrandName            = itemInfo?.BrandName ?? "",
+                        UOMName              = itemInfo?.UOMName ?? "",
+                        UOMShort             = itemInfo?.UOMShort ?? "",
+                        CurrentStock         = currentStock,
+                        ReorderLevel         = reorderLevel,
+                        BelowReorderLevel    = belowReorder,
+                        LastUnitCost         = p.LastUnitCost,
+                        StockValue           = currentStock * lastCost,
+                        LastMovementDate     = p.LastMoveDate,
+                        LastTransactionType  = p.LastTxType
+                    };
+                })
+                .OrderBy(x => x.WarehouseName)
+                .ThenBy(x => x.ItemName)
+                .ToList();
+
+            return result;
+        }
+
+        // ────────────────────────────────────────────────────────────────────────
+        // C. EMPLOYEE ISSUE REGISTER
+        // ────────────────────────────────────────────────────────────────────────
+
+        public async Task<List<EmployeeIssueRegisterDto>> GetEmployeeIssueRegister(
+            DateTime dateFrom,
+            DateTime dateTo,
+            int? employeeID,
+            string? issueToType)
+        {
+            var query =
+                from doc    in _oBMSDbContext.StockIssueDocs
+                join detail in _oBMSDbContext.StockIssueDocDetails on doc.ID equals detail.IssueDocID
+                join wh     in _oBMSDbContext.WarehouseMasters on doc.WarehouseID equals wh.ID
+                join item   in _oBMSDbContext.ItemMasters on detail.ItemID equals item.ID
+                join ic     in _oBMSDbContext.InventoryCategories on item.CategoryID equals ic.ID into icJoin
+                from ic     in icJoin.DefaultIfEmpty()
+                join um     in _oBMSDbContext.UOMMasters on item.UOMID equals um.ID into umJoin
+                from um     in umJoin.DefaultIfEmpty()
+                where doc.IsActive == true
+                   && (doc.IssueToType == "Staff" || doc.IssueToType == "Guard")
+                   && doc.IssueDate >= dateFrom.Date
+                   && doc.IssueDate <= dateTo.Date
+                select new
+                {
+                    doc.IssueNo,
+                    doc.IssueDate,
+                    WarehouseName = wh.Name,
+                    doc.IssueToType,
+                    doc.IssueToID,
+                    doc.IssueToName,
+                    doc.LastUpdatedBy,
+                    DetailID     = detail.ID,
+                    detail.ItemID,
+                    ItemCode     = item.Code ?? "",
+                    ItemName     = item.Name,
+                    CategoryName = ic != null ? ic.Name : "",
+                    UOMName      = um != null ? um.Name : "",
+                    detail.IssueQty,
+                    detail.UnitCost,
+                    detail.Remarks
+                };
+
+            if (employeeID.HasValue && employeeID > 0)
+                query = query.Where(x => x.IssueToID == employeeID);
+
+            if (!string.IsNullOrEmpty(issueToType) && issueToType != "ALL")
+                query = query.Where(x => x.IssueToType == issueToType);
+
+            var lines = await query
+                .OrderBy(x => x.IssueToName)
+                .ThenBy(x => x.IssueDate)
+                .ThenBy(x => x.ItemName)
+                .ToListAsync();
+
+            if (!lines.Any()) return new List<EmployeeIssueRegisterDto>();
+
+            // Get returned quantities for all detail IDs
+            var detailIDs = lines.Select(x => x.DetailID).Distinct().ToList();
+            var returnedMap = await _oBMSDbContext.StockIssueReturnDetails
+                .Where(r => detailIDs.Contains(r.OriginalIssueDetailID))
+                .GroupBy(r => r.OriginalIssueDetailID)
+                .Select(g => new { DetailID = g.Key, ReturnedQty = g.Sum(r => r.ReturnQty) })
+                .ToDictionaryAsync(x => x.DetailID, x => x.ReturnedQty);
+
+            return lines.Select(x =>
+            {
+                decimal returned = returnedMap.TryGetValue(x.DetailID, out var r) ? r : 0;
+                return new EmployeeIssueRegisterDto
+                {
+                    IssueNo      = x.IssueNo,
+                    IssueDate    = x.IssueDate,
+                    WarehouseName= x.WarehouseName,
+                    IssueToType  = x.IssueToType,
+                    EmployeeID   = x.IssueToID,
+                    EmployeeName = x.IssueToName ?? "",
+                    ItemID       = x.ItemID,
+                    ItemCode     = x.ItemCode,
+                    ItemName     = x.ItemName,
+                    CategoryName = x.CategoryName,
+                    UOMName      = x.UOMName,
+                    IssueQty     = x.IssueQty,
+                    UnitCost     = x.UnitCost,
+                    TotalValue   = x.IssueQty * x.UnitCost,
+                    ReturnedQty  = returned,
+                    NetQty       = x.IssueQty - returned,
+                    Remarks      = x.Remarks,
+                    IssuedBy     = x.LastUpdatedBy
+                };
+            }).ToList();
+        }
+
+        // ════════════════════════════════════════════════════════════════════════
+        // PART 6 — ASSET MANAGEMENT
+        // All state-changing operations are transactional and append a row to
+        // AssetMovementHistory for a complete, traceable lifecycle audit trail.
+        // ════════════════════════════════════════════════════════════════════════
+
+        // ── Shared helper: append movement history ────────────────────────────
+        private void AppendMovementHistory(
+            int assetID,
+            string movementType,
+            string? fromLocation,
+            string? toLocation,
+            string? fromPerson,
+            string? toPerson,
+            string? referenceNo,
+            string? referenceType,
+            int? referenceID,
+            string? previousStatus,
+            string? newStatus,
+            string? remarks,
+            string? createdBy)
+        {
+            _oBMSDbContext.AssetMovementHistories.Add(new AssetMovementHistory
+            {
+                AssetID        = assetID,
+                MovementDate   = DateTime.Now,
+                MovementType   = movementType,
+                FromLocation   = fromLocation,
+                ToLocation     = toLocation,
+                FromPerson     = fromPerson,
+                ToPerson       = toPerson,
+                ReferenceNo    = referenceNo,
+                ReferenceType  = referenceType,
+                ReferenceID    = referenceID,
+                PreviousStatus = previousStatus,
+                NewStatus      = newStatus,
+                Remarks        = remarks,
+                CreatedBy      = createdBy,
+                LASTUPDATE     = DateTime.Now
+            });
+        }
+
+        // ── Generate sequential reference numbers ─────────────────────────────
+        private string NextAssetCode()
+        {
+            var maxRow = _oBMSDbContext.AssetMasters
+                .Where(x => x.AssetCode != null && x.AssetCode.StartsWith("AST") && x.IsActive)
+                .OrderByDescending(x => x.AssetCode)
+                .FirstOrDefault();
+            return (maxRow == null || string.IsNullOrEmpty(maxRow.AssetCode))
+                ? "AST0001"
+                : int.TryParse(maxRow.AssetCode.Substring(3), out int n)
+                    ? "AST" + (n + 1).ToString("D4") : "AST0001";
+        }
+
+        private string NextCode<T>(System.Linq.IQueryable<T> table,
+            System.Linq.Expressions.Expression<Func<T, string?>> codeSelector,
+            string prefix)
+        {
+            var all = table.Select(codeSelector)
+                .Where(c => c != null && c.StartsWith(prefix))
+                .OrderByDescending(c => c)
+                .FirstOrDefault();
+            if (string.IsNullOrEmpty(all))
+                return prefix + "0001";
+            return int.TryParse(all.Substring(prefix.Length), out int n)
+                ? prefix + (n + 1).ToString("D4") : prefix + "0001";
+        }
+
+        // ────────────────────────────────────────────────────────────────────
+        // A. ASSET MASTER
+        // ────────────────────────────────────────────────────────────────────
+
+        public async Task<List<AssetListDto>> GetAssetList()
+        {
+            var list = await (
+                from a in _oBMSDbContext.AssetMasters
+                join sup in _oBMSDbContext.Suppliers on a.SupplierID equals sup.Id into supJoin
+                from sup in supJoin.DefaultIfEmpty()
+                orderby a.AssetCode
+                select new AssetListDto
+                {
+                    ID                  = a.ID,
+                    AssetCode           = a.AssetCode ?? "",
+                    Name                = a.Name,
+                    AssetType           = a.AssetType,
+                    SerialNumber        = a.SerialNumber,
+                    Description         = a.Description,
+                    ModelNo             = a.ModelNo,
+                    BrandName           = a.BrandName,
+                    SupplierID          = a.SupplierID,
+                    SupplierName        = sup != null ? sup.Name : "",
+                    Branch              = a.Branch,
+                    PurchaseAmount      = a.PurchaseAmount,
+                    PurchaseDate        = a.PurchaseDate,
+                    WarrantyExpiryDate  = a.WarrantyExpiryDate,
+                    AssetStatus         = a.AssetStatus,
+                    AssetCondition      = a.AssetCondition,
+                    Remarks             = a.Remarks,
+                    IsActive            = a.IsActive,
+                    LASTUPDATE          = a.LASTUPDATE,
+                    LastUpdatedBy       = a.LastUpdatedBy,
+                    CurrentLocation     = a.CurrentLocation,
+                    LocationStatus      = a.LocationStatus,
+                    LocationUpdatedBy   = a.LocationUpdatedBy,
+                    LocationUpdatedDate = a.LocationUpdatedDate
+                }
+            ).ToListAsync();
+
+            // Enrich with current active allocation
+            foreach (var asset in list)
+            {
+                var alloc = await _oBMSDbContext.AssetAllocations
+                    .Where(x => x.AssetID == asset.ID && x.IsActive)
+                    .OrderByDescending(x => x.AllocationDate)
+                    .FirstOrDefaultAsync();
+                if (alloc != null)
+                {
+                    asset.CurrentAllocatedTo   = alloc.AllocatedToName;
+                    asset.CurrentAllocatedType = alloc.AllocatedToType;
+                }
+            }
+            return list;
+        }
+
+        public async Task<AssetListDto?> GetAssetByIDEnriched(int id)
+        {
+            var asset = await (
+                from a in _oBMSDbContext.AssetMasters
+                join sup in _oBMSDbContext.Suppliers on a.SupplierID equals sup.Id into supJoin
+                from sup in supJoin.DefaultIfEmpty()
+                where a.ID == id
+                select new AssetListDto
+                {
+                    ID                  = a.ID,
+                    AssetCode           = a.AssetCode ?? "",
+                    Name                = a.Name,
+                    AssetType           = a.AssetType,
+                    SerialNumber        = a.SerialNumber,
+                    Description         = a.Description,
+                    ModelNo             = a.ModelNo,
+                    BrandName           = a.BrandName,
+                    SupplierID          = a.SupplierID,
+                    SupplierName        = sup != null ? sup.Name : "",
+                    Branch              = a.Branch,
+                    PurchaseAmount      = a.PurchaseAmount,
+                    PurchaseDate        = a.PurchaseDate,
+                    WarrantyExpiryDate  = a.WarrantyExpiryDate,
+                    AssetStatus         = a.AssetStatus,
+                    AssetCondition      = a.AssetCondition,
+                    Remarks             = a.Remarks,
+                    IsActive            = a.IsActive,
+                    LASTUPDATE          = a.LASTUPDATE,
+                    LastUpdatedBy       = a.LastUpdatedBy
+                }
+            ).FirstOrDefaultAsync();
+
+            if (asset == null) return null;
+
+            var alloc = await _oBMSDbContext.AssetAllocations
+                .Where(x => x.AssetID == id && x.IsActive)
+                .OrderByDescending(x => x.AllocationDate)
+                .FirstOrDefaultAsync();
+            if (alloc != null)
+            {
+                asset.CurrentAllocatedTo   = alloc.AllocatedToName;
+                asset.CurrentAllocatedType = alloc.AllocatedToType;
+            }
+            return asset;
+        }
+
+        public async Task<(bool Success, string Message, AssetMaster? Record)> SaveAsset(
+            AssetMasterRequestDto dto)
+        {
+            // Duplicate serial number check
+            if (!string.IsNullOrWhiteSpace(dto.SerialNumber))
+            {
+                bool dupSerial = await _oBMSDbContext.AssetMasters
+                    .AnyAsync(x => x.SerialNumber == dto.SerialNumber
+                               && x.ID != dto.ID
+                               && x.IsActive);
+                if (dupSerial)
+                    return (false,
+                        "An asset with this serial number already exists. Please check and try again.",
+                        null);
+            }
+
+            AssetMaster? saved = null;
+            var strategy = _oBMSDbContext.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                using var tx = await _oBMSDbContext.Database.BeginTransactionAsync();
+                try
+                {
+                    AssetMaster asset;
+                    if (dto.ID > 0)
+                    {
+                        asset = await _oBMSDbContext.AssetMasters.FindAsync(dto.ID)
+                                ?? throw new InvalidOperationException("Asset not found.");
+                    }
+                    else
+                    {
+                        asset = new AssetMaster { AssetStatus = "Available", IsActive = true };
+                        asset.AssetCode = NextAssetCode();
+                        _oBMSDbContext.AssetMasters.Add(asset);
+                    }
+
+                    asset.Name               = dto.Name;
+                    asset.AssetType          = dto.AssetType;
+                    asset.SerialNumber       = dto.SerialNumber;
+                    asset.Description        = dto.Description;
+                    asset.ModelNo            = dto.ModelNo;
+                    asset.BrandName          = dto.BrandName;
+                    asset.SupplierID         = dto.SupplierID;
+                    asset.Branch             = dto.Branch;
+                    asset.PurchaseAmount     = dto.PurchaseAmount;
+                    asset.PurchaseDate       = dto.PurchaseDate;
+                    asset.WarrantyExpiryDate = dto.WarrantyExpiryDate;
+                    asset.AssetCondition     = dto.AssetCondition;
+                    asset.Remarks            = dto.Remarks;
+                    asset.LASTUPDATE         = DateTime.Now;
+                    asset.LastUpdatedDate    = DateTime.Now;
+                    asset.LastUpdatedBy      = dto.LastUpdatedBy;
+
+                    await _oBMSDbContext.SaveChangesAsync();
+                    await tx.CommitAsync();
+                    saved = asset;
+                }
+                catch { await tx.RollbackAsync(); throw; }
+            });
+
+            var action = dto.ID > 0 ? "updated" : "created";
+            return (true, $"Asset {saved!.AssetCode} {action} successfully.", saved);
+        }
+
+        public async Task<(bool Success, string Message)> DeleteAsset(int id, string currentUser)
+        {
+            var asset = await _oBMSDbContext.AssetMasters.FindAsync(id);
+            if (asset == null) return (false, "Asset not found.");
+
+            bool hasActiveAlloc = await _oBMSDbContext.AssetAllocations
+                .AnyAsync(x => x.AssetID == id && x.IsActive);
+            if (hasActiveAlloc)
+                return (false, "This asset cannot be deleted because it has an active allocation. Please return the asset first.");
+
+            // Only soft-delete — never hard delete
+            asset.IsActive      = false;
+            asset.LASTUPDATE    = DateTime.Now;
+            asset.LastUpdatedBy = currentUser;
+            await _oBMSDbContext.SaveChangesAsync();
+
+            return (true, "Asset deleted successfully.");
+        }
+
+        // ────────────────────────────────────────────────────────────────────
+        // B. ASSET ALLOCATION
+        // ────────────────────────────────────────────────────────────────────
+
+        public async Task<List<AssetAllocationListDto>> GetAssetAllocationList(bool activeOnly)
+        {
+            var q = from aa in _oBMSDbContext.AssetAllocations
+                    join a in _oBMSDbContext.AssetMasters on aa.AssetID equals a.ID
+                    where !activeOnly || aa.IsActive == true
+                    orderby aa.AllocationDate descending
+                    select new AssetAllocationListDto
+                    {
+                        ID               = aa.ID,
+                        AllocationNo     = aa.AllocationNo,
+                        AssetID          = aa.AssetID,
+                        AssetCode        = a.AssetCode ?? "",
+                        AssetName        = a.Name,
+                        SerialNumber     = a.SerialNumber,
+                        AllocationDate   = aa.AllocationDate,
+                        AllocatedToType  = aa.AllocatedToType,
+                        AllocatedToID    = aa.AllocatedToID,
+                        AllocatedToName  = aa.AllocatedToName,
+                        BranchCode       = aa.BranchCode,
+                        Remarks          = aa.Remarks,
+                        IsActive         = aa.IsActive,
+                        LASTUPDATE       = aa.LASTUPDATE,
+                        LastUpdatedBy    = aa.LastUpdatedBy
+                    };
+            return await q.ToListAsync();
+        }
+
+        public async Task<AssetAllocationListDto?> GetAssetAllocationByID(int id)
+        {
+            return await (
+                from aa in _oBMSDbContext.AssetAllocations
+                join a in _oBMSDbContext.AssetMasters on aa.AssetID equals a.ID
+                where aa.ID == id
+                select new AssetAllocationListDto
+                {
+                    ID               = aa.ID,
+                    AllocationNo     = aa.AllocationNo,
+                    AssetID          = aa.AssetID,
+                    AssetCode        = a.AssetCode ?? "",
+                    AssetName        = a.Name,
+                    SerialNumber     = a.SerialNumber,
+                    AllocationDate   = aa.AllocationDate,
+                    AllocatedToType  = aa.AllocatedToType,
+                    AllocatedToID    = aa.AllocatedToID,
+                    AllocatedToName  = aa.AllocatedToName,
+                    BranchCode       = aa.BranchCode,
+                    Remarks          = aa.Remarks,
+                    IsActive         = aa.IsActive,
+                    LASTUPDATE       = aa.LASTUPDATE,
+                    LastUpdatedBy    = aa.LastUpdatedBy
+                }
+            ).FirstOrDefaultAsync();
+        }
+
+        public async Task<List<AssetAllocationListDto>> GetActiveAllocationsByAsset(int assetID)
+        {
+            return await (
+                from aa in _oBMSDbContext.AssetAllocations
+                join a in _oBMSDbContext.AssetMasters on aa.AssetID equals a.ID
+                where aa.AssetID == assetID && aa.IsActive
+                select new AssetAllocationListDto
+                {
+                    ID = aa.ID, AllocationNo = aa.AllocationNo,
+                    AssetID = aa.AssetID, AssetCode = a.AssetCode ?? "",
+                    AssetName = a.Name, AllocationDate = aa.AllocationDate,
+                    AllocatedToType = aa.AllocatedToType, AllocatedToID = aa.AllocatedToID,
+                    AllocatedToName = aa.AllocatedToName, BranchCode = aa.BranchCode,
+                    Remarks = aa.Remarks, IsActive = aa.IsActive,
+                    LASTUPDATE = aa.LASTUPDATE, LastUpdatedBy = aa.LastUpdatedBy
+                }
+            ).ToListAsync();
+        }
+
+        public async Task<(bool Success, string Message, AssetAllocation? Record)> SaveAssetAllocation(
+            AssetAllocationRequestDto dto)
+        {
+            var asset = await _oBMSDbContext.AssetMasters.FindAsync(dto.AssetID);
+            if (asset == null) return (false, "Please select a valid asset.", null);
+
+            if (asset.AssetStatus == "Disposed")
+                return (false, "Disposed assets cannot be allocated.", null);
+            if (asset.AssetStatus == "Under_Maintenance")
+                return (false, "This asset is currently under maintenance and cannot be allocated.", null);
+
+            bool alreadyAllocated = await _oBMSDbContext.AssetAllocations
+                .AnyAsync(x => x.AssetID == dto.AssetID && x.IsActive);
+            if (alreadyAllocated)
+                return (false, "Selected asset is already allocated. Please return it before creating a new allocation.", null);
+
+            string allocNo = NextCode(_oBMSDbContext.AssetAllocations, x => x.AllocationNo, "AA");
+            string prevStatus = asset.AssetStatus;
+
+            AssetAllocation? saved = null;
+            var strategy = _oBMSDbContext.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                using var tx = await _oBMSDbContext.Database.BeginTransactionAsync();
+                try
+                {
+                    var alloc = new AssetAllocation
+                    {
+                        AllocationNo    = allocNo,
+                        AssetID         = dto.AssetID,
+                        AllocationDate  = dto.AllocationDate,
+                        AllocatedToType = dto.AllocatedToType,
+                        AllocatedToID   = dto.AllocatedToID,
+                        AllocatedToName = dto.AllocatedToName,
+                        BranchCode      = dto.BranchCode,
+                        Remarks         = dto.Remarks,
+                        IsActive        = true,
+                        LASTUPDATE      = DateTime.Now,
+                        LastUpdatedBy   = dto.LastUpdatedBy
+                    };
+                    _oBMSDbContext.AssetAllocations.Add(alloc);
+                    await _oBMSDbContext.SaveChangesAsync();
+
+                    asset.AssetStatus   = "Allocated";
+                    asset.LASTUPDATE    = DateTime.Now;
+                    asset.LastUpdatedBy = dto.LastUpdatedBy;
+
+                    AppendMovementHistory(dto.AssetID, "Allocation",
+                        null, dto.AllocatedToName,
+                        null, dto.AllocatedToName,
+                        allocNo, "Allocation", alloc.ID,
+                        prevStatus, "Allocated",
+                        dto.Remarks, dto.LastUpdatedBy);
+
+                    await _oBMSDbContext.SaveChangesAsync();
+                    await tx.CommitAsync();
+                    saved = alloc;
+                }
+                catch { await tx.RollbackAsync(); throw; }
+            });
+
+            return (true, $"Asset {asset.AssetCode} allocated successfully as {allocNo}.", saved);
+        }
+
+        public async Task<(bool Success, string Message)> CancelAssetAllocation(int id, string currentUser)
+        {
+            var alloc = await _oBMSDbContext.AssetAllocations.FindAsync(id);
+            if (alloc == null) return (false, "Allocation record not found.");
+            if (!alloc.IsActive) return (false, "This allocation is no longer active.");
+
+            var asset = await _oBMSDbContext.AssetMasters.FindAsync(alloc.AssetID);
+            if (asset == null) return (false, "Asset not found.");
+
+            string prevStatus = asset.AssetStatus;
+            var strategy = _oBMSDbContext.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                using var tx = await _oBMSDbContext.Database.BeginTransactionAsync();
+                try
+                {
+                    alloc.IsActive      = false;
+                    alloc.LASTUPDATE    = DateTime.Now;
+                    alloc.LastUpdatedBy = currentUser;
+
+                    asset.AssetStatus   = "Available";
+                    asset.LASTUPDATE    = DateTime.Now;
+                    asset.LastUpdatedBy = currentUser;
+
+                    AppendMovementHistory(alloc.AssetID, "Allocation_Cancelled",
+                        alloc.AllocatedToName, null,
+                        alloc.AllocatedToName, null,
+                        alloc.AllocationNo, "Allocation", alloc.ID,
+                        prevStatus, "Available",
+                        "Allocation cancelled.", currentUser);
+
+                    await _oBMSDbContext.SaveChangesAsync();
+                    await tx.CommitAsync();
+                }
+                catch { await tx.RollbackAsync(); throw; }
+            });
+
+            return (true, "Allocation cancelled successfully. Asset is now available.");
+        }
+
+        // ────────────────────────────────────────────────────────────────────
+        // C. ASSET TRANSFER
+        // ────────────────────────────────────────────────────────────────────
+
+        public async Task<List<AssetTransferListDto>> GetAssetTransferList()
+        {
+            return await (
+                from at in _oBMSDbContext.AssetTransfers
+                join a in _oBMSDbContext.AssetMasters on at.AssetID equals a.ID
+                where at.IsActive
+                orderby at.TransferDate descending
+                select new AssetTransferListDto
+                {
+                    ID = at.ID, TransferNo = at.TransferNo,
+                    AssetID = at.AssetID, AssetCode = a.AssetCode ?? "", AssetName = a.Name,
+                    TransferDate = at.TransferDate,
+                    FromType = at.FromType, FromName = at.FromName,
+                    ToType = at.ToType, ToName = at.ToName,
+                    TransferReason = at.TransferReason, Remarks = at.Remarks,
+                    LASTUPDATE = at.LASTUPDATE, LastUpdatedBy = at.LastUpdatedBy
+                }
+            ).ToListAsync();
+        }
+
+        public async Task<AssetTransferListDto?> GetAssetTransferByID(int id)
+        {
+            return await (
+                from at in _oBMSDbContext.AssetTransfers
+                join a in _oBMSDbContext.AssetMasters on at.AssetID equals a.ID
+                where at.ID == id
+                select new AssetTransferListDto
+                {
+                    ID = at.ID, TransferNo = at.TransferNo,
+                    AssetID = at.AssetID, AssetCode = a.AssetCode ?? "", AssetName = a.Name,
+                    TransferDate = at.TransferDate,
+                    FromType = at.FromType, FromName = at.FromName,
+                    ToType = at.ToType, ToName = at.ToName,
+                    TransferReason = at.TransferReason, Remarks = at.Remarks,
+                    LASTUPDATE = at.LASTUPDATE, LastUpdatedBy = at.LastUpdatedBy
+                }
+            ).FirstOrDefaultAsync();
+        }
+
+        public async Task<(bool Success, string Message, AssetTransfer? Record)> SaveAssetTransfer(
+            AssetTransferRequestDto dto)
+        {
+            var asset = await _oBMSDbContext.AssetMasters.FindAsync(dto.AssetID);
+            if (asset == null) return (false, "Please select a valid asset.", null);
+            if (asset.AssetStatus == "Disposed")
+                return (false, "Disposed assets cannot be transferred.", null);
+
+            if (dto.FromType == dto.ToType && dto.FromID == dto.ToID && dto.FromName == dto.ToName)
+                return (false, "Source and destination must be different.", null);
+
+            string transferNo = NextCode(_oBMSDbContext.AssetTransfers, x => x.TransferNo, "AT");
+            string prevStatus = asset.AssetStatus;
+
+            AssetTransfer? saved = null;
+            var strategy = _oBMSDbContext.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                using var tx = await _oBMSDbContext.Database.BeginTransactionAsync();
+                try
+                {
+                    // Close existing active allocation
+                    var existingAlloc = await _oBMSDbContext.AssetAllocations
+                        .Where(x => x.AssetID == dto.AssetID && x.IsActive)
+                        .FirstOrDefaultAsync();
+                    if (existingAlloc != null)
+                    {
+                        existingAlloc.IsActive      = false;
+                        existingAlloc.LASTUPDATE    = DateTime.Now;
+                        existingAlloc.LastUpdatedBy = dto.LastUpdatedBy;
+                    }
+
+                    // Create new allocation for destination
+                    var newAlloc = new AssetAllocation
+                    {
+                        AllocationNo    = NextCode(_oBMSDbContext.AssetAllocations, x => x.AllocationNo, "AA"),
+                        AssetID         = dto.AssetID,
+                        AllocationDate  = dto.TransferDate,
+                        AllocatedToType = dto.ToType,
+                        AllocatedToID   = dto.ToID,
+                        AllocatedToName = dto.ToName,
+                        IsActive        = true,
+                        LASTUPDATE      = DateTime.Now,
+                        LastUpdatedBy   = dto.LastUpdatedBy
+                    };
+                    _oBMSDbContext.AssetAllocations.Add(newAlloc);
+
+                    var transfer = new AssetTransfer
+                    {
+                        TransferNo     = transferNo,
+                        AssetID        = dto.AssetID,
+                        TransferDate   = dto.TransferDate,
+                        FromType       = dto.FromType,
+                        FromID         = dto.FromID,
+                        FromName       = dto.FromName,
+                        ToType         = dto.ToType,
+                        ToID           = dto.ToID,
+                        ToName         = dto.ToName,
+                        TransferReason = dto.TransferReason,
+                        Remarks        = dto.Remarks,
+                        IsActive       = true,
+                        LASTUPDATE     = DateTime.Now,
+                        LastUpdatedBy  = dto.LastUpdatedBy
+                    };
+                    _oBMSDbContext.AssetTransfers.Add(transfer);
+                    await _oBMSDbContext.SaveChangesAsync();
+
+                    asset.AssetStatus   = "Allocated";
+                    asset.LASTUPDATE    = DateTime.Now;
+                    asset.LastUpdatedBy = dto.LastUpdatedBy;
+
+                    AppendMovementHistory(dto.AssetID, "Transfer",
+                        dto.FromName, dto.ToName,
+                        dto.FromName, dto.ToName,
+                        transferNo, "Transfer", transfer.ID,
+                        prevStatus, "Allocated",
+                        dto.TransferReason, dto.LastUpdatedBy);
+
+                    await _oBMSDbContext.SaveChangesAsync();
+                    await tx.CommitAsync();
+                    saved = transfer;
+                }
+                catch { await tx.RollbackAsync(); throw; }
+            });
+
+            return (true, $"Asset transfer {transferNo} saved successfully.", saved);
+        }
+
+        // ────────────────────────────────────────────────────────────────────
+        // D. ASSET RETURN
+        // ────────────────────────────────────────────────────────────────────
+
+        public async Task<List<AssetReturnListDto>> GetAssetReturnList()
+        {
+            return await (
+                from ar in _oBMSDbContext.AssetReturns
+                join a  in _oBMSDbContext.AssetMasters    on ar.AssetID      equals a.ID
+                join aa in _oBMSDbContext.AssetAllocations on ar.AllocationID equals aa.ID into aaJoin
+                from aa in aaJoin.DefaultIfEmpty()
+                where ar.IsActive
+                orderby ar.ReturnDate descending
+                select new AssetReturnListDto
+                {
+                    ID = ar.ID, ReturnNo = ar.ReturnNo,
+                    AssetID = ar.AssetID, AssetCode = a.AssetCode ?? "", AssetName = a.Name,
+                    AllocationNo = aa != null ? aa.AllocationNo : "",
+                    ReturnDate = ar.ReturnDate,
+                    ReturnedByType = ar.ReturnedByType, ReturnedByName = ar.ReturnedByName,
+                    ReturnCondition = ar.ReturnCondition, ReceivedBy = ar.ReceivedBy,
+                    Remarks = ar.Remarks, LASTUPDATE = ar.LASTUPDATE, LastUpdatedBy = ar.LastUpdatedBy
+                }
+            ).ToListAsync();
+        }
+
+        public async Task<AssetReturnListDto?> GetAssetReturnByID(int id)
+        {
+            return await (
+                from ar in _oBMSDbContext.AssetReturns
+                join a  in _oBMSDbContext.AssetMasters    on ar.AssetID      equals a.ID
+                join aa in _oBMSDbContext.AssetAllocations on ar.AllocationID equals aa.ID into aaJoin
+                from aa in aaJoin.DefaultIfEmpty()
+                where ar.ID == id
+                select new AssetReturnListDto
+                {
+                    ID = ar.ID, ReturnNo = ar.ReturnNo,
+                    AssetID = ar.AssetID, AssetCode = a.AssetCode ?? "", AssetName = a.Name,
+                    AllocationNo = aa != null ? aa.AllocationNo : "",
+                    ReturnDate = ar.ReturnDate,
+                    ReturnedByType = ar.ReturnedByType, ReturnedByName = ar.ReturnedByName,
+                    ReturnCondition = ar.ReturnCondition, ReceivedBy = ar.ReceivedBy,
+                    Remarks = ar.Remarks, LASTUPDATE = ar.LASTUPDATE, LastUpdatedBy = ar.LastUpdatedBy
+                }
+            ).FirstOrDefaultAsync();
+        }
+
+        public async Task<(bool Success, string Message, AssetReturn? Record)> SaveAssetReturn(
+            AssetReturnRequestDto dto)
+        {
+            var asset = await _oBMSDbContext.AssetMasters.FindAsync(dto.AssetID);
+            if (asset == null) return (false, "Asset not found.", null);
+
+            var alloc = await _oBMSDbContext.AssetAllocations.FindAsync(dto.AllocationID);
+            if (alloc == null || !alloc.IsActive)
+                return (false, "The selected allocation is no longer active. Asset cannot be returned against it.", null);
+
+            // Check not already returned
+            bool alreadyReturned = await _oBMSDbContext.AssetReturns
+                .AnyAsync(x => x.AllocationID == dto.AllocationID && x.IsActive);
+            if (alreadyReturned)
+                return (false, "This allocation has already been returned.", null);
+
+            string returnNo   = NextCode(_oBMSDbContext.AssetReturns, x => x.ReturnNo, "AR");
+            string prevStatus = asset.AssetStatus;
+
+            // Post-return status: Damaged condition → Damaged, else Available
+            string newStatus = (dto.ReturnCondition == "Damaged") ? "Damaged" : "Available";
+
+            AssetReturn? saved = null;
+            var strategy = _oBMSDbContext.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                using var tx = await _oBMSDbContext.Database.BeginTransactionAsync();
+                try
+                {
+                    var ret = new AssetReturn
+                    {
+                        ReturnNo        = returnNo,
+                        AssetID         = dto.AssetID,
+                        AllocationID    = dto.AllocationID,
+                        ReturnDate      = dto.ReturnDate,
+                        ReturnedByType  = dto.ReturnedByType,
+                        ReturnedByID    = dto.ReturnedByID,
+                        ReturnedByName  = dto.ReturnedByName,
+                        ReturnCondition = dto.ReturnCondition,
+                        ReceivedBy      = dto.ReceivedBy,
+                        Remarks         = dto.Remarks,
+                        IsActive        = true,
+                        LASTUPDATE      = DateTime.Now,
+                        LastUpdatedBy   = dto.LastUpdatedBy
+                    };
+                    _oBMSDbContext.AssetReturns.Add(ret);
+
+                    alloc.IsActive      = false;
+                    alloc.LASTUPDATE    = DateTime.Now;
+                    alloc.LastUpdatedBy = dto.LastUpdatedBy;
+
+                    asset.AssetStatus   = newStatus;
+                    asset.AssetCondition= dto.ReturnCondition;
+                    asset.LASTUPDATE    = DateTime.Now;
+                    asset.LastUpdatedBy = dto.LastUpdatedBy;
+
+                    await _oBMSDbContext.SaveChangesAsync();
+
+                    AppendMovementHistory(dto.AssetID, "Return",
+                        alloc.AllocatedToName, null,
+                        alloc.AllocatedToName, dto.ReceivedBy,
+                        returnNo, "Return", ret.ID,
+                        prevStatus, newStatus,
+                        dto.Remarks, dto.LastUpdatedBy);
+
+                    await _oBMSDbContext.SaveChangesAsync();
+                    await tx.CommitAsync();
+                    saved = ret;
+                }
+                catch { await tx.RollbackAsync(); throw; }
+            });
+
+            return (true, $"Asset return {returnNo} saved. Asset status updated to {newStatus}.", saved);
+        }
+
+        // ────────────────────────────────────────────────────────────────────
+        // E. ASSET MAINTENANCE
+        // ────────────────────────────────────────────────────────────────────
+
+        public async Task<List<AssetMaintenanceListDto>> GetAssetMaintenanceList(int? assetID)
+        {
+            var q = from am in _oBMSDbContext.AssetMaintenances
+                    join a in _oBMSDbContext.AssetMasters on am.AssetID equals a.ID
+                    where am.IsActive && (!assetID.HasValue || am.AssetID == assetID)
+                    orderby am.StartDate descending
+                    select new AssetMaintenanceListDto
+                    {
+                        ID = am.ID, MaintenanceNo = am.MaintenanceNo,
+                        AssetID = am.AssetID, AssetCode = a.AssetCode ?? "", AssetName = a.Name,
+                        MaintenanceType = am.MaintenanceType, ProblemDescription = am.ProblemDescription,
+                        VendorName = am.VendorName, StartDate = am.StartDate,
+                        CompletionDate = am.CompletionDate, MaintenanceCost = am.MaintenanceCost,
+                        Status = am.Status, CompletionRemarks = am.CompletionRemarks,
+                        Remarks = am.Remarks, LASTUPDATE = am.LASTUPDATE, LastUpdatedBy = am.LastUpdatedBy
+                    };
+            return await q.ToListAsync();
+        }
+
+        public async Task<AssetMaintenanceListDto?> GetAssetMaintenanceByID(int id)
+        {
+            return await (
+                from am in _oBMSDbContext.AssetMaintenances
+                join a in _oBMSDbContext.AssetMasters on am.AssetID equals a.ID
+                where am.ID == id
+                select new AssetMaintenanceListDto
+                {
+                    ID = am.ID, MaintenanceNo = am.MaintenanceNo,
+                    AssetID = am.AssetID, AssetCode = a.AssetCode ?? "", AssetName = a.Name,
+                    MaintenanceType = am.MaintenanceType, ProblemDescription = am.ProblemDescription,
+                    VendorName = am.VendorName, StartDate = am.StartDate,
+                    CompletionDate = am.CompletionDate, MaintenanceCost = am.MaintenanceCost,
+                    Status = am.Status, CompletionRemarks = am.CompletionRemarks,
+                    Remarks = am.Remarks, LASTUPDATE = am.LASTUPDATE, LastUpdatedBy = am.LastUpdatedBy
+                }
+            ).FirstOrDefaultAsync();
+        }
+
+        public async Task<(bool Success, string Message, AssetMaintenance? Record)> SaveAssetMaintenance(
+            AssetMaintenanceRequestDto dto)
+        {
+            var asset = await _oBMSDbContext.AssetMasters.FindAsync(dto.AssetID);
+            if (asset == null) return (false, "Please select a valid asset.", null);
+            if (asset.AssetStatus == "Disposed")
+                return (false, "Disposed assets cannot be sent for maintenance.", null);
+
+            bool activeMaint = await _oBMSDbContext.AssetMaintenances
+                .AnyAsync(x => x.AssetID == dto.AssetID
+                            && x.IsActive
+                            && (x.Status == "Scheduled" || x.Status == "In_Progress"));
+            if (activeMaint)
+                return (false, "Asset is already under maintenance. Please complete or cancel the existing maintenance record first.", null);
+
+            string maintNo    = NextCode(_oBMSDbContext.AssetMaintenances, x => x.MaintenanceNo, "AM");
+            string prevStatus = asset.AssetStatus;
+
+            AssetMaintenance? saved = null;
+            var strategy = _oBMSDbContext.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                using var tx = await _oBMSDbContext.Database.BeginTransactionAsync();
+                try
+                {
+                    var maint = new AssetMaintenance
+                    {
+                        MaintenanceNo      = maintNo,
+                        AssetID            = dto.AssetID,
+                        MaintenanceType    = dto.MaintenanceType,
+                        ProblemDescription = dto.ProblemDescription,
+                        VendorName         = dto.VendorName,
+                        StartDate          = dto.StartDate,
+                        CompletionDate     = dto.CompletionDate,
+                        MaintenanceCost    = dto.MaintenanceCost ?? 0,
+                        Status             = "In_Progress",
+                        Remarks            = dto.Remarks,
+                        IsActive           = true,
+                        LASTUPDATE         = DateTime.Now,
+                        LastUpdatedBy      = dto.LastUpdatedBy
+                    };
+                    _oBMSDbContext.AssetMaintenances.Add(maint);
+
+                    asset.AssetStatus   = "Under_Maintenance";
+                    asset.LASTUPDATE    = DateTime.Now;
+                    asset.LastUpdatedBy = dto.LastUpdatedBy;
+
+                    await _oBMSDbContext.SaveChangesAsync();
+
+                    AppendMovementHistory(dto.AssetID, "Maintenance",
+                        null, dto.VendorName,
+                        null, dto.VendorName,
+                        maintNo, "Maintenance", maint.ID,
+                        prevStatus, "Under_Maintenance",
+                        dto.ProblemDescription, dto.LastUpdatedBy);
+
+                    await _oBMSDbContext.SaveChangesAsync();
+                    await tx.CommitAsync();
+                    saved = maint;
+                }
+                catch { await tx.RollbackAsync(); throw; }
+            });
+
+            return (true, $"Maintenance record {maintNo} created. Asset status set to Under Maintenance.", saved);
+        }
+
+        public async Task<(bool Success, string Message)> CompleteAssetMaintenance(
+            int id, DateTime completionDate, decimal cost, string remarks, string currentUser)
+        {
+            var maint = await _oBMSDbContext.AssetMaintenances.FindAsync(id);
+            if (maint == null) return (false, "Maintenance record not found.");
+            if (maint.Status == "Completed")
+                return (false, "This maintenance record is already completed.");
+
+            var asset = await _oBMSDbContext.AssetMasters.FindAsync(maint.AssetID);
+            if (asset == null) return (false, "Asset not found.");
+
+            string prevStatus = asset.AssetStatus;
+            // Restore to previous status: if was allocated before, keep allocated else available
+            string newStatus = "Available";
+
+            var strategy = _oBMSDbContext.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                using var tx = await _oBMSDbContext.Database.BeginTransactionAsync();
+                try
+                {
+                    maint.Status             = "Completed";
+                    maint.CompletionDate     = completionDate;
+                    maint.MaintenanceCost    = cost;
+                    maint.CompletionRemarks  = remarks;
+                    maint.LASTUPDATE         = DateTime.Now;
+                    maint.LastUpdatedBy      = currentUser;
+
+                    asset.AssetStatus   = newStatus;
+                    asset.LASTUPDATE    = DateTime.Now;
+                    asset.LastUpdatedBy = currentUser;
+
+                    AppendMovementHistory(maint.AssetID, "Maintenance_Complete",
+                        maint.VendorName, null,
+                        maint.VendorName, null,
+                        maint.MaintenanceNo, "Maintenance", maint.ID,
+                        prevStatus, newStatus,
+                        remarks, currentUser);
+
+                    await _oBMSDbContext.SaveChangesAsync();
+                    await tx.CommitAsync();
+                }
+                catch { await tx.RollbackAsync(); throw; }
+            });
+
+            return (true, $"Maintenance {maint.MaintenanceNo} completed. Asset is now Available.");
+        }
+
+        // ────────────────────────────────────────────────────────────────────
+        // F. ASSET DAMAGE
+        // ────────────────────────────────────────────────────────────────────
+
+        public async Task<List<AssetDamageListDto>> GetAssetDamageList(int? assetID)
+        {
+            var q = from ad in _oBMSDbContext.AssetDamages
+                    join a in _oBMSDbContext.AssetMasters on ad.AssetID equals a.ID
+                    where ad.IsActive && (!assetID.HasValue || ad.AssetID == assetID)
+                    orderby ad.DamageDate descending
+                    select new AssetDamageListDto
+                    {
+                        ID = ad.ID, DamageNo = ad.DamageNo,
+                        AssetID = ad.AssetID, AssetCode = a.AssetCode ?? "", AssetName = a.Name,
+                        DamageDate = ad.DamageDate, DamageType = ad.DamageType,
+                        DamageDescription = ad.DamageDescription, DamageCondition = ad.DamageCondition,
+                        ReportedBy = ad.ReportedBy, EstimatedRepairCost = ad.EstimatedRepairCost,
+                        Remarks = ad.Remarks, LASTUPDATE = ad.LASTUPDATE, LastUpdatedBy = ad.LastUpdatedBy
+                    };
+            return await q.ToListAsync();
+        }
+
+        public async Task<AssetDamageListDto?> GetAssetDamageByID(int id)
+        {
+            return await (
+                from ad in _oBMSDbContext.AssetDamages
+                join a in _oBMSDbContext.AssetMasters on ad.AssetID equals a.ID
+                where ad.ID == id
+                select new AssetDamageListDto
+                {
+                    ID = ad.ID, DamageNo = ad.DamageNo,
+                    AssetID = ad.AssetID, AssetCode = a.AssetCode ?? "", AssetName = a.Name,
+                    DamageDate = ad.DamageDate, DamageType = ad.DamageType,
+                    DamageDescription = ad.DamageDescription, DamageCondition = ad.DamageCondition,
+                    ReportedBy = ad.ReportedBy, EstimatedRepairCost = ad.EstimatedRepairCost,
+                    Remarks = ad.Remarks, LASTUPDATE = ad.LASTUPDATE, LastUpdatedBy = ad.LastUpdatedBy
+                }
+            ).FirstOrDefaultAsync();
+        }
+
+        public async Task<(bool Success, string Message, AssetDamage? Record)> SaveAssetDamage(
+            AssetDamageRequestDto dto)
+        {
+            var asset = await _oBMSDbContext.AssetMasters.FindAsync(dto.AssetID);
+            if (asset == null) return (false, "Please select a valid asset.", null);
+            if (asset.AssetStatus == "Disposed")
+                return (false, "This asset has already been disposed.", null);
+
+            string damageNo   = NextCode(_oBMSDbContext.AssetDamages, x => x.DamageNo, "AD");
+            string prevStatus = asset.AssetStatus;
+
+            AssetDamage? saved = null;
+            var strategy = _oBMSDbContext.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                using var tx = await _oBMSDbContext.Database.BeginTransactionAsync();
+                try
+                {
+                    var dmg = new AssetDamage
+                    {
+                        DamageNo            = damageNo,
+                        AssetID             = dto.AssetID,
+                        DamageDate          = dto.DamageDate,
+                        DamageType          = dto.DamageType,
+                        DamageDescription   = dto.DamageDescription,
+                        DamageCondition     = dto.DamageCondition,
+                        ReportedBy          = dto.ReportedBy,
+                        EstimatedRepairCost = dto.EstimatedRepairCost ?? 0,
+                        Remarks             = dto.Remarks,
+                        IsActive            = true,
+                        LASTUPDATE          = DateTime.Now,
+                        LastUpdatedBy       = dto.LastUpdatedBy
+                    };
+                    _oBMSDbContext.AssetDamages.Add(dmg);
+
+                    asset.AssetStatus    = "Damaged";
+                    asset.AssetCondition = dto.DamageCondition;
+                    asset.LASTUPDATE     = DateTime.Now;
+                    asset.LastUpdatedBy  = dto.LastUpdatedBy;
+
+                    await _oBMSDbContext.SaveChangesAsync();
+
+                    AppendMovementHistory(dto.AssetID, "Damage",
+                        null, null, dto.ReportedBy, null,
+                        damageNo, "Damage", dmg.ID,
+                        prevStatus, "Damaged",
+                        dto.DamageDescription, dto.LastUpdatedBy);
+
+                    await _oBMSDbContext.SaveChangesAsync();
+                    await tx.CommitAsync();
+                    saved = dmg;
+                }
+                catch { await tx.RollbackAsync(); throw; }
+            });
+
+            return (true, $"Damage record {damageNo} saved. Asset status set to Damaged.", saved);
+        }
+
+        // ────────────────────────────────────────────────────────────────────
+        // G. ASSET DISPOSAL
+        // ────────────────────────────────────────────────────────────────────
+
+        public async Task<List<AssetDisposalListDto>> GetAssetDisposalList()
+        {
+            return await (
+                from disp in _oBMSDbContext.AssetDisposals
+                join a in _oBMSDbContext.AssetMasters on disp.AssetID equals a.ID
+                where disp.IsActive
+                orderby disp.DisposalDate descending
+                select new AssetDisposalListDto
+                {
+                    ID = disp.ID, DisposalNo = disp.DisposalNo,
+                    AssetID = disp.AssetID, AssetCode = a.AssetCode ?? "", AssetName = a.Name,
+                    DisposalDate = disp.DisposalDate, DisposalType = disp.DisposalType,
+                    DisposalReason = disp.DisposalReason, DisposalValue = disp.DisposalValue,
+                    ApprovedBy = disp.ApprovedBy, Remarks = disp.Remarks,
+                    LASTUPDATE = disp.LASTUPDATE, LastUpdatedBy = disp.LastUpdatedBy
+                }
+            ).ToListAsync();
+        }
+
+        public async Task<AssetDisposalListDto?> GetAssetDisposalByID(int id)
+        {
+            return await (
+                from disp in _oBMSDbContext.AssetDisposals
+                join a in _oBMSDbContext.AssetMasters on disp.AssetID equals a.ID
+                where disp.ID == id
+                select new AssetDisposalListDto
+                {
+                    ID = disp.ID, DisposalNo = disp.DisposalNo,
+                    AssetID = disp.AssetID, AssetCode = a.AssetCode ?? "", AssetName = a.Name,
+                    DisposalDate = disp.DisposalDate, DisposalType = disp.DisposalType,
+                    DisposalReason = disp.DisposalReason, DisposalValue = disp.DisposalValue,
+                    ApprovedBy = disp.ApprovedBy, Remarks = disp.Remarks,
+                    LASTUPDATE = disp.LASTUPDATE, LastUpdatedBy = disp.LastUpdatedBy
+                }
+            ).FirstOrDefaultAsync();
+        }
+
+        public async Task<(bool Success, string Message, AssetDisposal? Record)> SaveAssetDisposal(
+            AssetDisposalRequestDto dto)
+        {
+            var asset = await _oBMSDbContext.AssetMasters.FindAsync(dto.AssetID);
+            if (asset == null) return (false, "Please select a valid asset.", null);
+            if (asset.AssetStatus == "Disposed")
+                return (false, "Asset has already been disposed.", null);
+
+            bool hasActiveAlloc = await _oBMSDbContext.AssetAllocations
+                .AnyAsync(x => x.AssetID == dto.AssetID && x.IsActive);
+            if (hasActiveAlloc)
+                return (false, "Asset has an active allocation. Please return the asset before disposal.", null);
+
+            string disposalNo = NextCode(_oBMSDbContext.AssetDisposals, x => x.DisposalNo, "DIS");
+            string prevStatus = asset.AssetStatus;
+
+            AssetDisposal? saved = null;
+            var strategy = _oBMSDbContext.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                using var tx = await _oBMSDbContext.Database.BeginTransactionAsync();
+                try
+                {
+                    var disp = new AssetDisposal
+                    {
+                        DisposalNo    = disposalNo,
+                        AssetID       = dto.AssetID,
+                        DisposalDate  = dto.DisposalDate,
+                        DisposalType  = dto.DisposalType,
+                        DisposalReason= dto.DisposalReason,
+                        DisposalValue = dto.DisposalValue ?? 0,
+                        ApprovedBy    = dto.ApprovedBy,
+                        Remarks       = dto.Remarks,
+                        IsActive      = true,
+                        LASTUPDATE    = DateTime.Now,
+                        LastUpdatedBy = dto.LastUpdatedBy
+                    };
+                    _oBMSDbContext.AssetDisposals.Add(disp);
+
+                    asset.AssetStatus   = "Disposed";
+                    asset.LASTUPDATE    = DateTime.Now;
+                    asset.LastUpdatedBy = dto.LastUpdatedBy;
+
+                    await _oBMSDbContext.SaveChangesAsync();
+
+                    AppendMovementHistory(dto.AssetID, "Disposal",
+                        null, null, null, null,
+                        disposalNo, "Disposal", disp.ID,
+                        prevStatus, "Disposed",
+                        dto.DisposalReason, dto.LastUpdatedBy);
+
+                    await _oBMSDbContext.SaveChangesAsync();
+                    await tx.CommitAsync();
+                    saved = disp;
+                }
+                catch { await tx.RollbackAsync(); throw; }
+            });
+
+            return (true, $"Asset {asset.AssetCode} disposed successfully as {disposalNo}.", saved);
+        }
+
+        // ────────────────────────────────────────────────────────────────────
+        // H. ASSET MOVEMENT HISTORY
+        // ────────────────────────────────────────────────────────────────────
+
+        public async Task<List<AssetMovementHistoryDto>> GetAssetMovementHistory(int assetID)
+        {
+            return await (
+                from h in _oBMSDbContext.AssetMovementHistories
+                join a in _oBMSDbContext.AssetMasters on h.AssetID equals a.ID
+                where h.AssetID == assetID
+                orderby h.MovementDate ascending
+                select new AssetMovementHistoryDto
+                {
+                    ID             = h.ID,
+                    AssetID        = h.AssetID,
+                    AssetCode      = a.AssetCode ?? "",
+                    AssetName      = a.Name,
+                    MovementDate   = h.MovementDate,
+                    MovementType   = h.MovementType,
+                    FromLocation   = h.FromLocation,
+                    ToLocation     = h.ToLocation,
+                    FromPerson     = h.FromPerson,
+                    ToPerson       = h.ToPerson,
+                    ReferenceNo    = h.ReferenceNo,
+                    ReferenceType  = h.ReferenceType,
+                    PreviousStatus = h.PreviousStatus,
+                    NewStatus      = h.NewStatus,
+                    Remarks        = h.Remarks,
+                    CreatedBy      = h.CreatedBy
+                }
+            ).ToListAsync();
+        }
+
+        // ────────────────────────────────────────────────────────────────────────
+        // ASSET LOCATION TRACKING
+        // ────────────────────────────────────────────────────────────────────────
+
+        public async Task<(bool Success, string Message)> UpdateAssetLocation(
+            AssetLocationUpdateDto dto)
+        {
+            if (dto.AssetID <= 0)
+                return (false, "Please select a valid asset.");
+            if (string.IsNullOrWhiteSpace(dto.NewLocation))
+                return (false, "Please enter the current location.");
+            if (string.IsNullOrWhiteSpace(dto.LocationStatus))
+                return (false, "Please select the location status.");
+
+            var asset = await _oBMSDbContext.AssetMasters.FindAsync(dto.AssetID);
+            if (asset == null) return (false, "Asset not found.");
+            if (asset.AssetStatus == "Disposed")
+                return (false, "Disposed assets cannot be updated.");
+
+            string previousLocation = asset.CurrentLocation ?? "";
+
+            var strategy = _oBMSDbContext.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                using var tx = await _oBMSDbContext.Database.BeginTransactionAsync();
+                try
+                {
+                    // Append to location log
+                    _oBMSDbContext.AssetLocationLogs.Add(new AssetLocationLog
+                    {
+                        AssetID          = dto.AssetID,
+                        LogDate          = DateTime.Now,
+                        PreviousLocation = previousLocation,
+                        NewLocation      = dto.NewLocation,
+                        LocationStatus   = dto.LocationStatus,
+                        UpdatedBy        = dto.UpdatedBy,
+                        Remarks          = dto.Remarks,
+                        LASTUPDATE       = DateTime.Now,
+                        LastUpdatedBy    = dto.LastUpdatedBy
+                    });
+
+                    // Update AssetMaster current location
+                    asset.CurrentLocation      = dto.NewLocation;
+                    asset.LocationStatus       = dto.LocationStatus;
+                    asset.LocationUpdatedBy    = dto.UpdatedBy;
+                    asset.LocationUpdatedDate  = DateTime.Now;
+                    asset.LASTUPDATE           = DateTime.Now;
+                    asset.LastUpdatedBy        = dto.LastUpdatedBy;
+
+                    // Append to movement history for full lifecycle visibility
+                    AppendMovementHistory(
+                        dto.AssetID,
+                        "Location_Update",
+                        previousLocation,
+                        dto.NewLocation,
+                        null, dto.UpdatedBy,
+                        null, "Location", null,
+                        null, null,
+                        $"{dto.LocationStatus}: {dto.Remarks}",
+                        dto.LastUpdatedBy);
+
+                    await _oBMSDbContext.SaveChangesAsync();
+                    await tx.CommitAsync();
+                }
+                catch { await tx.RollbackAsync(); throw; }
+            });
+
+            string statusLabel = dto.LocationStatus.Replace("_", " ");
+            return (true, $"Location updated successfully. Status: {statusLabel}.");
+        }
+
+        public async Task<List<AssetLocationLogDto>> GetAssetLocationLog(int assetID)
+        {
+            return await (
+                from log in _oBMSDbContext.AssetLocationLogs
+                join a   in _oBMSDbContext.AssetMasters on log.AssetID equals a.ID
+                where log.AssetID == assetID
+                orderby log.LogDate descending
+                select new AssetLocationLogDto
+                {
+                    ID               = log.ID,
+                    AssetID          = log.AssetID,
+                    AssetCode        = a.AssetCode ?? "",
+                    AssetName        = a.Name,
+                    LogDate          = log.LogDate,
+                    PreviousLocation = log.PreviousLocation,
+                    NewLocation      = log.NewLocation,
+                    LocationStatus   = log.LocationStatus,
+                    UpdatedBy        = log.UpdatedBy,
+                    Remarks          = log.Remarks,
+                    LastUpdatedBy    = log.LastUpdatedBy
+                }
+            ).ToListAsync();
+        }
+
+        public async Task<List<AssetListDto>> GetDefectLocationAssets()
+        {
+            var list = await (
+                from a in _oBMSDbContext.AssetMasters
+                join sup in _oBMSDbContext.Suppliers on a.SupplierID equals sup.Id into supJoin
+                from sup in supJoin.DefaultIfEmpty()
+                where a.IsActive == true
+                   && (a.LocationStatus == "Defect_Location"
+                    || a.LocationStatus == "Parked_Away"
+                    || a.LocationStatus == "Unknown")
+                orderby a.LocationUpdatedDate descending
+                select new AssetListDto
+                {
+                    ID                  = a.ID,
+                    AssetCode           = a.AssetCode ?? "",
+                    Name                = a.Name,
+                    AssetType           = a.AssetType,
+                    SerialNumber        = a.SerialNumber,
+                    Branch              = a.Branch,
+                    PurchaseAmount      = a.PurchaseAmount,
+                    AssetStatus         = a.AssetStatus,
+                    AssetCondition      = a.AssetCondition,
+                    IsActive            = a.IsActive,
+                    LASTUPDATE          = a.LASTUPDATE,
+                    LastUpdatedBy       = a.LastUpdatedBy,
+                    CurrentLocation     = a.CurrentLocation,
+                    LocationStatus      = a.LocationStatus,
+                    LocationUpdatedBy   = a.LocationUpdatedBy,
+                    LocationUpdatedDate = a.LocationUpdatedDate
+                }
+            ).ToListAsync();
+            return list;
         }
     }
 }

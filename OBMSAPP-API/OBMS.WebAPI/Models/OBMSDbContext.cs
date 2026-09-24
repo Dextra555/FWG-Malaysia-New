@@ -41,6 +41,9 @@ public partial class OBMSDbContext : DbContext
     public DbSet<EmployeeItemIssue> EmployeeItemIssues { get; set; }
     public virtual DbSet<SalaryAdvance> SalaryAdvances { get; set; }
     public DbSet<InventoryCategory> InventoryCategories { get; set; }
+    public virtual DbSet<BrandMaster> BrandMasters { get; set; }
+    public virtual DbSet<UOMMaster> UOMMasters { get; set; }
+    public virtual DbSet<WarehouseMaster> WarehouseMasters { get; set; }
     public DbSet<ItemMaster> ItemMasters { get; set; }
     public DbSet<PaySlip> PaySlips { get; set; }
     public DbSet<MiscTrans> MiscTrans { get; set; }
@@ -90,6 +93,47 @@ public partial class OBMSDbContext : DbContext
     public virtual DbSet<DebitNote> DebitNotes { get; set; }
     public DbSet<AttendanceDisplayResult> AttendanceDisplayResults { get; set; }
     public DbSet<EmployeeVisaPassportListView> EmployeeVisaPassportListViews { get; set; }
+
+    // Part 2: Opening Stock + Stock Ledger
+    public DbSet<OpeningStock> OpeningStocks { get; set; }
+    public DbSet<StockLedger> StockLedgers { get; set; }
+
+    // Part 3: Purchase Flow
+    public DbSet<PurchaseRequisition> PurchaseRequisitions { get; set; }
+    public DbSet<PurchaseRequisitionDetail> PurchaseRequisitionDetails { get; set; }
+    public DbSet<PurchaseOrder> PurchaseOrders { get; set; }
+    public DbSet<PurchaseOrderDetail> PurchaseOrderDetails { get; set; }
+    public DbSet<GoodsReceiptNote> GoodsReceiptNotes { get; set; }
+    public DbSet<GoodsReceiptNoteDetail> GoodsReceiptNoteDetails { get; set; }
+    public DbSet<PurchaseReturn> PurchaseReturns { get; set; }
+    public DbSet<PurchaseReturnDetail> PurchaseReturnDetails { get; set; }
+
+    // Part 6: Asset Management
+    public DbSet<AssetAllocation> AssetAllocations { get; set; }
+    public DbSet<AssetTransfer> AssetTransfers { get; set; }
+    public DbSet<AssetReturn> AssetReturns { get; set; }
+    public DbSet<AssetMaintenance> AssetMaintenances { get; set; }
+    public DbSet<AssetDamage> AssetDamages { get; set; }
+    public DbSet<AssetDisposal> AssetDisposals { get; set; }
+    public DbSet<AssetMovementHistory> AssetMovementHistories { get; set; }
+    public DbSet<AssetLocationLog> AssetLocationLogs { get; set; }
+
+    // Part 7: Approval Workflow + Notifications
+    public DbSet<ApprovalHistory> ApprovalHistories { get; set; }
+    public DbSet<ApprovalConfiguration> ApprovalConfigurations { get; set; }
+    public DbSet<AppNotification> AppNotifications { get; set; }
+    // Part 7 User-Wise Routing
+    public DbSet<ApprovalRouting> ApprovalRoutings { get; set; }
+
+    // Part 4: Stock Operations
+    public DbSet<StockIssueDoc> StockIssueDocs { get; set; }
+    public DbSet<StockIssueDocDetail> StockIssueDocDetails { get; set; }
+    public DbSet<StockIssueReturn> StockIssueReturns { get; set; }
+    public DbSet<StockIssueReturnDetail> StockIssueReturnDetails { get; set; }
+    public DbSet<StockTransfer> StockTransfers { get; set; }
+    public DbSet<StockTransferDetail> StockTransferDetails { get; set; }
+    public DbSet<StockAdjustment> StockAdjustments { get; set; }
+    public DbSet<StockDamageLoss> StockDamageLosses { get; set; }
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<BranchPaymentForBranch>().ToTable("BranchPaymentsForBranch");

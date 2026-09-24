@@ -1,0 +1,240 @@
+<!-- Page Header -->
+<div class="wlt-c-furg-content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-12 col-sm-12 col-md-4 col-lg-4">
+        <h1 class="mb-1">{{isEdit ? 'Edit' : 'Add'}} Opening Stock</h1>
+      </div>
+      <div class="col-12 col-sm-12 col-md-8 col-lg-8 my-1">
+        <ol class="breadcrumb float-md-right">
+          <li class="breadcrumb-item"><a routerLink="/dashboard">Inventory</a></li>
+          <li class="breadcrumb-item"><a routerLink="/inventory/opening-stock">Opening Stock</a></li>
+          <li class="breadcrumb-item active">{{isEdit ? 'Edit' : 'New'}} Opening Stock</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+
+<mat-card>
+  <mat-card-content>
+    <form [formGroup]="frm" (ngSubmit)="onSubmit()">
+
+      <!-- ── WAREHOUSE & ITEM SELECTION ──────────────────────────────────── -->
+      <div class="row mt-2">
+        <div class="col-12">
+          <h6 class="wlt-c-section-label"><strong>Stock Location &amp; Item</strong></h6>
+          <hr class="mt-0">
+        </div>
+      </div>
+
+      <div class="row">
+
+        <!-- Reference No (auto-generated, read-only) -->
+        <div class="col-12 col-sm-12 col-md-3 col-lg-3">
+          <mat-form-field appearance="outline">
+            <mat-label>Reference No</mat-label>
+            <input matInput formControlName="ReferenceNo" readonly placeholder="AUTO">
+            <mat-hint>Auto-generated</mat-hint>
+          </mat-form-field>
+        </div>
+
+        <!-- Opening Date -->
+        <div class="col-12 col-sm-12 col-md-3 col-lg-3">
+          <mat-form-field appearance="outline">
+            <mat-label>Opening Date <span style="color:red">*</span></mat-label>
+            <input matInput [matDatepicker]="picker" formControlName="OpeningDate" autocomplete="off">
+            <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+            <mat-datepicker #picker></mat-datepicker>
+            <mat-error *ngIf="frm.get('OpeningDate')?.hasError('required')">
+              Please enter the opening date.
+            </mat-error>
+          </mat-form-field>
+        </div>
+
+        <!-- Warehouse -->
+        <div class="col-12 col-sm-12 col-md-6 col-lg-6">
+          <mat-form-field appearance="outline">
+            <mat-label>Warehouse <span style="color:red">*</span></mat-label>
+            <mat-select formControlName="WarehouseID" (openedChange)="onWarehouseOpen($event)">
+              <mat-option disabled style="position:sticky;top:0;background:#fff;z-index:1;padding:0">
+                <div style="padding:4px 10px">
+                  <input type="text" placeholder="Search warehouse…" [value]="warehouseSearch"
+                    (input)="onWarehouseSearch($any($event.target).value)"
+                    (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()"
+                    style="width:100%;border:1px solid #ccc;border-radius:4px;padding:6px 8px;font-size:13px;outline:none">
+                </div>
+              </mat-option>
+              <mat-option [value]="0">-- Select Warehouse --</mat-option>
+              <mat-option *ngFor="let w of filteredWarehouses" [value]="w.ID">{{w.Name}}</mat-option>
+              <mat-option disabled *ngIf="filteredWarehouses.length === 0 && warehouseSearch.length > 0">No results found.</mat-option>
+            </mat-select>
+            <mat-error *ngIf="frm.get('WarehouseID')?.hasError('required') || frm.get('WarehouseID')?.hasError('mustSelect')">
+              Please select a warehouse.
+            </mat-error>
+          </mat-form-field>
+        </div>
+
+        <!-- Item -->
+        <div class="col-12 col-sm-12 col-md-6 col-lg-6">
+          <mat-form-field appearance="outline">
+            <mat-label>Item <span style="color:red">*</span></mat-label>
+            <mat-select formControlName="ItemID" (selectionChange)="onItemChange($event.value)" (openedChange)="onItemOpen($event)">
+              <mat-option disabled style="position:sticky;top:0;background:#fff;z-index:1;padding:0">
+                <div style="padding:4px 10px">
+                  <input type="text" placeholder="Search item…" [value]="itemSearch"
+                    (input)="onItemSearch($any($event.target).value)"
+                    (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()"
+                    style="width:100%;border:1px solid #ccc;border-radius:4px;padding:6px 8px;font-size:13px;outline:none">
+                </div>
+              </mat-option>
+              <mat-option [value]="0">-- Select Item --</mat-option>
+              <mat-option *ngFor="let item of filteredItems" [value]="item.ID">{{item.Code}} — {{item.Name}}</mat-option>
+              <mat-option disabled *ngIf="filteredItems.length === 0 && itemSearch.length > 0">No results found.</mat-option>
+            </mat-select>
+            <mat-error *ngIf="frm.get('ItemID')?.hasError('required') || frm.get('ItemID')?.hasError('mustSelect')">
+              Please select an item.
+            </mat-error>
+          </mat-form-field>
+        </div>
+
+      </div>
+
+      <!-- ── ITEM DETAILS (auto-populated, read-only) ────────────────────── -->
+      <div class="row" *ngIf="selectedItemCode || selectedItemCategory || selectedItemUOM">
+        <div class="col-12">
+          <div class="p-3 mb-3"
+               style="background:#f8f9fa; border-left:4px solid #1976d2; border-radius:4px">
+            <div class="row">
+              <div class="col-6 col-md-3">
+                <small class="text-muted d-block">Item Code</small>
+                <strong>{{selectedItemCode || '—'}}</strong>
+              </div>
+              <div class="col-6 col-md-3">
+                <small class="text-muted d-block">Category</small>
+                <strong>{{selectedItemCategory || '—'}}</strong>
+              </div>
+              <div class="col-6 col-md-3">
+                <small class="text-muted d-block">Brand</small>
+                <strong>{{selectedItemBrand || '—'}}</strong>
+              </div>
+              <div class="col-6 col-md-3">
+                <small class="text-muted d-block">Unit of Measure</small>
+                <strong>{{selectedItemUOM || '—'}}</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── QUANTITY & COST ─────────────────────────────────────────────── -->
+      <div class="row mt-2">
+        <div class="col-12">
+          <h6 class="wlt-c-section-label"><strong>Quantity &amp; Cost</strong></h6>
+          <hr class="mt-0">
+        </div>
+      </div>
+
+      <div class="row">
+
+        <!-- Opening Quantity -->
+        <div class="col-12 col-sm-12 col-md-3 col-lg-3">
+          <mat-form-field appearance="outline">
+            <mat-label>Opening Quantity <span style="color:red">*</span></mat-label>
+            <input matInput type="number" formControlName="OpeningQty"
+                   placeholder="0" min="0.01" step="0.01" autocomplete="off">
+            <mat-hint>Enter the quantity you have on hand</mat-hint>
+            <mat-error *ngIf="frm.get('OpeningQty')?.hasError('required')">
+              Please enter the opening quantity.
+            </mat-error>
+            <mat-error *ngIf="frm.get('OpeningQty')?.hasError('greaterThanZero')">
+              Opening quantity must be greater than zero.
+            </mat-error>
+          </mat-form-field>
+        </div>
+
+        <!-- Unit Cost -->
+        <div class="col-12 col-sm-12 col-md-3 col-lg-3">
+          <mat-form-field appearance="outline">
+            <mat-label>Unit Cost (RM) <span style="color:red">*</span></mat-label>
+            <input matInput type="number" formControlName="UnitCost"
+                   placeholder="0.00" min="0" step="0.01" autocomplete="off">
+            <mat-hint>Cost per unit at time of opening</mat-hint>
+            <mat-error *ngIf="frm.get('UnitCost')?.hasError('required')">
+              Please enter a valid unit cost.
+            </mat-error>
+            <mat-error *ngIf="frm.get('UnitCost')?.hasError('nonNegative')">
+              Unit cost cannot be negative.
+            </mat-error>
+          </mat-form-field>
+        </div>
+
+        <!-- Total Value (calculated automatically) -->
+        <div class="col-12 col-sm-12 col-md-3 col-lg-3">
+          <mat-form-field appearance="outline">
+            <mat-label>Total Value (RM)</mat-label>
+            <input matInput formControlName="TotalValue" readonly>
+            <mat-hint>Calculated automatically (Qty × Unit Cost)</mat-hint>
+          </mat-form-field>
+        </div>
+
+      </div>
+
+      <!-- ── REMARKS ─────────────────────────────────────────────────────── -->
+      <div class="row mt-2">
+        <div class="col-12">
+          <h6 class="wlt-c-section-label"><strong>Additional Information</strong></h6>
+          <hr class="mt-0">
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col-12 col-sm-12 col-md-8 col-lg-8">
+          <mat-form-field appearance="outline">
+            <mat-label>Remarks</mat-label>
+            <textarea matInput formControlName="Remarks" rows="2"
+                      placeholder="Optional notes about this opening stock entry"></textarea>
+          </mat-form-field>
+        </div>
+      </div>
+
+      <!-- ── MESSAGES ───────────────────────────────────────────────────── -->
+      <div class="row" *ngIf="warningMessage !== ''">
+        <div class="col-12">
+          <mat-label style="color:red" [innerHTML]="warningMessage"></mat-label>
+        </div>
+      </div>
+      <div class="row" *ngIf="errorMessage !== ''">
+        <div class="col-12">
+          <mat-label style="color:orange" [innerHTML]="errorMessage"></mat-label>
+        </div>
+      </div>
+
+      <!-- ── ACTIONS ───────────────────────────────────────────────────── -->
+      <div class="row mt-3">
+        <div class="col-12">
+          <div class="text-right">
+            <button type="button" class="btn wlt-c-furg-btn-gray mr-3"
+                    (click)="onCancelClick()">Cancel</button>
+            <button
+              *ngIf="userAccessModel.createAccess || userAccessModel.updateAccess || currentUser === 'superadmin'"
+              type="submit"
+              class="btn wlt-c-furg-btn-primary"
+              [disabled]="showLoadingSpinner">
+              {{isEdit ? 'Update Opening Stock' : 'Save Opening Stock'}}
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </form>
+  </mat-card-content>
+</mat-card>
+
+<!-- Loading spinner -->
+<div [style.display]="showLoadingSpinner ? 'block' : 'none'"
+     style="margin-top:-20.5rem; display:block; margin-left:-6.5rem;">
+  <div class="d-flex justify-content-center">
+    <span class="loader"></span>
+  </div>
+</div>

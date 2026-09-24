@@ -37,8 +37,55 @@ import { SupplierMasterComponent } from "../../modules/inventory/supplier-master
 import { NewSupplierComponent } from "../../modules/inventory/supplier-master/new-supplier/new-supplier.component";
 import { RecepientMasterComponent } from "../../modules/inventory/recepient-master/recepient-master.component";
 import { NewRecepientComponent } from "../../modules/inventory/recepient-master/new-recepient/new-recepient.component";
+import { BrandMasterComponent } from "../../modules/inventory/brand-master/brand-master.component";
+import { NewBrandComponent } from "../../modules/inventory/brand-master/new-brand/new-brand.component";
+import { UOMMasterComponent } from "../../modules/inventory/uom-master/uom-master.component";
+import { NewUOMComponent } from "../../modules/inventory/uom-master/new-uom/new-uom.component";
+import { WarehouseMasterComponent } from "../../modules/inventory/warehouse-master/warehouse-master.component";
+import { NewWarehouseComponent } from "../../modules/inventory/warehouse-master/new-warehouse/new-warehouse.component";
+// Part 2: Opening Stock + Stock Ledger
+import { OpeningStockComponent } from "../../modules/inventory/opening-stock/opening-stock.component";
+import { NewOpeningStockComponent } from "../../modules/inventory/opening-stock/new-opening-stock/new-opening-stock.component";
+import { StockLedgerComponent } from "../../modules/inventory/stock-ledger/stock-ledger.component";
+// Part 3: Purchase Flow
+import { PurchaseRequisitionComponent } from "../../modules/inventory/purchase-requisition/purchase-requisition.component";
+import { NewPRComponent } from "../../modules/inventory/purchase-requisition/new-pr/new-pr.component";
+import { PurchaseOrderComponent } from "../../modules/inventory/purchase-order/purchase-order.component";
+import { NewPOComponent } from "../../modules/inventory/purchase-order/new-po/new-po.component";
+import { GoodsReceiptComponent } from "../../modules/inventory/goods-receipt/goods-receipt.component";
+import { NewGRNComponent } from "../../modules/inventory/goods-receipt/new-grn/new-grn.component";
+import { PurchaseReturnComponent } from "../../modules/inventory/purchase-return/purchase-return.component";
+import { NewReturnComponent } from "../../modules/inventory/purchase-return/new-return/new-return.component";
+// Part 4: Stock Operations
+import { StockIssueComponent } from "../../modules/inventory/stock-issue/stock-issue.component";
+import { NewStockIssueComponent } from "../../modules/inventory/stock-issue/new-stock-issue/new-stock-issue.component";
+import { StockIssueReturnComponent } from "../../modules/inventory/stock-issue-return/stock-issue-return.component";
+import { NewStockIssueReturnComponent } from "../../modules/inventory/stock-issue-return/new-stock-issue-return/new-stock-issue-return.component";
+import { StockTransferComponent } from "../../modules/inventory/stock-transfer/stock-transfer.component";
+import { NewStockTransferComponent } from "../../modules/inventory/stock-transfer/new-stock-transfer/new-stock-transfer.component";
+import { StockAdjustmentComponent } from "../../modules/inventory/stock-adjustment/stock-adjustment.component";
+import { NewStockAdjustmentComponent } from "../../modules/inventory/stock-adjustment/new-stock-adjustment/new-stock-adjustment.component";
+import { StockDamageLossComponent } from "../../modules/inventory/stock-damage-loss/stock-damage-loss.component";
+import { NewStockDamageLossComponent } from "../../modules/inventory/stock-damage-loss/new-stock-damage-loss/new-stock-damage-loss.component";
+// Part 5: Employee Tracking + Reports
+import { EmployeeItemHoldingComponent } from "../../modules/inventory/employee-item-holding/employee-item-holding.component";
+import { StockBalanceSummaryComponent } from "../../modules/inventory/stock-balance-summary/stock-balance-summary.component";
+import { AssetMovementHistoryComponent } from "../../modules/inventory/asset-movement-history/asset-movement-history.component";
+import { AssetLocationComponent } from "../../modules/inventory/asset-location/asset-location.component";
+import { EmployeeIssueRegisterComponent } from "../../modules/inventory/employee-issue-register/employee-issue-register.component";
+// Part 6: Asset Management
+import { AssetAllocationComponent } from "../../modules/inventory/asset-allocation/asset-allocation.component";
+import { AssetTransferComponent } from "../../modules/inventory/asset-transfer/asset-transfer.component";
+import { AssetReturnComponent } from "../../modules/inventory/asset-return/asset-return.component";
+import { AssetMaintenanceComponent } from "../../modules/inventory/asset-maintenance/asset-maintenance.component";
+import { AssetDamageComponent } from "../../modules/inventory/asset-damage/asset-damage.component";
+import { AssetDisposalComponent } from "../../modules/inventory/asset-disposal/asset-disposal.component";
 import { PurchaseBillsComponent } from "../../modules/inventory/purchase-bills/purchase-bills.component";
 import { MaterialIssueComponent } from "../../modules/inventory/material-issue/material-issue.component";
+// Part 7: Approval Workflow + Notifications
+import { PendingApprovalsComponent } from "../../modules/inventory/pending-approvals/pending-approvals.component";
+import { ApprovalHistoryComponent } from "../../modules/inventory/approval-history/approval-history.component";
+import { NotificationListComponent } from "../../modules/inventory/notification-list/notification-list.component";
 import { EmployeemonthlyadvanceComponent } from 'src/app/modules/payroll/employee-monthly-advance/employeemonthlyadvance.component';
 import { NewEmployeeMonthlyAdvanceComponent } from 'src/app/modules/payroll/employee-monthly-advance/new-employee-monthly-advance/new-employee-monthly-advance.component';
 import { NewEmployeeLoanComponent } from 'src/app/modules/payroll/employee-loan/new-employee-loan.component';
@@ -57,6 +104,7 @@ import { UserAccessRightsComponent } from 'src/app/modules/administration/user-a
 import { NewUserAccessRightsComponent } from 'src/app/modules/administration/user-access-rights/new-user-access-rights/new-user-access-rights.component';
 import { UserBranchAccessComponent } from 'src/app/modules/administration/user-branch-access/user-branch-access.component';
 import { NewUserBranchAccessComponent } from 'src/app/modules/administration/user-branch-access/new-user-branch-access/new-user-branch-access.component';
+import { ApprovalSetupComponent } from 'src/app/modules/administration/approval-setup/approval-setup.component';
 import { UserBankAccessComponent } from 'src/app/modules/administration/user-bank-access/user-bank-access.component';
 import { NewUserBankAccessComponent } from 'src/app/modules/administration/user-bank-access/new-user-bank-access/new-user-bank-access.component';
 import { NewLegalDemandActionComponent } from "../../modules/finance/legal-demand-action/new-legal-demand-action/new-legal-demand-action.component";
@@ -205,6 +253,79 @@ const routes: Routes = [
   { path: 'inventory/utility-bills', component: UtilityBillsComponent, canActivate: [AuthGuard] },
   { path: 'inventory/purchase-bills', component: PurchaseBillsComponent, canActivate: [AuthGuard] },
   { path: 'inventory/material-issue', component: MaterialIssueComponent, canActivate: [AuthGuard] },
+  // Brand Master
+  { path: 'inventory/brand-master', component: BrandMasterComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/brand-master/new-brand', component: NewBrandComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/brand-master/new-brand/:ID', component: NewBrandComponent, canActivate: [AuthGuard] },
+  // UOM Master
+  { path: 'inventory/uom-master', component: UOMMasterComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/uom-master/new-uom', component: NewUOMComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/uom-master/new-uom/:ID', component: NewUOMComponent, canActivate: [AuthGuard] },
+  // Warehouse Master
+  { path: 'inventory/warehouse-master', component: WarehouseMasterComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/warehouse-master/new-warehouse', component: NewWarehouseComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/warehouse-master/new-warehouse/:ID', component: NewWarehouseComponent, canActivate: [AuthGuard] },
+  // Part 2: Opening Stock
+  { path: 'inventory/opening-stock', component: OpeningStockComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/opening-stock/new-opening-stock', component: NewOpeningStockComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/opening-stock/new-opening-stock/:ID', component: NewOpeningStockComponent, canActivate: [AuthGuard] },
+  // Part 2: Stock Ledger
+  { path: 'inventory/stock-ledger', component: StockLedgerComponent, canActivate: [AuthGuard] },
+  // Part 3: Purchase Requisition
+  { path: 'inventory/purchase-requisition', component: PurchaseRequisitionComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/purchase-requisition/new-pr', component: NewPRComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/purchase-requisition/new-pr/:ID', component: NewPRComponent, canActivate: [AuthGuard] },
+  // Part 3: Purchase Order
+  { path: 'inventory/purchase-order', component: PurchaseOrderComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/purchase-order/new-po', component: NewPOComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/purchase-order/new-po/:ID', component: NewPOComponent, canActivate: [AuthGuard] },
+  // Part 3: Goods Receipt
+  { path: 'inventory/goods-receipt', component: GoodsReceiptComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/goods-receipt/new-grn', component: NewGRNComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/goods-receipt/new-grn/:ID', component: NewGRNComponent, canActivate: [AuthGuard] },
+  // Part 3: Purchase Return
+  { path: 'inventory/purchase-return', component: PurchaseReturnComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/purchase-return/new-return', component: NewReturnComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/purchase-return/new-return/:ID', component: NewReturnComponent, canActivate: [AuthGuard] },
+  // Part 4: Stock Issue
+  { path: 'inventory/stock-issue', component: StockIssueComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/stock-issue/new-stock-issue', component: NewStockIssueComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/stock-issue/new-stock-issue/:ID', component: NewStockIssueComponent, canActivate: [AuthGuard] },
+  // Part 4: Stock Issue Return
+  { path: 'inventory/stock-issue-return', component: StockIssueReturnComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/stock-issue-return/new-stock-issue-return', component: NewStockIssueReturnComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/stock-issue-return/new-stock-issue-return/:ID', component: NewStockIssueReturnComponent, canActivate: [AuthGuard] },
+  // Part 4: Stock Transfer
+  { path: 'inventory/stock-transfer', component: StockTransferComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/stock-transfer/new-stock-transfer', component: NewStockTransferComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/stock-transfer/new-stock-transfer/:ID', component: NewStockTransferComponent, canActivate: [AuthGuard] },
+  // Part 4: Stock Adjustment
+  { path: 'inventory/stock-adjustment', component: StockAdjustmentComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/stock-adjustment/new-stock-adjustment', component: NewStockAdjustmentComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/stock-adjustment/new-stock-adjustment/:ID', component: NewStockAdjustmentComponent, canActivate: [AuthGuard] },
+  // Part 4: Damage / Loss
+  { path: 'inventory/stock-damage-loss', component: StockDamageLossComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/stock-damage-loss/new-stock-damage-loss', component: NewStockDamageLossComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/stock-damage-loss/new-stock-damage-loss/:ID', component: NewStockDamageLossComponent, canActivate: [AuthGuard] },
+  // Part 5: Employee Item Holding
+  { path: 'inventory/employee-item-holding', component: EmployeeItemHoldingComponent, canActivate: [AuthGuard] },
+  // Part 5: Stock Balance Summary
+  { path: 'inventory/stock-balance-summary', component: StockBalanceSummaryComponent, canActivate: [AuthGuard] },
+  // Part 5: Employee Issue Register
+  { path: 'inventory/employee-issue-register', component: EmployeeIssueRegisterComponent, canActivate: [AuthGuard] },
+  // Part 6: Asset Management
+  { path: 'inventory/asset-master', component: AssetMasterComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/asset-master/new-asset', component: NewAssetComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/asset-master/new-asset/:ID', component: NewAssetComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/asset-allocation', component: AssetAllocationComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/asset-transfer', component: AssetTransferComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/asset-return', component: AssetReturnComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/asset-maintenance', component: AssetMaintenanceComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/asset-damage', component: AssetDamageComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/asset-disposal', component: AssetDisposalComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/asset-movement-history/:assetID', component: AssetMovementHistoryComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/asset-location', component: AssetLocationComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/asset-location/:assetID', component: AssetLocationComponent, canActivate: [AuthGuard] },
 
   //Payroll module
   { path: 'payroll/employee-monthly-advance', component: EmployeemonthlyadvanceComponent, canActivate: [AuthGuard] },
@@ -237,6 +358,7 @@ const routes: Routes = [
   { path: 'administration/new-user-branch-access', component: NewUserBranchAccessComponent, canActivate: [AuthGuard] },
   { path: 'administration/user-bank-access', component: UserBankAccessComponent, canActivate: [AuthGuard] },
   { path: 'administration/new-user-bank-access', component: NewUserBankAccessComponent, canActivate: [AuthGuard] },
+  { path: 'administration/approval-setup', component: ApprovalSetupComponent, canActivate: [AuthGuard] },
 
   //Finance module
   { path: 'finance/invoice', component: InvoiceComponent, canActivate: [AuthGuard] },
@@ -327,6 +449,11 @@ const routes: Routes = [
   { path: 'report/accounting/profit-and-loss-without-contra', component: ProfitAndLossWithoutContraComponent, canActivate: [AuthGuard] },
   { path: 'report/accounting/bank-reconciliation', component: BankReconciliationReportComponent, canActivate: [AuthGuard] },
   { path: 'report/accounting/general-ledger', component: GeneralLedgerReportComponent, canActivate: [AuthGuard] },
+
+  // Administration: Approval Workflow + Notifications
+  { path: 'administration/pending-approvals', component: PendingApprovalsComponent, canActivate: [AuthGuard] },
+  { path: 'administration/approval-history',  component: ApprovalHistoryComponent,  canActivate: [AuthGuard] },
+  { path: 'administration/notifications',     component: NotificationListComponent,  canActivate: [AuthGuard] },
 
   { path: '**', redirectTo: 'login' }
 ];

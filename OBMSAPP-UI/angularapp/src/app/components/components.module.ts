@@ -7,6 +7,8 @@ import { SharedModule } from '../modules/shared.module';
 import { AlertComponent } from './alert/alert.component';
 import { MessageComponent } from './message/message.component';
 import { DialogConfirmationComponent } from './dialog-confirmation/dialog-confirmation.component';
+// Part 7: Notification Bell lives here — same injector scope as Header
+import { NotificationBellComponent } from './notification-bell/notification-bell.component';
 
 
 // import {
@@ -20,7 +22,8 @@ import { DialogConfirmationComponent } from './dialog-confirmation/dialog-confir
     SidebarComponent,
     AlertComponent,
     MessageComponent,
-    DialogConfirmationComponent
+    DialogConfirmationComponent,
+    NotificationBellComponent
   ],
   imports: [
     CommonModule,
@@ -29,7 +32,8 @@ import { DialogConfirmationComponent } from './dialog-confirmation/dialog-confir
   exports: [
     HeaderComponent,
     FooterComponent,
-    SidebarComponent
+    SidebarComponent,
+    NotificationBellComponent
   ],
   // entryComponents: [
   //   MessageComponent

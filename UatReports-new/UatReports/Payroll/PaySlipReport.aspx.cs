@@ -36,6 +36,7 @@ public partial class PayRoll_PaySlipReport : System.Web.UI.Page
         }
         catch (Exception ex) { Log("ParameterFieldInfo at Init error: " + ex.Message); }
 
+<<<<<<< Updated upstream
         Log("=== Page_Init END ===");
     }
 
@@ -50,9 +51,21 @@ public partial class PayRoll_PaySlipReport : System.Web.UI.Page
             // ── STEP 1: Suppress prompts ──────────────────────────────────────
             Log("STEP 1: Setting EnableParameterPrompt=false and ToolPanelView=None");
             crptPaySlipList.EnableParameterPrompt = false;
+=======
+            // Load RPT - preserves DB table mappings
+            crptPaySlip.ReportDocument.Load(Server.MapPath(rptFile));
+
+            // Apply DB login to main report and all subreports
+            ApplyLogin(crptPaySlip.ReportDocument);
+            foreach (ReportDocument sub in crptPaySlip.ReportDocument.Subreports)
+                ApplyLogin(sub);
+
+            // Viewer settings
+>>>>>>> Stashed changes
             crptPaySlipList.ToolPanelView = ToolPanelViewType.None;
             Log("  EnableParameterPrompt is now: " + crptPaySlipList.EnableParameterPrompt);
 
+<<<<<<< Updated upstream
             // ── STEP 2: DB Login ──────────────────────────────────────────────
             Log("STEP 2: DB Login");
             int tableCount = 0;
@@ -180,6 +193,47 @@ public partial class PayRoll_PaySlipReport : System.Web.UI.Page
                     AppendFormula(crptPaySlip.ReportDocument.RecordSelectionFormula,
                         "{vwPaySheet.EMP_CODE} = '" + employeeCode.Replace("'", "''") + "'");
                 Log("  Appended specific Employee condition: " + employeeCode);
+=======
+            // ================= PARAMETERS =================
+            // Use ParameterFieldInfo on the VIEWER — these survive AutoDataBind.
+            // SetParameterValue on ReportDocument gets wiped by AutoDataBind rebind.
+            SetParam("CompanyName",         ConfigurationManager.AppSettings["CompanyName"] ?? "");
+            SetParam("CompanyAddress1",     ConfigurationManager.AppSettings["Address1"] ?? "");
+            SetParam("CompanyAddress2",     ConfigurationManager.AppSettings["Address2"] ?? "");
+            SetParam("CompanyAddress3",     (ConfigurationManager.AppSettings["PostCode"] ?? "") + " " + (ConfigurationManager.AppSettings["City"] ?? ""));
+            SetParam("CompanyAddress4",     ConfigurationManager.AppSettings["State"] ?? "");
+            SetParam("CompanyRegistration", ConfigurationManager.AppSettings["Registration"] ?? "");
+            SetParam("CompanyPhone",        ConfigurationManager.AppSettings["Phone"] ?? "");
+            SetParam("LoginID",             Request.QueryString["LoginID"] ?? "");
+            SetParam("Branch",              Request.QueryString["Branch"] ?? "");
+            SetParam("EmployeeType",        Request.QueryString["EmployeeType"] ?? "");
+
+            // Period
+            DateTime periodDate;
+            if (!DateTime.TryParse(Request.QueryString["Period"], out periodDate))
+                periodDate = DateTime.Now;
+            SetParam("Period", periodDate);
+
+            // ================= ClientCode PARAMETER =================
+            // Client selected    → set value → RPT: EMP_CLIENT = {?ClientCode}
+            // Client not selected → skip    → HasValue({?ClientCode}) = false
+            //                              → RPT: NOT HasValue({?ClientCode}) = true
+            //                              → no filter → all branch employees show
+            string clientCode = Request.QueryString["ClientCode"] ?? "";
+            if (!string.IsNullOrEmpty(clientCode))
+            {
+                SetParam("ClientCode", clientCode);
+            }
+
+            // ================= EMPLOYEE SPECIFIC FILTER =================
+            string empCode = Request.QueryString["Employee"] ?? "";
+            if (empCode != "0" && !string.IsNullOrEmpty(empCode))
+            {
+                string f = crptPaySlip.ReportDocument.RecordSelectionFormula ?? "";
+                string cond = "{vwPaySheet.EMP_CODE} = '" + empCode + "'";
+                crptPaySlip.ReportDocument.RecordSelectionFormula =
+                    string.IsNullOrWhiteSpace(f) ? cond : f + " AND " + cond;
+>>>>>>> Stashed changes
             }
 
             Log("STEP 7 final formula: '" + crptPaySlip.ReportDocument.RecordSelectionFormula + "'");
@@ -193,6 +247,7 @@ public partial class PayRoll_PaySlipReport : System.Web.UI.Page
         }
     }
 
+<<<<<<< Updated upstream
     // ── Page_PreRender: fires AFTER Page_Load, just before HTML is written ────
     protected void Page_PreRender(object sender, EventArgs e)
     {
@@ -207,10 +262,27 @@ public partial class PayRoll_PaySlipReport : System.Web.UI.Page
                     vals += (pv is ParameterDiscreteValue ? ((ParameterDiscreteValue)pv).Value?.ToString() : "?") + "; ";
                 Log("  PARAM at PreRender: '" + pf.Name + "'  Count=" + pf.CurrentValues.Count + "  Values=[" + vals + "]");
             }
+=======
+    // Set parameter via CrystalReportViewer.ParameterFieldInfo.
+    // These values survive AutoDataBind — viewer passes them to the report on render.
+    private void SetParam(string name, object value)
+    {
+        try
+        {
+            ParameterDiscreteValue pd = new ParameterDiscreteValue();
+            pd.Value = value;
+            crptPaySlipList.ParameterFieldInfo[name].CurrentValues.Clear();
+            crptPaySlipList.ParameterFieldInfo[name].CurrentValues.Add(pd);
+        }
+        catch
+        {
+            // Parameter not in this RPT — skip
+>>>>>>> Stashed changes
         }
         catch (Exception ex) { Log("  PreRender param check error: " + ex.Message); }
     }
 
+<<<<<<< Updated upstream
     // ── Render: write diagnostic output ABOVE the Crystal viewer ─────────────
     protected override void Render(System.Web.UI.HtmlTextWriter writer)
     {
@@ -242,6 +314,17 @@ public partial class PayRoll_PaySlipReport : System.Web.UI.Page
         pd.Value = value;
         crptPaySlipList.ParameterFieldInfo[name].CurrentValues.Add(pd);
         Log("  AddParam OK: '" + name + "' = '" + (value ?? "(null)") + "'");
+=======
+    private void ApplyLogin(ReportDocument rpt)
+    {
+        TableLogOnInfo logon = new TableLogOnInfo();
+        logon.ConnectionInfo.ServerName   = ConfigurationManager.AppSettings["Server"];
+        logon.ConnectionInfo.DatabaseName = ConfigurationManager.AppSettings["Database"];
+        logon.ConnectionInfo.UserID       = ConfigurationManager.AppSettings["UserID"];
+        logon.ConnectionInfo.Password     = ConfigurationManager.AppSettings["Password"];
+        foreach (Table table in rpt.Database.Tables)
+            table.ApplyLogOnInfo(logon);
+>>>>>>> Stashed changes
     }
 
     private string AppendFormula(string existing, string newCondition)

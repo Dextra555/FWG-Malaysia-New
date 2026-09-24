@@ -1,0 +1,179 @@
+<!-- Page Header -->
+<div class="wlt-c-furg-content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-12 col-md-4"><h1 class="mb-1">{{isViewMode ? 'View' : 'Record'}} Damage / Loss</h1></div>
+      <div class="col-12 col-md-8 my-1">
+        <ol class="breadcrumb float-md-right">
+          <li class="breadcrumb-item"><a routerLink="/dashboard">Inventory</a></li>
+          <li class="breadcrumb-item"><a routerLink="/inventory/stock-damage-loss">Damage / Loss</a></li>
+          <li class="breadcrumb-item active">{{isViewMode ? 'View' : 'New'}}</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+
+<mat-card>
+  <mat-card-content>
+    <form [formGroup]="frm" (ngSubmit)="onSubmit()">
+
+      <div class="row mt-2">
+        <div class="col-12"><h6 class="wlt-c-section-label"><strong>Damage / Loss Information</strong></h6><hr class="mt-0"></div>
+      </div>
+
+      <div class="row">
+        <div class="col-12 col-md-3">
+          <mat-form-field appearance="outline">
+            <mat-label>Record No</mat-label>
+            <input matInput formControlName="RecordNo" readonly placeholder="AUTO">
+            <mat-hint>Auto-generated</mat-hint>
+          </mat-form-field>
+        </div>
+        <div class="col-12 col-md-3">
+          <mat-form-field appearance="outline">
+            <mat-label>Record Date <span style="color:red">*</span></mat-label>
+            <input matInput [matDatepicker]="picker" formControlName="RecordDate" autocomplete="off">
+            <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+            <mat-datepicker #picker></mat-datepicker>
+            <mat-error *ngIf="frm.get('RecordDate')?.hasError('required')">Please enter the date.</mat-error>
+          </mat-form-field>
+        </div>
+        <div class="col-12 col-md-3">
+          <mat-form-field appearance="outline">
+            <mat-label>Type <span style="color:red">*</span></mat-label>
+            <mat-select formControlName="LossType">
+              <mat-option value="Damage">Damage</mat-option>
+              <mat-option value="Loss">Loss</mat-option>
+            </mat-select>
+            <mat-error *ngIf="frm.get('LossType')?.hasError('required')">Please select the type.</mat-error>
+          </mat-form-field>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col-12 col-md-6">
+          <mat-form-field appearance="outline">
+            <mat-label>Warehouse <span style="color:red">*</span></mat-label>
+            <mat-select formControlName="WarehouseID" (openedChange)="onWarehouseOpen($event)">
+              <mat-option disabled style="position:sticky;top:0;background:#fff;z-index:1;padding:0">
+                <div style="padding:4px 10px">
+                  <input type="text" placeholder="Search warehouse…" [value]="warehouseSearch"
+                    (input)="onWarehouseSearch($any($event.target).value)"
+                    (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()"
+                    style="width:100%;border:1px solid #ccc;border-radius:4px;padding:6px 8px;font-size:13px;outline:none">
+                </div>
+              </mat-option>
+              <mat-option [value]="0">-- Select Warehouse --</mat-option>
+              <mat-option *ngFor="let w of filteredWarehouses" [value]="w.ID">{{w.Name}}</mat-option>
+              <mat-option disabled *ngIf="filteredWarehouses.length === 0 && warehouseSearch.length > 0">No results found.</mat-option>
+            </mat-select>
+            <mat-error *ngIf="frm.get('WarehouseID')?.hasError('mustSelect')">Please select a warehouse.</mat-error>
+          </mat-form-field>
+        </div>
+        <div class="col-12 col-md-6">
+          <mat-form-field appearance="outline">
+            <mat-label>Item <span style="color:red">*</span></mat-label>
+            <mat-select formControlName="ItemID" (openedChange)="onItemOpen($event)">
+              <mat-option disabled style="position:sticky;top:0;background:#fff;z-index:1;padding:0">
+                <div style="padding:4px 10px">
+                  <input type="text" placeholder="Search item…" [value]="itemSearch"
+                    (input)="onItemSearch($any($event.target).value)"
+                    (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()"
+                    style="width:100%;border:1px solid #ccc;border-radius:4px;padding:6px 8px;font-size:13px;outline:none">
+                </div>
+              </mat-option>
+              <mat-option [value]="0">-- Select Item --</mat-option>
+              <mat-option *ngFor="let item of filteredItems" [value]="item.ID">{{item.Code}} — {{item.Name}}</mat-option>
+              <mat-option disabled *ngIf="filteredItems.length === 0 && itemSearch.length > 0">No results found.</mat-option>
+            </mat-select>
+            <mat-error *ngIf="frm.get('ItemID')?.hasError('mustSelect')">Please select an item.</mat-error>
+          </mat-form-field>
+        </div>
+      </div>
+
+      <!-- Current stock info panel -->
+      <div class="row" *ngIf="frm.get('WarehouseID')?.value > 0 && frm.get('ItemID')?.value > 0">
+        <div class="col-12">
+          <div class="p-3 mb-3" style="background:#fff3cd; border-left:4px solid #ffc107; border-radius:4px">
+            <div class="row">
+              <div class="col-6 col-md-3">
+                <small class="text-muted d-block">Item Code</small>
+                <strong>{{selectedItemCode || '—'}}</strong>
+              </div>
+              <div class="col-6 col-md-3">
+                <small class="text-muted d-block">UOM</small>
+                <strong>{{selectedUOMName || '—'}}</strong>
+              </div>
+              <div class="col-6 col-md-3">
+                <small class="text-muted d-block">Current Available Stock</small>
+                <strong [class.text-danger]="currentStock === 0">{{formatNumber(currentStock)}}</strong>
+              </div>
+              <div class="col-6 col-md-3" *ngIf="+frm.get('Quantity')?.value > 0">
+                <small class="text-muted d-block">Stock After Recording</small>
+                <strong [class.text-danger]="(currentStock - (+frm.get('Quantity')?.value || 0)) < 0">
+                  {{formatNumber(currentStock - (+frm.get('Quantity')?.value || 0))}}
+                </strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col-12 col-md-3">
+          <mat-form-field appearance="outline">
+            <mat-label>Quantity <span style="color:red">*</span></mat-label>
+            <input matInput type="number" formControlName="Quantity" min="0.01" step="0.01" placeholder="0.00" autocomplete="off">
+            <mat-error *ngIf="frm.get('Quantity')?.hasError('required')">Please enter the quantity.</mat-error>
+            <mat-error *ngIf="frm.get('Quantity')?.hasError('greaterThanZero')">Quantity must be greater than zero.</mat-error>
+          </mat-form-field>
+        </div>
+        <div class="col-12 col-md-3">
+          <mat-form-field appearance="outline">
+            <mat-label>Unit Cost (RM)</mat-label>
+            <input matInput type="number" formControlName="UnitCost" min="0" step="0.01" placeholder="0.00" autocomplete="off">
+          </mat-form-field>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col-12 col-md-8">
+          <mat-form-field appearance="outline">
+            <mat-label>Reason <span style="color:red">*</span></mat-label>
+            <input matInput formControlName="Reason" placeholder="e.g. Items damaged during storage, flood loss, etc.">
+            <mat-error *ngIf="frm.get('Reason')?.hasError('required')">Please enter a reason.</mat-error>
+          </mat-form-field>
+        </div>
+        <div class="col-12 col-md-4">
+          <mat-form-field appearance="outline">
+            <mat-label>Remarks</mat-label>
+            <input matInput formControlName="Remarks" placeholder="Optional">
+          </mat-form-field>
+        </div>
+      </div>
+
+      <div class="row mt-2" *ngIf="errorMessage !== ''">
+        <div class="col-12"><mat-label style="color:orange" [innerHTML]="errorMessage"></mat-label></div>
+      </div>
+
+      <div class="row mt-3">
+        <div class="col-12">
+          <div class="text-right">
+            <button type="button" class="btn wlt-c-furg-btn-gray mr-3" (click)="onCancelClick()">
+              {{isViewMode ? 'Back' : 'Cancel'}}
+            </button>
+            <button *ngIf="!isViewMode && (userAccessModel.createAccess || currentUser === 'superadmin')"
+              type="submit" class="btn wlt-c-furg-btn-primary" [disabled]="showLoadingSpinner">
+              Save Record
+            </button>
+          </div>
+        </div>
+      </div>
+    </form>
+  </mat-card-content>
+</mat-card>
+
+<div [style.display]="showLoadingSpinner ? 'block' : 'none'" style="margin-top:-20.5rem; display:block; margin-left:-6.5rem;">
+  <div class="d-flex justify-content-center"><span class="loader"></span></div>
+</div>

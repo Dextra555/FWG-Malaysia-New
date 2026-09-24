@@ -1,0 +1,7 @@
+.status-badge { display:inline-block; padding:3px 10px; border-radius:12px; font-size:.78rem; font-weight:500; }
+.badge-draft     { background:#e3f2fd; color:#1565c0; }
+.badge-submitted { background:#fff8e1; color:#e65100; }
+.badge-approved  { background:#e8f5e9; color:#2e7d32; }
+.badge-rejected  { background:#ffebee; color:#c62828; }
+.badge-po-posted  { background:#ede7f6; color:#4527a0; }
+.badge-grn-posted { background:#e0f7fa; color:#00695c; }

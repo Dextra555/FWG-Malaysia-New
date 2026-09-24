@@ -1,0 +1,151 @@
+<!-- Page Header -->
+<div class="wlt-c-furg-content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-12 col-sm-12 col-md-6 col-lg-6">
+        <h1 class="mb-1">Opening Stock</h1>
+      </div>
+      <div class="col-12 col-sm-12 col-md-6 col-lg-6 my-1">
+        <ol class="breadcrumb float-md-right">
+          <li class="breadcrumb-item"><a routerLink="/dashboard">Inventory</a></li>
+          <li class="breadcrumb-item active">Opening Stock</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+
+<mat-card>
+  <mat-card-content>
+
+    <!-- Toolbar: Search + Add button -->
+    <div class="row" *ngIf="warningMessage === ''">
+      <div class="col-12 col-sm-12 col-md-4 col-lg-4 order-2 order-md-1">
+        <mat-form-field appearance="outline">
+          <mat-label>Search</mat-label>
+          <input matInput (keyup)="applyFilter($event)" placeholder="Item, warehouse, reference…">
+        </mat-form-field>
+      </div>
+      <div class="col-12 col-sm-12 col-md-8 col-lg-8 order-1 order-md-2">
+        <div class="text-right pt-2">
+          <button
+            *ngIf="userAccessModel.createAccess || currentUser === 'superadmin'"
+            class="btn wlt-c-furg-btn-primary"
+            [routerLink]="['/inventory/opening-stock/new-opening-stock']">
+            <mat-icon>add</mat-icon><span>Add Opening Stock</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Access denied -->
+    <div *ngIf="warningMessage !== ''">
+      <mat-label style="color:red" [innerHTML]="warningMessage"></mat-label>
+    </div>
+
+    <!-- Error -->
+    <div *ngIf="errorMessage !== '' && warningMessage === ''">
+      <mat-label style="color:red">{{errorMessage}}</mat-label>
+    </div>
+
+    <!-- Data table -->
+    <div class="table-responsive" *ngIf="warningMessage === '' && errorMessage === ''">
+      <table mat-table [dataSource]="dataSource" class="wlt-table table-striped" matSort
+        (matSortChange)="announceSortChange($event)">
+
+        <ng-container matColumnDef="ReferenceNo">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Reference No</th>
+          <td mat-cell *matCellDef="let row">{{row.ReferenceNo}}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="OpeningDate">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Date</th>
+          <td mat-cell *matCellDef="let row">{{formatDate(row.OpeningDate)}}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="WarehouseName">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Warehouse</th>
+          <td mat-cell *matCellDef="let row">{{row.WarehouseName}}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="ItemCode">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Item Code</th>
+          <td mat-cell *matCellDef="let row">{{row.ItemCode}}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="ItemName">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Item Name</th>
+          <td mat-cell *matCellDef="let row">{{row.ItemName}}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="CategoryName">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Category</th>
+          <td mat-cell *matCellDef="let row">{{row.CategoryName}}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="UOMName">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>UOM</th>
+          <td mat-cell *matCellDef="let row">{{row.UOMName}}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="OpeningQty">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header style="text-align:right">Qty</th>
+          <td mat-cell *matCellDef="let row" style="text-align:right">{{formatNumber(row.OpeningQty)}}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="UnitCost">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header style="text-align:right">Unit Cost (RM)</th>
+          <td mat-cell *matCellDef="let row" style="text-align:right">{{formatNumber(row.UnitCost)}}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="TotalValue">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header style="text-align:right">Total Value (RM)</th>
+          <td mat-cell *matCellDef="let row" style="text-align:right"><strong>{{formatNumber(row.TotalValue)}}</strong></td>
+        </ng-container>
+
+        <ng-container matColumnDef="action" stickyEnd>
+          <th mat-header-cell *matHeaderCellDef style="text-align:center; width:110px">Action</th>
+          <td mat-cell *matCellDef="let row" style="text-align:center">
+            <a *ngIf="userAccessModel.updateAccess || currentUser === 'superadmin'"
+               style="cursor:pointer" class="wlt-c-furg-text-primary mr-2"
+               matTooltip="Edit Opening Stock"
+               [routerLink]="['/inventory/opening-stock/new-opening-stock', row.ID]">
+              <mat-icon>edit</mat-icon>
+            </a>
+            <a *ngIf="userAccessModel.deleteAccess || currentUser === 'superadmin'"
+               style="cursor:pointer" class="wlt-c-furg-text-danger"
+               matTooltip="Remove Opening Stock"
+               (click)="deleteClickButton(row)">
+              <mat-icon>delete_outline</mat-icon>
+            </a>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+
+        <!-- Empty state row -->
+        <tr class="mat-row" *matNoDataRow>
+          <td class="mat-cell" [attr.colspan]="displayedColumns.length" style="text-align:center; padding:24px; color:#888">
+            <span *ngIf="filterValue">No opening stock entries match "<strong>{{filterValue}}</strong>".</span>
+            <span *ngIf="!filterValue">
+              No opening stock entries found.<br>
+              Click <strong>+ Add Opening Stock</strong> to record your first entry.
+            </span>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <mat-paginator [pageSizeOptions]="pageSizeOptions" showFirstLastButtons></mat-paginator>
+
+  </mat-card-content>
+</mat-card>
+
+<!-- Loading spinner -->
+<div [style.display]="showLoadingSpinner ? 'block' : 'none'"
+     style="margin-top:-20.5rem; display:block; margin-left:-6.5rem;">
+  <div class="d-flex justify-content-center">
+    <span class="loader"></span>
+  </div>
+</div>

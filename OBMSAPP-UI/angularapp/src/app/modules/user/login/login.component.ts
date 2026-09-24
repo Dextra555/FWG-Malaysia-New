@@ -8,6 +8,7 @@ import { DatasharingService } from 'src/app/service/datasharing.service';
 import Swal from 'sweetalert2';
 import * as CryptoJS from 'crypto-js';
 import { AuthService } from 'src/app/service/auth.service';
+import { SignalrNotificationService } from 'src/app/service/signalr-notification.service';
 
 @Component({
   selector: 'app-login',
@@ -34,7 +35,8 @@ export class LoginComponent implements OnInit {
   passwordChange!: string;
 
   constructor(private fb: FormBuilder, private _router: Router, private _commonService: CommonService,
-    private _dataSharingService: DatasharingService, private authService: AuthService) {
+    private _dataSharingService: DatasharingService, private authService: AuthService,
+    private signalrNotifService: SignalrNotificationService) {
     this.loginForm = this.fb.group({
       userName: ['', [Validators.required]],
       password: ['', [Validators.required]],
@@ -119,6 +121,12 @@ export class LoginComponent implements OnInit {
     data['Password'] = "";
     sessionStorage.setItem('currentUser', JSON.stringify(data));
     this.authService.setToken(response.token);
+
+    // Request browser desktop notification permission once at login.
+    // The browser shows a native permission prompt only the first time —
+    // subsequent calls return the already-granted/denied state immediately.
+    this.signalrNotifService.requestDesktopPermission();
+
     this._router.navigate(['/dashboard']);
     Swal.fire({
       toast: true,

@@ -2027,18 +2027,19 @@ namespace OBMS.WebAPI.Controllers
 
                 var inventoryCategoryList = new List<InventoryCategoryDto>
             {
-                new InventoryCategoryDto(0, 0, "", 0, "", "", "")
+                new InventoryCategoryDto { ID = 0, AccountCategoryID = 0, AccountNo = "", AccountTypeID = 0, Name = "", Cat = "", AssetType = "" }
             };
 
-                inventoryCategoryList.AddRange(inventoryCategoryFactoryList.Select(icf => new InventoryCategoryDto(
-                    icf.ID,
-                    0, // AccountCategoryID placeholder
-                    "", // AccountNo placeholder
-                    0, // AccountTypeID placeholder
-                    icf.Name,
-                    icf.Cat,
-                    icf.AssetType
-                )));
+                inventoryCategoryList.AddRange(inventoryCategoryFactoryList.Select(icf => new InventoryCategoryDto
+                {
+                    ID = icf.ID,
+                    AccountCategoryID = 0,
+                    AccountNo = "",
+                    AccountTypeID = 0,
+                    Name = icf.Name,
+                    Cat = icf.Cat,
+                    AssetType = icf.AssetType
+                }));
 
                 return Ok(inventoryCategoryList);
             }

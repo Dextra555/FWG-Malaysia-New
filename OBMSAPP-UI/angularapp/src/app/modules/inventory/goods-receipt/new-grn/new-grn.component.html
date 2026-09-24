@@ -1,0 +1,153 @@
+<div class="wlt-c-furg-content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-12 col-md-5"><h1 class="mb-1">{{isView ? 'Goods Receipt — ' + grnNumber : 'Record Goods Received'}}</h1></div>
+      <div class="col-12 col-md-7 my-1">
+        <ol class="breadcrumb float-md-right">
+          <li class="breadcrumb-item"><a routerLink="/dashboard">Inventory</a></li>
+          <li class="breadcrumb-item"><a routerLink="/inventory/goods-receipt">Goods Receipt</a></li>
+          <li class="breadcrumb-item active">{{isView ? grnNumber : 'New'}}</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+
+<mat-card>
+  <mat-card-content>
+    <form [formGroup]="frm">
+      <div class="row mt-2"><div class="col-12"><h6 class="wlt-c-section-label"><strong>Receipt Details</strong></h6><hr class="mt-0"></div></div>
+      <div class="row">
+        <div class="col-12 col-md-2">
+          <mat-form-field appearance="outline"><mat-label>GRN Number</mat-label>
+            <input matInput [value]="grnNumber" readonly placeholder="AUTO"><mat-hint>Auto-generated</mat-hint>
+          </mat-form-field>
+        </div>
+        <div class="col-12 col-md-5">
+          <mat-form-field appearance="outline"><mat-label>Purchase Order <span style="color:red" *ngIf="!isView">*</span></mat-label>
+            <mat-select formControlName="POID" (selectionChange)="onPOChange($event.value)" [disabled]="isView" (openedChange)="onPOOpen($event)">
+              <mat-option disabled style="position:sticky;top:0;background:#fff;z-index:1;padding:0">
+                <div style="padding:4px 10px">
+                  <input type="text" placeholder="Search PO or supplier…" [value]="poSearch"
+                    (input)="onPOSearch($any($event.target).value)"
+                    (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()"
+                    style="width:100%;border:1px solid #ccc;border-radius:4px;padding:6px 8px;font-size:13px;outline:none">
+                </div>
+              </mat-option>
+              <mat-option [value]="0">-- Select Purchase Order --</mat-option>
+              <mat-option *ngFor="let po of filteredPOs" [value]="po.ID">{{po.PONumber}} — {{po.SupplierName}} ({{po.Status}})</mat-option>
+              <mat-option disabled *ngIf="filteredPOs.length === 0 && poSearch.length > 0">No results found.</mat-option>
+            </mat-select>
+            <mat-error *ngIf="frm.get('POID')?.hasError('min') || frm.get('POID')?.hasError('required')">Please select a purchase order to receive against.</mat-error>
+          </mat-form-field>
+        </div>
+        <div class="col-12 col-md-3">
+          <mat-form-field appearance="outline"><mat-label>Date Received <span style="color:red" *ngIf="!isView">*</span></mat-label>
+            <input matInput [matDatepicker]="picker1" formControlName="GRNDate" autocomplete="off">
+            <mat-datepicker-toggle matSuffix [for]="picker1"></mat-datepicker-toggle><mat-datepicker #picker1></mat-datepicker>
+            <mat-error *ngIf="frm.get('GRNDate')?.hasError('required')">Please enter the goods receipt date.</mat-error>
+          </mat-form-field>
+        </div>
+        <div class="col-12 col-md-4">
+          <mat-form-field appearance="outline"><mat-label>Delivery Note / Reference</mat-label>
+            <input matInput formControlName="DeliveryNoteRef" placeholder="Supplier delivery note number (optional)">
+          </mat-form-field>
+        </div>
+        <div class="col-12 col-md-6">
+          <mat-form-field appearance="outline"><mat-label>Remarks</mat-label>
+            <textarea matInput formControlName="Remarks" rows="2"></textarea>
+          </mat-form-field>
+        </div>
+      </div>
+      <div class="row" *ngIf="errorMessage !== ''"><div class="col-12">
+        <mat-label style="color:orange" [innerHTML]="errorMessage"></mat-label>
+      </div></div>
+    </form>
+
+    <!-- PO info panel -->
+    <div *ngIf="poInfo && !isView" class="p-3 mb-3" style="background:#f8f9fa;border-left:4px solid #1976d2;border-radius:4px">
+      <div class="row">
+        <div class="col-4"><small class="text-muted d-block">Supplier</small><strong>{{poInfo.SupplierName}}</strong></div>
+        <div class="col-4"><small class="text-muted d-block">Warehouse</small><strong>{{poInfo.WarehouseName}}</strong></div>
+        <div class="col-4"><small class="text-muted d-block">Expected Date</small><strong>{{formatDate(poInfo.ExpectedDate)}}</strong></div>
+      </div>
+    </div>
+
+    <!-- New GRN: lines to receive -->
+    <div *ngIf="!isView && lines.length > 0">
+      <div class="row mt-3"><div class="col-12"><h6 class="wlt-c-section-label"><strong>Enter Received Quantities</strong></h6><hr class="mt-0"></div></div>
+      <div class="alert alert-info" style="border-left:4px solid #1976d2">
+        <mat-icon style="vertical-align:middle">info</mat-icon>
+        Enter the quantity actually received for each item. Leave as 0 for items not received in this delivery.
+      </div>
+      <div class="table-responsive">
+        <table class="mat-table wlt-table">
+          <thead><tr class="mat-header-row">
+            <th class="mat-header-cell">Item</th>
+            <th class="mat-header-cell">Category</th>
+            <th class="mat-header-cell">UOM</th>
+            <th class="mat-header-cell" style="text-align:right">Ordered</th>
+            <th class="mat-header-cell" style="text-align:right">Already Received</th>
+            <th class="mat-header-cell" style="text-align:right">Remaining</th>
+            <th class="mat-header-cell" style="text-align:right;width:150px">Receiving Now <span style="color:red">*</span></th>
+          </tr></thead>
+          <tbody>
+            <tr class="mat-row" *ngFor="let l of lines">
+              <td class="mat-cell">{{l.ItemCode}} — {{l.ItemName}}</td>
+              <td class="mat-cell">{{l.CategoryName}}</td>
+              <td class="mat-cell">{{l.UOMName}}</td>
+              <td class="mat-cell" style="text-align:right">{{l.OrderedQty}}</td>
+              <td class="mat-cell" style="text-align:right">{{l.ReceivedQty}}</td>
+              <td class="mat-cell" style="text-align:right"><strong style="color:#e65100">{{l.PendingQty}}</strong></td>
+              <td class="mat-cell" style="text-align:right">
+                <input type="number" [(ngModel)]="l.receivedInput" (input)="validateQty(l)"
+                  [max]="l.PendingQty" min="0" step="0.01"
+                  class="form-control text-right" style="width:120px;display:inline-block"
+                  [class.is-invalid]="l.inputError">
+                <div class="text-danger" style="font-size:.78rem;white-space:pre-line" *ngIf="l.inputError">{{l.inputError}}</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- View existing GRN details -->
+    <div *ngIf="isView && existingDetails.length > 0">
+      <div class="row mt-3"><div class="col-12"><h6 class="wlt-c-section-label"><strong>Received Items</strong></h6><hr class="mt-0"></div></div>
+      <div class="table-responsive">
+        <table class="mat-table wlt-table">
+          <thead><tr class="mat-header-row">
+            <th class="mat-header-cell">#</th><th class="mat-header-cell">Item</th>
+            <th class="mat-header-cell">Category</th><th class="mat-header-cell">UOM</th>
+            <th class="mat-header-cell" style="text-align:right">Received Qty</th>
+            <th class="mat-header-cell" style="text-align:right">Unit Cost (RM)</th>
+          </tr></thead>
+          <tbody>
+            <tr class="mat-row" *ngFor="let d of existingDetails; let i = index">
+              <td class="mat-cell">{{i+1}}</td>
+              <td class="mat-cell">{{d.ItemCode}} — {{d.ItemName}}</td>
+              <td class="mat-cell">{{d.CategoryName}}</td>
+              <td class="mat-cell">{{d.UOMName}}</td>
+              <td class="mat-cell" style="text-align:right"><strong>{{d.ReceivedQty}}</strong></td>
+              <td class="mat-cell" style="text-align:right">{{d.UnitCost | number:'1.2-2'}}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="row mt-3"><div class="col-12"><div class="text-right">
+      <button type="button" class="btn wlt-c-furg-btn-gray mr-2" (click)="onCancel()">{{isView ? 'Back' : 'Cancel'}}</button>
+      <button *ngIf="!isView && (userAccessModel.createAccess || currentUser === 'superadmin')"
+        type="button" class="btn wlt-c-furg-btn-primary" [disabled]="showLoadingSpinner" (click)="onSave()">
+        <mat-icon>inventory_2</mat-icon> Save Goods Receipt
+      </button>
+    </div></div></div>
+  </mat-card-content>
+</mat-card>
+
+<div [style.display]="showLoadingSpinner ? 'block' : 'none'" style="margin-top:-20.5rem;display:block;margin-left:-6.5rem;">
+  <div class="d-flex justify-content-center"><span class="loader"></span></div>
+</div>

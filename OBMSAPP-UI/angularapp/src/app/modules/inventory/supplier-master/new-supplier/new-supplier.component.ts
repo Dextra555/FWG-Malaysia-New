@@ -42,7 +42,7 @@ export class NewSupplierComponent implements OnInit {
       Name: ['', Validators.required],
       Address1: ['', Validators.required],
       Address2: ['', Validators.required],
-      PostCode: ['', Validators.required],
+      PostCode: ['', [Validators.required, Validators.maxLength(5), Validators.pattern('^[0-9]{5}$')]],
       City: ['', Validators.required],
       State: [''],
       Phone: ['', Validators.required],
@@ -103,16 +103,22 @@ export class NewSupplierComponent implements OnInit {
   }
   onSubmit() {
     if (this.frm.invalid) {
+      this.frm.markAllAsTouched();
       return;
-
     }
     let data = this.frm.getRawValue();
-    this.service.saveSupplier(data).subscribe((d: any) => {
-      this.showMessage("Supplier Saved/Updated Successfully", 'success', 'Success Message');
-      this.frm.reset();
-      this.route.navigateByUrl('/dummy', { skipLocationChange: true }).then(() => {
-        this.route.navigate(['/inventory/supplier-master']);
-      });
+    this.service.saveSupplier(data).subscribe({
+      next: (d: any) => {
+        this.showMessage("Supplier Saved/Updated Successfully", 'success', 'Success Message');
+        this.frm.reset();
+        this.route.navigateByUrl('/dummy', { skipLocationChange: true }).then(() => {
+          this.route.navigate(['/inventory/supplier-master']);
+        });
+      },
+      error: (err: any) => {
+        const errMsg = err?.error?.message || err?.error?.Message || err?.message || 'Unknown error occurred';
+        this.showMessage(`Failed to save Supplier: ${errMsg}`, 'error', 'Error Message');
+      }
     });
   }
 
@@ -120,7 +126,7 @@ export class NewSupplierComponent implements OnInit {
     this.ID = 0;
     this.isEdit = false;
     this.frm.reset();
-    this.route.navigate(['/inventory/supplier-master/new-supplier']);
+    this.route.navigate(['/inventory/supplier-master']);
   }
 
   private showMessage(message: string, icon: 'success' | 'warning' | 'info' | 'error' = 'info',

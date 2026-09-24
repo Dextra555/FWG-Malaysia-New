@@ -1,4 +1,5 @@
 ﻿using OBMS.WebAPI.Models.Domain;
+using OBMS.WebAPI.Models.DTO;
 using Microsoft.AspNetCore.Mvc;
 
 namespace OBMS.WebAPI.Repositories.Interface
@@ -68,5 +69,236 @@ namespace OBMS.WebAPI.Repositories.Interface
         Task<bool> DeleteCategoryAsync(int id, string currentUser);
 
         bool DeleteSupplierAsync(int id);
+
+        // Part 1: New Inventory Masters
+        Task<BrandMaster> SaveAndUpdateBrandMaster(BrandMaster brand);
+        Task<List<Object>> GetBrandMasters();
+        Task<BrandMaster> GetBrandByID(int ID);
+        bool DeleteBrandAsync(int id);
+
+        Task<UOMMaster> SaveAndUpdateUOMMaster(UOMMaster uom);
+        Task<List<Object>> GetUOMMasters();
+        Task<UOMMaster> GetUOMByID(int ID);
+        bool DeleteUOMAsync(int id);
+
+        Task<WarehouseMaster> SaveAndUpdateWarehouseMaster(WarehouseMaster warehouse);
+        Task<List<Object>> GetWarehouseMasters();
+        Task<WarehouseMaster> GetWarehouseByID(int ID);
+        bool DeleteWarehouseAsync(int id);
+
+        // ── Part 2: Opening Stock ────────────────────────────────────────────────
+
+        /// <summary>Returns all active opening stock entries, enriched with Item/Warehouse names.</summary>
+        Task<List<OpeningStockListDto>> GetOpeningStockList();
+
+        /// <summary>Returns a single opening stock entry by ID, enriched.</summary>
+        Task<OpeningStockListDto?> GetOpeningStockByID(int id);
+
+        /// <summary>
+        /// Saves (new) or updates (existing) an Opening Stock entry.
+        /// Transactionally maintains StockLedger: creates or updates exactly one OPENING ledger row.
+        /// Returns (success, userMessage, saved entity).
+        /// </summary>
+        Task<(bool Success, string Message, OpeningStock? Record)> SaveOpeningStock(
+            OpeningStockRequestDto dto);
+
+        /// <summary>
+        /// Soft-deletes an opening stock entry and removes the corresponding OPENING ledger row.
+        /// </summary>
+        Task<(bool Success, string Message)> DeleteOpeningStock(int id, string currentUser);
+
+        // ── Part 2: Stock Ledger ─────────────────────────────────────────────────
+
+        /// <summary>
+        /// Returns ledger rows filtered by warehouse, optional item, date range,
+        /// and optional transaction type. Includes running balance per row.
+        /// </summary>
+        Task<List<StockLedgerRowDto>> GetStockLedger(
+            int warehouseID,
+            int? itemID,
+            DateTime dateFrom,
+            DateTime dateTo,
+            string? transactionType);
+
+        /// <summary>Returns current stock balance for a given item in a warehouse.</summary>
+        Task<decimal> GetCurrentStock(int warehouseID, int itemID);
+
+        // ── Part 3: Purchase Requisition ─────────────────────────────────────────
+
+        Task<List<PRListDto>> GetPRList();
+        Task<PRListDto?> GetPRByID(int id);
+        Task<(bool Success, string Message, PurchaseRequisition? Record)> SavePR(PRRequestDto dto);
+        Task<(bool Success, string Message)> SubmitPR(int id, string currentUser);
+        Task<(bool Success, string Message)> ApprovePR(int id, PRApprovalDto dto);
+        Task<(bool Success, string Message)> RejectPR(int id, PRApprovalDto dto);
+        Task<(bool Success, string Message)> DeletePR(int id, string currentUser);
+
+        // ── Part 3: Purchase Order ────────────────────────────────────────────────
+
+        Task<List<POListDto>> GetPOList();
+        Task<POListDto?> GetPOByID(int id);
+        Task<POListDto?> GetPOByPRID(int prID);
+        Task<List<PRListDto>> GetApprovedPRsForPO();
+        Task<(bool Success, string Message, PurchaseOrder? Record)> SavePO(PORequestDto dto);
+        Task<(bool Success, string Message)> ApprovePO(int id, POApprovalDto dto);
+        Task<(bool Success, string Message)> CancelPO(int id, string currentUser);
+
+        // ── Part 3: GRN ───────────────────────────────────────────────────────────
+
+        Task<List<GRNListDto>> GetGRNList();
+        Task<GRNListDto?> GetGRNByID(int id);
+        Task<GRNListDto?> GetGRNByPOID(int poID);
+        Task<List<POListDto>> GetApprovedPOsForGRN();
+        Task<List<POLineForGRNDto>> GetPOLinesForGRN(int poID);
+        Task<(bool Success, string Message, GoodsReceiptNote? Record)> SaveGRN(GRNRequestDto dto);
+
+        // ── Part 3: Purchase Return ───────────────────────────────────────────────
+
+        Task<List<PurchaseReturnListDto>> GetPurchaseReturnList();
+        Task<PurchaseReturnListDto?> GetPurchaseReturnByID(int id);
+        Task<List<GRNListDto>> GetGRNsForReturn();
+        Task<List<GRNLineForReturnDto>> GetGRNLinesForReturn(int grnID);
+        Task<(bool Success, string Message, PurchaseReturn? Record)> SavePurchaseReturn(PurchaseReturnRequestDto dto);
+
+        // ── Part 4: Stock Issue ───────────────────────────────────────────────────
+
+        Task<List<StockIssueDocListDto>> GetStockIssueList();
+        Task<StockIssueDocListDto?> GetStockIssueByID(int id);
+        Task<(bool Success, string Message, StockIssueDoc? Record)> SaveStockIssue(StockIssueDocRequestDto dto);
+        Task<(bool Success, string Message)> DeleteStockIssue(int id, string currentUser);
+
+        // ── Part 4: Stock Issue Return ────────────────────────────────────────────
+
+        /// <summary>Returns issue documents with returnable qty per line (for the return form dropdown).</summary>
+        Task<List<StockIssueDocListDto>> GetIssuableDocsForReturn();
+        /// <summary>Returns detail lines of a single issue doc enriched with already-returned qty.</summary>
+        Task<List<StockIssueDocDetailListDto>> GetIssueDetailsForReturn(int issueDocID);
+        Task<List<StockIssueReturnListDto>> GetStockIssueReturnList();
+        Task<StockIssueReturnListDto?> GetStockIssueReturnByID(int id);
+        Task<(bool Success, string Message, StockIssueReturn? Record)> SaveStockIssueReturn(StockIssueReturnRequestDto dto);
+
+        // ── Part 4: Stock Transfer ────────────────────────────────────────────────
+
+        Task<List<StockTransferListDto>> GetStockTransferList();
+        Task<StockTransferListDto?> GetStockTransferByID(int id);
+        Task<(bool Success, string Message, StockTransfer? Record)> SaveStockTransfer(StockTransferRequestDto dto);
+        Task<(bool Success, string Message)> DeleteStockTransfer(int id, string currentUser);
+
+        // ── Part 4: Stock Adjustment ──────────────────────────────────────────────
+
+        Task<List<StockAdjustmentListDto>> GetStockAdjustmentList();
+        Task<StockAdjustmentListDto?> GetStockAdjustmentByID(int id);
+        Task<(bool Success, string Message, StockAdjustment? Record)> SaveStockAdjustment(StockAdjustmentRequestDto dto);
+        Task<(bool Success, string Message)> DeleteStockAdjustment(int id, string currentUser);
+
+        // ── Part 4: Damage / Loss ─────────────────────────────────────────────────
+
+        Task<List<StockDamageLossListDto>> GetStockDamageLossList();
+        Task<StockDamageLossListDto?> GetStockDamageLossByID(int id);
+        Task<(bool Success, string Message, StockDamageLoss? Record)> SaveStockDamageLoss(StockDamageLossRequestDto dto);
+        Task<(bool Success, string Message)> DeleteStockDamageLoss(int id, string currentUser);
+
+        // ── Part 5: Employee/Guard Item Holding ───────────────────────────────────
+
+        /// <summary>
+        /// Returns a summary list of all employees/guards who have any net holding > 0.
+        /// Used for the top-level employee picker on the holding card screen.
+        /// </summary>
+        Task<List<EmployeeHoldingSummaryDto>> GetEmployeeHoldingSummaryList();
+
+        /// <summary>
+        /// Returns the per-item net holding for a single employee/guard.
+        /// IssueToType filter: "Employee" | "Guard" | null (both).
+        /// </summary>
+        Task<List<EmployeeHoldingDto>> GetEmployeeHoldingDetail(int employeeID, string? issueToType);
+
+        /// <summary>
+        /// Returns ALL employees/guards with any net holding, with full item detail.
+        /// Used to export or print a complete holding register.
+        /// </summary>
+        Task<List<EmployeeHoldingDto>> GetAllEmployeeHoldings(string? issueToType);
+
+        // ── Part 5: Stock Balance Summary ─────────────────────────────────────────
+
+        /// <summary>
+        /// Returns current stock balance for every item in every warehouse that has
+        /// any ledger movement. Optionally filtered to a single warehouse.
+        /// Flags items at or below reorder level.
+        /// </summary>
+        Task<List<StockBalanceSummaryDto>> GetStockBalanceSummary(int? warehouseID, int? itemID);
+
+        // ── Part 5: Employee Issue Register ──────────────────────────────────────
+
+        /// <summary>
+        /// Returns all issue lines for Employee/Guard type issues within a date range.
+        /// Optionally filtered by a single employee ID.
+        /// Includes returned qty and net qty per line.
+        /// </summary>
+        Task<List<EmployeeIssueRegisterDto>> GetEmployeeIssueRegister(
+            DateTime dateFrom,
+            DateTime dateTo,
+            int? employeeID,
+            string? issueToType);
+
+        // ── Part 6: Asset Master ──────────────────────────────────────────────────
+
+        Task<List<AssetListDto>> GetAssetList();
+        Task<AssetListDto?> GetAssetByIDEnriched(int id);
+        Task<(bool Success, string Message, AssetMaster? Record)> SaveAsset(AssetMasterRequestDto dto);
+        Task<(bool Success, string Message)> DeleteAsset(int id, string currentUser);
+
+        // ── Part 6: Asset Allocation ──────────────────────────────────────────────
+
+        Task<List<AssetAllocationListDto>> GetAssetAllocationList(bool activeOnly);
+        Task<AssetAllocationListDto?> GetAssetAllocationByID(int id);
+        Task<List<AssetAllocationListDto>> GetActiveAllocationsByAsset(int assetID);
+        Task<(bool Success, string Message, AssetAllocation? Record)> SaveAssetAllocation(AssetAllocationRequestDto dto);
+        Task<(bool Success, string Message)> CancelAssetAllocation(int id, string currentUser);
+
+        // ── Part 6: Asset Transfer ────────────────────────────────────────────────
+
+        Task<List<AssetTransferListDto>> GetAssetTransferList();
+        Task<AssetTransferListDto?> GetAssetTransferByID(int id);
+        Task<(bool Success, string Message, AssetTransfer? Record)> SaveAssetTransfer(AssetTransferRequestDto dto);
+
+        // ── Part 6: Asset Return ──────────────────────────────────────────────────
+
+        Task<List<AssetReturnListDto>> GetAssetReturnList();
+        Task<AssetReturnListDto?> GetAssetReturnByID(int id);
+        Task<(bool Success, string Message, AssetReturn? Record)> SaveAssetReturn(AssetReturnRequestDto dto);
+
+        // ── Part 6: Asset Maintenance ─────────────────────────────────────────────
+
+        Task<List<AssetMaintenanceListDto>> GetAssetMaintenanceList(int? assetID);
+        Task<AssetMaintenanceListDto?> GetAssetMaintenanceByID(int id);
+        Task<(bool Success, string Message, AssetMaintenance? Record)> SaveAssetMaintenance(AssetMaintenanceRequestDto dto);
+        Task<(bool Success, string Message)> CompleteAssetMaintenance(int id, DateTime completionDate, decimal cost, string remarks, string currentUser);
+
+        // ── Part 6: Asset Damage ──────────────────────────────────────────────────
+
+        Task<List<AssetDamageListDto>> GetAssetDamageList(int? assetID);
+        Task<AssetDamageListDto?> GetAssetDamageByID(int id);
+        Task<(bool Success, string Message, AssetDamage? Record)> SaveAssetDamage(AssetDamageRequestDto dto);
+
+        // ── Part 6: Asset Disposal ────────────────────────────────────────────────
+
+        Task<List<AssetDisposalListDto>> GetAssetDisposalList();
+        Task<AssetDisposalListDto?> GetAssetDisposalByID(int id);
+        Task<(bool Success, string Message, AssetDisposal? Record)> SaveAssetDisposal(AssetDisposalRequestDto dto);
+
+        // ── Part 6: Asset Movement History ────────────────────────────────────────
+
+        Task<List<AssetMovementHistoryDto>> GetAssetMovementHistory(int assetID);
+
+        // ── Asset Location Tracking ────────────────────────────────────────────
+
+        /// <summary>Updates the current location of an asset and logs the change.</summary>
+        Task<(bool Success, string Message)> UpdateAssetLocation(AssetLocationUpdateDto dto);
+
+        /// <summary>Returns full location history for a single asset.</summary>
+        Task<List<AssetLocationLogDto>> GetAssetLocationLog(int assetID);
+
+        /// <summary>Returns all assets with Defect_Location or Parked_Away status.</summary>
+        Task<List<AssetListDto>> GetDefectLocationAssets();
     }
 }

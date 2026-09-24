@@ -13,13 +13,16 @@ import Swal from "sweetalert2";
 import { Router } from '@angular/router';
 
 export interface IItem {
-  ID: string,
-  ItemName: string,
-  Price: string,
-  SellPrice: string,
-  Remarks: string,
-  Quantity: string,
-  CategoryName: string,
+  ID: number;
+  Code: string;
+  ItemName: string;
+  CategoryName: string;
+  BrandName: string;
+  UOMName: string;
+  Price: number;
+  ReorderLevel: number;
+  ReorderQuantity: number;
+  Remarks: string;
 }
 
 @Component({
@@ -28,28 +31,40 @@ export interface IItem {
   styleUrls: ['./item-master.component.css']
 })
 export class ItemMasterComponent implements AfterViewInit {
-  @ViewChild(MatPaginator)
-  paginator!: MatPaginator;
-  @ViewChild(MatSort)
-  sort!: MatSort;
+  @ViewChild(MatPaginator) paginator!: MatPaginator;
+  @ViewChild(MatSort) sort!: MatSort;
+
+  ngAfterViewInit(): void {
+    if (this.dataSource) {
+      this.dataSource.paginator = this.paginator;
+      this.dataSource.sort = this.sort;
+    }
+  }
+
   userAccessModel!: UserAccessModel;
   currentUser: string = '';
   warningMessage: string = '';
   errorMessage: string = '';
   showLoadingSpinner: boolean = false;
   data: any = [];
-  displayedColumns: string[] = ['CategoryName', 'ItemName', 'Quantity', 'Price', 'SellPrice', 'Remarks', 'action'];
-  dataSource = new MatTableDataSource<IItem>();
+  displayedColumns: string[] = ['Code', 'ItemName', 'CategoryName', 'BrandName', 'UOMName', 'Price', 'ReorderLevel', 'Remarks', 'action'];
+  dataSource: MatTableDataSource<IItem> = new MatTableDataSource<IItem>([]);
   pageSizeOptions: number[] = [];
 
-  constructor(private _liveAnnouncer: LiveAnnouncer, public dialog: MatDialog, private service: InventoryService, private route: Router,
-    private _dataService: DatasharingService, private _masterService: MastermoduleService) {
+  constructor(
+    private _liveAnnouncer: LiveAnnouncer,
+    public dialog: MatDialog,
+    private service: InventoryService,
+    private route: Router,
+    private _dataService: DatasharingService,
+    private _masterService: MastermoduleService
+  ) {
     this.userAccessModel = {
       readAccess: false,
       updateAccess: false,
       deleteAccess: false,
       createAccess: false,
-    }
+    };
     for (let i = 10; i <= 50; i += 10) {
       this.pageSizeOptions.push(i);
     }
@@ -70,7 +85,7 @@ export class ItemMasterComponent implements AfterViewInit {
       (data) => {
         if (data != null) {
           this.showLoadingSpinner = true;
-          this.userAccessModel.readAccess = data.Read
+          this.userAccessModel.readAccess = data.Read;
           this.userAccessModel.deleteAccess = data.Delete;
           this.userAccessModel.updateAccess = data.Update;
           this.userAccessModel.createAccess = data.Create;
@@ -90,36 +105,27 @@ export class ItemMasterComponent implements AfterViewInit {
                   this.pageSizeOptions.push(totalRows);
                 }
                 this.dataSource.sort = this.sort;
+                this.dataSource.paginator = this.paginator;
               } else {
-                this.errorMessage = `No data available for <span style="color: black;">${this.currentUser}</span>. Please try again later.`;
+                this.errorMessage = `No items found. Click <b>+ New</b> to add your first item.`;
               }
-              this.dataSource.paginator = this.paginator;
-            })
-            this.hideLoadingSpinner();
+              this.hideLoadingSpinner();
+            });
           } else {
             this.warningMessage = `Dear <B>${this.currentUser}</B>, <br>
-                      You do not have permissions to view this page. <br>
-                      If you feel you should have access to this page, Please contact administrator. <br>
-                      Thank you`;
+              You do not have permissions to view this page. <br>
+              Please contact your administrator.`;
             this.hideLoadingSpinner();
           }
         }
-
       },
-      (error) => {
-        this.handleErrors(error);
-      }
+      (error) => { this.handleErrors(error); }
     );
   }
 
   applyFilter(event: Event) {
     const filterValue = (event.target as HTMLInputElement).value;
     this.dataSource.filter = filterValue.trim().toLowerCase();
-  }
-
-  ngAfterViewInit() {
-    this.dataSource.paginator = this.paginator;
-    this.dataSource.sort = this.sort;
   }
 
   announceSortChange(sortState: Sort) {
@@ -132,7 +138,6 @@ export class ItemMasterComponent implements AfterViewInit {
 
   deleteClickButton(id: number): void {
     this.showLoadingSpinner = true;
-
     this.dialog
       .open(DialogConfirmationComponent, {
         data: `Are you sure you want to delete this Item?`
@@ -140,52 +145,51 @@ export class ItemMasterComponent implements AfterViewInit {
       .afterClosed()
       .subscribe((result: { confirmDialog: boolean; remarks: any }) => {
         if (result.confirmDialog) {
-
           this.service.deleteItem(id, this.currentUser).subscribe({
-            next: res => {
-              this.showMessage(`Item deleted successfully.`, 'success', 'Success Message');
+            next: () => {
+              this.showMessage('Item deleted successfully.', 'success', 'Success Message');
               this.route.navigateByUrl('/dummy', { skipLocationChange: true }).then(() => {
                 this.route.navigate(['/inventory/item-master']);
               });
             },
-            error: err => {
-              this.showMessage(`Item Failed to delete records due to ${err}`, 'error', 'Error Message');
+            error: (err: any) => {
+              this.showMessage(`Failed to delete item: ${err}`, 'error', 'Error Message');
             }
           });
-
         } else {
           this.hideLoadingSpinner();
         }
       });
-
   }
-  private showMessage(message: string, icon: 'success' | 'warning' | 'info' | 'error' = 'info',
-    title: 'Success Message' | 'Warning Message' | 'Error Message'): void {
+
+  private showMessage(
+    message: string,
+    icon: 'success' | 'warning' | 'info' | 'error' = 'info',
+    title: 'Success Message' | 'Warning Message' | 'Error Message' = 'Success Message'
+  ): void {
     Swal.fire({
       toast: true,
       position: 'top',
       showConfirmButton: false,
       title: title,
       text: message,
-      icon: icon, // Dynamically set the icon based on the parameter
+      icon: icon,
       showCloseButton: false,
       timer: 5000,
       width: '600px',
-      customClass: {
-        popup: 'swal-top-offset'
-      }
+      customClass: { popup: 'swal-top-offset' }
     });
     this.hideLoadingSpinner();
-    return;
   }
+
   handleErrors(error: string) {
     if (error != null && error != '') {
       this.errorMessage = error;
       this.hideLoadingSpinner();
     }
   }
+
   hideLoadingSpinner() {
-    this.showLoadingSpinner = false
+    this.showLoadingSpinner = false;
   }
 }
-

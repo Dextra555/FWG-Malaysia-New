@@ -104,7 +104,9 @@ namespace OBMS.WebAPI.Controllers
                         Subject = new ClaimsIdentity(new[] {
                                   new Claim(ClaimTypes.Name, loginUser.userName)
                         }),
-                        Expires = DateTime.UtcNow.AddMinutes(60),  // Token expires in 15 mins
+                        Issuer = "yourapi.com",
+                        Audience = "yourapi.com",
+                        Expires = DateTime.UtcNow.AddMinutes(60),  // Token expires in 60 mins
                         SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
                     };
                     var token = tokenHandler.CreateToken(tokenDescriptor);
@@ -579,8 +581,7 @@ namespace OBMS.WebAPI.Controllers
             }
             catch (Exception ex)
             {
-                // Handle exceptions appropriately
-                return StatusCode(500, "An error occurred while processing the request.");
+                return StatusCode(500, $"An error occurred while processing the request: {ex.Message}");
             }
         }
 

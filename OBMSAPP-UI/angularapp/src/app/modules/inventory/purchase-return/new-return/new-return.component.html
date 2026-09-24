@@ -1,0 +1,146 @@
+<div class="wlt-c-furg-content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-12 col-md-5"><h1 class="mb-1">{{isView ? 'Purchase Return — ' + returnNumber : 'New Purchase Return'}}</h1></div>
+      <div class="col-12 col-md-7 my-1">
+        <ol class="breadcrumb float-md-right">
+          <li class="breadcrumb-item"><a routerLink="/dashboard">Inventory</a></li>
+          <li class="breadcrumb-item"><a routerLink="/inventory/purchase-return">Purchase Return</a></li>
+          <li class="breadcrumb-item active">{{isView ? returnNumber : 'New'}}</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+
+<mat-card>
+  <mat-card-content>
+    <form [formGroup]="frm">
+      <div class="row mt-2"><div class="col-12"><h6 class="wlt-c-section-label"><strong>Return Details</strong></h6><hr class="mt-0"></div></div>
+      <div class="row">
+        <div class="col-12 col-md-2">
+          <mat-form-field appearance="outline"><mat-label>Return Number</mat-label>
+            <input matInput [value]="returnNumber" readonly placeholder="AUTO"><mat-hint>Auto-generated</mat-hint>
+          </mat-form-field>
+        </div>
+        <div class="col-12 col-md-5">
+          <mat-form-field appearance="outline"><mat-label>Goods Receipt <span style="color:red" *ngIf="!isView">*</span></mat-label>
+            <mat-select formControlName="GRNID" (selectionChange)="onGRNChange($event.value)" [disabled]="isView" (openedChange)="onGRNOpen($event)">
+              <mat-option disabled style="position:sticky;top:0;background:#fff;z-index:1;padding:0">
+                <div style="padding:4px 10px">
+                  <input type="text" placeholder="Search GRN or supplier…" [value]="grnSearch"
+                    (input)="onGRNSearch($any($event.target).value)"
+                    (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()"
+                    style="width:100%;border:1px solid #ccc;border-radius:4px;padding:6px 8px;font-size:13px;outline:none">
+                </div>
+              </mat-option>
+              <mat-option [value]="0">-- Select Goods Receipt --</mat-option>
+              <mat-option *ngFor="let g of filteredGRNs" [value]="g.ID">{{g.GRNNumber}} — {{g.SupplierName}} ({{formatDate(g.GRNDate)}})</mat-option>
+              <mat-option disabled *ngIf="filteredGRNs.length === 0 && grnSearch.length > 0">No results found.</mat-option>
+            </mat-select>
+            <mat-error *ngIf="frm.get('GRNID')?.hasError('min') || frm.get('GRNID')?.hasError('required')">Please select the goods receipt to return against.</mat-error>
+          </mat-form-field>
+        </div>
+        <div class="col-12 col-md-3">
+          <mat-form-field appearance="outline"><mat-label>Return Date <span style="color:red" *ngIf="!isView">*</span></mat-label>
+            <input matInput [matDatepicker]="picker1" formControlName="ReturnDate" autocomplete="off">
+            <mat-datepicker-toggle matSuffix [for]="picker1"></mat-datepicker-toggle><mat-datepicker #picker1></mat-datepicker>
+            <mat-error *ngIf="frm.get('ReturnDate')?.hasError('required')">Please enter the return date.</mat-error>
+          </mat-form-field>
+        </div>
+        <div class="col-12 col-md-8">
+          <mat-form-field appearance="outline"><mat-label>Reason for Return <span style="color:red" *ngIf="!isView">*</span></mat-label>
+            <textarea matInput formControlName="Reason" rows="2" placeholder="Describe why the items are being returned"></textarea>
+            <mat-error *ngIf="frm.get('Reason')?.hasError('required')">Please enter a reason for the return.</mat-error>
+          </mat-form-field>
+        </div>
+      </div>
+      <div class="row" *ngIf="errorMessage !== ''"><div class="col-12"><mat-label style="color:orange" [innerHTML]="errorMessage"></mat-label></div></div>
+    </form>
+
+    <!-- GRN info panel -->
+    <div *ngIf="grnInfo" class="p-3 mb-3" style="background:#fff8e1;border-left:4px solid #e65100;border-radius:4px">
+      <div class="row">
+        <div class="col-3"><small class="text-muted d-block">GRN</small><strong>{{grnInfo.GRNNumber || grnInfo.GRNNumber}}</strong></div>
+        <div class="col-3"><small class="text-muted d-block">Purchase Order</small><strong>{{grnInfo.PONumber}}</strong></div>
+        <div class="col-3"><small class="text-muted d-block">Supplier</small><strong>{{grnInfo.SupplierName}}</strong></div>
+        <div class="col-3"><small class="text-muted d-block">Warehouse</small><strong>{{grnInfo.WarehouseName}}</strong></div>
+      </div>
+    </div>
+
+    <!-- New Return: lines to return -->
+    <div *ngIf="!isView && lines.length > 0">
+      <div class="row mt-3"><div class="col-12"><h6 class="wlt-c-section-label"><strong>Enter Return Quantities</strong></h6><hr class="mt-0"></div></div>
+      <div class="alert alert-warning" style="border-left:4px solid #e65100">
+        <mat-icon style="vertical-align:middle">warning</mat-icon>
+        Enter the quantity to return for each item. Leave as 0 for items not being returned. You cannot return more than the available returnable quantity.
+      </div>
+      <div class="table-responsive">
+        <table class="mat-table wlt-table">
+          <thead><tr class="mat-header-row">
+            <th class="mat-header-cell">Item</th><th class="mat-header-cell">Category</th><th class="mat-header-cell">UOM</th>
+            <th class="mat-header-cell" style="text-align:right">Received</th>
+            <th class="mat-header-cell" style="text-align:right">Already Returned</th>
+            <th class="mat-header-cell" style="text-align:right">Returnable</th>
+            <th class="mat-header-cell" style="text-align:right;width:150px">Returning Now <span style="color:red">*</span></th>
+          </tr></thead>
+          <tbody>
+            <tr class="mat-row" *ngFor="let l of lines">
+              <td class="mat-cell">{{l.ItemCode}} — {{l.ItemName}}</td>
+              <td class="mat-cell">{{l.CategoryName}}</td>
+              <td class="mat-cell">{{l.UOMName}}</td>
+              <td class="mat-cell" style="text-align:right">{{l.ReceivedQty}}</td>
+              <td class="mat-cell" style="text-align:right">{{l.AlreadyReturnedQty}}</td>
+              <td class="mat-cell" style="text-align:right"><strong style="color:#c62828">{{l.ReturnableQty}}</strong></td>
+              <td class="mat-cell" style="text-align:right">
+                <input type="number" [(ngModel)]="l.returnInput" (input)="validateQty(l)"
+                  [max]="l.ReturnableQty" min="0" step="0.01"
+                  class="form-control text-right" style="width:120px;display:inline-block"
+                  [class.is-invalid]="l.inputError">
+                <div class="text-danger" style="font-size:.78rem;white-space:pre-line" *ngIf="l.inputError">{{l.inputError}}</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- View existing return -->
+    <div *ngIf="isView && existingDetails.length > 0">
+      <div class="row mt-3"><div class="col-12"><h6 class="wlt-c-section-label"><strong>Returned Items</strong></h6><hr class="mt-0"></div></div>
+      <div class="table-responsive">
+        <table class="mat-table wlt-table">
+          <thead><tr class="mat-header-row">
+            <th class="mat-header-cell">#</th><th class="mat-header-cell">Item</th>
+            <th class="mat-header-cell">Category</th><th class="mat-header-cell">UOM</th>
+            <th class="mat-header-cell" style="text-align:right">Return Qty</th>
+            <th class="mat-header-cell" style="text-align:right">Unit Cost (RM)</th>
+          </tr></thead>
+          <tbody>
+            <tr class="mat-row" *ngFor="let d of existingDetails; let i = index">
+              <td class="mat-cell">{{i+1}}</td>
+              <td class="mat-cell">{{d.ItemCode}} — {{d.ItemName}}</td>
+              <td class="mat-cell">{{d.CategoryName}}</td>
+              <td class="mat-cell">{{d.UOMName}}</td>
+              <td class="mat-cell" style="text-align:right"><strong>{{d.ReturnQty}}</strong></td>
+              <td class="mat-cell" style="text-align:right">{{d.UnitCost | number:'1.2-2'}}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="row mt-3"><div class="col-12"><div class="text-right">
+      <button type="button" class="btn wlt-c-furg-btn-gray mr-2" (click)="onCancel()">{{isView ? 'Back' : 'Cancel'}}</button>
+      <button *ngIf="!isView && (userAccessModel.createAccess || currentUser === 'superadmin')"
+        type="button" class="btn btn-danger" [disabled]="showLoadingSpinner" (click)="onSave()">
+        <mat-icon>undo</mat-icon> Save Purchase Return
+      </button>
+    </div></div></div>
+  </mat-card-content>
+</mat-card>
+
+<div [style.display]="showLoadingSpinner ? 'block' : 'none'" style="margin-top:-20.5rem;display:block;margin-left:-6.5rem;">
+  <div class="d-flex justify-content-center"><span class="loader"></span></div>
+</div>

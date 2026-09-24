@@ -1,0 +1,23 @@
+/* Transaction type badge styles */
+.badge-type {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.badge-opening {
+  background-color: #e3f2fd;
+  color: #1565c0;
+}
+
+.badge-in {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.badge-out {
+  background-color: #ffebee;
+  color: #c62828;
+}

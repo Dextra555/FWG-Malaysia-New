@@ -26,6 +26,9 @@ import { RouterModule } from '@angular/router';
 import { MatSortModule } from '@angular/material/sort';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatSidenavModule } from '@angular/material/sidenav';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatDividerModule } from '@angular/material/divider';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { LoginComponent } from './user/login/login.component';
 import { DashboardComponent } from './dashboard/dashboard.component';
 import { NgApexchartsModule } from 'ng-apexcharts';
@@ -88,6 +91,50 @@ import {SupplierMasterComponent} from "./inventory/supplier-master/supplier-mast
 import {NewSupplierComponent} from "./inventory/supplier-master/new-supplier/new-supplier.component";
 import {RecepientMasterComponent} from "./inventory/recepient-master/recepient-master.component";
 import {NewRecepientComponent} from "./inventory/recepient-master/new-recepient/new-recepient.component";
+import {BrandMasterComponent} from "./inventory/brand-master/brand-master.component";
+import {NewBrandComponent} from "./inventory/brand-master/new-brand/new-brand.component";
+import {UOMMasterComponent} from "./inventory/uom-master/uom-master.component";
+import {NewUOMComponent} from "./inventory/uom-master/new-uom/new-uom.component";
+import {WarehouseMasterComponent} from "./inventory/warehouse-master/warehouse-master.component";
+import {NewWarehouseComponent} from "./inventory/warehouse-master/new-warehouse/new-warehouse.component";
+// Part 2: Opening Stock + Stock Ledger
+import { OpeningStockComponent } from "./inventory/opening-stock/opening-stock.component";
+import { NewOpeningStockComponent } from "./inventory/opening-stock/new-opening-stock/new-opening-stock.component";
+import { StockLedgerComponent } from "./inventory/stock-ledger/stock-ledger.component";
+// Part 3: Purchase Flow
+import { PurchaseRequisitionComponent } from "./inventory/purchase-requisition/purchase-requisition.component";
+import { NewPRComponent } from "./inventory/purchase-requisition/new-pr/new-pr.component";
+import { PurchaseOrderComponent } from "./inventory/purchase-order/purchase-order.component";
+import { NewPOComponent } from "./inventory/purchase-order/new-po/new-po.component";
+import { GoodsReceiptComponent } from "./inventory/goods-receipt/goods-receipt.component";
+import { NewGRNComponent } from "./inventory/goods-receipt/new-grn/new-grn.component";
+import { PurchaseReturnComponent } from "./inventory/purchase-return/purchase-return.component";
+import { NewReturnComponent } from "./inventory/purchase-return/new-return/new-return.component";
+// Part 4: Stock Operations
+import { StockIssueComponent } from "./inventory/stock-issue/stock-issue.component";
+import { NewStockIssueComponent } from "./inventory/stock-issue/new-stock-issue/new-stock-issue.component";
+import { StockIssueReturnComponent } from "./inventory/stock-issue-return/stock-issue-return.component";
+import { NewStockIssueReturnComponent } from "./inventory/stock-issue-return/new-stock-issue-return/new-stock-issue-return.component";
+import { StockTransferComponent } from "./inventory/stock-transfer/stock-transfer.component";
+import { NewStockTransferComponent } from "./inventory/stock-transfer/new-stock-transfer/new-stock-transfer.component";
+import { StockAdjustmentComponent } from "./inventory/stock-adjustment/stock-adjustment.component";
+import { NewStockAdjustmentComponent } from "./inventory/stock-adjustment/new-stock-adjustment/new-stock-adjustment.component";
+import { StockDamageLossComponent } from "./inventory/stock-damage-loss/stock-damage-loss.component";
+import { NewStockDamageLossComponent } from "./inventory/stock-damage-loss/new-stock-damage-loss/new-stock-damage-loss.component";
+// Part 5: Employee Tracking + Reports
+import { EmployeeItemHoldingComponent } from "./inventory/employee-item-holding/employee-item-holding.component";
+import { StockBalanceSummaryComponent } from "./inventory/stock-balance-summary/stock-balance-summary.component";
+import { EmployeeIssueRegisterComponent } from "./inventory/employee-issue-register/employee-issue-register.component";
+// Part 6: Asset Management
+import { AssetAllocationComponent } from "./inventory/asset-allocation/asset-allocation.component";
+import { AssetTransferComponent } from "./inventory/asset-transfer/asset-transfer.component";
+import { AssetReturnComponent } from "./inventory/asset-return/asset-return.component";
+import { AssetMaintenanceComponent } from "./inventory/asset-maintenance/asset-maintenance.component";
+import { AssetDamageComponent } from "./inventory/asset-damage/asset-damage.component";
+import { AssetDisposalComponent } from "./inventory/asset-disposal/asset-disposal.component";
+import { AssetMovementHistoryComponent } from "./inventory/asset-movement-history/asset-movement-history.component";
+// Asset Location Tracking
+import { AssetLocationComponent } from "./inventory/asset-location/asset-location.component";
 import {UtilityBillsComponent} from "./inventory/utility-bills/utility-bills.component";
 import {PurchaseBillsComponent} from "./inventory/purchase-bills/purchase-bills.component";
 import {MaterialIssueComponent} from "./inventory/material-issue/material-issue.component";
@@ -102,6 +149,7 @@ import { UserBranchAccessComponent } from './administration/user-branch-access/u
 import { NewUserBranchAccessComponent } from './administration/user-branch-access/new-user-branch-access/new-user-branch-access.component';
 import { UserBankAccessComponent } from './administration/user-bank-access/user-bank-access.component';
 import { NewUserBankAccessComponent } from './administration/user-bank-access/new-user-bank-access/new-user-bank-access.component';
+import { ApprovalSetupComponent } from './administration/approval-setup/approval-setup.component';
 import { NewAttendanceComponent } from './payroll/attendance/new-attendance/new-attendance.component';
 import { AttendanceDisplayComponent } from './payroll/attendance-display/attendance-display.component';
 
@@ -196,6 +244,11 @@ import { CreditNoteReportComponent } from './report/finance/credit-note-report/c
 import { DebitNoteReportComponent } from './report/finance/debit-note-report/debit-note-report.component';
 import { EmployeeExpiryReminderComponent } from './report/master/employee-expiry-reminder/employee-expiry-reminder.component';
 import { EmployeeVisaPassportListComponent } from './report/master/employee-visa-passport-list/employee-visa-passport-list.component';
+// Part 7: Approval Workflow + Notifications
+import { PendingApprovalsComponent } from './inventory/pending-approvals/pending-approvals.component';
+import { ApprovalHistoryComponent } from './inventory/approval-history/approval-history.component';
+import { ApprovalHistoryDialogComponent } from './inventory/approval-history-dialog/approval-history-dialog.component';
+import { NotificationListComponent } from './inventory/notification-list/notification-list.component';
 
 
 
@@ -253,6 +306,49 @@ import { EmployeeVisaPassportListComponent } from './report/master/employee-visa
     NewSupplierComponent,
     RecepientMasterComponent,
     NewRecepientComponent,
+    BrandMasterComponent,
+    NewBrandComponent,
+    UOMMasterComponent,
+    NewUOMComponent,
+    WarehouseMasterComponent,
+    NewWarehouseComponent,
+    // Part 2: Opening Stock + Stock Ledger
+    OpeningStockComponent,
+    NewOpeningStockComponent,
+    StockLedgerComponent,
+    // Part 3: Purchase Flow
+    PurchaseRequisitionComponent,
+    NewPRComponent,
+    PurchaseOrderComponent,
+    NewPOComponent,
+    GoodsReceiptComponent,
+    NewGRNComponent,
+    PurchaseReturnComponent,
+    NewReturnComponent,
+    // Part 4: Stock Operations
+    StockIssueComponent,
+    NewStockIssueComponent,
+    StockIssueReturnComponent,
+    NewStockIssueReturnComponent,
+    StockTransferComponent,
+    NewStockTransferComponent,
+    StockAdjustmentComponent,
+    NewStockAdjustmentComponent,
+    StockDamageLossComponent,
+    NewStockDamageLossComponent,
+    // Part 5: Employee Tracking + Reports
+    EmployeeItemHoldingComponent,
+    StockBalanceSummaryComponent,
+    EmployeeIssueRegisterComponent,
+    // Part 6: Asset Management
+    AssetAllocationComponent,
+    AssetTransferComponent,
+    AssetReturnComponent,
+    AssetMaintenanceComponent,
+    AssetDamageComponent,
+    AssetDisposalComponent,
+    AssetMovementHistoryComponent,
+    AssetLocationComponent,
     UtilityBillsComponent,
     PurchaseBillsComponent,
     MaterialIssueComponent,
@@ -271,6 +367,7 @@ import { EmployeeVisaPassportListComponent } from './report/master/employee-visa
     NewUserBranchAccessComponent,
     UserBankAccessComponent,
     NewUserBankAccessComponent,
+    ApprovalSetupComponent,
 
     InvoiceComponent,
     BatchInvoiceComponent,
@@ -364,7 +461,12 @@ import { EmployeeVisaPassportListComponent } from './report/master/employee-visa
     CreditNoteReportComponent,
     DebitNoteReportComponent,
     EmployeeExpiryReminderComponent,
-    EmployeeVisaPassportListComponent
+    EmployeeVisaPassportListComponent,
+    // Part 7: Approval Workflow + Notifications
+    PendingApprovalsComponent,
+    ApprovalHistoryComponent,
+    ApprovalHistoryDialogComponent,
+    NotificationListComponent
 
   ],
   imports: [
@@ -399,6 +501,9 @@ import { EmployeeVisaPassportListComponent } from './report/master/employee-visa
     NgApexchartsModule,
     MatTreeModule,
     BoldReportViewerModule,
+    MatProgressSpinnerModule,
+    MatDividerModule,
+    MatSlideToggleModule,
   ],
   exports: [
     CommonModule,
@@ -430,7 +535,10 @@ import { EmployeeVisaPassportListComponent } from './report/master/employee-visa
     MatListModule,
     NgApexchartsModule,
     MatTreeModule,
-    MatSelectScrollDirective
+    MatSelectScrollDirective,
+    MatProgressSpinnerModule,
+    MatDividerModule,
+    MatSlideToggleModule
   ],
   providers: [
     { provide: MAT_DATE_LOCALE, useValue: 'en-GB' }

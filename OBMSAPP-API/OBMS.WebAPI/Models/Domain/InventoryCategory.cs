@@ -11,6 +11,10 @@ namespace OBMS.WebAPI.Models.Domain
         public string Name { get; set; }
         public string Cat { get; set; }
         public string? AssetType { get; set; }
+        public int? ParentCategoryID { get; set; }
         public string? LastUpdatedBy { get; set; }
+
+        [ForeignKey("ParentCategoryID")]
+        public virtual InventoryCategory ParentCategory { get; set; }
     }
 }

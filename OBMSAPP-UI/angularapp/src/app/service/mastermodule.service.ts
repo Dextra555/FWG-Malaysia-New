@@ -341,6 +341,13 @@ export class MastermoduleService {
       .set('Branch', branch);
     return this.httpClient.get<any[]>(`${this.apiUrl}Finance/GetListWithBranch`, { params });
   }
+
+  // ── User list for dropdowns (Approval Setup, etc.) ─────────────────────
+  getObmsusers(): Observable<any[]> {
+    return this.httpClient.get<any[]>(this.apiUrl + 'register/GetObmsusers')
+      .pipe(catchError(this.errorHandle));
+  }
+
   //to handle got any error from server response
   private errorHandle(error: HttpErrorResponse) {
     let errorMessage: string = '';

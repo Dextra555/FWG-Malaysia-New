@@ -38,8 +38,27 @@ export class NewCatergoryComponent implements OnInit {
       AssetType: ['', Validators.required],
       Cat: ['', Validators.required],
       Name: ['', Validators.required],
+      ParentCategoryID: [0]
     })
+
+    this.loadParentCategories();
   }
+
+  parentCategories: any[] = [];
+  parentCatSearch = ''; filteredParentCategories: any[] = [];
+
+  loadParentCategories() {
+    this.service.getCategories().subscribe(
+      (d: any) => {
+        this.parentCategories = d.filter((c: any) => c.ID > 0);
+        this.filteredParentCategories = [...this.parentCategories];
+      },
+      (error) => this.handleErrors(error)
+    );
+  }
+
+  onParentCatOpen(opened: boolean) { if (opened) { this.parentCatSearch = ''; this.filteredParentCategories = [...this.parentCategories]; } }
+  onParentCatSearch(q: string) { this.parentCatSearch = q; const s = q.toLowerCase(); this.filteredParentCategories = this.parentCategories.filter(c => c.Name?.toLowerCase().includes(s)); }
 
   ngOnInit(): void {
     this.ID = this.activatedRoute.snapshot.params['ID'];
@@ -55,6 +74,7 @@ export class NewCatergoryComponent implements OnInit {
 
       this.service.getCategoryByID(this.ID).subscribe((d: any) => {
         this.frm.patchValue(d['Value']);
+        // ParentCategoryID is already included in the DTO response
       })
     }
   }
@@ -92,7 +112,7 @@ export class NewCatergoryComponent implements OnInit {
     this.ID = 0;
     this.isEdit = false;
     this.frm.reset();
-    this.route.navigate(['/inventory/category-master/new-category']);
+    this.route.navigate(['/inventory/category-master']);
   }
 
   private showMessage(message: string, icon: 'success' | 'warning' | 'info' | 'error' = 'info',

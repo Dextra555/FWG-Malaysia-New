@@ -2943,3 +2943,123 @@ mat-card.full-width-report .report-wrapper.fixed-height iframe {
   width: 100% !important;
   padding: 0 !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   OBMS Real-Time Notification Toast
+   Positioned bottom-right, non-blocking, matches OBMS design language.
+   Created by: SignalrNotificationService (injected into body via DOM API)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.obms-realtime-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 99999;
+  min-width: 320px;
+  max-width: 400px;
+  background: #ffffff;
+  border-left: 4px solid var(--primary-color, #4D1220);
+  border-radius: 6px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: flex-start;
+  padding: 14px 14px 14px 12px;
+  gap: 10px;
+  cursor: pointer;
+  font-family: 'Poppins', sans-serif;
+
+  /* Hidden by default — JS adds .obms-toast-visible to animate in */
+  opacity: 0;
+  transform: translateX(110%);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.obms-realtime-toast.obms-toast-visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.obms-realtime-toast.obms-toast-hiding {
+  opacity: 0;
+  transform: translateX(110%);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.obms-toast-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding-top: 2px;
+}
+
+.obms-toast-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.obms-toast-title {
+  font-weight: 600;
+  font-size: 13.5px;
+  color: #1a1a1a;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.obms-toast-message {
+  font-size: 12px;
+  color: #555555;
+  margin-top: 3px;
+  line-height: 1.4;
+  /* Allow up to 2 lines */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.obms-toast-time {
+  font-size: 11px;
+  color: #9e9e9e;
+  margin-top: 5px;
+}
+
+.obms-toast-close {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  font-size: 18px;
+  line-height: 1;
+  color: #9e9e9e;
+  cursor: pointer;
+  padding: 0 2px;
+  align-self: flex-start;
+  margin-top: -2px;
+  transition: color 0.15s;
+}
+
+.obms-toast-close:hover {
+  color: #333333;
+}
+
+/* Stack multiple toasts vertically if they appear in quick succession */
+.obms-realtime-toast + .obms-realtime-toast {
+  bottom: 104px;
+}
+.obms-realtime-toast + .obms-realtime-toast + .obms-realtime-toast {
+  bottom: 184px;
+}
+
+/* Dark-mode support (respects system preference) */
+@media (prefers-color-scheme: dark) {
+  .obms-realtime-toast {
+    background: #2a2a2a;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  }
+  .obms-toast-title   { color: #f0f0f0; }
+  .obms-toast-message { color: #b0b0b0; }
+  .obms-toast-time    { color: #707070; }
+  .obms-toast-close   { color: #707070; }
+  .obms-toast-close:hover { color: #e0e0e0; }
+}

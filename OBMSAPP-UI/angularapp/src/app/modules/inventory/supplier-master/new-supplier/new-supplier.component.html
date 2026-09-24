@@ -50,7 +50,11 @@
                 <div class="col-12 col-sm-12 col-md-4 col-lg-4">
                     <mat-form-field appearance="outline">
                         <mat-label>Postal Code</mat-label>
-                        <input type="text" formControlName="PostCode" matInput placeholder="" autocomplete="off">
+                        <input type="text" formControlName="PostCode" matInput placeholder="e.g. 47810" autocomplete="off" maxlength="5">
+                        <mat-hint>5-digit postcode</mat-hint>
+                        <mat-error *ngIf="frm.get('PostCode')?.hasError('required')">Postal Code is required</mat-error>
+                        <mat-error *ngIf="frm.get('PostCode')?.hasError('pattern')">Must be exactly 5 digits</mat-error>
+                        <mat-error *ngIf="frm.get('PostCode')?.hasError('maxlength')">Max 5 characters</mat-error>
                     </mat-form-field>
                 </div>
                 <div class="col-12 col-sm-12 col-md-4 col-lg-4">

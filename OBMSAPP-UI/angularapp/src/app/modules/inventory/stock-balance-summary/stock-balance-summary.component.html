@@ -1,0 +1,168 @@
+<!-- Page Header -->
+<div class="wlt-c-furg-content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-12 col-md-6"><h1 class="mb-1">Stock Balance Summary</h1></div>
+      <div class="col-12 col-md-6 my-1">
+        <ol class="breadcrumb float-md-right">
+          <li class="breadcrumb-item"><a routerLink="/dashboard">Inventory</a></li>
+          <li class="breadcrumb-item active">Stock Balance Summary</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+
+<mat-card>
+  <mat-card-content>
+
+    <div *ngIf="warningMessage !== ''">
+      <mat-label style="color:red" [innerHTML]="warningMessage"></mat-label>
+    </div>
+    <div *ngIf="errorMessage !== '' && warningMessage === ''">
+      <mat-label style="color:red">{{errorMessage}}</mat-label>
+    </div>
+
+    <div *ngIf="warningMessage === ''">
+
+      <!-- Filters -->
+      <div class="row mb-3 align-items-end">
+        <div class="col-12 col-md-4">
+          <mat-form-field appearance="outline">
+            <mat-label>Warehouse</mat-label>
+            <mat-select [(ngModel)]="selectedWarehouseID" (selectionChange)="onFilterChange()">
+              <mat-option [value]="0">All Warehouses</mat-option>
+              <mat-option *ngFor="let w of warehouses" [value]="w.ID">{{w.Name}}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+        <div class="col-12 col-md-3 d-flex align-items-center" style="padding-bottom:20px">
+          <mat-checkbox [(ngModel)]="showReorderOnly" (change)="onFilterChange()">
+            Show reorder alerts only
+          </mat-checkbox>
+        </div>
+        <div class="col-12 col-md-4">
+          <mat-form-field appearance="outline">
+            <mat-label>Search</mat-label>
+            <input matInput (keyup)="applyFilter($event)" placeholder="Item, warehouse, category…">
+          </mat-form-field>
+        </div>
+      </div>
+
+      <!-- Summary cards -->
+      <div class="row mb-3" *ngIf="dataSource.data.length > 0">
+        <div class="col-6 col-md-3">
+          <div class="p-3" style="background:#e3f2fd; border-radius:6px; border-left:4px solid #1976d2">
+            <small class="text-muted d-block">Total Stock Value</small>
+            <strong style="font-size:16px">RM {{formatNumber(totalStockValue)}}</strong>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="p-3" style="background:#fce4ec; border-radius:6px; border-left:4px solid #e91e63">
+            <small class="text-muted d-block">Reorder Alerts</small>
+            <strong style="font-size:16px; color:#e91e63">{{belowReorderCount}} item(s)</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Data table -->
+      <div class="table-responsive">
+        <table mat-table [dataSource]="dataSource" class="wlt-table table-striped" matSort
+          (matSortChange)="announceSortChange($event)">
+
+          <ng-container matColumnDef="WarehouseName">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Warehouse</th>
+            <td mat-cell *matCellDef="let row">{{row.WarehouseName}}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="ItemCode">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Code</th>
+            <td mat-cell *matCellDef="let row">{{row.ItemCode}}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="ItemName">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Item</th>
+            <td mat-cell *matCellDef="let row"><strong>{{row.ItemName}}</strong></td>
+          </ng-container>
+
+          <ng-container matColumnDef="CategoryName">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Category</th>
+            <td mat-cell *matCellDef="let row">{{row.CategoryName}}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="UOMName">
+            <th mat-header-cell *matHeaderCellDef>UOM</th>
+            <td mat-cell *matCellDef="let row">{{row.UOMShort || row.UOMName}}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="CurrentStock">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header style="text-align:right">Current Stock</th>
+            <td mat-cell *matCellDef="let row" style="text-align:right">
+              <strong [class.text-danger]="row.BelowReorderLevel">
+                {{formatInt(row.CurrentStock)}}
+              </strong>
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="ReorderLevel">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header style="text-align:right">Reorder Level</th>
+            <td mat-cell *matCellDef="let row" style="text-align:right">
+              {{row.ReorderLevel != null ? formatInt(row.ReorderLevel) : '—'}}
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="Status">
+            <th mat-header-cell *matHeaderCellDef style="text-align:center">Status</th>
+            <td mat-cell *matCellDef="let row" style="text-align:center">
+              <span *ngIf="row.BelowReorderLevel" class="badge badge-danger">
+                <mat-icon style="font-size:12px; vertical-align:middle">warning</mat-icon> Reorder
+              </span>
+              <span *ngIf="!row.BelowReorderLevel && row.CurrentStock > 0" class="badge badge-success">OK</span>
+              <span *ngIf="row.CurrentStock <= 0" class="badge badge-secondary">Out of Stock</span>
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="LastUnitCost">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header style="text-align:right">Unit Cost (RM)</th>
+            <td mat-cell *matCellDef="let row" style="text-align:right">
+              {{row.LastUnitCost != null ? formatNumber(row.LastUnitCost) : '—'}}
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="StockValue">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header style="text-align:right">Stock Value (RM)</th>
+            <td mat-cell *matCellDef="let row" style="text-align:right"><strong>{{formatNumber(row.StockValue)}}</strong></td>
+          </ng-container>
+
+          <ng-container matColumnDef="LastMovementDate">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Last Movement</th>
+            <td mat-cell *matCellDef="let row">{{formatDate(row.LastMovementDate)}}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="LastTransactionType">
+            <th mat-header-cell *matHeaderCellDef>Last Tx Type</th>
+            <td mat-cell *matCellDef="let row">
+              <small class="text-muted">{{txTypeLabel(row.LastTransactionType)}}</small>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"
+              [style.background]="row.BelowReorderLevel ? '#fff3e0' : ''"></tr>
+          <tr class="mat-row" *matNoDataRow>
+            <td class="mat-cell" [attr.colspan]="displayedColumns.length" style="text-align:center; padding:24px; color:#888">
+              <span *ngIf="filterValue">No records match "<strong>{{filterValue}}</strong>".</span>
+              <span *ngIf="!filterValue">No stock movements found. Add opening stock or complete a purchase receipt first.</span>
+            </td>
+          </tr>
+        </table>
+      </div>
+      <mat-paginator [pageSizeOptions]="pageSizeOptions" showFirstLastButtons></mat-paginator>
+    </div>
+
+  </mat-card-content>
+</mat-card>
+
+<div [style.display]="showLoadingSpinner ? 'block' : 'none'" style="margin-top:-20.5rem; display:block; margin-left:-6.5rem;">
+  <div class="d-flex justify-content-center"><span class="loader"></span></div>
+</div>

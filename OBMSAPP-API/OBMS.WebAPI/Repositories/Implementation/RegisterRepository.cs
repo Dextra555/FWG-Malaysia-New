@@ -398,7 +398,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
             foreach (var oBMSPermission in oBMSPermissions)
             {
                 var existingRecord = await _dbContext.OBMSPermissions
-                    .Where(s => s.Name == oBMSPermission.Name && s.ScreenName == oBMSPermission.ScreenName).SingleOrDefaultAsync();
+                    .Where(s => s.Name == oBMSPermission.Name && s.ScreenName == oBMSPermission.ScreenName).FirstOrDefaultAsync();
 
                 if (existingRecord != null)
                 {
@@ -416,6 +416,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 }
                 else
                 {
+                    oBMSPermission.ID = 0;
                     _dbContext.Add(oBMSPermission);
                     updatedRecords.Add(oBMSPermission);
                 }

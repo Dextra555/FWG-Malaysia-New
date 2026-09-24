@@ -16,7 +16,13 @@ import { MastermoduleService } from 'src/app/service/mastermodule.service';
 export class NewItemComponent implements OnInit {
 
   frm!: FormGroup;
-  categories: any;
+  categories: any[] = [];
+  brands: any[] = [];
+  uoms: any[] = [];
+  // Search filter state
+  categorySearch = ''; filteredCategories: any[] = [];
+  brandSearch = '';    filteredBrands: any[] = [];
+  uomSearch = '';      filteredUoms: any[] = [];
   isEdit: boolean = false;
   ID: any;
   userAccessModel!: UserAccessModel;
@@ -25,25 +31,34 @@ export class NewItemComponent implements OnInit {
   errorMessage: string = '';
   showLoadingSpinner: boolean = false;
 
-  constructor(private fb: FormBuilder, public dialog: MatDialog, private activatedRoute: ActivatedRoute, private service: InventoryService, private route: Router,
-    private _dataService: DatasharingService, private _masterService: MastermoduleService
+  constructor(
+    private fb: FormBuilder,
+    public dialog: MatDialog,
+    private activatedRoute: ActivatedRoute,
+    private service: InventoryService,
+    private route: Router,
+    private _dataService: DatasharingService,
+    private _masterService: MastermoduleService
   ) {
     this.userAccessModel = {
       readAccess: false,
       updateAccess: false,
       deleteAccess: false,
       createAccess: false,
-    }
+    };
+
     this.frm = this.fb.group({
-      ID: [0],
-      type: ['P'],
-      CategoryID: ['', Validators.required],
-      Name: ['', Validators.required],
-      Quantity: ['0'],
-      qty: ['', Validators.required],
-      Price: ['', Validators.required],
-      SellPrice: ['', Validators.required],
-      Remarks: ['', Validators.required],
+      ID:              [0],
+      Code:            [''],                        // Auto-generated — read-only
+      CategoryID:      ['', Validators.required],
+      BrandID:         [0],                         // Optional
+      UOMID:           [0, Validators.required],    // Required
+      Name:            ['', Validators.required],
+      Price:           ['', Validators.required],   // Buying price
+      ReorderLevel:    [null],
+      ReorderQuantity: [null],
+      Remarks:         [''],
+      // SellPrice, Quantity, qty removed from form — not part of approved design
     });
   }
 
@@ -56,93 +71,141 @@ export class NewItemComponent implements OnInit {
       });
     }
     this.getUserAccessRights(this.currentUser, 'Item Master');
-    if (this.ID != 0 && this.ID != undefined) {
-      this.isEdit = true;
+    this.loadBrands();
+    this.loadUOMs();
 
+    if (this.ID != 0 && this.ID != undefined) {
+      // Edit mode — load existing item
+      this.isEdit = true;
       this.service.getItemByID(this.ID).subscribe((d: any) => {
         const item = d['item'];
         const itemType = d['type'];
-        this.frm.patchValue({
-          ID: item.ID,
-          type: itemType,
-          CategoryID: item.CategoryID,
-          Name: item.Name,
-          Quantity: item.Quantity,
-          Price: item.Price,
-          SellPrice: item.SellPrice,
-          Remarks: item.Remarks,
-        });
+        if (item) {
+          this.frm.patchValue({
+            ID:              item.ID,
+            Code:            item.Code,
+            CategoryID:      item.CategoryID,
+            BrandID:         item.BrandID ?? 0,
+            UOMID:           item.UOMID ?? 0,
+            Name:            item.Name,
+            Price:           item.Price,
+            ReorderLevel:    item.ReorderLevel,
+            ReorderQuantity: item.ReorderQuantity,
+            Remarks:         item.Remarks,
+          });
+          // Load categories matching the item's type
+          this.updateCategories(itemType ?? 'P');
+        }
       });
+    } else {
+      // New mode — auto-generate code and load default categories
+      this.service.getItemCode().subscribe((d: any) => {
+        this.frm.get('Code')?.setValue(d['Code']);
+      });
+      this.updateCategories('P');
     }
-    this.frm.get('Quantity')?.disable({ onlySelf: true });
+
+    // Code is always read-only — never manually entered
+    this.frm.get('Code')?.disable({ onlySelf: true });
   }
+
   getUserAccessRights(userName: string, screenName: string) {
     this._masterService.getUserAccessRights(userName, screenName).subscribe(
       (data) => {
         if (data != null) {
-          this.userAccessModel.readAccess = data.Read
+          this.userAccessModel.readAccess = data.Read;
           this.userAccessModel.deleteAccess = data.Delete;
           this.userAccessModel.updateAccess = data.Update;
           this.userAccessModel.createAccess = data.Create;
         }
-        this.updateCategories('d');
       },
-      (error) => {
-        this.handleErrors(error);
-      }
+      (error) => { this.handleErrors(error); }
     );
   }
 
   updateCategories(cat: string) {
     this.service.getCategoryByCat(cat).subscribe(
-      (d: any) => {
-        this.categories = d;
-      },
-      (error) => this.handleErrors(error)
+      (d: any) => { this.categories = d; this.filteredCategories = d; },
+      (error) => { this.handleErrors(error); }
     );
   }
 
-  onSubmit() {
+  loadBrands() {
+    this.service.getBrandMasters().subscribe(
+      (d: any) => { this.brands = d; this.filteredBrands = d; },
+      (error) => { this.handleErrors(error); }
+    );
+  }
 
+  loadUOMs() {
+    this.service.getUOMMasters().subscribe(
+      (d: any) => { this.uoms = d; this.filteredUoms = d; },
+      (error) => { this.handleErrors(error); }
+    );
+  }
+
+  onCategoryTypeChange(type: string) {
+    this.frm.get('CategoryID')?.setValue('');
+    this.categorySearch = '';
+    this.updateCategories(type);
+  }
+
+  // Search open/close handlers (reset on open)
+  onCategoryOpen(opened: boolean) { if (opened) { this.categorySearch = ''; this.filteredCategories = [...this.categories]; } }
+  onBrandOpen(opened: boolean)    { if (opened) { this.brandSearch = ''; this.filteredBrands = [...this.brands]; } }
+  onUomOpen(opened: boolean)      { if (opened) { this.uomSearch = ''; this.filteredUoms = [...this.uoms]; } }
+
+  // Filter methods
+  onCategorySearch(q: string) { this.categorySearch = q; const s = q.toLowerCase(); this.filteredCategories = this.categories.filter(c => c.Name?.toLowerCase().includes(s)); }
+  onBrandSearch(q: string)    { this.brandSearch = q;    const s = q.toLowerCase(); this.filteredBrands    = this.brands.filter(b => b.Name?.toLowerCase().includes(s)); }
+  onUomSearch(q: string)      { this.uomSearch = q;      const s = q.toLowerCase(); this.filteredUoms      = this.uoms.filter(u => u.Name?.toLowerCase().includes(s)); }
+
+  onSubmit() {
     if (this.frm.invalid) {
+      this.frm.markAllAsTouched();
       return;
     }
 
-    let data = this.frm.getRawValue();
+    this.showLoadingSpinner = true;
+    const data = this.frm.getRawValue();  // getRawValue includes disabled Code field
+    data['LastUpdatedBy'] = this.currentUser;
 
-    data['Quantity'] = Number(this.frm.get('Quantity')?.value) + Number(this.frm.get('qty')?.value);
-    this.service.saveItem(data).subscribe((d: any) => {      
-      this.showMessage("Item Saved/Updated Successfully", 'success', 'Success Message');
-      this.frm.reset();
-      this.route.navigate(['/inventory/item-master']);
+    this.service.saveItem(data).subscribe({
+      next: () => {
+        this.showMessage('Item Saved/Updated Successfully', 'success', 'Success Message');
+        this.frm.reset();
+        this.route.navigateByUrl('/dummy', { skipLocationChange: true }).then(() => {
+          this.route.navigate(['/inventory/item-master']);
+        });
+      },
+      error: (err: any) => {
+        this.showMessage(`Item failed to save: ${err}`, 'error', 'Error Message');
+      }
     });
-
   }
+
   onCancelClick() {
-    this.ID = 0;
-    this.isEdit = false;
-    this.frm.reset();
-    this.route.navigate(['/inventory/item-master/new-item']);
+    this.route.navigate(['/inventory/item-master']);
   }
 
-  private showMessage(message: string, icon: 'success' | 'warning' | 'info' | 'error' = 'info',
-    title: 'Success Message' | 'Warning Message' | 'Error Message'): void {
+  private showMessage(
+    message: string,
+    icon: 'success' | 'warning' | 'info' | 'error' = 'info',
+    title: 'Success Message' | 'Warning Message' | 'Error Message' = 'Success Message'
+  ): void {
     Swal.fire({
       toast: true,
       position: 'top',
       showConfirmButton: false,
       title: title,
       text: message,
-      icon: icon, // Dynamically set the icon based on the parameter
+      icon: icon,
       showCloseButton: false,
       timer: 5000,
-      width: '600px', 
-      customClass: {
-        popup: 'swal-top-offset'
-      }
+      width: '600px',
+      customClass: { popup: 'swal-top-offset' }
     });
     this.hideLoadingSpinner();
-    return;
   }
 
   handleErrors(error: string) {
@@ -151,8 +214,8 @@ export class NewItemComponent implements OnInit {
       this.hideLoadingSpinner();
     }
   }
-  hideLoadingSpinner() {
-    this.showLoadingSpinner = false
-  }
 
+  hideLoadingSpinner() {
+    this.showLoadingSpinner = false;
+  }
 }

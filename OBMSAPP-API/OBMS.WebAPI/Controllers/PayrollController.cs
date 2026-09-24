@@ -381,7 +381,7 @@ namespace OBMS.WebAPI.Controllers
 
         [HttpGet]
         [Route("GetUniformItemRows")]
-        public async Task<ActionResult<List<ItemMasterDto>>> GetUniformItemRows(int AdvanceID, int Category)
+        public async Task<ActionResult<List<EmployeeItemIssueDto>>> GetUniformItemRows(int AdvanceID, int Category)
         {
             try
             {

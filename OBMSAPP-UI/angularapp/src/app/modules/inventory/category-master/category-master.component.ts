@@ -16,6 +16,7 @@ export interface ICategoryMaster {
   Name: string;
   AssetType: string;
   Cat: string;
+  ParentCategoryName: string;
 }
 
 @Component({
@@ -34,7 +35,7 @@ export class CategoryMasterComponent implements AfterViewInit {
   errorMessage: string = '';
   showLoadingSpinner: boolean = false;
   data: any = [];
-  displayedColumns: string[] = ['Name', 'AssetType', 'Cat', 'action'];
+  displayedColumns: string[] = ['Name', 'AssetType', 'Cat', 'ParentCategoryName', 'action'];
   dataSource!: MatTableDataSource<ICategoryMaster>;
   pageSizeOptions: number[] = [];
 

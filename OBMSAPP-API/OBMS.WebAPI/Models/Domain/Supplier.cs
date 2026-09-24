@@ -23,8 +23,5 @@ namespace OBMS.WebAPI.Models.Domain
         public string Category { get; set; }
         public DateTime LASTUPDATE { get; set; }
         public string? LastUpdatedBy { get; set; }
-
-
-
     }
 }

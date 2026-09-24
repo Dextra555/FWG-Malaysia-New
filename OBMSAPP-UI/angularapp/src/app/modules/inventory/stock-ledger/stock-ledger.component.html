@@ -1,0 +1,290 @@
+<!-- Page Header -->
+<div class="wlt-c-furg-content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-12 col-sm-12 col-md-6 col-lg-6">
+        <h1 class="mb-1">Stock Ledger</h1>
+      </div>
+      <div class="col-12 col-sm-12 col-md-6 col-lg-6 my-1">
+        <ol class="breadcrumb float-md-right">
+          <li class="breadcrumb-item"><a routerLink="/dashboard">Inventory</a></li>
+          <li class="breadcrumb-item active">Stock Ledger</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Access denied -->
+<div *ngIf="warningMessage !== ''">
+  <mat-card>
+    <mat-card-content>
+      <mat-label style="color:red" [innerHTML]="warningMessage"></mat-label>
+    </mat-card-content>
+  </mat-card>
+</div>
+
+<ng-container *ngIf="warningMessage === ''">
+
+  <!-- ── FILTER PANEL ─────────────────────────────────────────────────────── -->
+  <mat-card class="mb-3">
+    <mat-card-content>
+      <form [formGroup]="filterForm" (ngSubmit)="onViewLedger()">
+
+        <div class="row mt-1">
+          <div class="col-12">
+            <h6 class="wlt-c-section-label"><strong>Filter Stock Ledger</strong></h6>
+            <hr class="mt-0">
+          </div>
+        </div>
+
+        <div class="row">
+
+          <!-- Warehouse (required) -->
+          <div class="col-12 col-sm-12 col-md-4 col-lg-3">
+            <mat-form-field appearance="outline">
+              <mat-label>Warehouse <span style="color:red">*</span></mat-label>
+              <mat-select formControlName="WarehouseID">
+                <mat-option [value]="0">-- Select Warehouse --</mat-option>
+                <mat-option *ngFor="let w of warehouses" [value]="w.ID">{{w.Name}}</mat-option>
+              </mat-select>
+              <mat-error *ngIf="filterForm.get('WarehouseID')?.hasError('mustSelect') || filterForm.get('WarehouseID')?.hasError('required')">
+                Please select a warehouse.
+              </mat-error>
+            </mat-form-field>
+          </div>
+
+          <!-- Item (optional) -->
+          <div class="col-12 col-sm-12 col-md-4 col-lg-3">
+            <mat-form-field appearance="outline">
+              <mat-label>Item</mat-label>
+              <mat-select formControlName="ItemID">
+                <mat-option [value]="0">All Items</mat-option>
+                <mat-option *ngFor="let item of items" [value]="item.ID">
+                  {{item.Code}} — {{item.Name}}
+                </mat-option>
+              </mat-select>
+              <mat-hint>Leave as "All Items" to see all</mat-hint>
+            </mat-form-field>
+          </div>
+
+          <!-- Date From -->
+          <div class="col-12 col-sm-12 col-md-2 col-lg-2">
+            <mat-form-field appearance="outline">
+              <mat-label>From Date <span style="color:red">*</span></mat-label>
+              <input matInput [matDatepicker]="pickerFrom" formControlName="DateFrom" autocomplete="off">
+              <mat-datepicker-toggle matSuffix [for]="pickerFrom"></mat-datepicker-toggle>
+              <mat-datepicker #pickerFrom></mat-datepicker>
+              <mat-error *ngIf="filterForm.get('DateFrom')?.hasError('required')">Required.</mat-error>
+            </mat-form-field>
+          </div>
+
+          <!-- Date To -->
+          <div class="col-12 col-sm-12 col-md-2 col-lg-2">
+            <mat-form-field appearance="outline">
+              <mat-label>To Date <span style="color:red">*</span></mat-label>
+              <input matInput [matDatepicker]="pickerTo" formControlName="DateTo" autocomplete="off">
+              <mat-datepicker-toggle matSuffix [for]="pickerTo"></mat-datepicker-toggle>
+              <mat-datepicker #pickerTo></mat-datepicker>
+              <mat-error *ngIf="filterForm.get('DateTo')?.hasError('required')">Required.</mat-error>
+            </mat-form-field>
+          </div>
+
+          <!-- Transaction Type -->
+          <div class="col-12 col-sm-12 col-md-4 col-lg-3">
+            <mat-form-field appearance="outline">
+              <mat-label>Transaction Type</mat-label>
+              <mat-select formControlName="TransactionType">
+                <mat-option *ngFor="let t of transactionTypeOptions" [value]="t.value">
+                  {{t.label}}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+
+        </div>
+
+        <!-- Error from date validation -->
+        <div class="row" *ngIf="errorMessage !== ''">
+          <div class="col-12">
+            <mat-label style="color:red">{{errorMessage}}</mat-label>
+          </div>
+        </div>
+
+        <!-- Action buttons -->
+        <div class="row">
+          <div class="col-12 text-right">
+            <button type="button" class="btn wlt-c-furg-btn-gray mr-2"
+                    (click)="onClearFilters()">Clear</button>
+            <button type="submit" class="btn wlt-c-furg-btn-primary"
+                    [disabled]="showLoadingSpinner">
+              <mat-icon style="vertical-align:middle; font-size:18px">search</mat-icon>
+              View Stock Ledger
+            </button>
+          </div>
+        </div>
+
+      </form>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- ── LEDGER TABLE ─────────────────────────────────────────────────────── -->
+  <mat-card *ngIf="hasSearched">
+    <mat-card-content>
+
+      <!-- Table search -->
+      <div class="row mb-2">
+        <div class="col-12 col-md-4">
+          <mat-form-field appearance="outline">
+            <mat-label>Search results</mat-label>
+            <input matInput (keyup)="applyFilter($event)" placeholder="Item, type, reference…">
+          </mat-form-field>
+        </div>
+      </div>
+
+      <!-- No data message -->
+      <div *ngIf="noDataMessage !== ''" class="text-center py-4" style="color:#888">
+        <mat-icon style="font-size:48px; height:48px; width:48px; color:#ccc">inventory_2</mat-icon>
+        <p class="mt-2">{{noDataMessage}}</p>
+      </div>
+
+      <!-- Ledger table -->
+      <div class="table-responsive" *ngIf="noDataMessage === ''">
+        <table mat-table [dataSource]="dataSource" class="wlt-table table-striped" matSort
+               (matSortChange)="announceSortChange($event)">
+
+          <ng-container matColumnDef="TransactionDate">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Date</th>
+            <td mat-cell *matCellDef="let row">{{formatDate(row.TransactionDate)}}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="TransactionNo">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Transaction No</th>
+            <td mat-cell *matCellDef="let row">{{row.TransactionNo}}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="TransactionTypeLabel">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Transaction Type</th>
+            <td mat-cell *matCellDef="let row">
+              <span class="badge-type" [ngClass]="{
+                'badge-opening':  row.TransactionType === 'OPENING',
+                'badge-in':       row.InQty > 0 && row.TransactionType !== 'OPENING',
+                'badge-out':      row.OutQty > 0 && row.InQty === 0
+              }">{{row.TransactionTypeLabel}}</span>
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="ItemCode">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Item Code</th>
+            <td mat-cell *matCellDef="let row">{{row.ItemCode}}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="ItemName">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Item Name</th>
+            <td mat-cell *matCellDef="let row">{{row.ItemName}}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="UOMName">
+            <th mat-header-cell *matHeaderCellDef>UOM</th>
+            <td mat-cell *matCellDef="let row">{{row.UOMName}}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="InQty">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header style="text-align:right">In Qty</th>
+            <td mat-cell *matCellDef="let row" style="text-align:right">
+              <span *ngIf="row.InQty > 0" style="color:#2e7d32; font-weight:600">
+                +{{formatNumber(row.InQty)}}
+              </span>
+              <span *ngIf="row.InQty === 0" style="color:#bbb">—</span>
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="OutQty">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header style="text-align:right">Out Qty</th>
+            <td mat-cell *matCellDef="let row" style="text-align:right">
+              <span *ngIf="row.OutQty > 0" style="color:#c62828; font-weight:600">
+                -{{formatNumber(row.OutQty)}}
+              </span>
+              <span *ngIf="row.OutQty === 0" style="color:#bbb">—</span>
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="RunningBalance">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header style="text-align:right">Balance</th>
+            <td mat-cell *matCellDef="let row" style="text-align:right">
+              <strong [class]="balanceClass(row.RunningBalance)">
+                {{formatNumber(row.RunningBalance)}}
+              </strong>
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="ReferenceNo">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Reference</th>
+            <td mat-cell *matCellDef="let row">{{row.ReferenceNo || '—'}}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="Remarks">
+            <th mat-header-cell *matHeaderCellDef>Remarks</th>
+            <td mat-cell *matCellDef="let row">{{row.Remarks || ''}}</td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+
+          <tr class="mat-row" *matNoDataRow>
+            <td class="mat-cell" [attr.colspan]="displayedColumns.length"
+                style="text-align:center; padding:20px; color:#888">
+              No results match "<strong>{{tableFilterValue}}</strong>". Try a different search term.
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <mat-paginator [pageSizeOptions]="pageSizeOptions" showFirstLastButtons></mat-paginator>
+
+      <!-- Summary footer -->
+      <div class="row mt-3" *ngIf="noDataMessage === ''">
+        <div class="col-12">
+          <div class="p-3" style="background:#f8f9fa; border-radius:4px; border-left:4px solid #1976d2">
+            <div class="row text-center">
+              <div class="col-4">
+                <small class="text-muted d-block">Total Stock In</small>
+                <strong style="color:#2e7d32; font-size:1.1rem">+{{formatNumber(totalInQty)}}</strong>
+              </div>
+              <div class="col-4">
+                <small class="text-muted d-block">Total Stock Out</small>
+                <strong style="color:#c62828; font-size:1.1rem">-{{formatNumber(totalOutQty)}}</strong>
+              </div>
+              <div class="col-4">
+                <small class="text-muted d-block">Closing Balance</small>
+                <strong [class]="balanceClass(closingBalance)" style="font-size:1.1rem">
+                  {{formatNumber(closingBalance)}}
+                </strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Prompt when not yet searched -->
+  <mat-card *ngIf="!hasSearched">
+    <mat-card-content>
+      <div class="text-center py-5" style="color:#aaa">
+        <mat-icon style="font-size:64px; height:64px; width:64px; color:#ddd">inventory_2</mat-icon>
+        <p class="mt-3">Select a warehouse and date range above, then click <strong>View Stock Ledger</strong>.</p>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+</ng-container>
+
+<!-- Loading spinner -->
+<div [style.display]="showLoadingSpinner ? 'block' : 'none'"
+     style="margin-top:-20.5rem; display:block; margin-left:-6.5rem;">
+  <div class="d-flex justify-content-center">
+    <span class="loader"></span>
+  </div>
+</div>

@@ -7,8 +7,7 @@
             <div class="col-12 col-sm-12 col-md-8 col-lg-8 my-1">
                 <ol class="breadcrumb float-md-right">
                     <li class="breadcrumb-item"><a routerLink="/dashboard">Inventory</a></li>
-                    <li class="breadcrumb-item"><a routerLink="/inventory/recepient-master">Recepient Master List</a>
-                    </li>
+                    <li class="breadcrumb-item"><a routerLink="/inventory/recepient-master">Recepient Master List</a></li>
                     <li class="breadcrumb-item active">{{isEdit ? 'Update' : 'New'}} Recepient</li>
                 </ol>
             </div>
@@ -21,20 +20,24 @@
             <div class="row">
                 <div class="col-12 col-sm-12 col-md-4 col-lg-4">
                     <mat-form-field appearance="outline">
-                        <mat-label>Recepient Code</mat-label>
-                        <input type="text" formControlName="Code" matInput placeholder="" autocomplete="off">
+                        <mat-label>Recepient Code <span style="color:red">*</span></mat-label>
+                        <input type="text" formControlName="Code" matInput placeholder="AUTO" autocomplete="off" readonly>
+                        <mat-hint>Auto-generated</mat-hint>
+                        <mat-error *ngIf="frm.get('Code')?.hasError('required')">Recepient Code is required</mat-error>
                     </mat-form-field>
                 </div>
                 <div class="col-12 col-sm-12 col-md-4 col-lg-4">
                     <mat-form-field appearance="outline">
-                        <mat-label>Recepient Name</mat-label>
+                        <mat-label>Recepient Name <span style="color:red">*</span></mat-label>
                         <input type="text" formControlName="Name" matInput placeholder="" autocomplete="off">
+                        <mat-error *ngIf="frm.get('Name')?.hasError('required')">Recepient Name is required</mat-error>
                     </mat-form-field>
                 </div>
                 <div class="col-12 col-sm-12 col-md-4 col-lg-4">
                     <mat-form-field appearance="outline">
-                        <mat-label>Recepient I/C No.</mat-label>
+                        <mat-label>Recepient I/C No. <span style="color:red">*</span></mat-label>
                         <input type="text" formControlName="ICNO" matInput placeholder="" autocomplete="off">
+                        <mat-error *ngIf="frm.get('ICNO')?.hasError('required')">I/C No. is required</mat-error>
                     </mat-form-field>
                 </div>
             </div>
@@ -44,26 +47,30 @@
                 </div>
                 <div class="col-12 col-sm-12 col-md-4 col-lg-4">
                     <mat-form-field appearance="outline">
-                        <mat-label>Address Line1</mat-label>
+                        <mat-label>Address Line1 <span style="color:red">*</span></mat-label>
                         <input type="text" formControlName="Address1" matInput placeholder="" autocomplete="off">
+                        <mat-error *ngIf="frm.get('Address1')?.hasError('required')">Address Line 1 is required</mat-error>
                     </mat-form-field>
                 </div>
                 <div class="col-12 col-sm-12 col-md-4 col-lg-4">
                     <mat-form-field appearance="outline">
-                        <mat-label>Address Line2</mat-label>
+                        <mat-label>Address Line2 <span style="color:red">*</span></mat-label>
                         <input type="text" formControlName="Address2" matInput placeholder="" autocomplete="off">
+                        <mat-error *ngIf="frm.get('Address2')?.hasError('required')">Address Line 2 is required</mat-error>
                     </mat-form-field>
                 </div>
                 <div class="col-12 col-sm-12 col-md-4 col-lg-4">
                     <mat-form-field appearance="outline">
-                        <mat-label>Postal Code</mat-label>
+                        <mat-label>Postal Code <span style="color:red">*</span></mat-label>
                         <input type="text" formControlName="PostCode" matInput placeholder="" autocomplete="off">
+                        <mat-error *ngIf="frm.get('PostCode')?.hasError('required')">Postal Code is required</mat-error>
                     </mat-form-field>
                 </div>
                 <div class="col-12 col-sm-12 col-md-4 col-lg-4">
                     <mat-form-field appearance="outline">
-                        <mat-label>City</mat-label>
+                        <mat-label>City <span style="color:red">*</span></mat-label>
                         <input type="text" formControlName="City" matInput placeholder="" autocomplete="off">
+                        <mat-error *ngIf="frm.get('City')?.hasError('required')">City is required</mat-error>
                     </mat-form-field>
                 </div>
                 <div class="col-12 col-sm-12 col-md-4 col-lg-4">
@@ -81,8 +88,9 @@
                 </div>
                 <div class="col-12 col-sm-12 col-md-4 col-lg-4">
                     <mat-form-field appearance="outline">
-                        <mat-label>Phone No</mat-label>
+                        <mat-label>Phone No <span style="color:red">*</span></mat-label>
                         <input type="text" formControlName="Phone" matInput placeholder="" autocomplete="off">
+                        <mat-error *ngIf="frm.get('Phone')?.hasError('required')">Phone No is required</mat-error>
                     </mat-form-field>
                 </div>
                 <div class="col-12 col-sm-12 col-md-4 col-lg-4">
@@ -93,8 +101,9 @@
                 </div>
                 <div class="col-12 col-sm-12 col-md-4 col-lg-4">
                     <mat-form-field appearance="outline">
-                        <mat-label>Supervisor</mat-label>
+                        <mat-label>Supervisor <span style="color:red">*</span></mat-label>
                         <input type="text" formControlName="Supervisor" matInput placeholder="" autocomplete="off">
+                        <mat-error *ngIf="frm.get('Supervisor')?.hasError('required')">Supervisor is required</mat-error>
                     </mat-form-field>
                 </div>
             </div>
@@ -102,46 +111,35 @@
                 <div class="col-12 col-sm-12 col-md-4 col-lg-4">
                     <mat-form-field appearance="outline">
                         <mat-label>Credit Limit</mat-label>
-                        <input type="text" formControlName="CreditLimit" matInput placeholder="" autocomplete="off">
+                        <input type="number" formControlName="CreditLimit" matInput placeholder="0" autocomplete="off">
+                        <mat-hint>Optional — leave blank for 0</mat-hint>
                     </mat-form-field>
                 </div>
                 <div class="col-12 col-sm-12 col-md-4 col-lg-4">
                     <mat-form-field appearance="outline">
                         <mat-label>Category</mat-label>
                         <mat-select formControlName="Category">
+                            <mat-option value="">-- Select Category --</mat-option>
                             <mat-option *ngFor="let d of categories" value="{{d.ID}}">{{d.Name}}</mat-option>
                         </mat-select>
                     </mat-form-field>
                 </div>
                 <div class="col-12 col-sm-12 col-md-4 col-lg-4">
                     <mat-label class="mr-3"><strong>Status</strong></mat-label><br />
-                    <mat-radio-group aria-label="Select a New Salary Structure " formControlName="Status">
+                    <mat-radio-group formControlName="Status">
                         <mat-radio-button value="A">Active</mat-radio-button>
                         <mat-radio-button value="I">Inactive</mat-radio-button>
                         <mat-radio-button value="H">Hold</mat-radio-button>
                     </mat-radio-group>
                 </div>
-                <!--                <div class="col-12 col-sm-12 col-md-4 col-lg-4">-->
-                <!--                    <mat-form-field appearance="outline">-->
-                <!--                        <mat-label>Last Update</mat-label>-->
-                <!--                        <input type="text" formControlName="LASTUPDATE" matInput placeholder="" autocomplete="off">-->
-                <!--                    </mat-form-field>-->
-                <!--                </div>-->
-                <!--                <div class="col-12 col-sm-12 col-md-4 col-lg-4">-->
-                <!--                    <mat-form-field appearance="outline">-->
-                <!--                        <mat-label>Last Updated By</mat-label>-->
-                <!--                        <input type="text" formControlName="LastUpdatedBy" matInput placeholder="" autocomplete="off">-->
-                <!--                    </mat-form-field>-->
-                <!--                </div>-->
             </div>
             <div class="row">
                 <div class="col-12">
                     <div class="text-right">
-                        <button class="btn wlt-c-furg-btn-gray mr-3" (click)="onCancelClick()" mat-dialog-close>
-                            Cancel</button>
-                        <button
+                        <button type="button" class="btn wlt-c-furg-btn-gray mr-3" (click)="onCancelClick()" mat-dialog-close>Cancel</button>
+                        <button type="submit"
                             *ngIf="this.userAccessModel.createAccess == true || this.userAccessModel.updateAccess == true || currentUser == 'superadmin'"
-                            class="btn wlt-c-furg-btn-primary"> {{isEdit ? 'Update' : 'Save'}}</button>
+                            class="btn wlt-c-furg-btn-primary">{{isEdit ? 'Update' : 'Save'}}</button>
                     </div>
                 </div>
             </div>
@@ -149,11 +147,10 @@
     </mat-card-content>
 </mat-card>
 
-<!-- model pop up for logic started -->
+<!-- Loading spinner -->
 <div [style.display]="showLoadingSpinner ? 'block' : 'none'"
     style="margin-top: -20.5rem; display: block; margin-left: -6.5rem;">
     <div class="d-flex justify-content-center">
         <span class="loader"></span>
     </div>
 </div>
-<!-- model pop up for logic ended -->

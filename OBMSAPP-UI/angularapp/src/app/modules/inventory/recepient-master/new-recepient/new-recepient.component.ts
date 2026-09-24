@@ -41,6 +41,14 @@ export class NewRecepientComponent implements OnInit {
       this.categories = d['categories'];
       this.stateList = d['stateList'];
     })
+
+    // Auto-generate Recepient Code on new form
+    if (this.ID == 0 || this.ID == undefined) {
+      service.getRecipientCode().subscribe((d: any) => {
+        this.frm.get('Code')?.setValue(d.Code);
+        this.frm.get('Code')?.disable({ onlySelf: true });
+      });
+    }
     this.frm = this.fb.group({
       Id: [0],
       Code: ['', Validators.required],
@@ -97,15 +105,48 @@ export class NewRecepientComponent implements OnInit {
   }
   onSubmit() {
     if (this.frm.invalid) {
+      this.frm.markAllAsTouched();
       return;
     }
 
     let data = this.frm.getRawValue();
     data['LASTUPDATE'] = this.returnDate();
-    this.service.saveRecipient(data).subscribe((d: any) => {
-      this.showMessage("Recepient Saved/Updated Successfully", 'success', 'Success Message');
-      this.frm.reset();
-      this.route.navigate(['/inventory/recepient-master']);
+    // Convert empty Category to null — backend expects int? not empty string
+    if (data['Category'] === '' || data['Category'] === undefined) {
+      data['Category'] = null;
+    } else {
+      data['Category'] = parseInt(data['Category'], 10) || null;
+    }
+    // Convert empty CreditLimit to 0 — backend expects decimal not empty string
+    if (data['CreditLimit'] === '' || data['CreditLimit'] === null || data['CreditLimit'] === undefined) {
+      data['CreditLimit'] = 0;
+    } else {
+      data['CreditLimit'] = parseFloat(data['CreditLimit']) || 0;
+    }
+    this.service.saveRecipient(data).subscribe({
+      next: (d: any) => {
+        this.showMessage("Recepient Saved/Updated Successfully", 'success', 'Success Message');
+        this.frm.reset();
+        this.route.navigate(['/inventory/recepient-master']);
+      },
+      error: (err: any) => {
+        let errMsg = 'Please check your input and try again.';
+        if (err?.error?.errors) {
+          // ASP.NET model validation errors — extract field names and messages
+          const validationErrors = err.error.errors;
+          const messages = Object.keys(validationErrors)
+            .map(field => `${field}: ${validationErrors[field].join(', ')}`)
+            .join(' | ');
+          errMsg = messages || errMsg;
+        } else if (err?.error?.Message) {
+          errMsg = err.error.Message;
+        } else if (err?.error?.message) {
+          errMsg = err.error.message;
+        } else if (err?.error?.title) {
+          errMsg = err.error.title;
+        }
+        this.showMessage(`Failed to save Recepient: ${errMsg}`, 'error', 'Error Message');
+      }
     });
   }
 
@@ -126,7 +167,7 @@ export class NewRecepientComponent implements OnInit {
     this.ID = 0;
     this.isEdit = false;
     this.frm.reset();
-    this.route.navigate(['/inventory/recepient-master/new-recepient']);
+    this.route.navigate(['/inventory/recepient-master']);
   }
 
   private showMessage(message: string, icon: 'success' | 'warning' | 'info' | 'error' = 'info',

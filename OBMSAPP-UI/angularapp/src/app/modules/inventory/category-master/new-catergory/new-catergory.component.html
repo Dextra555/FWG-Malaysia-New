@@ -39,6 +39,24 @@
                 </div>
                 <div class="col-12 col-sm-12 col-md-4 col-lg-4">
                     <mat-form-field appearance="outline">
+                        <mat-label>Parent Category</mat-label>
+                        <mat-select formControlName="ParentCategoryID" (openedChange)="onParentCatOpen($event)">
+                            <mat-option disabled style="position:sticky;top:0;background:#fff;z-index:1;padding:0">
+                              <div style="padding:4px 10px">
+                                <input type="text" placeholder="Search category…" [value]="parentCatSearch"
+                                  (input)="onParentCatSearch($any($event.target).value)"
+                                  (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()"
+                                  style="width:100%;border:1px solid #ccc;border-radius:4px;padding:6px 8px;font-size:13px;outline:none">
+                              </div>
+                            </mat-option>
+                            <mat-option value="0">-- Select Parent --</mat-option>
+                            <mat-option *ngFor="let d of filteredParentCategories" [value]="d.ID">{{d.Name}}</mat-option>
+                            <mat-option disabled *ngIf="filteredParentCategories.length === 0 && parentCatSearch.length > 0">No results found.</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                </div>
+                <div class="col-12 col-sm-12 col-md-4 col-lg-4">
+                    <mat-form-field appearance="outline">
                         <mat-label>Category Type</mat-label>
                         <mat-select formControlName="Cat">
                             <mat-option value="P">

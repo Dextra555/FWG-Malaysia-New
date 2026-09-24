@@ -14,6 +14,7 @@ import { SharedModule } from './shared/shared.module';
 import { CustomLocationStrategy } from './service/CustomLocationStrategy';
 import { AuthInterceptor } from './service/auth.interceptor';
 import { MatSelectScrollDirective } from './shared/mat-select-scroll.directive';
+import { OverlayModule } from '@angular/cdk/overlay';
 
 @NgModule({
   declarations: [
@@ -25,7 +26,8 @@ import { MatSelectScrollDirective } from './shared/mat-select-scroll.directive';
     BrowserAnimationsModule,
     HttpClientModule,
     ReactiveFormsModule,
-    SharedModule
+    SharedModule,
+    OverlayModule   // Registers CDK Overlay at root — required by MatTooltip / MatDialog
   ],
   providers: [CommonService,MastermoduleService,PayrollModuleService,
     {provide: LocationStrategy, useClass: PathLocationStrategy },
