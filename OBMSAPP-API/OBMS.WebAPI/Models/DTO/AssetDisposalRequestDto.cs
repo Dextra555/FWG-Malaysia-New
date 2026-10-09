@@ -32,5 +32,23 @@ namespace OBMS.WebAPI.Models.DTO
         public string? Remarks { get; set; }
         public DateTime LASTUPDATE { get; set; }
         public string? LastUpdatedBy { get; set; }
+
+        // ── Approval workflow ────────────────────────────────────────────
+        public string Status { get; set; } = "Draft";
+        public string? SubmittedBy     { get; set; }
+        public DateTime? SubmittedDate  { get; set; }
+        public DateTime? ApprovedDate   { get; set; }
+        public string? ApprovalRemarks { get; set; }
+    }
+
+    /// <summary>
+    /// Payload for ApproveAD / RejectAD endpoints.
+    /// ApprovedBy and IsSuperAdmin are ALWAYS overwritten server-side from JWT.
+    /// </summary>
+    public class ADApprovalDto
+    {
+        public string ApprovedBy   { get; set; } = string.Empty;
+        public bool   IsSuperAdmin { get; set; }
+        public string? ApprovalRemarks { get; set; }
     }
 }

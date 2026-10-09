@@ -45,6 +45,12 @@ export class NewPRComponent implements OnInit {
   // false = current user is the requester / other   → hide Approve / Reject
   isApprover        = false;
   approverCheckDone = false;   // prevents flicker before API responds
+  approverName      = '';      // configured approver username — shown in the pending banner
+
+  // ── Role (from sessionStorage 'userrole', set at login from OBMSUsers.IsAdmin) ──
+  // '0'→'user', '1'→'admin', '2'→'superadmin'
+  // Used so SuperAdmin (any username) sees Approve/Reject without routing config.
+  userRole = '';
 
   // ── Linked PO (set after loadExisting when status = Approved) ─────────────
   linkedPO: any = null;   // holds PO info if a PO has already been created for this PR
@@ -78,17 +84,22 @@ export class NewPRComponent implements OnInit {
     });
 
     this.lineForm = this.fb.group({
-      ItemID:     [0, [Validators.required, mustSelect()]],
-      RequiredQty:['',[Validators.required, greaterThanZero()]],
-      UOMID:      [0],
-      Remarks:    [''],
-      _index:     [-1]
+      ItemID:      [0, [Validators.required, mustSelect()]],
+      RequiredQty: ['', [Validators.required, greaterThanZero()]],
+      BuyingPrice: [''],   // auto-filled from ItemMaster; user-editable
+      UOMID:       [0],
+      Remarks:     [''],
+      _index:      [-1]
     });
   }
 
   ngOnInit(): void {
     this.ID = this.activatedRoute.snapshot.params['ID'];
     this.currentUser = sessionStorage.getItem('username') || '';
+    // Load role from sessionStorage 'userrole' (set at login from OBMSUsers.IsAdmin)
+    // '0'→'user', '1'→'admin', '2'→'superadmin'
+    const rawRole = sessionStorage.getItem('userrole') ?? '0';
+    this.userRole = rawRole === '2' ? 'superadmin' : rawRole === '1' ? 'admin' : 'user';
     if (!this.currentUser || this.currentUser === 'null') {
       this._dataService.getUsername().subscribe(u => {
         this.currentUser = u;
@@ -185,33 +196,48 @@ export class NewPRComponent implements OnInit {
 
   // ── Ask backend: "Is the currently logged-in user the configured approver?" ──
   private checkIsApprover(requesterUser: string): void {
-    if (!requesterUser) {
-      this.approverCheckDone = true;
-      return;
-    }
-    this.service.isCurrentUserApprover('PURCHASE_REQUISITION', requesterUser).subscribe({
+    // Guard: if already confirmed as approver, don't let a second call override it.
+    // Double-call can happen when loadExisting() fires twice (route + access rights).
+    if (this.isApprover && this.approverCheckDone) return;
+
+    console.log('[checkIsApprover] requesterUser=', requesterUser, 'currentUser=', this.currentUser);
+    this.service.isCurrentUserApprover('PURCHASE_REQUISITION', requesterUser || '').subscribe({
       next: (res: any) => {
-        this.isApprover        = res?.IsApprover === true;
+        console.log('[checkIsApprover] response=', res);
+        // Only update if not already confirmed — prevents false override from
+        // a racing second call that arrives after the first true result.
+        if (!this.isApprover) {
+          this.isApprover   = res?.IsApprover === true;
+          this.approverName = res?.ApproverUser || '';
+        }
         this.approverCheckDone = true;
       },
-      error: () => {
-        // If check fails, deny approval access (fail-safe)
-        this.isApprover        = false;
+      error: (err: any) => {
+        console.error('[checkIsApprover] error=', err);
+        if (!this.approverCheckDone) {
+          this.isApprover        = false;
+          this.approverName      = '';
+        }
         this.approverCheckDone = true;
       }
     });
   }
 
   // ── State helpers ────────────────────────────────────────────────────────
-  canEdit():     boolean { return this.currentStatus === 'Draft'; }
-  canSubmit():   boolean { return this.isEdit && this.currentStatus === 'Draft' && this.lines.length > 0; }
+  canEdit():   boolean { return !this.isEdit || this.currentStatus === 'Draft'; }
+  // Submit is available on a new (unsaved) form with at least one line,
+  // OR on an existing Draft — Draft is no longer a mandatory pre-step.
+  canSubmit(): boolean { return this.lines.length > 0 && (!this.isEdit || this.currentStatus === 'Draft'); }
 
-  // Approve/Reject: only the configured approver sees these buttons
+  // Approve/Reject: configured approver OR SuperAdmin
   canApproveAction(): boolean {
-    return this.isEdit &&
-           this.currentStatus === 'Submitted' &&
-           this.isApprover &&
-           this.approverCheckDone;
+    if (!this.isEdit || this.currentStatus !== 'Submitted') return false;
+
+    // SuperAdmin (IsAdmin='2') has global approval authority — including their own submissions.
+    if (this.userRole === 'superadmin') return true;
+
+    // Normal users: configured approver only, self-approval blocked
+    return this.isApprover && this.approverCheckDone;
   }
 
   canCreatePO(): boolean { return this.isEdit && this.currentStatus === 'Approved'; }
@@ -219,7 +245,10 @@ export class NewPRComponent implements OnInit {
   // ── Line management ──────────────────────────────────────────────────────
   onItemChange(itemID: number): void {
     const item = this.items.find(i => i.ID === +itemID);
-    if (item?.UOMID) this.lineForm.get('UOMID')?.setValue(item.UOMID);
+    if (item) {
+      if (item.UOMID) this.lineForm.get('UOMID')?.setValue(item.UOMID);
+      this.lineForm.get('BuyingPrice')?.setValue(item.Price ?? '');
+    }
   }
 
   addLine(): void {
@@ -228,14 +257,14 @@ export class NewPRComponent implements OnInit {
     const item = this.items.find(i => i.ID === +raw.ItemID);
     const line = {
       ...raw,
-      ItemName:     item?.Name     || '',
-      ItemCode:     item?.Code     || '',
-      UOMName:      item?.UOMName  || '',
+      ItemName:     item?.Name         || '',
+      ItemCode:     item?.Code         || '',
+      UOMName:      item?.UOMName      || '',
       CategoryName: item?.CategoryName || ''
     };
     if (raw._index >= 0) { this.lines[raw._index] = line; }
     else { this.lines.push(line); }
-    this.lineForm.reset({ ItemID: 0, RequiredQty: '', UOMID: 0, Remarks: '', _index: -1 });
+    this.lineForm.reset({ ItemID: 0, RequiredQty: '', BuyingPrice: '', UOMID: 0, Remarks: '', _index: -1 });
     this.editLineIndex = -1;
   }
 
@@ -244,6 +273,7 @@ export class NewPRComponent implements OnInit {
     const l = this.lines[i];
     this.lineForm.patchValue({
       ItemID: l.ItemID, RequiredQty: l.RequiredQty,
+      BuyingPrice: l.BuyingPrice ?? '',
       UOMID: l.UOMID || 0, Remarks: l.Remarks, _index: i
     });
   }
@@ -266,6 +296,7 @@ export class NewPRComponent implements OnInit {
       Details: this.lines.map(l => ({
         ID: l.ID || 0, ItemID: l.ItemID,
         RequiredQty: l.RequiredQty,
+        BuyingPrice: l.BuyingPrice != null && l.BuyingPrice !== '' ? +l.BuyingPrice : null,
         UOMID: l.UOMID || null,
         Remarks: l.Remarks || '',
         LastUpdatedBy: this.currentUser
@@ -273,9 +304,14 @@ export class NewPRComponent implements OnInit {
     };
     this.service.savePR(payload).subscribe({
       next: (res: any) => {
-        this.showMsg(res?.message || 'Purchase requisition saved successfully.', 'success', 'Success Message');
-        this.route.navigateByUrl('/dummy', { skipLocationChange: true })
-          .then(() => this.route.navigate(['/inventory/purchase-requisition']));
+        this.showMsg(res?.message || 'Purchase requisition saved as draft.', 'success', 'Success Message');
+        // Navigate to the edit page so both [Save Draft] and [Submit] remain visible
+        if (res?.id && !this.isEdit) {
+          this.route.navigateByUrl('/dummy', { skipLocationChange: true })
+            .then(() => this.route.navigate(['/inventory/purchase-requisition/new-pr', res.id]));
+        } else {
+          this.loadExisting();
+        }
       },
       error: (err: any) => {
         this.showMsg(this.extractMsg(err, 'Unable to save right now. Please try again.'), 'error', 'Error Message');
@@ -286,7 +322,7 @@ export class NewPRComponent implements OnInit {
 
   onSubmitForApproval(): void {
     this.dialog.open(DialogConfirmationComponent, {
-      data: `Submit Purchase Requisition <b>${this.frm.get('PRNumber')?.value}</b> for approval?`
+      data: { message: `Submit Purchase Requisition <b>${this.frm.get('PRNumber')?.value}</b> for approval?` }
     }).afterClosed().subscribe((result: any) => {
       if (result?.confirmDialog) {
         this.showLoadingSpinner = true;
@@ -305,9 +341,88 @@ export class NewPRComponent implements OnInit {
     });
   }
 
+  // ── Direct Submit (New form → save as Draft → immediately submit) ────────
+  // Allows the user to click [Submit] on a brand-new form without first saving a Draft.
+  // If the PR is already a saved Draft (isEdit=true), this skips the save step.
+  onSubmitDirect(): void {
+    if (this.frm.invalid) { this.frm.markAllAsTouched(); return; }
+    if (this.lines.length === 0) {
+      this.showMsg('Please add at least one item to the requisition before submitting.', 'warning', 'Warning Message');
+      return;
+    }
+
+    const prLabel = this.isEdit ? this.frm.get('PRNumber')?.value : 'this requisition';
+    this.dialog.open(DialogConfirmationComponent, {
+      data: { message: `Submit Purchase Requisition <b>${prLabel}</b> for approval?` }
+    }).afterClosed().subscribe((result: any) => {
+      if (!result?.confirmDialog) return;
+
+      this.showLoadingSpinner = true;
+
+      if (this.isEdit) {
+        // Already a saved Draft — just submit
+        this.service.submitPR(this.ID, this.currentUser).subscribe({
+          next: (res: any) => {
+            this.showMsg(res?.message || 'Submitted for approval.', 'success', 'Success Message');
+            this.loadExisting();
+          },
+          error: (err: any) => {
+            this.showMsg(this.extractMsg(err, 'Unable to submit right now.'), 'error', 'Error Message');
+            this.hideSpinner();
+          }
+        });
+      } else {
+        // New form — save as Draft first, then immediately submit
+        const raw = this.frm.getRawValue();
+        const payload = {
+          ID: 0, PRNumber: raw.PRNumber,
+          PRDate: raw.PRDate, RequiredByDate: raw.RequiredByDate,
+          Remarks: raw.Remarks, LastUpdatedBy: this.currentUser,
+          Details: this.lines.map(l => ({
+            ID: 0, ItemID: l.ItemID,
+            RequiredQty: l.RequiredQty,
+            BuyingPrice: l.BuyingPrice != null && l.BuyingPrice !== '' ? +l.BuyingPrice : null,
+            UOMID: l.UOMID || null,
+            Remarks: l.Remarks || '',
+            LastUpdatedBy: this.currentUser
+          }))
+        };
+        this.service.savePR(payload).subscribe({
+          next: (saveRes: any) => {
+            const newID = saveRes?.id;
+            if (!newID) {
+              this.showMsg('Unable to save the requisition. Please try again.', 'error', 'Error Message');
+              this.hideSpinner();
+              return;
+            }
+            // Draft saved — now submit
+            this.service.submitPR(newID, this.currentUser).subscribe({
+              next: (submitRes: any) => {
+                this.showMsg(submitRes?.message || 'Submitted for approval.', 'success', 'Success Message');
+                // Navigate to the saved/submitted record so user can see the status
+                this.route.navigateByUrl('/dummy', { skipLocationChange: true })
+                  .then(() => this.route.navigate(['/inventory/purchase-requisition/new-pr', newID]));
+              },
+              error: (err: any) => {
+                // Save succeeded but submit failed — navigate to draft so user can retry submit
+                this.showMsg(this.extractMsg(err, 'Saved as Draft, but submit failed. Please open the draft and try submitting again.'), 'error', 'Error Message');
+                this.route.navigateByUrl('/dummy', { skipLocationChange: true })
+                  .then(() => this.route.navigate(['/inventory/purchase-requisition/new-pr', newID]));
+              }
+            });
+          },
+          error: (err: any) => {
+            this.showMsg(this.extractMsg(err, 'Unable to save right now. Please try again.'), 'error', 'Error Message');
+            this.hideSpinner();
+          }
+        });
+      }
+    });
+  }
+
   onApprove(): void {
     this.dialog.open(DialogConfirmationComponent, {
-      data: `Are you sure you want to approve Purchase Requisition <b>${this.frm.get('PRNumber')?.value}</b>?`
+      data: { message: `Are you sure you want to approve Purchase Requisition <b>${this.frm.get('PRNumber')?.value}</b>?` }
     }).afterClosed().subscribe((result: any) => {
       if (result?.confirmDialog) {
         this.showLoadingSpinner = true;
@@ -327,25 +442,37 @@ export class NewPRComponent implements OnInit {
   }
 
   onReject(): void {
-    const reason = prompt('Please enter the reason for rejection:');
-    if (!reason || reason.trim() === '') {
-      this.showMsg(
-        'Please enter a reason for rejection so the requester knows what to correct.',
-        'warning', 'Warning Message'
-      );
-      return;
-    }
-    this.showLoadingSpinner = true;
-    // Backend reads rejector identity from JWT
-    this.service.rejectPR(this.ID, { ApprovedBy: this.currentUser, ApprovalRemarks: reason }).subscribe({
-      next: (res: any) => {
-        this.showMsg(res?.message || 'Rejected.', 'warning', 'Warning Message');
-        this.loadExisting();
-      },
-      error: (err: any) => {
-        this.showMsg(this.extractMsg(err, 'Unable to reject right now.'), 'error', 'Error Message');
-        this.hideSpinner();
+    Swal.fire({
+      title: 'Reject Purchase Requisition',
+      text: 'Please enter the reason for rejection:',
+      input: 'textarea',
+      inputPlaceholder: 'Enter rejection reason here…',
+      inputAttributes: { rows: '3' },
+      showCancelButton: true,
+      confirmButtonText: 'Reject',
+      confirmButtonColor: '#d33',
+      cancelButtonText: 'Cancel',
+      inputValidator: (value) => {
+        if (!value || value.trim() === '') {
+          return 'Please enter a reason for rejection so the requester knows what to correct.';
+        }
+        return null;
       }
+    }).then(result => {
+      if (!result.isConfirmed || !result.value?.trim()) return;
+      const reason = result.value.trim();
+      this.showLoadingSpinner = true;
+      // Backend reads rejector identity from JWT
+      this.service.rejectPR(this.ID, { ApprovedBy: this.currentUser, ApprovalRemarks: reason }).subscribe({
+        next: (res: any) => {
+          this.showMsg(res?.message || 'Rejected.', 'warning', 'Warning Message');
+          this.loadExisting();
+        },
+        error: (err: any) => {
+          this.showMsg(this.extractMsg(err, 'Unable to reject right now.'), 'error', 'Error Message');
+          this.hideSpinner();
+        }
+      });
     });
   }
 

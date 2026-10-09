@@ -21,6 +21,9 @@ namespace OBMS.WebAPI.Models.Domain
 
         public string? DeliveryNoteRef { get; set; }
 
+        /// <summary>Supplier's own invoice number as printed on their delivery/invoice document.</summary>
+        public string? SupplierInvoiceNo { get; set; }
+
         public string? Remarks { get; set; }
 
         public bool IsActive { get; set; } = true;

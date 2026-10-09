@@ -23,6 +23,7 @@ export class ApprovalHistoryComponent implements OnInit, AfterViewInit {
   // ── Access ────────────────────────────────────────────────────────────────
   userAccessModel!: UserAccessModel;
   currentUser    = '';
+  userRole       = '';   // '0'→'user', '1'→'admin', '2'→'superadmin'
   warningMessage = '';
   errorMessage   = '';
 
@@ -44,13 +45,14 @@ export class ApprovalHistoryComponent implements OnInit, AfterViewInit {
 
   // ── Dropdown options ───────────────────────────────────────────────────────
   docTypeOptions = [
-    { value: '',                     label: 'All' },
-    { value: 'PURCHASE_REQUISITION', label: 'Purchase Requisition' },
-    { value: 'PURCHASE_ORDER',       label: 'Purchase Order' },
-    { value: 'STOCK_ADJUSTMENT',     label: 'Stock Adjustment' },
-    { value: 'STOCK_TRANSFER',       label: 'Stock Transfer' },
-    { value: 'DAMAGE_LOSS',          label: 'Damage / Loss' },
-    { value: 'ASSET_DISPOSAL',       label: 'Asset Disposal' }
+    { value: '',                      label: 'All'                   },
+    { value: 'PURCHASE_REQUISITION',  label: 'Purchase Requisition'  },
+    { value: 'PURCHASE_ORDER',        label: 'Purchase Order'        },
+    { value: 'STOCK_ADJUSTMENT',      label: 'Stock Adjustment'      },
+    { value: 'STOCK_TRANSFER',        label: 'Stock Transfer'        },
+    { value: 'DAMAGE_LOSS',           label: 'Damage / Loss'         },
+    { value: 'ASSET_DISPOSAL',        label: 'Asset Disposal'        },
+    { value: 'BRANCH_STOCK_REQUEST',  label: 'Branch Stock Request'  }
   ];
 
   constructor(
@@ -69,6 +71,8 @@ export class ApprovalHistoryComponent implements OnInit, AfterViewInit {
 
   ngOnInit(): void {
     this.currentUser = sessionStorage.getItem('username') ?? '';
+    const raw = sessionStorage.getItem('userrole') ?? '0';
+    this.userRole = raw === '2' ? 'superadmin' : raw === '1' ? 'admin' : 'user';
     if (!this.currentUser || this.currentUser === 'null') {
       this._dataService.getUsername().subscribe(u => {
         this.currentUser = u;
@@ -96,7 +100,7 @@ export class ApprovalHistoryComponent implements OnInit, AfterViewInit {
           this.userAccessModel.deleteAccess = data.Delete;
           this.userAccessModel.createAccess = data.Create;
         }
-        if (this.userAccessModel.readAccess || this.currentUser === 'superadmin') {
+        if (this.userAccessModel.readAccess || this.userRole === 'superadmin') {
           this.warningMessage = '';
           this.loadList();
         } else {
@@ -237,12 +241,13 @@ export class ApprovalHistoryComponent implements OnInit, AfterViewInit {
 
   private friendlyDocType(t: string): string {
     const map: Record<string, string> = {
-      'PURCHASE_REQUISITION': 'Purchase Requisition',
-      'PURCHASE_ORDER':       'Purchase Order',
-      'STOCK_ADJUSTMENT':     'Stock Adjustment',
-      'STOCK_TRANSFER':       'Stock Transfer',
-      'DAMAGE_LOSS':          'Damage / Loss',
-      'ASSET_DISPOSAL':       'Asset Disposal'
+      'PURCHASE_REQUISITION':  'Purchase Requisition',
+      'PURCHASE_ORDER':        'Purchase Order',
+      'STOCK_ADJUSTMENT':      'Stock Adjustment',
+      'STOCK_TRANSFER':        'Stock Transfer',
+      'DAMAGE_LOSS':           'Damage / Loss',
+      'ASSET_DISPOSAL':        'Asset Disposal',
+      'BRANCH_STOCK_REQUEST':  'Branch Stock Request'
     };
     return map[t] || t;
   }

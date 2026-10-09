@@ -389,6 +389,20 @@ export class FinanceService {
       { params }
     );
   }
+
+  /**
+   * Returns GRNs eligible for payment for the given supplier.
+   * paymentId = 0 for new payments; supply the ID when editing an existing payment.
+   */
+  getGRNsForPayment(supplierID: number, paymentId: number = 0): Observable<any[]> {
+    const params = new HttpParams()
+      .set('supplierID', supplierID.toString())
+      .set('paymentId', paymentId.toString());
+    return this.httpClient.get<any[]>(
+      `${this.apiUrl}Finance/GetGRNsForPayment`,
+      { params }
+    ).pipe(catchError(this.errorHandle));
+  }
   generateClientStatement(payload: any) {
     return this.httpClient.post(`${this.apiUrl}Finance/client-statement`, payload);
   }

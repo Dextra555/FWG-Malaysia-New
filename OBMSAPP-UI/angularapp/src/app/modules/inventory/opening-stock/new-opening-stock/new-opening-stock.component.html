@@ -159,7 +159,7 @@
             <mat-label>Unit Cost (RM) <span style="color:red">*</span></mat-label>
             <input matInput type="number" formControlName="UnitCost"
                    placeholder="0.00" min="0" step="0.01" autocomplete="off">
-            <mat-hint>Cost per unit at time of opening</mat-hint>
+            <mat-hint>Auto-filled from item master · editable</mat-hint>
             <mat-error *ngIf="frm.get('UnitCost')?.hasError('required')">
               Please enter a valid unit cost.
             </mat-error>

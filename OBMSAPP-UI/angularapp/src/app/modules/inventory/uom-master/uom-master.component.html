@@ -33,7 +33,7 @@
       </div>
     </div>
     <div class="table-responsive" *ngIf="errorMessage =='' && warningMessage ==''">
-      <table mat-table [dataSource]="dataSource" class="wlt-table table-striped" matSort
+      <table mat-table [dataSource]="dataSource" class="wlt-table table-striped" matSort matSortActive="Code" matSortDirection="asc"
         (matSortChange)="announceSortChange($event)">
         <ng-container matColumnDef="Code">
           <th mat-header-cell *matHeaderCellDef mat-sort-header> Code </th>

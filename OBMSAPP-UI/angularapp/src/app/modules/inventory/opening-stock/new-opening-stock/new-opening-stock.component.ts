@@ -152,6 +152,8 @@ export class NewOpeningStockComponent implements OnInit {
           this.hideLoadingSpinner();
           return;
         }
+        // Patch all saved values FIRST (including WarehouseID) so that
+        // onItemChange() sees the warehouse already set and does NOT overwrite it.
         this.frm.patchValue({
           ID:          d.ID,
           ReferenceNo: d.ReferenceNo,
@@ -162,6 +164,7 @@ export class NewOpeningStockComponent implements OnInit {
           UnitCost:    d.UnitCost,
           Remarks:     d.Remarks
         });
+        this.warningMessage = '';   // clear any stale default-warehouse warning
         this.onItemChange(d.ItemID);
         this.recalculateTotalValue();
         this.hideLoadingSpinner();
@@ -176,10 +179,34 @@ export class NewOpeningStockComponent implements OnInit {
   onItemChange(itemID: number): void {
     const selected = this.items.find(i => i.ID === +itemID);
     if (selected) {
-      this.selectedItemCode     = selected.Code      || '';
+      this.selectedItemCode     = selected.Code         || '';
       this.selectedItemCategory = selected.CategoryName || '';
       this.selectedItemBrand    = selected.BrandName    || 'N/A';
       this.selectedItemUOM      = selected.UOMName      || '';
+
+      // ── Auto-fill UnitCost from ItemMaster buying price ──────────────────
+      // Only fill when UnitCost is empty (new doc) — never overwrite user entry
+      // or a value loaded from an existing record.
+      const currentCost = this.frm.get('UnitCost')?.value;
+      if ((!currentCost || currentCost === '') && selected.Price != null) {
+        this.frm.get('UnitCost')?.setValue(selected.Price);
+      }
+
+      // ── Default Warehouse auto-fill ──────────────────────────────────────
+      // Only populate when warehouse is not yet selected (new document only).
+      // Never overwrite a warehouse the user has already chosen.
+      const currentWH = this.frm.get('WarehouseID')?.value;
+      if ((!currentWH || +currentWH === 0) && selected.WarehouseID) {
+        // Confirm the default warehouse is still active in the loaded list
+        const whExists = this.warehouses.find((w: any) => w.ID === selected.WarehouseID);
+        if (whExists) {
+          this.frm.get('WarehouseID')?.setValue(selected.WarehouseID);
+        } else if (selected.WarehouseID) {
+          // Default warehouse is inactive — warn user, leave field empty
+          this.warningMessage =
+            'The default warehouse for this item is inactive. Please select another warehouse.';
+        }
+      }
     } else {
       this.selectedItemCode = this.selectedItemCategory = this.selectedItemBrand = this.selectedItemUOM = '';
     }

@@ -142,6 +142,12 @@ export class InventoryService {
     ).pipe(catchError(this.errorHandle));
   }
 
+  getBranchListByUser(userName: string) {
+    return this.httpClient.get<any>(this.apiUrl + 'master/GetBranchListByUserName', {
+      params: { userName }
+    }).pipe(catchError(this.errorHandle));
+  }
+
   saveAsset(body: any) {
     return this.httpClient.post(this.apiUrl + 'Inventory/SaveAndUpdateAssetMaster', body);
   }
@@ -157,9 +163,12 @@ export class InventoryService {
     ).pipe(catchError(this.errorHandle));
   }
 
-  getSuppliers() {
-    return this.httpClient.get<any>(this.apiUrl + 'Inventory/GetSuppliers'
-    ).pipe(catchError(this.errorHandle));
+  getSuppliers(category?: string) {
+    const params = category
+      ? { params: new HttpParams().set('category', category) }
+      : {};
+    return this.httpClient.get<any>(this.apiUrl + 'Inventory/GetSuppliers', params)
+      .pipe(catchError(this.errorHandle));
   }
 
   getSupplierCode() {
@@ -529,6 +538,16 @@ export class InventoryService {
       .pipe(catchError(this.errorHandle));
   }
 
+  /**
+   * Returns POEditabilityDto: { canEdit, isPRLinked, linkedPRNumber, status, blockReason }
+   * Called on PO form load to configure field locks and edit-mode.
+   */
+  getPOEditability(id: number): Observable<any> {
+    return this.httpClient.get<any>(this.apiUrl + 'Inventory/GetPOEditability',
+      { params: new HttpParams().set('id', id) })
+      .pipe(catchError(this.errorHandle));
+  }
+
   // ── Part 3: GRN ────────────────────────────────────────────────────────────
 
   getGRNList(): Observable<any[]> {
@@ -567,6 +586,20 @@ export class InventoryService {
 
   saveGRN(body: any): Observable<any> {
     return this.httpClient.post<any>(this.apiUrl + 'Inventory/SaveGRN', body)
+      .pipe(catchError(this.errorHandle));
+  }
+
+  /** Checks if a GRN has downstream dependencies (payment / purchase return).
+   *  Returns { canDelete: boolean, blockingMessage: string | null } */
+  checkGRNDependency(id: number): Observable<any> {
+    return this.httpClient.get<any>(this.apiUrl + 'Inventory/CheckGRNDependency',
+      { params: new HttpParams().set('id', id) })
+      .pipe(catchError(this.errorHandle));
+  }
+
+  deleteGRN(id: number, currentUser: string): Observable<any> {
+    return this.httpClient.post<any>(
+      `${this.apiUrl}Inventory/DeleteGRN/${id}?currentUser=${encodeURIComponent(currentUser)}`, null)
       .pipe(catchError(this.errorHandle));
   }
 
@@ -630,6 +663,48 @@ export class InventoryService {
   deleteStockIssue(id: number, currentUser: string): Observable<any> {
     return this.httpClient.post<any>(
       `${this.apiUrl}Inventory/DeleteStockIssue/${id}?currentUser=${encodeURIComponent(currentUser)}`, null)
+      .pipe(catchError(this.errorHandle));
+  }
+
+  /**
+   * Returns active employees/guards for the warehouse's branch,
+   * filtered by issueToType ('Guard' or 'Staff').
+   * Used in New Stock Issue to populate the recipient dropdown.
+   */
+  getEmployeesByWarehouse(warehouseID: number, issueToType: string): Observable<any[]> {
+    return this.httpClient.get<any[]>(this.apiUrl + 'Inventory/GetEmployeesByWarehouse',
+      { params: new HttpParams().set('warehouseID', warehouseID).set('issueToType', issueToType) })
+      .pipe(catchError(this.errorHandle));
+  }
+
+  /**
+   * Returns Stock Issue documents issued to the given employee
+   * that are not yet linked to an active Uniform Loan.
+   * Used in Add Employee Uniform Loan "Link from Stock Issue" panel.
+   */
+  getPendingStockIssuesForEmployee(employeeID: number): Observable<any[]> {
+    return this.httpClient.get<any[]>(this.apiUrl + 'Inventory/GetPendingStockIssuesForEmployee',
+      { params: new HttpParams().set('employeeID', employeeID) })
+      .pipe(catchError(this.errorHandle));
+  }
+
+  /**
+   * Links a StockIssueDoc to a Uniform Loan (SalaryAdvance TransType=4).
+   * Called AFTER the loan save succeeds.
+   */
+  linkStockIssueToUniformLoan(stockIssueDocID: number, salaryAdvanceID: number, linkedBy: string): Observable<any> {
+    return this.httpClient.post<any>(this.apiUrl + 'Inventory/LinkStockIssueToUniformLoan',
+      { stockIssueDocID, salaryAdvanceID, linkedBy })
+      .pipe(catchError(this.errorHandle));
+  }
+
+  /**
+   * Returns the monthly inventory-issue timesheet for a branch / year / month.
+   * Consumed by InventoryTimesheetComponent.
+   */
+  getInventoryTimesheet(branch: string, year: number, month: number): Observable<any[]> {
+    return this.httpClient.get<any[]>(this.apiUrl + 'Inventory/GetInventoryTimesheet',
+      { params: new HttpParams().set('branch', branch).set('year', year).set('month', month) })
       .pipe(catchError(this.errorHandle));
   }
 
@@ -722,6 +797,21 @@ export class InventoryService {
   deleteStockAdjustment(id: number, currentUser: string): Observable<any> {
     return this.httpClient.post<any>(
       `${this.apiUrl}Inventory/DeleteStockAdjustment/${id}?currentUser=${encodeURIComponent(currentUser)}`, null)
+      .pipe(catchError(this.errorHandle));
+  }
+
+  submitSA(id: number): Observable<any> {
+    return this.httpClient.post<any>(`${this.apiUrl}Inventory/SubmitSA/${id}`, {})
+      .pipe(catchError(this.errorHandle));
+  }
+
+  approveSA(id: number, body: any): Observable<any> {
+    return this.httpClient.post<any>(`${this.apiUrl}Inventory/ApproveSA/${id}`, body)
+      .pipe(catchError(this.errorHandle));
+  }
+
+  rejectSA(id: number, body: any): Observable<any> {
+    return this.httpClient.post<any>(`${this.apiUrl}Inventory/RejectSA/${id}`, body)
       .pipe(catchError(this.errorHandle));
   }
 
@@ -986,6 +1076,21 @@ export class InventoryService {
       .pipe(catchError(this.errorHandle));
   }
 
+  submitAD(id: number): Observable<any> {
+    return this.httpClient.post<any>(`${this.apiUrl}Inventory/SubmitAD/${id}`, {})
+      .pipe(catchError(this.errorHandle));
+  }
+
+  approveAD(id: number, body: any): Observable<any> {
+    return this.httpClient.post<any>(`${this.apiUrl}Inventory/ApproveAD/${id}`, body)
+      .pipe(catchError(this.errorHandle));
+  }
+
+  rejectAD(id: number, body: any): Observable<any> {
+    return this.httpClient.post<any>(`${this.apiUrl}Inventory/RejectAD/${id}`, body)
+      .pipe(catchError(this.errorHandle));
+  }
+
   // ── Part 6: Asset Movement History ────────────────────────────────────────
 
   getAssetMovementHistory(assetID: number): Observable<any[]> {
@@ -1083,6 +1188,70 @@ export class InventoryService {
     return this.httpClient.post<any>(
       `${this.apiUrl}Approval/DeactivateApprovalRouting/${id}`, {}
     ).pipe(catchError(this.errorHandle));
+  }
+
+  // ── Part 9: Branch Stock Request ──────────────────────────────────────────
+
+  /** Returns all active stock requests (list view, no detail lines). */
+  getBSRList(): Observable<any[]> {
+    return this.httpClient.get<any[]>(this.apiUrl + 'StockRequest/GetBSRList')
+      .pipe(catchError(this.errorHandle));
+  }
+
+  /** Returns a single stock request with full line items + available stock. */
+  getBSRByID(id: number): Observable<any> {
+    return this.httpClient.get<any>(this.apiUrl + 'StockRequest/GetBSRByID',
+      { params: new HttpParams().set('ID', id) })
+      .pipe(catchError(this.errorHandle));
+  }
+
+  /** Returns the next auto-generated SR number (e.g. SR0001). */
+  getBSRCode(): Observable<any> {
+    return this.httpClient.get<any>(this.apiUrl + 'StockRequest/GetBSRCode')
+      .pipe(catchError(this.errorHandle));
+  }
+
+  /** Creates a new or updates an existing Draft stock request. */
+  saveBSR(body: any): Observable<any> {
+    return this.httpClient.post<any>(this.apiUrl + 'StockRequest/SaveBSR', body)
+      .pipe(catchError(this.errorHandle));
+  }
+
+  /** Submits a Draft BSR for approval (Draft → Submitted or auto-Approved). */
+  submitBSR(id: number): Observable<any> {
+    return this.httpClient.post<any>(
+      `${this.apiUrl}StockRequest/SubmitBSR/${id}`, null)
+      .pipe(catchError(this.errorHandle));
+  }
+
+  /** Approves a Submitted BSR. Caller must be the configured approver. */
+  approveBSR(id: number, body: any): Observable<any> {
+    return this.httpClient.post<any>(`${this.apiUrl}StockRequest/ApproveBSR/${id}`, body)
+      .pipe(catchError(this.errorHandle));
+  }
+
+  /** Rejects a Submitted BSR. ApprovalRemarks is mandatory. */
+  rejectBSR(id: number, body: any): Observable<any> {
+    return this.httpClient.post<any>(`${this.apiUrl}StockRequest/RejectBSR/${id}`, body)
+      .pipe(catchError(this.errorHandle));
+  }
+
+  /** Soft-deletes a Draft BSR. */
+  deleteBSR(id: number): Observable<any> {
+    return this.httpClient.post<any>(
+      `${this.apiUrl}StockRequest/DeleteBSR/${id}`, null)
+      .pipe(catchError(this.errorHandle));
+  }
+
+  /**
+   * Links an Approved BSR to the StockTransfer that was created to fulfil it.
+   * Called after saveStockTransfer() returns the new transfer ID.
+   */
+  linkBSRTransfer(id: number, linkedTransferID: number): Observable<any> {
+    return this.httpClient.post<any>(
+      `${this.apiUrl}StockRequest/LinkBSRTransfer/${id}`,
+      { LinkedTransferID: linkedTransferID })
+      .pipe(catchError(this.errorHandle));
   }
 
   private errorHandle(error: HttpErrorResponse) {

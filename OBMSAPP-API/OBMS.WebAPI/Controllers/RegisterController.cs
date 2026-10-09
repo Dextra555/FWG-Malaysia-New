@@ -102,11 +102,20 @@ namespace OBMS.WebAPI.Controllers
                     var tokenDescriptor = new SecurityTokenDescriptor
                     {
                         Subject = new ClaimsIdentity(new[] {
-                                  new Claim(ClaimTypes.Name, loginUser.userName)
+                                  // FIX: use userAvailable.Name (exact DB value) not loginUser.userName
+                                  // (typed input). This ensures JWT username always matches OBMSUsers.Name
+                                  // exactly, so ApprovalRouting lookups (which compare against OBMSUsers.Name)
+                                  // always find the correct row regardless of how the user typed their name.
+                                  new Claim(ClaimTypes.Name, userAvailable.Name),
+                                  // BUG-01 FIX: carry the user's role level in the JWT so that backend
+                                  // can determine SuperAdmin (IsAdmin='2') without a DB lookup on
+                                  // every request.  This eliminates all hard-coded "superadmin" string
+                                  // comparisons in the approval flow.
+                                  new Claim("IsAdmin", userAvailable.IsAdmin ?? "0")
                         }),
                         Issuer = "yourapi.com",
                         Audience = "yourapi.com",
-                        Expires = DateTime.UtcNow.AddMinutes(60),  // Token expires in 60 mins
+                        Expires = DateTime.UtcNow.AddHours(8),  // Token expires in 8 hours
                         SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
                     };
                     var token = tokenHandler.CreateToken(tokenDescriptor);

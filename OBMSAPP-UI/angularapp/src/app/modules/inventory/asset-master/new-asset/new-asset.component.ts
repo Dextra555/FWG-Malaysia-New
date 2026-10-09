@@ -100,7 +100,7 @@ export class NewAssetComponent implements OnInit {
   }
 
   loadDropdowns(): void {
-    this.service.getBranchList().subscribe({
+    this.service.getBranchListByUser(this.currentUser).subscribe({
       next: (d: any[]) => { this.branchList = d || []; this.filteredBranches = [...this.branchList]; },
       error: () => {}
     });

@@ -7,15 +7,88 @@
   </ol></div>
 </div></div></div>
 
-<!-- Form -->
+<!-- ── Detail / Approval Panel ─────────────────────────────────────────────── -->
+<div *ngIf="showDetail && selectedRecord" class="mb-3">
+
+  <!-- Status Banner -->
+  <div [ngSwitch]="currentStatus" class="mb-3">
+
+    <div *ngSwitchCase="'Draft'" class="alert alert-info mb-0" style="border-left:4px solid #1976d2">
+      <mat-icon style="vertical-align:middle">info</mat-icon>
+      <strong> Draft</strong> — This disposal is saved as a draft. Submit for approval when ready.
+    </div>
+
+    <div *ngSwitchCase="'Submitted'" class="alert alert-warning mb-0" style="border-left:4px solid #e65100">
+      <mat-icon style="vertical-align:middle">hourglass_empty</mat-icon>
+      <strong> Approval Pending</strong> — This asset disposal is waiting for approval. The asset will be disposed only after approval.
+      <span *ngIf="!isApprover && approverCheckDone" class="ms-2">
+        <small class="text-muted">You submitted this document.
+          <span *ngIf="approverName"> Pending approval from: <strong>{{ approverName }}</strong>.</span>
+          <span *ngIf="!approverName"> Your approver has been notified.</span>
+          <span class="ms-1">(SuperAdmin can also approve.)</span>
+        </small>
+      </span>
+      <span *ngIf="isApprover && approverCheckDone" class="ms-2">
+        <small>Requested by: <strong>{{ submittedBy }}</strong>. <strong>Action required:</strong> You are the configured approver. Please Approve or Reject below.</small>
+      </span>
+    </div>
+
+    <div *ngSwitchCase="'Approved'" class="alert alert-success mb-0" style="border-left:4px solid #2e7d32">
+      <mat-icon style="vertical-align:middle">check_circle</mat-icon>
+      <strong> Approved</strong> — Approved by <strong>{{ approvedBy }}</strong>. Asset has been disposed.
+    </div>
+
+    <div *ngSwitchCase="'Rejected'" class="alert alert-danger mb-0" style="border-left:4px solid #c62828">
+      <mat-icon style="vertical-align:middle">cancel</mat-icon>
+      <strong> Rejected</strong>
+      <span *ngIf="approvalRemarks"> — Reason: <em>{{ approvalRemarks }}</em></span>
+      <br><small>Please create a new disposal request or contact your administrator.</small>
+    </div>
+
+  </div>
+
+  <!-- Detail card -->
+  <mat-card style="border-left:4px solid #d32f2f">
+    <mat-card-content>
+      <div class="row mb-2"><div class="col-12"><h6 class="wlt-c-section-label"><strong>Asset Disposal — {{ selectedRecord.DisposalNo }}</strong></h6><hr class="mt-0"></div></div>
+      <div class="row">
+        <div class="col-6 col-md-3"><small class="text-muted d-block">Asset</small><strong>{{ selectedRecord.AssetCode }} — {{ selectedRecord.AssetName }}</strong></div>
+        <div class="col-6 col-md-2"><small class="text-muted d-block">Disposal Date</small><strong>{{ formatDate(selectedRecord.DisposalDate) }}</strong></div>
+        <div class="col-6 col-md-2"><small class="text-muted d-block">Type</small><strong>{{ selectedRecord.DisposalType?.replace('_',' ') }}</strong></div>
+        <div class="col-6 col-md-2"><small class="text-muted d-block">Value (RM)</small><strong>{{ formatNumber(selectedRecord.DisposalValue) }}</strong></div>
+        <div class="col-6 col-md-3"><small class="text-muted d-block">Submitted By</small><strong>{{ selectedRecord.SubmittedBy || '—' }}</strong></div>
+      </div>
+      <div class="row mt-2">
+        <div class="col-12 col-md-8"><small class="text-muted d-block">Disposal Reason</small><span>{{ selectedRecord.DisposalReason }}</span></div>
+        <div class="col-12 col-md-4"><small class="text-muted d-block">Remarks</small><span>{{ selectedRecord.Remarks || '—' }}</span></div>
+      </div>
+      <div class="row mt-3"><div class="col-12 text-right">
+        <button type="button" class="btn wlt-c-furg-btn-gray mr-2" (click)="cancelForm()">Back to List</button>
+        <!-- Approve / Reject — approver + SuperAdmin only -->
+        <button *ngIf="canApproveAction()"
+          type="button" class="btn btn-success mr-2" [disabled]="showLoadingSpinner" (click)="onApprove()">
+          <mat-icon style="vertical-align:middle;font-size:18px">check_circle</mat-icon> Approve
+        </button>
+        <button *ngIf="canApproveAction()"
+          type="button" class="btn btn-danger mr-2" [disabled]="showLoadingSpinner" (click)="onReject()">
+          <mat-icon style="vertical-align:middle;font-size:18px">cancel</mat-icon> Reject
+        </button>
+      </div></div>
+    </mat-card-content>
+  </mat-card>
+</div>
+
+<!-- ── New Disposal Form ───────────────────────────────────────────────────── -->
 <mat-card *ngIf="showForm" class="mb-3" style="border-left:4px solid #d32f2f">
   <mat-card-content>
-    <div class="row mb-2"><div class="col-12"><h6 class="wlt-c-section-label"><strong>Asset Disposal — {{disposalNo}}</strong></h6><hr class="mt-0"></div></div>
+    <div class="row mb-2"><div class="col-12">
+      <h6 class="wlt-c-section-label"><strong>Asset Disposal — {{ disposalNo }}</strong></h6><hr class="mt-0">
+    </div></div>
     <div class="alert alert-warning mb-3">
       <mat-icon style="vertical-align:middle;margin-right:6px">warning</mat-icon>
-      <strong>Warning:</strong> Disposing an asset is permanent. The asset status will be set to <strong>Disposed</strong> and it cannot be allocated or transferred again.
+      <strong>Warning:</strong> The asset will be set to <strong>Disposed</strong> only after approval.
     </div>
-    <form [formGroup]="frm" (ngSubmit)="onSubmit()">
+    <form [formGroup]="frm">
       <div class="row">
         <div class="col-12 col-md-5">
           <mat-form-field appearance="outline">
@@ -33,6 +106,7 @@
               <mat-option *ngFor="let a of filteredAssets" [value]="a.ID">{{a.AssetCode}} — {{a.Name}}</mat-option>
               <mat-option disabled *ngIf="filteredAssets.length === 0 && assetSearch.length > 0">No results found.</mat-option>
             </mat-select>
+            <mat-error>Please select an asset.</mat-error>
           </mat-form-field>
         </div>
         <div class="col-12 col-md-3">
@@ -70,29 +144,40 @@
         </div>
         <div class="col-12 col-md-4">
           <mat-form-field appearance="outline">
-            <mat-label>Approved By</mat-label>
-            <input matInput formControlName="ApprovedBy" placeholder="Name of approver">
+            <mat-label>Remarks</mat-label>
+            <input matInput formControlName="Remarks" placeholder="Optional">
           </mat-form-field>
         </div>
       </div>
-      <div class="row"><div class="col-12 col-md-8"><mat-form-field appearance="outline"><mat-label>Remarks</mat-label><input matInput formControlName="Remarks" placeholder="Optional"></mat-form-field></div></div>
       <div class="row mt-2"><div class="col-12 text-right">
         <button type="button" class="btn wlt-c-furg-btn-gray mr-3" (click)="cancelForm()">Cancel</button>
-        <button type="submit" class="btn wlt-c-furg-btn-danger" [disabled]="showLoadingSpinner">Confirm Disposal</button>
+        <button type="button" class="btn wlt-c-furg-btn-primary mr-2" [disabled]="showLoadingSpinner" (click)="onSave()">
+          <mat-icon style="vertical-align:middle;font-size:18px">save</mat-icon> Save Draft
+        </button>
+        <button type="button" class="btn btn-success" [disabled]="showLoadingSpinner" (click)="onSubmit()">
+          <mat-icon style="vertical-align:middle;font-size:18px">send</mat-icon> Submit
+        </button>
       </div></div>
     </form>
   </mat-card-content>
 </mat-card>
 
-<!-- List -->
+<!-- ── List ───────────────────────────────────────────────────────────────── -->
 <mat-card>
   <mat-card-content>
     <div *ngIf="warningMessage !== ''"><mat-label style="color:red" [innerHTML]="warningMessage"></mat-label></div>
     <div *ngIf="errorMessage !== '' && warningMessage === ''"><mat-label style="color:red">{{errorMessage}}</mat-label></div>
     <div class="row" *ngIf="warningMessage === ''">
-      <div class="col-12 col-md-4 order-2 order-md-1"><mat-form-field appearance="outline"><mat-label>Search</mat-label><input matInput (keyup)="applyFilter($event)" placeholder="Disposal no, asset, type…"></mat-form-field></div>
+      <div class="col-12 col-md-4 order-2 order-md-1">
+        <mat-form-field appearance="outline"><mat-label>Search</mat-label>
+          <input matInput (keyup)="applyFilter($event)" placeholder="Disposal no, asset, type, status…">
+        </mat-form-field>
+      </div>
       <div class="col-12 col-md-8 order-1 order-md-2 text-right pt-2">
-        <button *ngIf="(userAccessModel.createAccess || currentUser === 'superadmin') && !showForm" class="btn wlt-c-furg-btn-danger" (click)="openNewForm()"><mat-icon>delete_forever</mat-icon> Dispose Asset</button>
+        <button *ngIf="(userAccessModel.createAccess || userRole === 'superadmin') && !showForm && !showDetail"
+          class="btn wlt-c-furg-btn-danger" (click)="openNewForm()">
+          <mat-icon>delete_forever</mat-icon> Dispose Asset
+        </button>
       </div>
     </div>
     <div class="table-responsive" *ngIf="warningMessage === ''">
@@ -104,18 +189,38 @@
         <ng-container matColumnDef="DisposalType"><th mat-header-cell *matHeaderCellDef>Type</th><td mat-cell *matCellDef="let r"><span class="badge badge-secondary">{{r.DisposalType?.replace('_',' ')}}</span></td></ng-container>
         <ng-container matColumnDef="DisposalReason"><th mat-header-cell *matHeaderCellDef>Reason</th><td mat-cell *matCellDef="let r"><small>{{r.DisposalReason}}</small></td></ng-container>
         <ng-container matColumnDef="DisposalValue"><th mat-header-cell *matHeaderCellDef style="text-align:right">Value (RM)</th><td mat-cell *matCellDef="let r" style="text-align:right">{{formatNumber(r.DisposalValue)}}</td></ng-container>
-        <ng-container matColumnDef="ApprovedBy"><th mat-header-cell *matHeaderCellDef>Approved By</th><td mat-cell *matCellDef="let r">{{r.ApprovedBy || '—'}}</td></ng-container>
-        <ng-container matColumnDef="action" stickyEnd><th mat-header-cell *matHeaderCellDef style="text-align:center;width:70px">History</th>
-          <td mat-cell *matCellDef="let r" style="text-align:center"><a style="cursor:pointer" class="wlt-c-furg-text-primary" matTooltip="View History" [routerLink]="['/inventory/asset-movement-history', r.AssetID]"><mat-icon>history</mat-icon></a></td>
+        <ng-container matColumnDef="Status">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Status</th>
+          <td mat-cell *matCellDef="let r">
+            <span class="status-badge" [ngClass]="getStatusClass(r)">{{ getStatusLabel(r) }}</span>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="action" stickyEnd>
+          <th mat-header-cell *matHeaderCellDef style="text-align:center;width:100px">Actions</th>
+          <td mat-cell *matCellDef="let r" style="text-align:center">
+            <a style="cursor:pointer" class="wlt-c-furg-text-primary mr-2" matTooltip="View / Approve" (click)="viewRecord(r)">
+              <mat-icon>visibility</mat-icon>
+            </a>
+            <a style="cursor:pointer" class="wlt-c-furg-text-primary" matTooltip="Asset History"
+              [routerLink]="['/inventory/asset-movement-history', r.AssetID]">
+              <mat-icon>history</mat-icon>
+            </a>
+          </td>
         </ng-container>
         <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
         <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-        <tr class="mat-row" *matNoDataRow><td class="mat-cell" [attr.colspan]="displayedColumns.length" style="text-align:center;padding:24px;color:#888">
-          <span *ngIf="!filterValue">No disposal records found.</span><span *ngIf="filterValue">No records match "<strong>{{filterValue}}</strong>".</span>
-        </td></tr>
+        <tr class="mat-row" *matNoDataRow>
+          <td class="mat-cell" [attr.colspan]="displayedColumns.length" style="text-align:center;padding:24px;color:#888">
+            <span *ngIf="!filterValue">No disposal records found.</span>
+            <span *ngIf="filterValue">No records match "<strong>{{filterValue}}</strong>".</span>
+          </td>
+        </tr>
       </table>
     </div>
     <mat-paginator [pageSizeOptions]="pageSizeOptions" showFirstLastButtons></mat-paginator>
   </mat-card-content>
 </mat-card>
-<div [style.display]="showLoadingSpinner ? 'block' : 'none'" style="margin-top:-20.5rem;display:block;margin-left:-6.5rem;"><div class="d-flex justify-content-center"><span class="loader"></span></div></div>
+
+<div [style.display]="showLoadingSpinner ? 'block' : 'none'" style="margin-top:-20.5rem;display:block;margin-left:-6.5rem;">
+  <div class="d-flex justify-content-center"><span class="loader"></span></div>
+</div>

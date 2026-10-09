@@ -293,13 +293,15 @@ GO
 
 CREATE VIEW VW_PendingApprovals AS
 -- Purchase Requisitions pending approval (Status = 'Submitted')
+-- FIX: use SubmittedBy (the JWT user who submitted) as RequestedBy,
+--      not LastUpdatedBy (which may be a different user who edited the draft).
 SELECT
     'PURCHASE_REQUISITION' AS DocumentType,
     'Purchase Requisition'  AS DocumentTypeDisplay,
     pr.ID                   AS DocumentID,
     pr.PRNumber             AS DocumentNumber,
     CONVERT(DATE, pr.PRDate) AS DocumentDate,
-    pr.LastUpdatedBy        AS RequestedBy,
+    ISNULL(pr.SubmittedBy, pr.LastUpdatedBy) AS RequestedBy,
     pr.SubmittedDate        AS SubmittedDate,
     pr.Status               AS CurrentStatus,
     NULL                    AS WarehouseName,
@@ -312,13 +314,15 @@ WHERE pr.Status = 'Submitted'
 UNION ALL
 
 -- Purchase Orders pending approval (Status = 'Submitted')
+-- FIX: use SubmittedBy (the JWT user who submitted) as RequestedBy,
+--      not LastUpdatedBy (which may be a different user who edited the draft).
 SELECT
     'PURCHASE_ORDER'        AS DocumentType,
     'Purchase Order'        AS DocumentTypeDisplay,
     po.ID                   AS DocumentID,
     po.PONumber             AS DocumentNumber,
     CONVERT(DATE, po.PODate) AS DocumentDate,
-    po.LastUpdatedBy        AS RequestedBy,
+    ISNULL(po.SubmittedBy, po.LastUpdatedBy) AS RequestedBy,
     po.SubmittedDate        AS SubmittedDate,
     po.Status               AS CurrentStatus,
     wh.Name                 AS WarehouseName,

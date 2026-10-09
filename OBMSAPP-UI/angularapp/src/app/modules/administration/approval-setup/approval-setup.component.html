@@ -119,7 +119,7 @@
       <div class="col-12 col-sm-12 col-md-8 col-lg-8 order-1 order-md-2">
         <div class="text-right pt-2">
           <button
-            *ngIf="userAccessModel.createAccess || currentUser === 'superadmin'"
+            *ngIf="userAccessModel.createAccess || userRole === 'superadmin'"
             class="btn wlt-c-furg-btn-primary"
             (click)="openNewForm()">
             <mat-icon>add</mat-icon><span>New</span>
@@ -170,13 +170,13 @@
           </th>
           <td mat-cell *matCellDef="let row" style="text-align:center;">
             <!-- Edit -->
-            <a *ngIf="userAccessModel.updateAccess || currentUser === 'superadmin'"
+            <a *ngIf="userAccessModel.updateAccess || userRole === 'superadmin'"
               style="cursor:pointer;" class="wlt-c-furg-text-primary mr-2"
               matTooltip="Edit" (click)="editRow(row)">
               <mat-icon aria-hidden="false" aria-label="edit icon">edit</mat-icon>
             </a>
             <!-- Deactivate (soft-delete, only for active rows) -->
-            <a *ngIf="(userAccessModel.deleteAccess || currentUser === 'superadmin') && row.IsActive"
+            <a *ngIf="(userAccessModel.deleteAccess || userRole === 'superadmin') && row.IsActive"
               style="cursor:pointer;" class="wlt-c-furg-text-danger"
               matTooltip="Deactivate" (click)="deactivateRow(row)">
               <mat-icon aria-hidden="false" aria-label="deactivate icon">block</mat-icon>

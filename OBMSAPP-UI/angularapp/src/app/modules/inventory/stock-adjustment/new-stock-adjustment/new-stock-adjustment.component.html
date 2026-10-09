@@ -2,21 +2,60 @@
 <div class="wlt-c-furg-content-header">
   <div class="container-fluid">
     <div class="row mb-2">
-      <div class="col-12 col-md-4"><h1 class="mb-1">{{isViewMode ? 'View' : 'New'}} Stock Adjustment</h1></div>
+      <div class="col-12 col-md-4"><h1 class="mb-1">{{isEdit ? 'Stock Adjustment' : 'New Stock Adjustment'}}</h1></div>
       <div class="col-12 col-md-8 my-1">
         <ol class="breadcrumb float-md-right">
           <li class="breadcrumb-item"><a routerLink="/dashboard">Inventory</a></li>
           <li class="breadcrumb-item"><a routerLink="/inventory/stock-adjustment">Stock Adjustment</a></li>
-          <li class="breadcrumb-item active">{{isViewMode ? 'View' : 'New'}}</li>
+          <li class="breadcrumb-item active">{{isEdit ? frm.get('AdjustmentNo')?.value : 'New'}}</li>
         </ol>
       </div>
     </div>
   </div>
 </div>
 
+<!-- Status Banner -->
+<div *ngIf="isEdit" class="mb-3">
+  <div [ngSwitch]="currentStatus">
+
+    <div *ngSwitchCase="'Draft'" class="alert alert-info mb-0" style="border-left:4px solid #1976d2">
+      <mat-icon style="vertical-align:middle">info</mat-icon>
+      <strong> Draft</strong> — This adjustment is saved as a draft. Review and click <em>Submit for Approval</em> when ready.
+    </div>
+
+    <div *ngSwitchCase="'Submitted'" class="alert alert-warning mb-0" style="border-left:4px solid #e65100">
+      <mat-icon style="vertical-align:middle">hourglass_empty</mat-icon>
+      <strong> Approval Pending</strong> — This stock adjustment is waiting for approval. Stock will be updated only after approval.
+      <span *ngIf="!isApprover && approverCheckDone" class="ms-2">
+        <small class="text-muted">You submitted this document.
+          <span *ngIf="approverName"> Pending approval from: <strong>{{ approverName }}</strong>.</span>
+          <span *ngIf="!approverName"> Your approver has been notified.</span>
+          <span class="ms-1">(SuperAdmin can also approve.)</span>
+        </small>
+      </span>
+      <span *ngIf="isApprover && approverCheckDone" class="ms-2">
+        <small>Requested by: <strong>{{ submittedBy }}</strong>. <strong>Action required:</strong> You are the configured approver. Please Approve or Reject below.</small>
+      </span>
+    </div>
+
+    <div *ngSwitchCase="'Approved'" class="alert alert-success mb-0" style="border-left:4px solid #2e7d32">
+      <mat-icon style="vertical-align:middle">check_circle</mat-icon>
+      <strong> Approved</strong> — Approved by <strong>{{ approvedBy }}</strong>. Stock has been updated.
+    </div>
+
+    <div *ngSwitchCase="'Rejected'" class="alert alert-danger mb-0" style="border-left:4px solid #c62828">
+      <mat-icon style="vertical-align:middle">cancel</mat-icon>
+      <strong> Rejected</strong>
+      <span *ngIf="approvalRemarks"> — Reason: <em>{{ approvalRemarks }}</em></span>
+      <br><small>Please create a new adjustment or contact your administrator.</small>
+    </div>
+
+  </div>
+</div>
+
 <mat-card>
   <mat-card-content>
-    <form [formGroup]="frm" (ngSubmit)="onSubmit()">
+    <form [formGroup]="frm">
 
       <!-- ── HEADER ──────────────────────────────────────────────────────── -->
       <div class="row mt-2">
@@ -169,9 +208,41 @@
       <div class="row mt-3">
         <div class="col-12">
           <div class="text-right">
-            <button type="button" class="btn wlt-c-furg-btn-gray mr-3" (click)="onCancelClick()">{{isViewMode ? 'Back' : 'Cancel'}}</button>
-            <button *ngIf="!isViewMode && (userAccessModel.createAccess || currentUser === 'superadmin')"
-              type="submit" class="btn wlt-c-furg-btn-primary" [disabled]="showLoadingSpinner">Save Adjustment</button>
+            <button type="button" class="btn wlt-c-furg-btn-gray mr-3" (click)="onCancelClick()">
+              {{isEdit ? 'Back' : 'Cancel'}}
+            </button>
+
+            <!-- Save Draft — new form or existing Draft -->
+            <button *ngIf="canEdit() && (userAccessModel.createAccess || userAccessModel.updateAccess || userRole === 'superadmin')"
+              type="button" class="btn wlt-c-furg-btn-primary mr-2"
+              [disabled]="showLoadingSpinner" (click)="onSave()">
+              <mat-icon style="vertical-align:middle;font-size:18px">save</mat-icon>
+              {{isEdit ? 'Update Draft' : 'Save Draft'}}
+            </button>
+
+            <!-- Submit for Approval — new form OR existing Draft (mirrors PR Submit button) -->
+            <button *ngIf="canSubmit() && (userAccessModel.createAccess || userAccessModel.updateAccess || userRole === 'superadmin')"
+              type="button" class="btn btn-success mr-2"
+              [disabled]="showLoadingSpinner" (click)="onSubmit()">
+              <mat-icon style="vertical-align:middle;font-size:18px">send</mat-icon>
+              Submit
+            </button>
+
+            <!-- Approve — configured approver or SuperAdmin only -->
+            <button *ngIf="canApproveAction()"
+              type="button" class="btn btn-success mr-2"
+              [disabled]="showLoadingSpinner" (click)="onApprove()">
+              <mat-icon style="vertical-align:middle;font-size:18px">check_circle</mat-icon>
+              Approve
+            </button>
+
+            <!-- Reject — configured approver or SuperAdmin only -->
+            <button *ngIf="canApproveAction()"
+              type="button" class="btn btn-danger mr-2"
+              [disabled]="showLoadingSpinner" (click)="onReject()">
+              <mat-icon style="vertical-align:middle;font-size:18px">cancel</mat-icon>
+              Reject
+            </button>
           </div>
         </div>
       </div>

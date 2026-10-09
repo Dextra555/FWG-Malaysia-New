@@ -9,8 +9,10 @@ namespace OBMS.WebAPI.Repositories.Interface
         /// <summary>
         /// Returns documents pending approval that are assigned to <paramref name="approverUser"/>.
         /// Only documents where ApprovalRouting maps the requester → this approver are returned.
+        /// When <paramref name="isSuperAdmin"/> is true (derived from JWT claim IsAdmin='2'),
+        /// ALL pending documents are returned regardless of routing.
         /// </summary>
-        Task<List<PendingApprovalDto>> GetPendingApprovals(string approverUser);
+        Task<List<PendingApprovalDto>> GetPendingApprovals(string approverUser, bool isSuperAdmin);
 
         // ── Approval History ──────────────────────────────────────────────────
         Task<List<ApprovalHistoryDto>> GetApprovalHistory(string documentType, int documentID);
@@ -27,14 +29,16 @@ namespace OBMS.WebAPI.Repositories.Interface
         /// <summary>
         /// Approves a PO.  <paramref name="authenticatedUser"/> is read from the JWT —
         /// it must match the configured ApproverUser in ApprovalRouting.
+        /// <paramref name="isSuperAdmin"/> is derived from the JWT "IsAdmin" claim (value "2").
         /// </summary>
-        Task<(bool Success, string Message)> ApprovePOWithHistory(int id, string authenticatedUser, string? comments);
+        Task<(bool Success, string Message)> ApprovePOWithHistory(int id, string authenticatedUser, bool isSuperAdmin, string? comments);
 
         /// <summary>
         /// Rejects a PO.  <paramref name="authenticatedUser"/> is read from the JWT —
         /// it must match the configured ApproverUser in ApprovalRouting.
+        /// <paramref name="isSuperAdmin"/> is derived from the JWT "IsAdmin" claim (value "2").
         /// </summary>
-        Task<(bool Success, string Message)> RejectPO(int id, string authenticatedUser, string rejectReason);
+        Task<(bool Success, string Message)> RejectPO(int id, string authenticatedUser, bool isSuperAdmin, string rejectReason);
 
         // ── Approval Configuration ────────────────────────────────────────────
         Task<List<ApprovalConfigDto>> GetApprovalConfigurations();

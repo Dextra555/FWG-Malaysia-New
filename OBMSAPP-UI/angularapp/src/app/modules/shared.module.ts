@@ -184,6 +184,7 @@ import { KKDNComponent } from './report/master/kkdn/kkdn.component';
 import { MonthlyAdvanceReportComponent } from './report/payroll/monthly-advance-report/monthly-advance-report.component';
 import { HQStockLedgerComponent } from './report/inventory/hq-stock-ledger/hq-stock-ledger.component';
 import { BranchStockLedgerComponent } from './report/inventory/branch-stock-ledger/branch-stock-ledger.component';
+import { StockLedgerReportComponent } from './report/inventory/stock-ledger-report/stock-ledger-report.component';
 import { PaySheetComponent } from './report/payroll/pay-sheet/pay-sheet.component';
 import { YearlyPaySheetComponent } from './report/payroll/yearly-pay-sheet/yearly-pay-sheet.component';
 import { PayHistoryComponent } from './report/payroll/pay-history/pay-history.component';
@@ -249,6 +250,10 @@ import { PendingApprovalsComponent } from './inventory/pending-approvals/pending
 import { ApprovalHistoryComponent } from './inventory/approval-history/approval-history.component';
 import { ApprovalHistoryDialogComponent } from './inventory/approval-history-dialog/approval-history-dialog.component';
 import { NotificationListComponent } from './inventory/notification-list/notification-list.component';
+
+// Part 9: Branch Stock Request
+import { BranchStockRequestComponent } from './inventory/branch-stock-request/branch-stock-request.component';
+import { NewBSRComponent } from './inventory/branch-stock-request/new-bsr/new-bsr.component';
 
 
 
@@ -402,6 +407,7 @@ import { NotificationListComponent } from './inventory/notification-list/notific
     MonthlyAdvanceReportComponent,
     HQStockLedgerComponent,
     BranchStockLedgerComponent,
+    StockLedgerReportComponent,
     PaySheetComponent,
     YearlyPaySheetComponent,
     PayHistoryComponent,
@@ -466,7 +472,11 @@ import { NotificationListComponent } from './inventory/notification-list/notific
     PendingApprovalsComponent,
     ApprovalHistoryComponent,
     ApprovalHistoryDialogComponent,
-    NotificationListComponent
+    NotificationListComponent,
+
+    // Part 9: Branch Stock Request
+    BranchStockRequestComponent,
+    NewBSRComponent
 
   ],
   imports: [

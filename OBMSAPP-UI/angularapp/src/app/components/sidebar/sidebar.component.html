@@ -89,7 +89,6 @@
                 <li class="nav-item" routerLink="/inventory/uom-master"><a class="nav-link">UOM Master</a></li>
                 <li class="nav-item" routerLink="/inventory/warehouse-master"><a class="nav-link">Warehouse Master</a></li>
                 <li class="nav-item" routerLink="/inventory/opening-stock"><a class="nav-link">Opening Stock</a></li>
-                <li class="nav-item" routerLink="/inventory/stock-ledger"><a class="nav-link">Stock Ledger</a></li>
                 <li class="nav-item" routerLink="/inventory/purchase-requisition"><a class="nav-link">Purchase Requisition</a></li>
                 <li class="nav-item" routerLink="/inventory/purchase-order"><a class="nav-link">Purchase Order</a></li>
                 <li class="nav-item" routerLink="/inventory/goods-receipt"><a class="nav-link">Goods Receipt</a></li>
@@ -103,6 +102,7 @@
                 <li class="nav-item" routerLink="/inventory/stock-issue"><a class="nav-link">Stock Issue</a></li>
                 <li class="nav-item" routerLink="/inventory/stock-issue-return"><a class="nav-link">Issue Return</a></li>
                 <li class="nav-item" routerLink="/inventory/stock-transfer"><a class="nav-link">Stock Transfer</a></li>
+                <li class="nav-item" routerLink="/inventory/branch-stock-request"><a class="nav-link">Branch Stock Request</a></li>
                 <li class="nav-item" routerLink="/inventory/stock-adjustment"><a class="nav-link">Stock Adjustment</a></li>
                 <li class="nav-item" routerLink="/inventory/stock-damage-loss"><a class="nav-link">Damage / Loss</a></li>
                 <!-- Part 6: Asset Management -->
@@ -134,8 +134,11 @@
             </span>
             <div class="collapse" [ngClass]="{'show': isSubmenuOpen('inventory')}">
               <ul class="nav flex-column wlt-c-furg-sub-menu">
-                <li class="nav-item" routerLink="/inventory/report/hq-stock-ledger"><a class="nav-link">HQ Stock Ledger</a></li>
-                <li class="nav-item" routerLink="/inventory/report/branch-stock-ledger"><a class="nav-link">Branch Stock Ledger</a></li>
+                <!-- TEMP HIDDEN: HQ Stock Ledger & Branch Stock Ledger -->
+                <!-- <li class="nav-item" routerLink="/inventory/report/hq-stock-ledger"><a class="nav-link">HQ Stock Ledger</a></li> -->
+                <!-- <li class="nav-item" routerLink="/inventory/report/branch-stock-ledger"><a class="nav-link">Branch Stock Ledger</a></li> -->
+                <li class="nav-item" routerLink="/inventory/report/stock-ledger-report"><a class="nav-link">Stock Ledger Report</a></li>
+                <li class="nav-item" routerLink="/inventory/stock-ledger"><a class="nav-link">Stock Ledger</a></li>
                 <li class="nav-item" routerLink="/inventory/stock-balance-summary"><a class="nav-link">Stock Balance Summary</a></li>
                 <li class="nav-item" routerLink="/inventory/employee-item-holding"><a class="nav-link">Staff Item Holding</a></li>
                 <li class="nav-item" routerLink="/inventory/employee-issue-register"><a class="nav-link">Staff Issue Register</a></li>

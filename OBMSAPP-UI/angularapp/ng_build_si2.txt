@@ -1,0 +1,35 @@
+﻿
+> angularapp@0.0.0 build
+> ng build
+
+node.exe : - Generating browser application bundles 
+(phase: setup)...
+At C:\Program Files\nodejs\npm.ps1:29 char:3
++   & $NODE_EXE $NPM_CLI_JS $args
++   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (- Genera 
+   ting br...hase: setup)...:String) [], RemoteExcep  
+  tion
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+ΓêÜ Browser application bundle generation complete.
+ΓêÜ Browser application bundle generation complete.
+
+Warning: D:\FWG-Malasiya\OBMSAPP-UI\angularapp\src\app
+\modules\user\login\login.component.ts depends on 
+'crypto-js'. CommonJS or AMD dependencies can cause 
+optimization bailouts.
+For more info see: https://angular.io/guide/build#conf
+iguring-commonjs-dependencies
+
+
+
+Error: src/app/modules/inventory/branch-stock-request/
+new-bsr/new-bsr.component.ts:543:1 - error TS1005: 
+'}' expected.
+
+543 
+    
+
+
+

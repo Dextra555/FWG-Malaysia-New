@@ -400,13 +400,14 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
         private static string FriendlyDocType(string docType) => docType switch
         {
-            "PURCHASE_REQUISITION" => "Purchase Requisition",
-            "PURCHASE_ORDER"       => "Purchase Order",
-            "STOCK_ADJUSTMENT"     => "Stock Adjustment",
-            "STOCK_TRANSFER"       => "Stock Transfer",
-            "DAMAGE_LOSS"          => "Damage / Loss",
-            "ASSET_DISPOSAL"       => "Asset Disposal",
-            _                      => docType
+            "PURCHASE_REQUISITION"  => "Purchase Requisition",
+            "PURCHASE_ORDER"        => "Purchase Order",
+            "STOCK_ADJUSTMENT"      => "Stock Adjustment",
+            "STOCK_TRANSFER"        => "Stock Transfer",
+            "DAMAGE_LOSS"           => "Damage / Loss",
+            "ASSET_DISPOSAL"        => "Asset Disposal",
+            "BRANCH_STOCK_REQUEST"  => "Branch Stock Request",
+            _                       => docType
         };
 
         private static string ComputeTimeAgo(DateTime created, DateTime now)

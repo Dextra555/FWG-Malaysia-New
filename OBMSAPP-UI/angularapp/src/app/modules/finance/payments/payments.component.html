@@ -156,20 +156,33 @@
       </div>
       <!--after search clik edit iocn in search result comes below table-->
       <div class="col-12" *ngIf="isSupplierEnable">
-        <!-- Add More Invoices button - visible only in edit mode -->
-        <div class="text-right mb-2" *ngIf="showAddInvoiceBtn">
+
+        <!-- Add More Invoices button - visible only in edit mode and Invoice mode -->
+        <div class="text-right mb-2" *ngIf="showAddInvoiceBtn && paymentRefType === 'I'">
           <button type="button" class="btn wlt-c-furg-btn-primary" (click)="addMoreSupplierInvoices()">
             <i class="fas fa-plus mr-1"></i> Add More Invoices
           </button>
         </div>
+
         <div class="table-responsive" *ngIf="showDataSourceTable == true">
           <table mat-table [dataSource]="supplierInvoiceTable()" class="wlt-table wlt-new-agreement table-striped"
             formArrayName="SupplierInvoice">
 
             <ng-container matColumnDef="InvoiceNo">
-              <th mat-header-cell *matHeaderCellDef>Invoice No</th>
+              <th mat-header-cell *matHeaderCellDef>
+                {{ paymentRefType === 'G' ? 'GRN No' : 'Invoice No' }}
+              </th>
               <td mat-cell *matCellDef="let element; let index = index" [formGroupName]="index">
-                <input type="text" matInput placeholder="" value="" formControlName="InvoiceNo" readonly />
+                <div>
+                  <input type="text" matInput placeholder="" value="" formControlName="InvoiceNo" readonly />
+                  <!-- Show GRN Date + PO Number as supplementary info in GRN mode -->
+                  <ng-container *ngIf="paymentRefType === 'G'">
+                    <small class="text-muted d-block">
+                      {{ element.get('GRNDate')?.value | date:'dd MMM yyyy' }}
+                      &nbsp;|&nbsp; PO: {{ element.get('PONumber')?.value }}
+                    </small>
+                  </ng-container>
+                </div>
               </td>
             </ng-container>
             <ng-container matColumnDef="PaidAmount">
@@ -197,17 +210,10 @@
               </td>
             </ng-container>
 
-            <!-- [style.background-color]="
-                  (element.get('Amount')?.value || 0) >
-                  ((element.get('Balance')?.value || 0) > (element.get('PaidAmount')?.value || 0)
-                    ? (element.get('Balance')?.value || 0)
-                    : (element.get('PaidAmount')?.value || 0))
-                    ? 'rgb(165, 42, 42)'
-                    : ''
-                " -->
-
             <ng-container matColumnDef="BranchName">
-              <th mat-header-cell *matHeaderCellDef>Branch</th>
+              <th mat-header-cell *matHeaderCellDef>
+                {{ paymentRefType === 'G' ? 'Supplier' : 'Branch' }}
+              </th>
               <td mat-cell *matCellDef="let element; let index = index" [formGroupName]="index">
                 <input type="text" matInput placeholder="" value="" formControlName="Name" readonly />
               </td>
@@ -216,7 +222,7 @@
             <ng-container matColumnDef="Action">
               <th mat-header-cell *matHeaderCellDef></th>
               <td mat-cell *matCellDef="let element; let index = index">
-                <a *ngIf="paymentID > 0"
+                <a *ngIf="paymentID > 0 && paymentRefType === 'I'"
                   style="cursor:pointer;" class="wlt-c-furg-text-danger" matTooltip="Remove line"
                   (click)="removeInvoiceLine(index)">
                   <mat-icon aria-hidden="false" aria-label="delete icon">delete_outline</mat-icon>
@@ -224,10 +230,24 @@
               </td>
             </ng-container>
 
-            <tr mat-header-row *matHeaderRowDef="displayedColumnsSupplier"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumnsSupplier;" style="border: 1px;"></tr>
+            <!-- GRN mode extra column: Supplier Invoice No -->
+            <ng-container matColumnDef="SupplierInvoiceNo">
+              <th mat-header-cell *matHeaderCellDef>Invoice No</th>
+              <td mat-cell *matCellDef="let element; let index = index" [formGroupName]="index">
+                <input type="text" matInput placeholder="-" formControlName="SupplierInvoiceNo" readonly />
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="paymentRefType === 'G' ? displayedColumnsSupplierGRN : displayedColumnsSupplier"></tr>
+            <tr mat-row *matRowDef="let row; columns: paymentRefType === 'G' ? displayedColumnsSupplierGRN : displayedColumnsSupplier;" style="border: 1px;"></tr>
           </table>
         </div>
+
+        <!-- Empty state message for GRN mode -->
+        <div *ngIf="showDataSourceTable == false && paymentRefType === 'G'" class="mt-2">
+          <mat-label class="text-muted">No outstanding GRNs found for this supplier.</mat-label>
+        </div>
+
       </div>
       <br />
       <div class="row">

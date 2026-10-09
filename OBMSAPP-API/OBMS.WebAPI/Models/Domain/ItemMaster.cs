@@ -21,11 +21,15 @@ namespace OBMS.WebAPI.Models.Domain
         public decimal? Quantity { get; set; }         // Retained for DB compatibility — not exposed as editable in UI
         public decimal? ReorderLevel { get; set; }
         public decimal? ReorderQuantity { get; set; }
+        public int? WarehouseID { get; set; }           // Default warehouse for this item
 
         [ForeignKey("BrandID")]
         public virtual BrandMaster? Brand { get; set; }
 
         [ForeignKey("UOMID")]
         public virtual UOMMaster? UOM { get; set; }
+
+        [ForeignKey("WarehouseID")]
+        public virtual WarehouseMaster? Warehouse { get; set; }
     }
 }

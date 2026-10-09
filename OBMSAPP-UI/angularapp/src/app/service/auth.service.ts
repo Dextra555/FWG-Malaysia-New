@@ -16,17 +16,22 @@ export class AuthService {
   }
 
   getToken(): string | null {
-    return localStorage.getItem(this.tokenKey);
+    // sessionStorage = per-tab storage → each tab has its own independent token.
+    // Falls back to localStorage for any token set by an older build.
+    return sessionStorage.getItem(this.tokenKey) || localStorage.getItem(this.tokenKey);
   }
 
   setToken(token: string): void {
-    localStorage.setItem(this.tokenKey, token);
+    // Store in sessionStorage only — tab-isolated, no cross-user bleed.
+    sessionStorage.setItem(this.tokenKey, token);
+    // Remove any stale localStorage token from older builds.
+    localStorage.removeItem(this.tokenKey);
     this.startInactivityTimer();
-    //this.resetInactivityTimer(); // Start/reset timer on login
   }
 
   clearToken(): void {
-    localStorage.removeItem(this.tokenKey);
+    sessionStorage.removeItem(this.tokenKey);
+    localStorage.removeItem(this.tokenKey); // clean up legacy localStorage token
   }
 
   getManulLogout() {
@@ -38,7 +43,8 @@ export class AuthService {
   }
 
   logout(): void {
-    this.clearToken();
+    this.clearToken();               // remove auth_token from localStorage
+    sessionStorage.clear();          // remove username, userrole, currentUser
     this.stopInactivityTimer();
     this.router.navigate(['/login']);
   }

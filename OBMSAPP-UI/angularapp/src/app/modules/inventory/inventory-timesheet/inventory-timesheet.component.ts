@@ -143,7 +143,7 @@ export class InventoryTimesheetComponent implements OnInit, AfterViewInit {
   }
 
   loadBranches(): void {
-    this.service.getBranchList().subscribe(
+    this.service.getBranchListByUser(this.currentUser).subscribe(
       (data: any) => {
         this.branchList = data;
         this.hideLoadingSpinner();
@@ -198,7 +198,7 @@ export class InventoryTimesheetComponent implements OnInit, AfterViewInit {
 
         this.hideLoadingSpinner();
       },
-      (error) => this.handleErrors(error)
+      (error: any) => this.handleErrors(error)
     );
   }
 

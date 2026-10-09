@@ -12,6 +12,7 @@
         public string? Remarks { get; set; }
         public decimal? ReorderLevel { get; set; }
         public decimal? ReorderQuantity { get; set; }
+        public int? WarehouseID { get; set; }           // Default warehouse for this item
         public string? LastUpdatedBy { get; set; }
         // AdvanceID and ItemID removed — were never mapped or used
         // SellPrice removed from UI contract — DB column retained but not exposed

@@ -19,10 +19,12 @@ export class NewItemComponent implements OnInit {
   categories: any[] = [];
   brands: any[] = [];
   uoms: any[] = [];
+  warehouses: any[] = [];
   // Search filter state
   categorySearch = ''; filteredCategories: any[] = [];
   brandSearch = '';    filteredBrands: any[] = [];
   uomSearch = '';      filteredUoms: any[] = [];
+  warehouseSearch = ''; filteredWarehouses: any[] = [];
   isEdit: boolean = false;
   ID: any;
   userAccessModel!: UserAccessModel;
@@ -53,6 +55,7 @@ export class NewItemComponent implements OnInit {
       CategoryID:      ['', Validators.required],
       BrandID:         [0],                         // Optional
       UOMID:           [0, Validators.required],    // Required
+      WarehouseID:     [null],                      // Optional — default warehouse
       Name:            ['', Validators.required],
       Price:           ['', Validators.required],   // Buying price
       ReorderLevel:    [null],
@@ -73,6 +76,7 @@ export class NewItemComponent implements OnInit {
     this.getUserAccessRights(this.currentUser, 'Item Master');
     this.loadBrands();
     this.loadUOMs();
+    this.loadWarehouses();
 
     if (this.ID != 0 && this.ID != undefined) {
       // Edit mode — load existing item
@@ -87,6 +91,7 @@ export class NewItemComponent implements OnInit {
             CategoryID:      item.CategoryID,
             BrandID:         item.BrandID ?? 0,
             UOMID:           item.UOMID ?? 0,
+            WarehouseID:     item.WarehouseID ?? null,
             Name:            item.Name,
             Price:           item.Price,
             ReorderLevel:    item.ReorderLevel,
@@ -144,6 +149,13 @@ export class NewItemComponent implements OnInit {
     );
   }
 
+  loadWarehouses() {
+    this.service.getWarehouseMasters().subscribe(
+      (d: any[]) => { this.warehouses = d || []; this.filteredWarehouses = [...this.warehouses]; },
+      () => {}
+    );
+  }
+
   onCategoryTypeChange(type: string) {
     this.frm.get('CategoryID')?.setValue('');
     this.categorySearch = '';
@@ -154,11 +166,13 @@ export class NewItemComponent implements OnInit {
   onCategoryOpen(opened: boolean) { if (opened) { this.categorySearch = ''; this.filteredCategories = [...this.categories]; } }
   onBrandOpen(opened: boolean)    { if (opened) { this.brandSearch = ''; this.filteredBrands = [...this.brands]; } }
   onUomOpen(opened: boolean)      { if (opened) { this.uomSearch = ''; this.filteredUoms = [...this.uoms]; } }
+  onWarehouseOpen(opened: boolean){ if (opened) { this.warehouseSearch = ''; this.filteredWarehouses = [...this.warehouses]; } }
 
   // Filter methods
   onCategorySearch(q: string) { this.categorySearch = q; const s = q.toLowerCase(); this.filteredCategories = this.categories.filter(c => c.Name?.toLowerCase().includes(s)); }
   onBrandSearch(q: string)    { this.brandSearch = q;    const s = q.toLowerCase(); this.filteredBrands    = this.brands.filter(b => b.Name?.toLowerCase().includes(s)); }
   onUomSearch(q: string)      { this.uomSearch = q;      const s = q.toLowerCase(); this.filteredUoms      = this.uoms.filter(u => u.Name?.toLowerCase().includes(s)); }
+  onWarehouseSearch(q: string){ this.warehouseSearch = q; const s = q.toLowerCase(); this.filteredWarehouses = this.warehouses.filter(w => w.Name?.toLowerCase().includes(s) || w.Code?.toLowerCase().includes(s)); }
 
   onSubmit() {
     if (this.frm.invalid) {

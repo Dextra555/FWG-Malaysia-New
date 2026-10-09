@@ -71,7 +71,7 @@
           </mat-form-field>
         </div>
 
-        <!-- Employee / Guard lookup — searchable dropdown -->
+        <!-- Employee / Guard lookup — searchable dropdown, filtered by warehouse + role -->
         <div class="col-12 col-md-5" *ngIf="showRecipientDropdown && !isViewMode">
           <mat-form-field appearance="outline">
             <mat-label>
@@ -81,8 +81,17 @@
             <mat-select [value]="frm.get('IssueToID')?.value"
                         (selectionChange)="onRecipientSelect($event.value)"
                         (openedChange)="onRecipientSearch('')">
+              <!-- Loading state -->
+              <mat-option disabled *ngIf="loadingEmployees">
+                <span style="font-size:12px; color:#888;">Loading…</span>
+              </mat-option>
+              <!-- No warehouse selected warning -->
+              <mat-option disabled *ngIf="!loadingEmployees && (issueToType==='Guard'||issueToType==='Staff') && frm.get('WarehouseID')?.value <= 0">
+                <span style="font-size:12px; color:#e65100;">⚠ Please select a warehouse first.</span>
+              </mat-option>
               <!-- Search box inside dropdown -->
-              <mat-option disabled style="position:sticky; top:0; background:#fff; z-index:1; padding:0">
+              <mat-option disabled style="position:sticky; top:0; background:#fff; z-index:1; padding:0"
+                          *ngIf="!loadingEmployees">
                 <div style="padding: 4px 10px;">
                   <input
                     type="text"
@@ -95,16 +104,26 @@
                 </div>
               </mat-option>
               <!-- List items -->
-              <mat-option
-                *ngFor="let item of (filteredRecipients.length > 0 || recipientSearch ? filteredRecipients : getSourceList())"
-                [value]="item">
-                {{ getRecipientLabel(item) }}
-              </mat-option>
-              <mat-option disabled *ngIf="(filteredRecipients.length === 0 && recipientSearch.length > 0)">
+              <ng-container *ngIf="!loadingEmployees">
+                <mat-option
+                  *ngFor="let item of (filteredRecipients.length > 0 || recipientSearch ? filteredRecipients : getSourceList())"
+                  [value]="item">
+                  {{ getRecipientLabel(item) }}
+                </mat-option>
+              </ng-container>
+              <mat-option disabled *ngIf="!loadingEmployees && filteredRecipients.length === 0 && recipientSearch.length > 0">
                 No results found.
+              </mat-option>
+              <mat-option disabled *ngIf="!loadingEmployees && getSourceList().length === 0 && !recipientSearch && (issueToType==='Guard'||issueToType==='Staff') && frm.get('WarehouseID')?.value > 0">
+                <span style="font-size:12px; color:#888;">No active {{issueToType}}s found for this warehouse.</span>
               </mat-option>
             </mat-select>
           </mat-form-field>
+          <!-- Helper text when warehouse not yet selected -->
+          <small class="text-warning d-block mt-n2 mb-2"
+                 *ngIf="(issueToType==='Guard'||issueToType==='Staff') && frm.get('WarehouseID')?.value <= 0">
+            Select a warehouse to load the {{issueToType}} list.
+          </small>
         </div>
 
         <!-- View-mode: just show the name as read-only -->

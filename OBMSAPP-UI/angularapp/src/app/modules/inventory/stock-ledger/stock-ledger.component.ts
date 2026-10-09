@@ -100,6 +100,11 @@ export class StockLedgerComponent implements OnInit, AfterViewInit {
   closingBalance: number = 0;
   tableFilterValue: string = '';
 
+  /** Print support */
+  printRows: IStockLedgerRow[] = [];
+  printSummary = { warehouseName: '', itemName: '', transactionType: '', dateFrom: '', dateTo: '' };
+  printGeneratedOn: string = '';
+
   constructor(
     private fb: FormBuilder,
     private _liveAnnouncer: LiveAnnouncer,
@@ -208,6 +213,18 @@ export class StockLedgerComponent implements OnInit, AfterViewInit {
           this.dataSource.paginator = this.paginator;
           this.calculateSummary(rows);
           this.noDataMessage = '';
+          // Capture full unfiltered/unpaginated rows for print
+          this.printRows = rows;
+          this.printSummary = {
+            warehouseName:   this.warehouses.find(w => w.ID === +raw.WarehouseID)?.Name ?? 'All',
+            itemName:        raw.ItemID > 0
+                               ? (this.items.find(i => i.ID === +raw.ItemID)?.Name ?? raw.ItemID)
+                               : 'All Items',
+            transactionType: raw.TransactionType === 'ALL' ? 'All Types'
+                               : (this.transactionTypeOptions.find(t => t.value === raw.TransactionType)?.label ?? raw.TransactionType),
+            dateFrom:        this.formatDate(raw.DateFrom),
+            dateTo:          this.formatDate(raw.DateTo),
+          };
         } else {
           this.dataSource    = new MatTableDataSource<IStockLedgerRow>([]);
           this.noDataMessage = 'No stock transactions found for the selected filters. Try adjusting the date range or filters.';
@@ -237,6 +254,7 @@ export class StockLedgerComponent implements OnInit, AfterViewInit {
     this.errorMessage  = '';
     this.noDataMessage = '';
     this.hasSearched   = false;
+    this.printRows     = [];
     this.resetSummary();
   }
 
@@ -301,4 +319,16 @@ export class StockLedgerComponent implements OnInit, AfterViewInit {
   }
 
   hideLoadingSpinner(): void { this.showLoadingSpinner = false; }
+
+  /** Print / Save as PDF — uses browser's native print dialog.
+   *  @media print CSS in the component stylesheet hides everything
+   *  except #printSection, producing a clean A4 printout. */
+  onPrint(): void {
+    this.printGeneratedOn = new Date().toLocaleString('en-MY', {
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: true
+    });
+    // Let Angular render the print section first, then open the dialog
+    setTimeout(() => window.print(), 150);
+  }
 }

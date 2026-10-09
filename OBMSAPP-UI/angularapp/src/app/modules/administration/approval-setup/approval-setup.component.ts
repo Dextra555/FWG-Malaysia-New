@@ -26,6 +26,7 @@ export class ApprovalSetupComponent implements OnInit, AfterViewInit {
   // ── Access ────────────────────────────────────────────────────────────────
   userAccessModel!: UserAccessModel;
   currentUser = '';
+  userRole    = '';   // BUG-09/10 FIX: '0'→'user', '1'→'admin', '2'→'superadmin'
   warningMessage = '';
   errorMessage   = '';
 
@@ -48,12 +49,13 @@ export class ApprovalSetupComponent implements OnInit, AfterViewInit {
 
   // ── Dropdowns ─────────────────────────────────────────────────────────────
   documentTypes = [
-    { value: 'PURCHASE_REQUISITION', label: 'Purchase Requisition' },
-    { value: 'PURCHASE_ORDER',       label: 'Purchase Order'       },
-    { value: 'STOCK_ADJUSTMENT',     label: 'Stock Adjustment'     },
-    { value: 'STOCK_TRANSFER',       label: 'Stock Transfer'       },
-    { value: 'DAMAGE_LOSS',          label: 'Damage / Loss'        },
-    { value: 'ASSET_DISPOSAL',       label: 'Asset Disposal'       }
+    { value: 'PURCHASE_REQUISITION', label: 'Purchase Requisition'  },
+    { value: 'PURCHASE_ORDER',       label: 'Purchase Order'        },
+    { value: 'STOCK_ADJUSTMENT',     label: 'Stock Adjustment'      },
+    { value: 'STOCK_TRANSFER',       label: 'Stock Transfer'        },
+    { value: 'DAMAGE_LOSS',          label: 'Damage / Loss'         },
+    { value: 'ASSET_DISPOSAL',       label: 'Asset Disposal'        },
+    { value: 'BRANCH_STOCK_REQUEST', label: 'Branch Stock Request'  }
   ];
   users: any[] = [];
 
@@ -89,6 +91,9 @@ export class ApprovalSetupComponent implements OnInit, AfterViewInit {
   }
 
   private init(): void {
+    // BUG-09 FIX: load role from sessionStorage 'userrole' (set at login from OBMSUsers.IsAdmin)
+    const raw = sessionStorage.getItem('userrole') ?? '0';
+    this.userRole = raw === '2' ? 'superadmin' : raw === '1' ? 'admin' : 'user';
     this.buildForm();
     this.getUserAccessRights(this.currentUser, 'Approval Setup');
   }
@@ -114,7 +119,8 @@ export class ApprovalSetupComponent implements OnInit, AfterViewInit {
           this.userAccessModel.updateAccess = data.Update;
           this.userAccessModel.deleteAccess = data.Delete;
         }
-        if (this.userAccessModel.readAccess || this.currentUser === 'superadmin') {
+        // BUG-09 FIX: use userRole (from sessionStorage 'userrole'), not username string
+        if (this.userAccessModel.readAccess || this.userRole === 'superadmin') {
           this.loadUsers();
           this.loadList();
         } else {
@@ -258,7 +264,8 @@ export class ApprovalSetupComponent implements OnInit, AfterViewInit {
   // ── Deactivate ────────────────────────────────────────────────────────────
 
   deactivateRow(row: any): void {
-    if (!this.userAccessModel.deleteAccess && this.currentUser !== 'superadmin') {
+    // BUG-10 FIX: use userRole (from sessionStorage 'userrole'), not username string
+    if (!this.userAccessModel.deleteAccess && this.userRole !== 'superadmin') {
       this.showMsg('You do not have permission to deactivate configurations.', 'warning', 'Warning');
       return;
     }

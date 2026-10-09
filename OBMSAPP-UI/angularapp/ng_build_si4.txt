@@ -1,0 +1,47 @@
+﻿
+> angularapp@0.0.0 build
+> ng build
+
+node.exe : - Generating browser application bundles (phase: 
+setup)...
+At C:\Program Files\nodejs\npm.ps1:29 char:3
++   & $NODE_EXE $NPM_CLI_JS $args
++   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (- Generating br. 
+   ..hase: setup)...:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+ΓêÜ Browser application bundle generation complete.
+ΓêÜ Browser application bundle generation complete.
+- Copying assets...
+ΓêÜ Copying assets complete.
+- Generating index html...
+- Generating index html...
+1 rules skipped due to selector errors:
+  .custom-file-input:lang(en)~.custom-file-label -> unmatched 
+pseudo-class :lang
+ΓêÜ Index html generation complete.
+
+Initial Chunk Files           | Names                                   |  Raw Size | Estimated Transfer Size
+styles.1fb6671a426b28da.css   | styles                                  | 690.20 kB |                82.09 kB
+main.da99df8dc1d3866a.js      | main                                    | 636.80 kB |               151.75 kB
+scripts.e50417b48b7b6c2b.js   | scripts                                 | 599.22 kB |               130.84 kB
+polyfills.42130577004f2206.js | polyfills                               | 119.24 kB |                38.16 kB
+runtime.8226ab9de25fac1c.js   | runtime                                 |   2.78 kB |                 1.32 kB
+
+| Initial Total                           |   2.00 MB |               404.16 kB
+
+Lazy Chunk Files              | Names                                   |  Raw Size | Estimated Transfer Size
+675.3b3dcb397c7bf97d.js       | layout-auth-layout-auth-layout-module   |   3.43 MB |               636.66 kB
+169.0929794aa1841d4b.js       | layout-admin-layout-admin-layout-module |   2.77 MB |               290.17 kB
+765.70e7093872c4ac5d.js       | layout-auth-layout-auth-layout-module   |  84.99 kB |                24.75 kB
+
+Build at: 2026-10-06T05:45:23.965Z - Hash: 1ad8af3aada513db - Time: 452218ms
+
+Warning: D:\FWG-Malasiya\OBMSAPP-UI\angularapp\src\app\modules
+\user\login\login.component.ts depends on 'crypto-js'. 
+CommonJS or AMD dependencies can cause optimization bailouts.
+For more info see: https://angular.io/guide/build#configuring-
+commonjs-dependencies
+
+

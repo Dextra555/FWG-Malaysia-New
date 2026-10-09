@@ -110,24 +110,27 @@ var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI();
 
-// HTTPS
-app.UseHttpsRedirection();
+// HTTPS redirect — disable if IIS site is HTTP-only
+// app.UseHttpsRedirection();
 
 // CORS
-// SignalR with credentials requires explicit origins — AllowAnyOrigin is incompatible
-// with AllowCredentials (WebSocket auth). We allow all known OBMS origins.
+// AllowAnyOrigin() cannot be used with AllowCredentials() (required for SignalR).
+// So we explicitly list all known origins — local dev + live IIS server.
 app.UseCors(policy =>
     policy.WithOrigins(
-            "http://localhost:4200",          // Angular dev server
-            "http://localhost:5002",          // API self (Swagger)
-            "http://124.217.236.37:64499",    // FWG production API origin
-            "http://124.217.236.37:8227",     // UAT server
-            "http://124.217.236.37:8484",     // IND server
-            "http://124.217.236.37"           // bare host fallback
+            "http://localhost:4200",           // Angular local dev (default)
+            "http://localhost:4300",           // Angular local dev (alternate)
+            "http://localhost:5002",           // API self / Swagger
+            "http://124.217.236.37",           // Live server (bare port 80)
+            "http://124.217.236.37:64488",     // FWG Live Angular app ← FIXED
+            "http://124.217.236.37:64499",     // FWG Live API
+            "http://124.217.236.37:8008",      // FWG Report server
+            "http://124.217.236.37:8227",      // UAT Angular
+            "http://124.217.236.37:8484"       // IND Angular
           )
           .AllowAnyMethod()
           .AllowAnyHeader()
-          .AllowCredentials());               // required for SignalR auth
+          .AllowCredentials());
 
 // Authentication & Authorization
 app.UseAuthentication();

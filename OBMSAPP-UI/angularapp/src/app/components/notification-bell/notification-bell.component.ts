@@ -202,6 +202,9 @@ export class NotificationBellComponent implements OnInit, OnDestroy {
       case 'PURCHASE_ORDER':
         this.router.navigate(['/inventory/purchase-order/new-po', refID]);
         break;
+      case 'BRANCH_STOCK_REQUEST':
+        this.router.navigate(['/inventory/branch-stock-request/new-bsr', refID]);
+        break;
       case 'ITEM':
         this.router.navigate(['/inventory/item-master/new-item', refID]);
         break;

@@ -134,6 +134,14 @@ public partial class OBMSDbContext : DbContext
     public DbSet<StockTransferDetail> StockTransferDetails { get; set; }
     public DbSet<StockAdjustment> StockAdjustments { get; set; }
     public DbSet<StockDamageLoss> StockDamageLosses { get; set; }
+
+    // Part 9: Branch Stock Request
+    public DbSet<StockRequest> StockRequests { get; set; }
+    public DbSet<StockRequestDetail> StockRequestDetails { get; set; }
+
+    // Stock Issue → Uniform Loan link table
+    public DbSet<StockIssueUniformLoanLink> StockIssueUniformLoanLinks { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<BranchPaymentForBranch>().ToTable("BranchPaymentsForBranch");

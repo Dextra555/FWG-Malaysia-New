@@ -32,7 +32,7 @@ namespace OBMS.WebAPI.Repositories.Interface
 
         Task<Supplier> SaveAndUpdateSupplier(Supplier obj);
 
-        Task<List<Object>> GetSuppliers();
+        Task<List<Object>> GetSuppliers(string? category = null);
 
         Task<Supplier> GetSupplierByID(int ID);
 
@@ -44,7 +44,7 @@ namespace OBMS.WebAPI.Repositories.Interface
 
         Task<Recipient> GetRecipientByID(int ID);
 
-        Task<Dictionary<string, Object>> GetUtilityBillsMasterList();
+        Task<Dictionary<string, Object>> GetUtilityBillsMasterList(string userID);
 
         Task<Dictionary<string, Object>> GetPaytoByCategory(int ID);
 
@@ -142,6 +142,7 @@ namespace OBMS.WebAPI.Repositories.Interface
         Task<(bool Success, string Message, PurchaseOrder? Record)> SavePO(PORequestDto dto);
         Task<(bool Success, string Message)> ApprovePO(int id, POApprovalDto dto);
         Task<(bool Success, string Message)> CancelPO(int id, string currentUser);
+        Task<POEditabilityDto> GetPOEditability(int id);
 
         // ── Part 3: GRN ───────────────────────────────────────────────────────────
 
@@ -151,6 +152,8 @@ namespace OBMS.WebAPI.Repositories.Interface
         Task<List<POListDto>> GetApprovedPOsForGRN();
         Task<List<POLineForGRNDto>> GetPOLinesForGRN(int poID);
         Task<(bool Success, string Message, GoodsReceiptNote? Record)> SaveGRN(GRNRequestDto dto);
+        Task<(bool CanDelete, string? BlockingMessage, string? BlockingDocNumber)> CheckGRNDependency(int id);
+        Task<(bool Success, string Message)> DeleteGRN(int id, string currentUser);
 
         // ── Part 3: Purchase Return ───────────────────────────────────────────────
 
@@ -190,6 +193,9 @@ namespace OBMS.WebAPI.Repositories.Interface
         Task<StockAdjustmentListDto?> GetStockAdjustmentByID(int id);
         Task<(bool Success, string Message, StockAdjustment? Record)> SaveStockAdjustment(StockAdjustmentRequestDto dto);
         Task<(bool Success, string Message)> DeleteStockAdjustment(int id, string currentUser);
+        Task<(bool Success, string Message)> SubmitSA(int id, string currentUser);
+        Task<(bool Success, string Message)> ApproveSA(int id, SAApprovalDto dto);
+        Task<(bool Success, string Message)> RejectSA(int id, SAApprovalDto dto);
 
         // ── Part 4: Damage / Loss ─────────────────────────────────────────────────
 
@@ -285,6 +291,9 @@ namespace OBMS.WebAPI.Repositories.Interface
         Task<List<AssetDisposalListDto>> GetAssetDisposalList();
         Task<AssetDisposalListDto?> GetAssetDisposalByID(int id);
         Task<(bool Success, string Message, AssetDisposal? Record)> SaveAssetDisposal(AssetDisposalRequestDto dto);
+        Task<(bool Success, string Message)> SubmitAD(int id, string currentUser);
+        Task<(bool Success, string Message)> ApproveAD(int id, ADApprovalDto dto);
+        Task<(bool Success, string Message)> RejectAD(int id, ADApprovalDto dto);
 
         // ── Part 6: Asset Movement History ────────────────────────────────────────
 
@@ -300,5 +309,63 @@ namespace OBMS.WebAPI.Repositories.Interface
 
         /// <summary>Returns all assets with Defect_Location or Parked_Away status.</summary>
         Task<List<AssetListDto>> GetDefectLocationAssets();
+
+        // ── Part 9: Branch Stock Request ─────────────────────────────────────────
+
+        /// <summary>Returns all active stock requests, enriched with branch/warehouse names.</summary>
+        Task<List<StockRequestListDto>> GetBSRList();
+
+        /// <summary>Returns a single stock request with full line items.</summary>
+        Task<StockRequestListDto?> GetBSRByID(int id);
+
+        /// <summary>
+        /// Saves (new) or updates (existing) a Draft stock request.
+        /// Cannot edit a Submitted/Approved/Rejected request.
+        /// </summary>
+        Task<(bool Success, string Message, StockRequest? Record)> SaveBSR(
+            StockRequestSaveDto dto, string currentUser);
+
+        /// <summary>
+        /// Submits a Draft request for approval.
+        /// If no routing exists → direct-approve flow (same as PR/PO pattern).
+        /// </summary>
+        Task<(bool Success, string Message)> SubmitBSR(int id, string currentUser);
+
+        /// <summary>Approves a Submitted stock request. Authorisation checked via ApprovalRouting.</summary>
+        Task<(bool Success, string Message)> ApproveBSR(int id, StockRequestApprovalDto dto);
+
+        /// <summary>Rejects a Submitted stock request. ApprovalRemarks required.</summary>
+        Task<(bool Success, string Message)> RejectBSR(int id, StockRequestApprovalDto dto);
+
+        /// <summary>
+        /// Soft-deletes a Draft stock request.
+        /// Cannot delete Submitted/Approved/Rejected requests.
+        /// </summary>
+        Task<(bool Success, string Message)> DeleteBSR(int id, string currentUser);
+
+        /// <summary>
+        /// Links an Approved stock request to a StockTransfer that was created to fulfil it.
+        /// Called after the user creates the transfer from the approved BSR form.
+        /// </summary>
+        Task<(bool Success, string Message)> LinkBSRTransfer(int id, int transferID, string currentUser);
+
+    // ── Stock Issue → Uniform Loan integration ────────────────────────────────
+    /// <summary>
+    /// Returns active employees/guards for the given warehouse's branch,
+    /// filtered by issueToType ("Guard" → Guard/FGuard, "Staff" → Staff).
+    /// </summary>
+    Task<List<EmployeeForIssueDto>> GetEmployeesByWarehouse(int warehouseID, string issueToType);
+
+    /// <summary>
+    /// Returns all StockIssueDocs issued to the given employee (by EMP_ID)
+    /// that are NOT already linked to an active Uniform Loan (SalaryAdvance TransType=4).
+    /// </summary>
+    Task<List<PendingStockIssueDto>> GetPendingStockIssuesForEmployee(int employeeID);
+
+    /// <summary>
+    /// Creates a StockIssueUniformLoanLink row to mark a Stock Issue as linked to a Uniform Loan.
+    /// Enforces that the same Stock Issue cannot be linked to more than one active loan.
+    /// </summary>
+    Task<(bool Success, string Message)> LinkStockIssueToUniformLoan(LinkStockIssueToLoanRequestDto dto);
     }
 }

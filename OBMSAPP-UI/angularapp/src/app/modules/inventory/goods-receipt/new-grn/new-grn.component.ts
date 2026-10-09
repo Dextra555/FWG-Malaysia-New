@@ -31,11 +31,12 @@ export class NewGRNComponent implements OnInit {
     private service: InventoryService, private _dataService: DatasharingService, private _masterService: MastermoduleService) {
     this.userAccessModel = { readAccess: false, updateAccess: false, deleteAccess: false, createAccess: false };
     this.frm = this.fb.group({
-      POID:           [0, [Validators.required, Validators.min(1)]],
-      WarehouseID:    [0],
-      GRNDate:        [new Date(), Validators.required],
-      DeliveryNoteRef:[''],
-      Remarks:        ['']
+      POID:              [0, [Validators.required, Validators.min(1)]],
+      WarehouseID:       [0],
+      GRNDate:           [new Date(), Validators.required],
+      DeliveryNoteRef:   [''],
+      SupplierInvoiceNo: [''],
+      Remarks:           ['']
     });
   }
 
@@ -124,8 +125,21 @@ export class NewGRNComponent implements OnInit {
       next: (d: any) => {
         if (!d) { this.errorMessage = 'Goods receipt not found.'; this.hideSpinner(); return; }
         this.grnNumber = d.GRNNumber;
-        this.frm.patchValue({ POID: d.POID, WarehouseID: d.WarehouseID, GRNDate: new Date(d.GRNDate), DeliveryNoteRef: d.DeliveryNoteRef, Remarks: d.Remarks });
+        this.frm.patchValue({ POID: d.POID, WarehouseID: d.WarehouseID, GRNDate: new Date(d.GRNDate), DeliveryNoteRef: d.DeliveryNoteRef, SupplierInvoiceNo: d.SupplierInvoiceNo, Remarks: d.Remarks });
         this.existingDetails = d.Details || [];
+
+        // Populate poInfo for the view-mode PO summary panel.
+        // Try the already-loaded approvedPOs list first; fall back to a direct API call.
+        const matchedPO = this.approvedPOs.find((p: any) => p.ID === +d.POID);
+        if (matchedPO) {
+          this.poInfo = matchedPO;
+        } else {
+          this.service.getPOByID(+d.POID).subscribe({
+            next: (poData: any) => { if (poData) { this.poInfo = poData; } },
+            error: () => {}
+          });
+        }
+
         this.frm.disable();
         this.hideSpinner();
       },
@@ -146,6 +160,16 @@ export class NewGRNComponent implements OnInit {
   hasAnyQty(): boolean { return this.lines.some(l => parseFloat(l.receivedInput) > 0); }
   hasErrors(): boolean { return this.lines.some(l => l.inputError && l.inputError !== ''); }
 
+  /** Total received quantity across all lines in view mode */
+  get viewTotalQty(): number {
+    return this.existingDetails.reduce((sum: number, d: any) => sum + (parseFloat(d.ReceivedQty) || 0), 0);
+  }
+
+  /** Total received value (qty × unit cost) across all lines in view mode */
+  get viewTotalValue(): number {
+    return this.existingDetails.reduce((sum: number, d: any) => sum + ((parseFloat(d.ReceivedQty) || 0) * (parseFloat(d.UnitCost) || 0)), 0);
+  }
+
   onSave(): void {
     if (this.frm.get('POID')?.value <= 0) { this.showMsg('Please select a purchase order to receive against.', 'warning', 'Warning Message'); return; }
     if (!this.hasAnyQty()) { this.showMsg('Please enter the received quantity for at least one item.', 'warning', 'Warning Message'); return; }
@@ -157,7 +181,7 @@ export class NewGRNComponent implements OnInit {
       .filter(l => parseFloat(l.receivedInput) > 0)
       .map(l => ({ ID: 0, PODetailID: l.PODetailID, ItemID: l.ItemID, UOMID: l.UOMID || null, ReceivedQty: parseFloat(l.receivedInput), UnitCost: l.UnitCost, LastUpdatedBy: this.currentUser }));
 
-    const payload = { ID: 0, GRNNumber: this.grnNumber, POID: +raw.POID, WarehouseID: +raw.WarehouseID, GRNDate: raw.GRNDate, DeliveryNoteRef: raw.DeliveryNoteRef, Remarks: raw.Remarks, LastUpdatedBy: this.currentUser, Details: details };
+    const payload = { ID: 0, GRNNumber: this.grnNumber, POID: +raw.POID, WarehouseID: +raw.WarehouseID, GRNDate: raw.GRNDate, DeliveryNoteRef: raw.DeliveryNoteRef, SupplierInvoiceNo: raw.SupplierInvoiceNo, Remarks: raw.Remarks, LastUpdatedBy: this.currentUser, Details: details };
 
     this.service.saveGRN(payload).subscribe({
       next: (res: any) => { this.showMsg(res?.message || 'Goods receipt saved. Stock has been updated.', 'success', 'Success Message'); this.route.navigateByUrl('/dummy', { skipLocationChange: true }).then(() => this.route.navigate(['/inventory/goods-receipt'])); },

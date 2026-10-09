@@ -21,16 +21,22 @@
   <div [ngSwitch]="currentStatus">
     <div *ngSwitchCase="'Draft'" class="alert alert-info mb-0" style="border-left:4px solid #1976d2">
       <mat-icon style="vertical-align:middle">info</mat-icon>
-      <strong> Draft</strong> — This requisition is in draft. Add items and click <em>Submit for Approval</em> when ready.
+      <strong> Draft</strong> — This requisition is saved as a draft. You can edit and click <em>Submit</em> when ready.
     </div>
     <div *ngSwitchCase="'Submitted'" class="alert alert-warning mb-0" style="border-left:4px solid #e65100">
       <mat-icon style="vertical-align:middle">hourglass_empty</mat-icon>
       <strong> Approval Pending</strong> — This purchase requisition is waiting for approval. It cannot be converted to a Purchase Order until approved.
       <span *ngIf="!isApprover && approverCheckDone" class="ms-2">
-        <small class="text-muted">You submitted this document. Your approver has been notified.</small>
+        <small class="text-muted">You submitted this document.
+          <span *ngIf="approverName">
+            Pending approval from: <strong>{{ approverName }}</strong>.
+          </span>
+          <span *ngIf="!approverName">Your approver has been notified.</span>
+          <span class="ms-1">(SuperAdmin can also approve.)</span>
+        </small>
       </span>
       <span *ngIf="isApprover && approverCheckDone" class="ms-2">
-        <small><strong>Action required:</strong> You are the configured approver. Please Approve or Reject below.</small>
+        <small>Requested by: <strong>{{ submittedBy }}</strong>. <strong>Action required:</strong> You are the configured approver. Please Approve or Reject below.</small>
       </span>
     </div>
     <div *ngSwitchCase="'Approved'" class="alert alert-success mb-0" style="border-left:4px solid #2e7d32">
@@ -142,6 +148,13 @@
             <mat-error *ngIf="lineForm.get('RequiredQty')?.hasError('greaterThanZero')">Quantity must be greater than zero.</mat-error>
           </mat-form-field>
         </div>
+        <div class="col-12 col-md-2">
+          <mat-form-field appearance="outline">
+            <mat-label>Buying Price (RM)</mat-label>
+            <input matInput type="number" formControlName="BuyingPrice" placeholder="0.00" min="0">
+            <mat-hint>Auto-filled · editable</mat-hint>
+          </mat-form-field>
+        </div>
         <div class="col-12 col-md-3">
           <mat-form-field appearance="outline">
             <mat-label>Line Remarks</mat-label>
@@ -166,6 +179,7 @@
             <th class="mat-header-cell">Category</th>
             <th class="mat-header-cell">UOM</th>
             <th class="mat-header-cell" style="text-align:right">Quantity</th>
+            <th class="mat-header-cell" style="text-align:right">Buying Price (RM)</th>
             <th class="mat-header-cell">Remarks</th>
             <th class="mat-header-cell" *ngIf="canEdit()" style="text-align:center">Action</th>
           </tr>
@@ -177,6 +191,9 @@
             <td class="mat-cell">{{line.CategoryName}}</td>
             <td class="mat-cell">{{line.UOMName}}</td>
             <td class="mat-cell" style="text-align:right">{{line.RequiredQty}}</td>
+            <td class="mat-cell" style="text-align:right">
+              {{line.BuyingPrice != null && line.BuyingPrice !== '' ? (line.BuyingPrice | number:'1.2-2') : '—'}}
+            </td>
             <td class="mat-cell">{{line.Remarks}}</td>
             <td class="mat-cell" *ngIf="canEdit()" style="text-align:center">
               <a style="cursor:pointer" class="wlt-c-furg-text-primary mr-2" matTooltip="Edit line" (click)="editLine(i)"><mat-icon>edit</mat-icon></a>
@@ -184,7 +201,7 @@
             </td>
           </tr>
           <tr class="mat-row" *ngIf="lines.length === 0">
-            <td [attr.colspan]="canEdit() ? 7 : 6" style="text-align:center;padding:16px;color:#888">
+            <td [attr.colspan]="canEdit() ? 8 : 7" style="text-align:center;padding:16px;color:#888">
               No items added yet. Use the form above to add items.
             </td>
           </tr>
@@ -198,17 +215,18 @@
         <div class="text-right">
           <button type="button" class="btn wlt-c-furg-btn-gray mr-2" (click)="onCancel()">Cancel</button>
 
-          <!-- Save (Draft only) -->
-          <button *ngIf="canEdit() && (userAccessModel.createAccess || userAccessModel.updateAccess || currentUser === 'superadmin')"
+          <!-- Save Draft (new form or existing Draft) -->
+          <button *ngIf="canEdit() && (userAccessModel.createAccess || userAccessModel.updateAccess || userRole === 'superadmin')"
             type="button" class="btn wlt-c-furg-btn-primary mr-2" [disabled]="showLoadingSpinner" (click)="onSave()">
-            {{isEdit ? 'Update Requisition' : 'Save Requisition'}}
+            <mat-icon style="vertical-align:middle;font-size:18px">save</mat-icon>
+            {{isEdit ? 'Update Draft' : 'Save Draft'}}
           </button>
 
-          <!-- Submit for Approval (saved Draft only) -->
-          <button *ngIf="canSubmit() && (userAccessModel.updateAccess || currentUser === 'superadmin')"
-            type="button" class="btn btn-warning mr-2" [disabled]="showLoadingSpinner" (click)="onSubmitForApproval()">
+          <!-- Submit — visible on new form (with lines) and on saved Draft -->
+          <button *ngIf="canSubmit() && (userAccessModel.createAccess || userAccessModel.updateAccess || userRole === 'superadmin')"
+            type="button" class="btn btn-success mr-2" [disabled]="showLoadingSpinner" (click)="onSubmitDirect()">
             <mat-icon style="vertical-align:middle;font-size:18px">send</mat-icon>
-            Send for Approval
+            Submit
           </button>
 
           <!-- Approve / Reject — visible ONLY to the configured approver, NOT the requester -->
@@ -224,7 +242,7 @@
           </button>
 
           <!-- Create PO (Approved only, and no PO posted yet) -->
-          <button *ngIf="canCreatePO() && !linkedPO && (userAccessModel.createAccess || currentUser === 'superadmin')"
+          <button *ngIf="canCreatePO() && !linkedPO && (userAccessModel.createAccess || userRole === 'superadmin')"
             type="button" class="btn wlt-c-furg-btn-primary" (click)="onCreatePO()">
             <mat-icon>add_shopping_cart</mat-icon> Create Purchase Order
           </button>

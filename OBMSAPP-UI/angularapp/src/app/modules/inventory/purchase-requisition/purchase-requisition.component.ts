@@ -28,6 +28,7 @@ export class PurchaseRequisitionComponent implements OnInit, AfterViewInit {
 
   userAccessModel!: UserAccessModel;
   currentUser = '';
+  userRole    = '';   // '0'→'user', '1'→'admin', '2'→'superadmin'
   warningMessage = '';
   errorMessage = '';
   showLoadingSpinner = false;
@@ -51,6 +52,8 @@ export class PurchaseRequisitionComponent implements OnInit, AfterViewInit {
 
   ngOnInit(): void {
     this.currentUser = sessionStorage.getItem('username')!;
+    const raw = sessionStorage.getItem('userrole') ?? '0';
+    this.userRole = raw === '2' ? 'superadmin' : raw === '1' ? 'admin' : 'user';
     if (!this.currentUser || this.currentUser === 'null') {
       this._dataService.getUsername().subscribe(u => this.currentUser = u);
     }
@@ -66,7 +69,7 @@ export class PurchaseRequisitionComponent implements OnInit, AfterViewInit {
           this.userAccessModel.deleteAccess = data.Delete;
           this.userAccessModel.updateAccess = data.Update;
           this.userAccessModel.createAccess = data.Create;
-          if (this.userAccessModel.readAccess || this.currentUser === 'superadmin') {
+          if (this.userAccessModel.readAccess || this.userRole === 'superadmin') {
             this.loadList();
           } else {
             this.warningMessage = `Dear <b>${this.currentUser}</b>,<br>You do not have permission to view this page.<br>Please contact your administrator.`;
@@ -113,14 +116,22 @@ export class PurchaseRequisitionComponent implements OnInit, AfterViewInit {
 
   getStatusClass(status: string): string {
     switch (status) {
-      case 'Draft':      return 'badge-draft';
-      case 'Submitted':  return 'badge-submitted';
-      case 'Approved':   return 'badge-approved';
-      case 'Rejected':   return 'badge-rejected';
-      case 'PO Posted':  return 'badge-po-posted';
-      case 'GRN Posted': return 'badge-grn-posted';
-      default:           return '';
+      case 'Draft':           return 'badge-draft';
+      case 'Submitted':
+      case 'Waiting Approval': return 'badge-submitted';
+      case 'Approved':        return 'badge-approved';
+      case 'Rejected':        return 'badge-rejected';
+      case 'PO Posted':       return 'badge-po-posted';
+      case 'GRN Posted':      return 'badge-grn-posted';
+      default:                return '';
     }
+  }
+
+  // Convert internal status to user-friendly display label
+  getStatusLabel(row: any): string {
+    const s = row.DisplayStatus || row.Status || '';
+    if (s === 'Submitted') return 'Waiting Approval';
+    return s;
   }
 
   formatDate(d: any): string {
@@ -133,7 +144,13 @@ export class PurchaseRequisitionComponent implements OnInit, AfterViewInit {
       this.showMsg(`This purchase requisition cannot be deleted because it has already been ${row.Status.toLowerCase()}. Only Draft requisitions can be deleted.`, 'warning', 'Warning Message');
       return;
     }
-    this.dialog.open(DialogConfirmationComponent, { data: `Are you sure you want to delete Purchase Requisition <b>${row.PRNumber}</b>?` })
+    // Frontend pre-check: if DisplayStatus shows a linked PO or GRN, warn immediately
+    // (backend also enforces this — this is a UX convenience only)
+    if (row.DisplayStatus === 'PO Posted' || row.DisplayStatus === 'GRN Posted') {
+      this.showMsg(`Purchase Requisition ${row.PRNumber} cannot be deleted because a Purchase Order has already been created from it. Please cancel the related Purchase Order first.`, 'warning', 'Warning Message');
+      return;
+    }
+    this.dialog.open(DialogConfirmationComponent, { data: { message: `Are you sure you want to delete Purchase Requisition <b>${row.PRNumber}</b>?` } })
       .afterClosed().subscribe((result: any) => {
         if (result?.confirmDialog) {
           this.showLoadingSpinner = true;

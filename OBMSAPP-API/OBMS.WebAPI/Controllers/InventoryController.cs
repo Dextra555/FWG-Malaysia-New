@@ -180,6 +180,7 @@ namespace OBMS.WebAPI.Controllers
                 item.Remarks = dto.Remarks;
                 item.ReorderLevel = dto.ReorderLevel;
                 item.ReorderQuantity = dto.ReorderQuantity;
+                item.WarehouseID = dto.WarehouseID == 0 ? null : dto.WarehouseID;
                 // SellPrice and Quantity: not mapped from DTO — preserved as-is on edit, null on new
 
                 await _inventoryRepository.SaveAndUpdateItem(item);
@@ -394,19 +395,17 @@ namespace OBMS.WebAPI.Controllers
 
         [HttpGet]
         [Route("GetSuppliers")]
-        public async Task<ActionResult<Object>> GetSuppliers()
+        public async Task<ActionResult<Object>> GetSuppliers([FromQuery] string? category = null)
         {
             try
             {
-                var obj = await _inventoryRepository.GetSuppliers();
-
+                var obj = await _inventoryRepository.GetSuppliers(category);
                 return obj;
             }
             catch (Exception ex)
             {
                 throw;
             }
-
         }
 
         [HttpGet]
@@ -550,11 +549,11 @@ namespace OBMS.WebAPI.Controllers
 
         [HttpGet]
         [Route("GetUtilityBillsMasterList")]
-        public async Task<ActionResult<Object>> GetUtilityBillsMasterList()
+        public async Task<ActionResult<Object>> GetUtilityBillsMasterList(string userID)
         {
             try
             {
-                var obj = await _inventoryRepository.GetUtilityBillsMasterList();
+                var obj = await _inventoryRepository.GetUtilityBillsMasterList(userID);
                 return Ok(obj);
             }
             catch (Exception ex)
@@ -882,6 +881,7 @@ namespace OBMS.WebAPI.Controllers
             item.Name,
             item.Price,
             item.LASTUPDATE,
+            item.WarehouseID,
             CategoryName = category.Name
         }
     )
@@ -1801,16 +1801,22 @@ namespace OBMS.WebAPI.Controllers
                     from br in brJoin.DefaultIfEmpty()
                     join um in _oBMSDbContext.UOMMasters   on im.UOMID   equals um.ID into umJoin
                     from um in umJoin.DefaultIfEmpty()
+                    join wh in _oBMSDbContext.WarehouseMasters on im.WarehouseID equals wh.ID into whJoin
+                    from wh in whJoin.DefaultIfEmpty()
                     orderby im.Name
                     select new
                     {
                         im.ID,
                         im.Code,
                         im.Name,
-                        CategoryName = ic != null ? ic.Name : "",
-                        BrandName    = br != null ? br.Name : "",
-                        UOMName      = um != null ? um.Name : "",
-                        UOMShort     = um != null ? um.ShortName : ""
+                        im.UOMID,
+                        im.Price,           // Buying / cost price — auto-filled into UnitPrice / UnitCost on item select
+                        CategoryName  = ic != null ? ic.Name : "",
+                        BrandName     = br != null ? br.Name : "",
+                        UOMName       = um != null ? um.Name : "",
+                        UOMShort      = um != null ? um.ShortName : "",
+                        WarehouseID   = im.WarehouseID,
+                        WarehouseName = wh != null ? wh.Name : ""
                     }
                 ).ToListAsync();
 
@@ -1934,6 +1940,8 @@ namespace OBMS.WebAPI.Controllers
 
             // Override ApprovedBy with the authenticated identity
             dto.ApprovedBy = jwtUser;
+            // BUG-05 FIX: stamp IsSuperAdmin from JWT "IsAdmin" claim; never trust client value
+            dto.IsSuperAdmin = User.FindFirst("IsAdmin")?.Value == "2";
 
             try
             {
@@ -1961,6 +1969,8 @@ namespace OBMS.WebAPI.Controllers
 
             // Override ApprovedBy with the authenticated identity
             dto.ApprovedBy = jwtUser;
+            // BUG-05 FIX: stamp IsSuperAdmin from JWT "IsAdmin" claim; never trust client value
+            dto.IsSuperAdmin = User.FindFirst("IsAdmin")?.Value == "2";
 
             try
             {
@@ -2122,7 +2132,10 @@ namespace OBMS.WebAPI.Controllers
             {
                 // Route through ApprovalRepository which enforces routing authorization
                 var (success, message) = await _inventoryRepository.ApprovePO(
-                    id, new POApprovalDto { ApprovedBy = jwtUser });
+                    id, new POApprovalDto {
+                        ApprovedBy   = jwtUser,
+                        IsSuperAdmin = User.FindFirst("IsAdmin")?.Value == "2"  // BUG-13 FIX
+                    });
                 if (!success) return BadRequest(new { success = false, message });
                 return Ok(new { success = true, message });
             }
@@ -2146,6 +2159,26 @@ namespace OBMS.WebAPI.Controllers
             {
                 Console.Error.WriteLine($"[CancelPO] {ex}");
                 return StatusCode(500, new { success = false, message = "Unable to cancel the purchase order right now. Please try again." });
+            }
+        }
+
+        /// <summary>
+        /// Returns the editability state of a PO: can it be edited, is the item list
+        /// locked (PR-linked), and why it is blocked if not editable.
+        /// Called by the PO form on load so the frontend can configure field locks.
+        /// </summary>
+        [HttpGet("GetPOEditability")]
+        public async Task<IActionResult> GetPOEditability(int id)
+        {
+            try
+            {
+                var result = await _inventoryRepository.GetPOEditability(id);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[GetPOEditability] {ex}");
+                return StatusCode(500, new { success = false, message = "Unable to check purchase order editability right now. Please try again." });
             }
         }
 
@@ -2267,6 +2300,41 @@ namespace OBMS.WebAPI.Controllers
             {
                 Console.Error.WriteLine($"[SaveGRN] {ex}");
                 return StatusCode(500, new { success = false, message = "Unable to save the goods receipt right now. Please try again. If the problem continues, contact your administrator." });
+            }
+        }
+
+        /// <summary>
+        /// Returns the dependency status for a GRN — used by the frontend to decide
+        /// whether to show a delete button. Returns canDelete:true/false and a reason.
+        /// </summary>
+        [HttpGet("CheckGRNDependency")]
+        public async Task<IActionResult> CheckGRNDependency(int id)
+        {
+            try
+            {
+                var (canDelete, blockingMessage, blockingDocNumber) = await _inventoryRepository.CheckGRNDependency(id);
+                return Ok(new { canDelete, blockingMessage, blockingDocNumber });
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[CheckGRNDependency] {ex}");
+                return StatusCode(500, new { success = false, message = "Unable to check goods receipt dependencies right now. Please try again." });
+            }
+        }
+
+        [HttpPost("DeleteGRN/{id}")]
+        public async Task<IActionResult> DeleteGRN(int id, [FromQuery] string currentUser)
+        {
+            try
+            {
+                var (success, message) = await _inventoryRepository.DeleteGRN(id, currentUser ?? "");
+                if (!success) return BadRequest(new { success = false, message });
+                return Ok(new { success = true, message });
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[DeleteGRN] {ex}");
+                return StatusCode(500, new { success = false, message = "Unable to delete the goods receipt right now. Please try again. If the problem continues, contact your administrator." });
             }
         }
 
@@ -2760,6 +2828,70 @@ namespace OBMS.WebAPI.Controllers
             {
                 Console.Error.WriteLine($"[DeleteStockAdjustment] {ex}");
                 return StatusCode(500, new { success = false, message = "Unable to delete the stock adjustment right now. Please try again." });
+            }
+        }
+
+        [HttpPost("SubmitSA/{id}")]
+        public async Task<IActionResult> SubmitSA(int id)
+        {
+            var jwtUser = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
+            if (string.IsNullOrWhiteSpace(jwtUser))
+                return Unauthorized(new { success = false, message = "Unable to identify the current user. Please log in again." });
+            try
+            {
+                var (success, message) = await _inventoryRepository.SubmitSA(id, jwtUser);
+                if (!success) return BadRequest(new { success = false, message });
+                return Ok(new { success = true, message });
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[SubmitSA] {ex}");
+                return StatusCode(500, new { success = false, message = "Unable to submit the stock adjustment right now. Please try again." });
+            }
+        }
+
+        [HttpPost("ApproveSA/{id}")]
+        public async Task<IActionResult> ApproveSA(int id, [FromBody] SAApprovalDto dto)
+        {
+            var jwtUser = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
+            if (string.IsNullOrWhiteSpace(jwtUser))
+                return Unauthorized(new { success = false, message = "Unable to identify the current user. Please log in again." });
+            if (dto == null) dto = new SAApprovalDto();
+            dto.ApprovedBy   = jwtUser;
+            dto.IsSuperAdmin = User.FindFirst("IsAdmin")?.Value == "2";
+            try
+            {
+                var (success, message) = await _inventoryRepository.ApproveSA(id, dto);
+                if (!success) return BadRequest(new { success = false, message });
+                return Ok(new { success = true, message });
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[ApproveSA] {ex}");
+                return StatusCode(500, new { success = false, message = "Unable to approve the stock adjustment right now. Please try again." });
+            }
+        }
+
+        [HttpPost("RejectSA/{id}")]
+        public async Task<IActionResult> RejectSA(int id, [FromBody] SAApprovalDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto?.ApprovalRemarks))
+                return BadRequest(new { success = false, message = "Please enter a reason for rejection so the requester knows what to correct." });
+            var jwtUser = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
+            if (string.IsNullOrWhiteSpace(jwtUser))
+                return Unauthorized(new { success = false, message = "Unable to identify the current user. Please log in again." });
+            dto.ApprovedBy   = jwtUser;
+            dto.IsSuperAdmin = User.FindFirst("IsAdmin")?.Value == "2";
+            try
+            {
+                var (success, message) = await _inventoryRepository.RejectSA(id, dto);
+                if (!success) return BadRequest(new { success = false, message });
+                return Ok(new { success = true, message });
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[RejectSA] {ex}");
+                return StatusCode(500, new { success = false, message = "Unable to reject the stock adjustment right now. Please try again." });
             }
         }
 
@@ -3558,6 +3690,70 @@ namespace OBMS.WebAPI.Controllers
             }
         }
 
+        [HttpPost("SubmitAD/{id}")]
+        public async Task<IActionResult> SubmitAD(int id)
+        {
+            var jwtUser = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
+            if (string.IsNullOrWhiteSpace(jwtUser))
+                return Unauthorized(new { success = false, message = "Unable to identify the current user. Please log in again." });
+            try
+            {
+                var (success, message) = await _inventoryRepository.SubmitAD(id, jwtUser);
+                if (!success) return BadRequest(new { success = false, message });
+                return Ok(new { success = true, message });
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[SubmitAD] {ex}");
+                return StatusCode(500, new { success = false, message = "Unable to submit the disposal record right now. Please try again." });
+            }
+        }
+
+        [HttpPost("ApproveAD/{id}")]
+        public async Task<IActionResult> ApproveAD(int id, [FromBody] ADApprovalDto dto)
+        {
+            var jwtUser = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
+            if (string.IsNullOrWhiteSpace(jwtUser))
+                return Unauthorized(new { success = false, message = "Unable to identify the current user. Please log in again." });
+            if (dto == null) dto = new ADApprovalDto();
+            dto.ApprovedBy   = jwtUser;
+            dto.IsSuperAdmin = User.FindFirst("IsAdmin")?.Value == "2";
+            try
+            {
+                var (success, message) = await _inventoryRepository.ApproveAD(id, dto);
+                if (!success) return BadRequest(new { success = false, message });
+                return Ok(new { success = true, message });
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[ApproveAD] {ex}");
+                return StatusCode(500, new { success = false, message = "Unable to approve the disposal right now. Please try again." });
+            }
+        }
+
+        [HttpPost("RejectAD/{id}")]
+        public async Task<IActionResult> RejectAD(int id, [FromBody] ADApprovalDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto?.ApprovalRemarks))
+                return BadRequest(new { success = false, message = "Please enter a reason for rejection." });
+            var jwtUser = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
+            if (string.IsNullOrWhiteSpace(jwtUser))
+                return Unauthorized(new { success = false, message = "Unable to identify the current user. Please log in again." });
+            dto.ApprovedBy   = jwtUser;
+            dto.IsSuperAdmin = User.FindFirst("IsAdmin")?.Value == "2";
+            try
+            {
+                var (success, message) = await _inventoryRepository.RejectAD(id, dto);
+                if (!success) return BadRequest(new { success = false, message });
+                return Ok(new { success = true, message });
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[RejectAD] {ex}");
+                return StatusCode(500, new { success = false, message = "Unable to reject the disposal right now. Please try again." });
+            }
+        }
+
         // ── Asset Movement History ────────────────────────────────────────────
 
         [HttpGet("GetAssetMovementHistory")]
@@ -3617,6 +3813,80 @@ namespace OBMS.WebAPI.Controllers
             {
                 Console.Error.WriteLine($"[GetDefectLocationAssets] {ex}");
                 return StatusCode(500, new { success = false, message = "Unable to load defect location assets right now. Please try again." });
+            }
+        }
+
+        // ════════════════════════════════════════════════════════════════════════
+        // Stock Issue → Uniform Loan integration endpoints
+        // ════════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Returns active employees for the warehouse's branch, filtered by IssueToType.
+        /// Guard → Guard / FGuard / Foreign Guard.  Staff → Staff.
+        /// </summary>
+        [HttpGet("GetEmployeesByWarehouse")]
+        public async Task<IActionResult> GetEmployeesByWarehouse(
+            [FromQuery] int warehouseID,
+            [FromQuery] string issueToType)
+        {
+            if (warehouseID <= 0)
+                return BadRequest(new { success = false, message = "Please provide a valid warehouse ID." });
+            if (string.IsNullOrWhiteSpace(issueToType))
+                return BadRequest(new { success = false, message = "Please provide the issue-to type (Guard or Staff)." });
+            try
+            {
+                var list = await _inventoryRepository.GetEmployeesByWarehouse(warehouseID, issueToType);
+                return Ok(list);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[GetEmployeesByWarehouse] {ex}");
+                return StatusCode(500, new { success = false, message = "Unable to load the employee list right now. Please try again." });
+            }
+        }
+
+        /// <summary>
+        /// Returns all Stock Issue documents issued to the given employee
+        /// that are NOT already linked to an active Uniform Loan.
+        /// </summary>
+        [HttpGet("GetPendingStockIssuesForEmployee")]
+        public async Task<IActionResult> GetPendingStockIssuesForEmployee(
+            [FromQuery] int employeeID)
+        {
+            if (employeeID <= 0)
+                return BadRequest(new { success = false, message = "Please provide a valid employee ID." });
+            try
+            {
+                var list = await _inventoryRepository.GetPendingStockIssuesForEmployee(employeeID);
+                return Ok(list);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[GetPendingStockIssuesForEmployee] {ex}");
+                return StatusCode(500, new { success = false, message = "Unable to load pending stock issues right now. Please try again." });
+            }
+        }
+
+        /// <summary>
+        /// Links a StockIssueDoc to a Uniform Loan (SalaryAdvance TransType=4).
+        /// Called AFTER the Uniform Loan has been saved successfully.
+        /// </summary>
+        [HttpPost("LinkStockIssueToUniformLoan")]
+        public async Task<IActionResult> LinkStockIssueToUniformLoan(
+            [FromBody] LinkStockIssueToLoanRequestDto dto)
+        {
+            if (dto == null)
+                return BadRequest(new { success = false, message = "Invalid request payload." });
+            try
+            {
+                var (success, message) = await _inventoryRepository.LinkStockIssueToUniformLoan(dto);
+                if (!success) return BadRequest(new { success = false, message });
+                return Ok(new { success = true, message });
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[LinkStockIssueToUniformLoan] {ex}");
+                return StatusCode(500, new { success = false, message = "Unable to link the stock issue to the uniform loan right now. Please try again." });
             }
         }
     }

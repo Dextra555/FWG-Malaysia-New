@@ -24,5 +24,14 @@ namespace OBMS.WebAPI.Models.DTO
         public string? Remarks { get; set; }
         public DateTime LASTUPDATE { get; set; }
         public string? LastUpdatedBy { get; set; }
+
+        // ── Approval workflow ────────────────────────────────────────────
+        /// <summary>Draft | Submitted | Approved | Rejected</summary>
+        public string Status { get; set; } = "Draft";
+        public string? SubmittedBy     { get; set; }
+        public DateTime? SubmittedDate  { get; set; }
+        public string? ApprovedBy      { get; set; }
+        public DateTime? ApprovedDate   { get; set; }
+        public string? ApprovalRemarks { get; set; }
     }
 }

@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { AbstractControl, FormArray, FormBuilder, FormGroup, ValidatorFn, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import Swal from 'sweetalert2';
+import { forkJoin } from 'rxjs';
 
 import { InventoryService } from '../../../../service/inventory.service';
 import { MastermoduleService } from '../../../../service/mastermodule.service';
@@ -42,6 +43,9 @@ export class NewStockTransferComponent implements OnInit {
   errorMessage: string = '';
   showLoadingSpinner: boolean = false;
 
+  /** BSR ID that originated this transfer (null if not BSR-originated). */
+  fromBSR: number | null = null;
+
   constructor(
     private fb: FormBuilder,
     private activatedRoute: ActivatedRoute,
@@ -66,21 +70,92 @@ export class NewStockTransferComponent implements OnInit {
 
   ngOnInit(): void {
     this.ID = this.activatedRoute.snapshot.params['ID'];
+    this.fromBSR = this.activatedRoute.snapshot.queryParams['fromBSR']
+      ? +this.activatedRoute.snapshot.queryParams['fromBSR']
+      : null;
     this.currentUser = sessionStorage.getItem('username')!;
     if (!this.currentUser || this.currentUser === 'null') {
       this._dataService.getUsername().subscribe(u => { this.currentUser = u; });
     }
     this.getUserAccessRights(this.currentUser, 'Stock Transfer');
-    this.loadWarehouses();
-    this.loadItems();
 
     if (this.ID && this.ID !== '0') {
+      // View / edit an existing stock transfer
       this.isViewMode = true;
-      this.loadExisting();
+      this.loadWarehousesAndItems(() => this.loadExisting());
     } else {
-      this.service.getStockTransferCode().subscribe({ next: (d: any) => this.frm.get('TransferNo')?.setValue(d.Code), error: () => {} });
-      this.addRow();
+      // New transfer — check if we arrived from a BSR "Create Stock Transfer" action
+      if (this.fromBSR) {
+        this.service.getStockTransferCode().subscribe({ next: (d: any) => this.frm.get('TransferNo')?.setValue(d.Code), error: () => {} });
+        this.loadWarehousesAndItems(() => this.prefillFromBSR(this.fromBSR!));
+      } else {
+        this.service.getStockTransferCode().subscribe({ next: (d: any) => this.frm.get('TransferNo')?.setValue(d.Code), error: () => {} });
+        this.loadWarehousesAndItems(() => this.addRow());
+      }
     }
+  }
+
+  /** Loads warehouses + items in parallel, then calls the given callback once both are ready. */
+  private loadWarehousesAndItems(onReady: () => void): void {
+    forkJoin({
+      warehouses: this.service.getWarehouseMasters(),
+      items: this.service.getItemsForStock()
+    }).subscribe({
+      next: ({ warehouses, items }: any) => {
+        this.warehouses = (warehouses || []).filter((w: any) => w.IsActive);
+        this.filteredSrcWarehouses  = [...this.warehouses];
+        this.filteredDestWarehouses = [...this.warehouses];
+        this.items = items || [];
+        this.filteredItems = [...this.items];
+        onReady();
+      },
+      error: () => { this.errorMessage = 'Unable to load master data. Please refresh the page.'; }
+    });
+  }
+
+  /** Pre-fills the form using the BSR record identified by bsrID. */
+  private prefillFromBSR(bsrID: number): void {
+    this.showLoadingSpinner = true;
+    this.service.getBSRByID(bsrID).subscribe({
+      next: (bsr: any) => {
+        if (!bsr) { this.addRow(); this.hideLoadingSpinner(); return; }
+
+        // Set source warehouse from BSR
+        this.frm.get('SourceWarehouseID')?.setValue(bsr.SourceWarehouseID ?? 0);
+
+        // Auto-fill destination warehouse: find the warehouse that belongs to the requesting branch
+        const destWH = this.warehouses.find(w => w.BranchID === bsr.RequestingBranchID);
+        if (destWH) {
+          this.frm.get('DestWarehouseID')?.setValue(destWH.ID);
+        }
+
+        this.details.clear();
+        const lines: any[] = bsr.Details || [];
+        lines.forEach((line: any, idx: number) => {
+          this.details.push(this.fb.group({
+            ID:          [0],
+            ItemID:      [line.ItemID,      [Validators.required, mustSelect()]],
+            UOMID:       [line.UOMID ?? null],
+            TransferQty: [line.RequestedQty ?? line.TransferQty ?? '', [Validators.required, greaterThanZero()]],
+            UnitCost:    [line.UnitCost ?? 0],
+            Remarks:     [line.Remarks ?? ''],
+            _ItemName:   [line.ItemName ?? ''],
+            _UOMName:    [line.UOMName  ?? ''],
+            _Available:  [0]
+          }));
+          // Load available stock for each pre-filled item
+          this.loadAvailableStock(idx);
+        });
+
+        if (lines.length === 0) { this.addRow(); }
+        this.hideLoadingSpinner();
+      },
+      error: () => {
+        this.errorMessage = 'Unable to load Branch Stock Request data. Please try again.';
+        this.addRow();
+        this.hideLoadingSpinner();
+      }
+    });
   }
 
   getUserAccessRights(userName: string, screenName: string): void {
@@ -96,20 +171,6 @@ export class NewStockTransferComponent implements OnInit {
     );
   }
 
-  loadWarehouses(): void {
-    this.service.getWarehouseMasters().subscribe({
-      next: (d: any[]) => { this.warehouses = (d || []).filter((w: any) => w.IsActive); this.filteredSrcWarehouses = [...this.warehouses]; this.filteredDestWarehouses = [...this.warehouses]; },
-      error: () => { this.errorMessage = 'Unable to load warehouse list. Please refresh the page.'; }
-    });
-  }
-
-  loadItems(): void {
-    this.service.getItemsForStock().subscribe({
-      next: (d: any[]) => { this.items = d || []; this.filteredItems = [...this.items]; },
-      error: () => { this.errorMessage = 'Unable to load item list. Please refresh the page.'; }
-    });
-  }
-
   loadExisting(): void {
     this.showLoadingSpinner = true;
     this.service.getStockTransferByID(this.ID).subscribe({
@@ -119,6 +180,7 @@ export class NewStockTransferComponent implements OnInit {
           ID: d.ID, TransferNo: d.TransferNo, TransferDate: new Date(d.TransferDate),
           SourceWarehouseID: d.SourceWarehouseID, DestWarehouseID: d.DestWarehouseID, Remarks: d.Remarks
         });
+        this.errorMessage = '';   // clear any stale default-warehouse warning
         this.details.clear();
         (d.Details || []).forEach((line: any) => {
           this.details.push(this.fb.group({
@@ -159,6 +221,27 @@ export class NewStockTransferComponent implements OnInit {
       line.get('_UOMName')?.setValue(selected.UOMName || '');
       line.get('UOMID')?.setValue(selected.UOMID || null);
       line.get('UnitCost')?.setValue(selected.Price || 0);
+
+      // ── Default Warehouse auto-fill (Source Warehouse only) ──────────────
+      // Auto-fill SourceWarehouseID from item's default warehouse when:
+      //   • Not in view mode (existing transfer is read-only)
+      //   • SourceWarehouseID is not yet selected (0)
+      // BSR-originated transfers already have SourceWarehouseID set from
+      // prefillFromBSR(), so the currentWH===0 guard naturally protects them.
+      // Destination warehouse is NEVER auto-filled — user always picks it.
+      if (!this.isViewMode) {
+        const currentWH = +this.frm.get('SourceWarehouseID')?.value;
+        if (currentWH === 0 && selected.WarehouseID) {
+          const whExists = this.warehouses.find((w: any) => w.ID === selected.WarehouseID);
+          if (whExists) {
+            this.frm.get('SourceWarehouseID')?.setValue(selected.WarehouseID);
+          } else {
+            // Default warehouse is inactive — warn user, leave field empty
+            this.errorMessage =
+              'The default warehouse for this item is inactive. Please select another warehouse.';
+          }
+        }
+      }
     }
     this.loadAvailableStock(i);
   }
@@ -216,8 +299,34 @@ export class NewStockTransferComponent implements OnInit {
 
     this.service.saveStockTransfer(payload).subscribe({
       next: (res: any) => {
-        this.showMessage(res?.message || 'Stock transfer saved successfully.', 'success', 'Success Message');
-        this.route.navigateByUrl('/dummy', { skipLocationChange: true }).then(() => this.route.navigate(['/inventory/stock-transfer']));
+        // BUG-BSR-01 FIX: If this transfer was created from a BSR "Create Transfer" action,
+        // link it back to the originating BSR so the BSR shows "Transfer Created" and the
+        // LinkedTransferNo is populated. The backend LinkBSRTransfer endpoint already exists
+        // but was never called from here.
+        if (this.fromBSR && res?.id) {
+          this.service.linkBSRTransfer(this.fromBSR, res.id).subscribe({
+            next: () => {
+              this.showMessage(res?.message || 'Stock transfer saved and linked to stock request.', 'success', 'Success Message');
+              this.route.navigateByUrl('/dummy', { skipLocationChange: true })
+                .then(() => this.route.navigate(['/inventory/branch-stock-request/new-bsr', this.fromBSR]));
+            },
+            error: () => {
+              // Transfer saved successfully — link failed silently.
+              // User can still see the transfer; they can re-link manually if needed.
+              this.showMessage(
+                (res?.message || 'Stock transfer saved.') +
+                ' Note: Unable to link the transfer to the stock request automatically. Please contact your administrator.',
+                'warning', 'Warning Message'
+              );
+              this.route.navigateByUrl('/dummy', { skipLocationChange: true })
+                .then(() => this.route.navigate(['/inventory/stock-transfer']));
+            }
+          });
+        } else {
+          // Normal (non-BSR) transfer — navigate to list as before
+          this.showMessage(res?.message || 'Stock transfer saved successfully.', 'success', 'Success Message');
+          this.route.navigateByUrl('/dummy', { skipLocationChange: true }).then(() => this.route.navigate(['/inventory/stock-transfer']));
+        }
       },
       error: (err: any) => {
         this.showMessage(this.extractErrorMessage(err, 'Unable to save the transfer right now. Please try again.'), 'error', 'Error Message');

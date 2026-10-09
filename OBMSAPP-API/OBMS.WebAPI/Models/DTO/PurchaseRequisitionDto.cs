@@ -19,6 +19,7 @@ namespace OBMS.WebAPI.Models.DTO
         public int ID { get; set; }
         public int ItemID { get; set; }
         public decimal RequiredQty { get; set; }
+        public decimal? BuyingPrice { get; set; }   // Auto-filled from ItemMaster; user-editable
         public int? UOMID { get; set; }
         public string? Remarks { get; set; }
         public string? LastUpdatedBy { get; set; }
@@ -29,6 +30,12 @@ namespace OBMS.WebAPI.Models.DTO
     {
         public string ApprovedBy { get; set; } = string.Empty;
         public string? ApprovalRemarks { get; set; }
+        /// <summary>
+        /// Set by the controller from the JWT "IsAdmin" claim (value "2" = superadmin).
+        /// Never trusted from the client — always overridden server-side.
+        /// BUG-05 FIX: replaces hard-coded "superadmin" username check in InventoryRepository.
+        /// </summary>
+        public bool IsSuperAdmin { get; set; } = false;
     }
 
     // ── List/Detail DTOs ────────────────────────────────────────────────────────
@@ -76,6 +83,7 @@ namespace OBMS.WebAPI.Models.DTO
         public string ItemName { get; set; } = string.Empty;
         public string CategoryName { get; set; } = string.Empty;
         public decimal RequiredQty { get; set; }
+        public decimal? BuyingPrice { get; set; }   // Cost price from ItemMaster; stored per line
         public int? UOMID { get; set; }
         public string UOMName { get; set; } = string.Empty;
         public string? Remarks { get; set; }

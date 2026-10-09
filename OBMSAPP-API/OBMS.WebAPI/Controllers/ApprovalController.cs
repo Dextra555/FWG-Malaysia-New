@@ -48,20 +48,32 @@ namespace OBMS.WebAPI.Controllers
             return name;
         }
 
+        /// <summary>
+        /// Returns true when the authenticated user has the SuperAdmin role.
+        /// SuperAdmin is determined by the JWT "IsAdmin" claim equal to "2",
+        /// which is set at login from OBMSUsers.IsAdmin.
+        /// BUG-01/02/03/04/05 FIX: replaces all hard-coded "superadmin" username checks.
+        /// </summary>
+        private bool GetJwtIsSuperAdmin()
+        {
+            return User.FindFirst("IsAdmin")?.Value == "2";
+        }
+
         // ── Pending Approvals ─────────────────────────────────────────────────
 
         /// <summary>
         /// Returns documents currently pending approval that are assigned to the
         /// authenticated caller via ApprovalRouting.
-        /// Superadmin sees all pending documents.
+        /// SuperAdmin (IsAdmin='2' in JWT) sees all pending documents.
         /// </summary>
         [HttpGet("GetPendingApprovals")]
         public async Task<IActionResult> GetPendingApprovals()
         {
             try
             {
-                var approverUser = GetJwtUser();
-                var list = await _approval.GetPendingApprovals(approverUser);
+                var approverUser  = GetJwtUser();
+                var isSuperAdmin  = GetJwtIsSuperAdmin(); // BUG-03 FIX
+                var list = await _approval.GetPendingApprovals(approverUser, isSuperAdmin);
                 return Ok(list);
             }
             catch (UnauthorizedAccessException ex)
@@ -156,9 +168,10 @@ namespace OBMS.WebAPI.Controllers
         {
             try
             {
-                var jwtUser = GetJwtUser();
+                var jwtUser      = GetJwtUser();
+                var isSuperAdmin = GetJwtIsSuperAdmin(); // BUG-04 FIX
                 var (success, message) = await _approval.ApprovePOWithHistory(
-                    id, jwtUser, dto?.Comments);
+                    id, jwtUser, isSuperAdmin, dto?.Comments);
                 if (!success) return BadRequest(new { message });
                 return Ok(new { message });
             }
@@ -186,9 +199,10 @@ namespace OBMS.WebAPI.Controllers
 
             try
             {
-                var jwtUser = GetJwtUser();
+                var jwtUser      = GetJwtUser();
+                var isSuperAdmin = GetJwtIsSuperAdmin(); // BUG-04 FIX
                 var (success, message) = await _approval.RejectPO(
-                    id, jwtUser, dto.RejectReason);
+                    id, jwtUser, isSuperAdmin, dto.RejectReason);
                 if (!success) return BadRequest(new { message });
                 return Ok(new { message });
             }
@@ -256,9 +270,12 @@ namespace OBMS.WebAPI.Controllers
             {
                 var jwtUser = GetJwtUser();
 
-                // Rule: superadmin can approve/reject ALL documents — no restriction
-                bool isSuperAdmin = string.Equals(jwtUser, "superadmin",
-                                                  StringComparison.OrdinalIgnoreCase);
+                // BUG-02 FIX: SuperAdmin is determined by JWT "IsAdmin" claim == "2"
+                // (set from OBMSUsers.IsAdmin at login), NOT by hard-coded username string.
+                bool isSuperAdmin = GetJwtIsSuperAdmin();
+
+                // SuperAdmin has global approval authority including their own submissions.
+                // Self-approval block does NOT apply to SuperAdmin.
                 if (isSuperAdmin)
                 {
                     return Ok(new
@@ -269,9 +286,15 @@ namespace OBMS.WebAPI.Controllers
                     });
                 }
 
-                // Normal users: check ApprovalRouting — only the configured approver can approve
+                // Normal users: self-approval is always blocked.
+                // Check ApprovalRouting — only the configured approver can approve.
+                bool isSelfApproval = !string.IsNullOrWhiteSpace(requesterUser) &&
+                                      string.Equals(jwtUser, requesterUser,
+                                                    StringComparison.OrdinalIgnoreCase);
+
                 var approverUser = await _approval.GetApproverForUser(requesterUser, documentType);
-                bool isApprover  = !string.IsNullOrEmpty(approverUser) &&
+                bool isApprover  = !isSelfApproval &&
+                                   !string.IsNullOrEmpty(approverUser) &&
                                    string.Equals(approverUser, jwtUser,
                                                  StringComparison.OrdinalIgnoreCase);
 

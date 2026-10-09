@@ -93,7 +93,7 @@ export class AssetTransferComponent implements OnInit, AfterViewInit {
 
   loadDropdowns(): void {
     this.service.getAssetList().subscribe({ next: d => { this.assetList = (d || []).filter((a: any) => a.AssetStatus !== 'Disposed'); this.filteredAssets = [...this.assetList]; }, error: () => {} });
-    this.service.getBranchList().subscribe({ next: d => { this.branchList = d || []; this.filteredBranches = [...this.branchList]; }, error: () => {} });
+    this.service.getBranchListByUser(this.currentUser).subscribe({ next: d => { this.branchList = d || []; this.filteredBranches = [...this.branchList]; }, error: () => {} });
     this._payroll.getEmployeeList().subscribe({ next: d => { this.employeeList = d || []; this.filteredToList = d || []; }, error: () => {} });
   }
 

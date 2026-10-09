@@ -24,7 +24,7 @@ export class PurchaseOrderComponent implements OnInit, AfterViewInit {
   ngAfterViewInit(): void { if (this.dataSource) { this.dataSource.paginator = this.paginator; this.dataSource.sort = this.sort; } }
 
   userAccessModel!: UserAccessModel;
-  currentUser = ''; warningMessage = ''; errorMessage = ''; showLoadingSpinner = false; filterValue = '';
+  currentUser = ''; userRole = ''; warningMessage = ''; errorMessage = ''; showLoadingSpinner = false; filterValue = '';
   displayedColumns = ['PONumber', 'PODate', 'ExpectedDate', 'SupplierName', 'WarehouseName', 'TotalAmount', 'Status', 'action'];
   dataSource = new MatTableDataSource<any>([]);
   pageSizeOptions: number[] = [];
@@ -37,6 +37,8 @@ export class PurchaseOrderComponent implements OnInit, AfterViewInit {
 
   ngOnInit(): void {
     this.currentUser = sessionStorage.getItem('username')!;
+    const raw = sessionStorage.getItem('userrole') ?? '0';
+    this.userRole = raw === '2' ? 'superadmin' : raw === '1' ? 'admin' : 'user';
     if (!this.currentUser || this.currentUser === 'null') this._dataService.getUsername().subscribe(u => this.currentUser = u);
     this.getUserAccessRights(this.currentUser, 'Purchase Order');
   }
@@ -48,7 +50,7 @@ export class PurchaseOrderComponent implements OnInit, AfterViewInit {
           this.showLoadingSpinner = true;
           this.userAccessModel.readAccess = data.Read; this.userAccessModel.deleteAccess = data.Delete;
           this.userAccessModel.updateAccess = data.Update; this.userAccessModel.createAccess = data.Create;
-          if (this.userAccessModel.readAccess || this.currentUser === 'superadmin') { this.loadList(); }
+          if (this.userAccessModel.readAccess || this.userRole === 'superadmin') { this.loadList(); }
           else { this.warningMessage = `Dear <b>${this.currentUser}</b>,<br>You do not have permission to view this page.`; this.hideSpinner(); }
         }
       },
@@ -88,7 +90,7 @@ export class PurchaseOrderComponent implements OnInit, AfterViewInit {
   cancelClick(row: any): void {
     if (row.Status === 'Fully Received') { this.showMsg(`Purchase Order ${row.PONumber} cannot be cancelled because all goods have already been received.`, 'warning', 'Warning Message'); return; }
     if (row.Status === 'Partially Received') { this.showMsg(`Purchase Order ${row.PONumber} cannot be cancelled because goods have already been partially received against it.`, 'warning', 'Warning Message'); return; }
-    this.dialog.open(DialogConfirmationComponent, { data: `Are you sure you want to cancel Purchase Order <b>${row.PONumber}</b>?` })
+    this.dialog.open(DialogConfirmationComponent, { data: { message: `Are you sure you want to cancel Purchase Order <b>${row.PONumber}</b>?` } })
       .afterClosed().subscribe((r: any) => {
         if (r?.confirmDialog) {
           this.showLoadingSpinner = true;

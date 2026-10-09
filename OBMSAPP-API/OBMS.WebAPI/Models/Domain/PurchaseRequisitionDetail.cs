@@ -16,6 +16,8 @@ namespace OBMS.WebAPI.Models.Domain
 
         public decimal RequiredQty { get; set; }
 
+        public decimal? BuyingPrice { get; set; }   // Auto-filled from ItemMaster.Price; editable by user
+
         public int? UOMID { get; set; }
 
         public string? Remarks { get; set; }

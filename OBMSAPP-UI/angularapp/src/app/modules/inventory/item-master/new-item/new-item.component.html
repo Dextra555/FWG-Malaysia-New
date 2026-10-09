@@ -121,6 +121,27 @@
           </mat-form-field>
         </div>
 
+        <!-- Warehouse (optional) -->
+        <div class="col-12 col-sm-12 col-md-4 col-lg-4">
+          <mat-form-field appearance="outline">
+            <mat-label>Default Warehouse</mat-label>
+            <mat-select formControlName="WarehouseID" (openedChange)="onWarehouseOpen($event)">
+              <mat-option disabled style="position:sticky;top:0;background:#fff;z-index:1;padding:0">
+                <div style="padding:4px 10px">
+                  <input type="text" placeholder="Search warehouse…" [value]="warehouseSearch"
+                    (input)="onWarehouseSearch($any($event.target).value)"
+                    (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()"
+                    style="width:100%;border:1px solid #ccc;border-radius:4px;padding:6px 8px;font-size:13px;outline:none">
+                </div>
+              </mat-option>
+              <mat-option [value]="null">-- No Default Warehouse --</mat-option>
+              <mat-option *ngFor="let w of filteredWarehouses" [value]="w.ID">{{w.Name}}</mat-option>
+              <mat-option disabled *ngIf="filteredWarehouses.length === 0 && warehouseSearch.length > 0">No results found.</mat-option>
+            </mat-select>
+            <mat-hint>Auto-fills warehouse when this item is selected in stock forms</mat-hint>
+          </mat-form-field>
+        </div>
+
         <!-- Remarks (optional) -->
         <div class="col-12 col-sm-12 col-md-12 col-lg-12">
           <mat-form-field appearance="outline">

@@ -1,11 +1,13 @@
 import { Component, OnInit } from '@angular/core';
 import { AbstractControl, FormBuilder, FormGroup, ValidatorFn, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
+import { MatDialog } from '@angular/material/dialog';
 import Swal from 'sweetalert2';
 
 import { InventoryService } from '../../../../service/inventory.service';
 import { MastermoduleService } from '../../../../service/mastermodule.service';
 import { DatasharingService } from '../../../../service/datasharing.service';
+import { DialogConfirmationComponent } from '../../../../components/dialog-confirmation/dialog-confirmation.component';
 import { UserAccessModel } from '../../../../model/userAccesModel';
 
 function mustSelect(): ValidatorFn {
@@ -25,12 +27,11 @@ function greaterThanZero(): ValidatorFn {
 export class NewStockAdjustmentComponent implements OnInit {
 
   frm!: FormGroup;
-  isViewMode: boolean = false;
+  isEdit: boolean = false;
   ID: any;
 
   warehouses: any[] = [];
   items: any[] = [];
-  // Search filter state
   warehouseSearch = ''; filteredWarehouses: any[] = [];
   itemSearch = '';      filteredItems: any[] = [];
 
@@ -38,6 +39,19 @@ export class NewStockAdjustmentComponent implements OnInit {
   selectedItemName: string = '';
   selectedItemCode: string = '';
   selectedUOMName: string = '';
+
+  // ── Approval workflow state ──────────────────────────────────────────────
+  currentStatus   = '';    // Draft | Submitted | Approved | Rejected
+  submittedBy     = '';
+  approvedBy      = '';
+  approvalRemarks = '';
+
+  isApprover        = false;
+  approverCheckDone = false;
+  approverName      = '';
+
+  // Role from sessionStorage (set at login from OBMSUsers.IsAdmin)
+  userRole = '';
 
   userAccessModel!: UserAccessModel;
   currentUser: string = '';
@@ -49,6 +63,7 @@ export class NewStockAdjustmentComponent implements OnInit {
     private fb: FormBuilder,
     private activatedRoute: ActivatedRoute,
     private route: Router,
+    public dialog: MatDialog,
     private service: InventoryService,
     private _dataService: DatasharingService,
     private _masterService: MastermoduleService
@@ -70,7 +85,9 @@ export class NewStockAdjustmentComponent implements OnInit {
 
   ngOnInit(): void {
     this.ID = this.activatedRoute.snapshot.params['ID'];
-    this.currentUser = sessionStorage.getItem('username')!;
+    this.currentUser = sessionStorage.getItem('username') || '';
+    const rawRole = sessionStorage.getItem('userrole') ?? '0';
+    this.userRole = rawRole === '2' ? 'superadmin' : rawRole === '1' ? 'admin' : 'user';
     if (!this.currentUser || this.currentUser === 'null') {
       this._dataService.getUsername().subscribe(u => { this.currentUser = u; });
     }
@@ -79,13 +96,15 @@ export class NewStockAdjustmentComponent implements OnInit {
     this.loadItems();
 
     if (this.ID && this.ID !== '0') {
-      this.isViewMode = true;
+      this.isEdit = true;
       this.loadExisting();
     } else {
-      this.service.getStockAdjustmentCode().subscribe({ next: (d: any) => this.frm.get('AdjustmentNo')?.setValue(d.Code), error: () => {} });
+      this.service.getStockAdjustmentCode().subscribe({
+        next: (d: any) => this.frm.get('AdjustmentNo')?.setValue(d.Code),
+        error: () => {}
+      });
     }
 
-    // Watch warehouse + item changes to refresh current stock
     this.frm.get('WarehouseID')!.valueChanges.subscribe(() => this.refreshCurrentStock());
     this.frm.get('ItemID')!.valueChanges.subscribe(() => this.onItemChange());
   }
@@ -125,6 +144,17 @@ export class NewStockAdjustmentComponent implements OnInit {
       this.selectedItemName = selected.Name || '';
       this.selectedUOMName  = selected.UOMName || '';
       this.frm.get('UnitCost')?.setValue(selected.Price || 0);
+      if (!this.isEdit) {
+        const currentWH = +this.frm.get('WarehouseID')?.value;
+        if (currentWH === 0 && selected.WarehouseID) {
+          const whExists = this.warehouses.find((w: any) => w.ID === selected.WarehouseID);
+          if (whExists) {
+            this.frm.get('WarehouseID')?.setValue(selected.WarehouseID);
+          } else {
+            this.warningMessage = 'The default warehouse for this item is inactive. Please select another warehouse.';
+          }
+        }
+      }
     } else {
       this.selectedItemCode = this.selectedItemName = this.selectedUOMName = '';
     }
@@ -149,6 +179,11 @@ export class NewStockAdjustmentComponent implements OnInit {
     this.service.getStockAdjustmentByID(this.ID).subscribe({
       next: (d: any) => {
         if (!d) { this.errorMessage = 'Adjustment not found.'; this.hideLoadingSpinner(); return; }
+        this.currentStatus   = d.Status || 'Draft';
+        this.submittedBy     = d.SubmittedBy || d.LastUpdatedBy || '';
+        this.approvedBy      = d.ApprovedBy || '';
+        this.approvalRemarks = d.ApprovalRemarks || '';
+
         this.frm.patchValue({
           ID: d.ID, AdjustmentNo: d.AdjustmentNo, AdjustmentDate: new Date(d.AdjustmentDate),
           WarehouseID: d.WarehouseID, ItemID: d.ItemID, AdjustmentType: d.AdjustmentType,
@@ -157,34 +192,196 @@ export class NewStockAdjustmentComponent implements OnInit {
         this.selectedItemName = d.ItemName || '';
         this.selectedItemCode = d.ItemCode || '';
         this.selectedUOMName  = d.UOMName  || '';
-        this.frm.disable();
+        this.warningMessage   = '';
+
+        if (this.currentStatus !== 'Draft') { this.frm.disable(); }
         this.hideLoadingSpinner();
+
+        if (this.currentStatus === 'Submitted') {
+          this.checkIsApprover();
+        } else {
+          this.approverCheckDone = true;
+          this.isApprover = false;
+        }
       },
       error: () => { this.errorMessage = 'Unable to load the adjustment. Please try again.'; this.hideLoadingSpinner(); }
     });
+  }
+
+  // ── Approver check (PR reference pattern) ───────────────────────────────
+  private checkIsApprover(): void {
+    if (this.isApprover && this.approverCheckDone) return;
+    this.service.isCurrentUserApprover('STOCK_ADJUSTMENT', this.submittedBy || '').subscribe({
+      next: (res: any) => {
+        if (!this.isApprover) {
+          this.isApprover   = res?.IsApprover === true;
+          this.approverName = res?.ApproverUser || '';
+        }
+        this.approverCheckDone = true;
+      },
+      error: () => {
+        if (!this.approverCheckDone) { this.isApprover = false; this.approverName = ''; }
+        this.approverCheckDone = true;
+      }
+    });
+  }
+
+  // ── State helpers ────────────────────────────────────────────────────────
+  canEdit(): boolean {
+    return !this.isEdit || this.currentStatus === 'Draft';
+  }
+
+  canSubmit(): boolean {
+    // Submit visible on new form (not yet saved) OR on an existing Draft
+    return !this.isEdit || this.currentStatus === 'Draft';
+  }
+
+  canApproveAction(): boolean {
+    if (!this.isEdit || this.currentStatus !== 'Submitted') return false;
+    if (this.userRole === 'superadmin') return true;
+    return this.isApprover && this.approverCheckDone;
   }
 
   formatNumber(val: number): string {
     return (val ?? 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
-  onSubmit(): void {
-    if (this.isViewMode) { this.route.navigate(['/inventory/stock-adjustment']); return; }
+  // ── Actions ──────────────────────────────────────────────────────────────
+
+  // Save Draft only — no submit
+  onSave(): void {
     if (this.frm.invalid) { this.frm.markAllAsTouched(); return; }
-
     const raw = this.frm.getRawValue();
-
-    // Client-side stock check for MINUS
-    if (raw.AdjustmentType === 'MINUS' && +raw.AdjustmentQty > this.currentStock) {
-      this.showMessage(
-        `Insufficient stock. Available quantity is ${this.formatNumber(this.currentStock)}.`,
-        'warning', 'Warning Message');
-      return;
-    }
-
     this.showLoadingSpinner = true;
-    const payload = {
-      ID:             raw.ID,
+    const payload = this.buildPayload(raw);
+
+    this.service.saveStockAdjustment(payload).subscribe({
+      next: (res: any) => {
+        this.showMessage(res?.message || 'Adjustment saved as Draft.', 'success', 'Success Message');
+        if (res?.id) {
+          this.route.navigate(['/inventory/stock-adjustment/new-stock-adjustment', res.id]);
+        } else {
+          this.route.navigateByUrl('/dummy', { skipLocationChange: true })
+            .then(() => this.route.navigate(['/inventory/stock-adjustment']));
+        }
+      },
+      error: (err: any) => {
+        this.showMessage(this.extractErrorMessage(err, 'Unable to save right now. Please try again.'), 'error', 'Error Message');
+        this.hideLoadingSpinner();
+      }
+    });
+  }
+
+  // Submit = save (if new) then submit — mirrors PR onSubmitDirect
+  onSubmit(): void {
+    if (this.frm.invalid) { this.frm.markAllAsTouched(); return; }
+    const raw   = this.frm.getRawValue();
+    const label = this.isEdit ? raw.AdjustmentNo : 'this adjustment';
+
+    this.dialog.open(DialogConfirmationComponent, {
+      data: { message: `Submit Stock Adjustment <b>${label}</b> for approval?` }
+    }).afterClosed().subscribe((result: any) => {
+      if (!result?.confirmDialog) return;
+      this.showLoadingSpinner = true;
+
+      if (this.isEdit) {
+        // Already a saved Draft — just submit
+        this.service.submitSA(+raw.ID).subscribe({
+          next: (res: any) => {
+            this.showMessage(res?.message || 'Submitted for approval.', 'success', 'Success Message');
+            this.loadExisting();
+          },
+          error: (err: any) => {
+            this.showMessage(this.extractErrorMessage(err, 'Unable to submit right now. Please try again.'), 'error', 'Error Message');
+            this.hideLoadingSpinner();
+          }
+        });
+      } else {
+        // New form — save as Draft first, then immediately submit
+        const payload = this.buildPayload(raw);
+        this.service.saveStockAdjustment(payload).subscribe({
+          next: (saveRes: any) => {
+            const newID = saveRes?.id;
+            if (!newID) {
+              this.showMessage('Unable to save the adjustment. Please try again.', 'error', 'Error Message');
+              this.hideLoadingSpinner();
+              return;
+            }
+            this.service.submitSA(+newID).subscribe({
+              next: (submitRes: any) => {
+                this.showMessage(submitRes?.message || 'Submitted for approval.', 'success', 'Success Message');
+                this.route.navigateByUrl('/dummy', { skipLocationChange: true })
+                  .then(() => this.route.navigate(['/inventory/stock-adjustment/new-stock-adjustment', newID]));
+              },
+              error: (err: any) => {
+                this.showMessage(this.extractErrorMessage(err, 'Saved as Draft but submit failed. Open the draft and retry.'), 'error', 'Error Message');
+                this.route.navigateByUrl('/dummy', { skipLocationChange: true })
+                  .then(() => this.route.navigate(['/inventory/stock-adjustment/new-stock-adjustment', newID]));
+              }
+            });
+          },
+          error: (err: any) => {
+            this.showMessage(this.extractErrorMessage(err, 'Unable to save right now. Please try again.'), 'error', 'Error Message');
+            this.hideLoadingSpinner();
+          }
+        });
+      }
+    });
+  }
+
+  onApprove(): void {
+    const id = this.frm.get('ID')?.value;
+    this.showLoadingSpinner = true;
+    this.service.approveSA(+id, { ApprovalRemarks: '' }).subscribe({
+      next: (res: any) => {
+        this.showMessage(res?.message || 'Approved. Stock has been updated.', 'success', 'Success Message');
+        this.loadExisting();
+      },
+      error: (err: any) => {
+        this.showMessage(this.extractErrorMessage(err, 'Unable to approve right now. Please try again.'), 'error', 'Error Message');
+        this.hideLoadingSpinner();
+      }
+    });
+  }
+
+  onReject(): void {
+    const id = this.frm.get('ID')?.value;
+    Swal.fire({
+      title: 'Reject Stock Adjustment',
+      text: 'Please enter the reason for rejection:',
+      input: 'textarea',
+      inputPlaceholder: 'Enter rejection reason here…',
+      inputAttributes: { rows: '3' },
+      showCancelButton: true,
+      confirmButtonText: 'Reject',
+      confirmButtonColor: '#d33',
+      cancelButtonText: 'Cancel',
+      inputValidator: (value) => {
+        if (!value || value.trim() === '') return 'Please enter a reason for rejection.';
+        return null;
+      }
+    }).then(result => {
+      if (!result.isConfirmed || !result.value?.trim()) return;
+      this.showLoadingSpinner = true;
+      this.service.rejectSA(+id, { ApprovalRemarks: result.value.trim() }).subscribe({
+        next: (res: any) => {
+          this.showMessage(res?.message || 'Rejected.', 'warning', 'Warning Message');
+          this.loadExisting();
+        },
+        error: (err: any) => {
+          this.showMessage(this.extractErrorMessage(err, 'Unable to reject right now. Please try again.'), 'error', 'Error Message');
+          this.hideLoadingSpinner();
+        }
+      });
+    });
+  }
+
+  onCancelClick(): void { this.route.navigate(['/inventory/stock-adjustment']); }
+
+  // ── Helpers ──────────────────────────────────────────────────────────────
+  private buildPayload(raw: any) {
+    return {
+      ID:             raw.ID || 0,
       AdjustmentNo:   raw.AdjustmentNo,
       AdjustmentDate: raw.AdjustmentDate,
       WarehouseID:    +raw.WarehouseID,
@@ -196,21 +393,7 @@ export class NewStockAdjustmentComponent implements OnInit {
       Remarks:        raw.Remarks,
       LastUpdatedBy:  this.currentUser
     };
-
-    this.service.saveStockAdjustment(payload).subscribe({
-      next: (res: any) => {
-        this.showMessage(res?.message || 'Adjustment saved successfully.', 'success', 'Success Message');
-        this.route.navigateByUrl('/dummy', { skipLocationChange: true })
-          .then(() => this.route.navigate(['/inventory/stock-adjustment']));
-      },
-      error: (err: any) => {
-        this.showMessage(this.extractErrorMessage(err, 'Unable to save the adjustment right now. Please try again.'), 'error', 'Error Message');
-        this.hideLoadingSpinner();
-      }
-    });
   }
-
-  onCancelClick(): void { this.route.navigate(['/inventory/stock-adjustment']); }
 
   private extractErrorMessage(err: any, fallback: string): string {
     if (err && typeof err === 'string') return err;

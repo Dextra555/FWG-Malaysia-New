@@ -33,3 +33,10 @@
 30-06-2026 20:22:04: Branch='FWG002-PCH' | MasterClient='FwgC000025' | Client='FwgC000015' | Start='2026-01-01' | End='2026-06-30'
 30-06-2026 20:22:59: Table='command' SelectionFormula='{command.Client} IN ['FwgC000014', 'FwgC000015', 'FwgC000016', 'FwgC000017', 'FwgC000018', 'FwgC000019', 'FwgC000020', 'FwgC000021', 'FwgC000022', 'FwgC000023', 'FwgC000024', 'FwgC000025', 'FwgC000026', 'FwgC000027', 'FwgC000028', 'FwgC000029', 'FwgC000030', 'FwgC000064', 'FwgC000233', 'FwgC000240', 'FwgC000246'] AND {command.Client} = 'FwgC000025''
 30-06-2026 20:22:59: Branch='FWG002-PCH' | MasterClient='FwgC000025' | Client='FwgC000025' | Start='2026-01-01' | End='2026-06-30'
+[2026-10-07 20:50:48] ERROR in sp_InventoryStockLedger: Could not find stored procedure 'sp_InventoryStockLedger'.
+[2026-10-07 20:55:48] ERROR in sp_InventoryStockLedger: Could not find stored procedure 'sp_InventoryStockLedger'.
+[2026-10-07 20:55:53] ERROR in sp_InventoryStockLedger: Could not find stored procedure 'sp_InventoryStockLedger'.
+[2026-10-07 20:55:53] ERROR in sp_InventoryStockLedger: Could not find stored procedure 'sp_InventoryStockLedger'.
+[2026-10-07 20:57:20] ERROR in BuildPdf: Could not load file or assembly 'BouncyCastle.Crypto, Version=1.8.9.0, Culture=neutral, PublicKeyToken=0e99375e54769942' or one of its dependencies. The system cannot find the file specified.
+[2026-10-07 20:59:14] ERROR in BuildPdf: Could not load file or assembly 'BouncyCastle.Crypto, Version=1.8.9.0, Culture=neutral, PublicKeyToken=0e99375e54769942' or one of its dependencies. The system cannot find the file specified.
+[2026-10-07 20:59:35] ERROR in BuildPdf: Could not load file or assembly 'BouncyCastle.Crypto, Version=1.8.9.0, Culture=neutral, PublicKeyToken=0e99375e54769942' or one of its dependencies. The system cannot find the file specified.

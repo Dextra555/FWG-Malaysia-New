@@ -1,7 +1,7 @@
 <h1 mat-dialog-title>Confirmation</h1>
 <form [formGroup]="frm">
     <div mat-dialog-content>
-        <p>{{message}}</p>
+        <p [innerHTML]="message"></p>
         <ng-container *ngIf="showRemarks">
             <mat-form-field appearance="outline" class="w-full mt-3">
                 <mat-label>Reason for Deletion</mat-label>

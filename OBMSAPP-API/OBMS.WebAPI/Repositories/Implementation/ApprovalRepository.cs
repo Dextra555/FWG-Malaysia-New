@@ -37,12 +37,13 @@ namespace OBMS.WebAPI.Repositories.Implementation
         /// <paramref name="approverUser"/> via an active ApprovalRouting row.
         /// Superadmin sees everything.
         /// </summary>
-        public async Task<List<PendingApprovalDto>> GetPendingApprovals(string approverUser)
+        public async Task<List<PendingApprovalDto>> GetPendingApprovals(string approverUser, bool isSuperAdmin)
         {
             var result = new List<PendingApprovalDto>();
             var now    = DateTime.Now;
-            bool isSuperAdmin = string.Equals(approverUser, "superadmin",
-                                              StringComparison.OrdinalIgnoreCase);
+            // BUG-03 FIX: isSuperAdmin is now passed in from the controller where it is
+            // derived from the JWT "IsAdmin" claim (value "2"). The old hard-coded
+            // string.Equals(approverUser, "superadmin") check has been removed.
 
             // ── Collect all requester users whose approver = approverUser ──
             List<string> allowedRequesters;
@@ -65,38 +66,59 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     return result;
             }
 
+            // Build a lowercase set for case-insensitive matching.
+            // This is necessary because:
+            //   - allowedRequesters contains OBMSUsers.Name (e.g. "Dharan") as stored in DB
+            //   - SubmittedBy contains the JWT username typed at login (e.g. "dharan")
+            // DB collation may be CI or CS — we cannot rely on it.
+            // Materialising both to lowercase in-memory guarantees consistent behaviour.
+            var lowerAllowedRequesters = allowedRequesters
+                .Select(r => r.ToLowerInvariant())
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
             // ── Purchase Requisitions ──
-            var prQuery = _db.PurchaseRequisitions
-                .Where(p => p.Status == "Submitted" && p.IsActive);
-
-            if (!isSuperAdmin)
-            {
-                // Compare in-memory after fetching — allowedRequesters is already client-side
-                // Use EF Core translatable Contains on exact strings (DB collation handles case)
-                prQuery = prQuery.Where(p =>
-                    p.SubmittedBy != null &&
-                    allowedRequesters.Contains(p.SubmittedBy));
-            }
-
-            var prs = await prQuery
+            // Fetch ALL submitted PRs from DB first (no in-memory lambda in EF predicate),
+            // then filter case-insensitively in memory.
+            var allSubmittedPRs = await _db.PurchaseRequisitions
+                .Where(p => p.Status == "Submitted" && p.IsActive)
                 .OrderBy(p => p.SubmittedDate ?? p.LASTUPDATE)
-                .Select(p => new PendingApprovalDto
+                .Select(p => new
                 {
-                    DocumentType        = "PURCHASE_REQUISITION",
-                    DocumentTypeDisplay = "Purchase Requisition",
-                    DocumentID          = p.ID,
-                    DocumentNumber      = p.PRNumber,
-                    DocumentDate        = p.PRDate,
-                    RequestedBy         = p.SubmittedBy ?? p.LastUpdatedBy ?? string.Empty,
-                    SubmittedDate       = p.SubmittedDate ?? p.LASTUPDATE,
-                    CurrentStatus       = p.Status,
-                    WarehouseName       = null,
-                    BranchName          = null,
-                    TotalAmount         = null,
-                    ItemCount           = _db.PurchaseRequisitionDetails
-                                            .Count(d => d.PRID == p.ID)
+                    p.ID, p.PRNumber, p.PRDate, p.SubmittedBy,
+                    p.LastUpdatedBy, p.SubmittedDate, p.LASTUPDATE, p.Status
                 })
                 .ToListAsync();
+
+            var filteredPRs = isSuperAdmin
+                ? allSubmittedPRs
+                : allSubmittedPRs
+                    .Where(p => p.SubmittedBy != null &&
+                                lowerAllowedRequesters.Contains(p.SubmittedBy.ToLowerInvariant()))
+                    .ToList();
+
+            // Resolve item counts for the filtered set only (avoids N+1 for the full table)
+            var prIds = filteredPRs.Select(p => p.ID).ToHashSet();
+            var prItemCounts = await _db.PurchaseRequisitionDetails
+                .Where(d => prIds.Contains(d.PRID))
+                .GroupBy(d => d.PRID)
+                .Select(g => new { PRID = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.PRID, x => x.Count);
+
+            var prs = filteredPRs.Select(p => new PendingApprovalDto
+            {
+                DocumentType        = "PURCHASE_REQUISITION",
+                DocumentTypeDisplay = "Purchase Requisition",
+                DocumentID          = p.ID,
+                DocumentNumber      = p.PRNumber,
+                DocumentDate        = p.PRDate,
+                RequestedBy         = p.SubmittedBy ?? p.LastUpdatedBy ?? string.Empty,
+                SubmittedDate       = p.SubmittedDate ?? p.LASTUPDATE,
+                CurrentStatus       = p.Status,
+                WarehouseName       = null,
+                BranchName          = null,
+                TotalAmount         = null,
+                ItemCount           = prItemCounts.TryGetValue(p.ID, out var c) ? c : 0
+            }).ToList();
 
             foreach (var dto in prs)
                 dto.PendingSinceDays = dto.SubmittedDate.HasValue
@@ -105,43 +127,189 @@ namespace OBMS.WebAPI.Repositories.Implementation
             result.AddRange(prs);
 
             // ── Purchase Orders ──
-            var poQuery =
+            // Fetch ALL submitted POs from DB first, then filter case-insensitively in memory.
+            var allSubmittedPOs = await (
                 from po in _db.PurchaseOrders
                 join wh in _db.WarehouseMasters on po.WarehouseID equals wh.ID into whJoin
                 from wh in whJoin.DefaultIfEmpty()
                 where po.Status == "Submitted" && po.IsActive
-                select new { po, wh };
-
-            if (!isSuperAdmin)
-            {
-                poQuery = poQuery.Where(x =>
-                    x.po.SubmittedBy != null &&
-                    allowedRequesters.Contains(x.po.SubmittedBy));
-            }
-
-            var pos = await poQuery
-                .OrderBy(x => x.po.SubmittedDate ?? x.po.LASTUPDATE)
-                .Select(x => new PendingApprovalDto
+                orderby po.SubmittedDate ?? po.LASTUPDATE
+                select new
                 {
-                    DocumentType        = "PURCHASE_ORDER",
-                    DocumentTypeDisplay = "Purchase Order",
-                    DocumentID          = x.po.ID,
-                    DocumentNumber      = x.po.PONumber,
-                    DocumentDate        = x.po.PODate,
-                    RequestedBy         = x.po.SubmittedBy ?? x.po.LastUpdatedBy ?? string.Empty,
-                    SubmittedDate       = x.po.SubmittedDate ?? x.po.LASTUPDATE,
-                    CurrentStatus       = x.po.Status,
-                    WarehouseName       = x.wh != null ? x.wh.Name : string.Empty,
-                    BranchName          = null,
-                    TotalAmount         = x.po.TotalAmount
+                    po.ID, po.PONumber, po.PODate, po.SubmittedBy,
+                    po.LastUpdatedBy, po.SubmittedDate, po.LASTUPDATE,
+                    po.Status, po.TotalAmount,
+                    WarehouseName = wh != null ? wh.Name : string.Empty
                 })
                 .ToListAsync();
+
+            var filteredPOs = isSuperAdmin
+                ? allSubmittedPOs
+                : allSubmittedPOs
+                    .Where(x => x.SubmittedBy != null &&
+                                lowerAllowedRequesters.Contains(x.SubmittedBy.ToLowerInvariant()))
+                    .ToList();
+
+            var pos = filteredPOs.Select(x => new PendingApprovalDto
+            {
+                DocumentType        = "PURCHASE_ORDER",
+                DocumentTypeDisplay = "Purchase Order",
+                DocumentID          = x.ID,
+                DocumentNumber      = x.PONumber,
+                DocumentDate        = x.PODate,
+                RequestedBy         = x.SubmittedBy ?? x.LastUpdatedBy ?? string.Empty,
+                SubmittedDate       = x.SubmittedDate ?? x.LASTUPDATE,
+                CurrentStatus       = x.Status,
+                WarehouseName       = x.WarehouseName,
+                BranchName          = null,
+                TotalAmount         = x.TotalAmount
+            }).ToList();
 
             foreach (var dto in pos)
                 dto.PendingSinceDays = dto.SubmittedDate.HasValue
                     ? (int)(now - dto.SubmittedDate.Value).TotalDays : 0;
 
             result.AddRange(pos);
+
+            // ── Branch Stock Requests ──────────────────────────────────────────
+            var allSubmittedBSRs = await (
+                from sr in _db.StockRequests
+                join br in _db.BranchMasters on sr.RequestingBranchID equals br.ID into brJoin
+                from br in brJoin.DefaultIfEmpty()
+                where sr.Status == "Submitted" && sr.IsActive
+                orderby sr.SubmittedDate ?? sr.LASTUPDATE
+                select new
+                {
+                    sr.ID, sr.RequestNo, sr.RequestDate, sr.SubmittedBy,
+                    sr.LastUpdatedBy, sr.SubmittedDate, sr.LASTUPDATE, sr.Status,
+                    BranchName = br != null ? br.Name : string.Empty
+                })
+                .ToListAsync();
+
+            var filteredBSRs = isSuperAdmin
+                ? allSubmittedBSRs
+                : allSubmittedBSRs
+                    .Where(x => x.SubmittedBy != null &&
+                                lowerAllowedRequesters.Contains(x.SubmittedBy.ToLowerInvariant()))
+                    .ToList();
+
+            var bsrIds       = filteredBSRs.Select(x => x.ID).ToHashSet();
+            var bsrItemCounts = await _db.StockRequestDetails
+                .Where(d => bsrIds.Contains(d.RequestID))
+                .GroupBy(d => d.RequestID)
+                .Select(g => new { RequestID = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.RequestID, x => x.Count);
+
+            var bsrs = filteredBSRs.Select(x => new PendingApprovalDto
+            {
+                DocumentType        = "BRANCH_STOCK_REQUEST",
+                DocumentTypeDisplay = "Branch Stock Request",
+                DocumentID          = x.ID,
+                DocumentNumber      = x.RequestNo,
+                DocumentDate        = x.RequestDate,
+                RequestedBy         = x.SubmittedBy ?? x.LastUpdatedBy ?? string.Empty,
+                SubmittedDate       = x.SubmittedDate ?? x.LASTUPDATE,
+                CurrentStatus       = x.Status,
+                WarehouseName       = null,
+                BranchName          = x.BranchName,
+                TotalAmount         = null,
+                ItemCount           = bsrItemCounts.TryGetValue(x.ID, out var bc) ? bc : 0
+            }).ToList();
+
+            foreach (var dto in bsrs)
+                dto.PendingSinceDays = dto.SubmittedDate.HasValue
+                    ? (int)(now - dto.SubmittedDate.Value).TotalDays : 0;
+
+            result.AddRange(bsrs);
+
+            // ── Stock Adjustments ──────────────────────────────────────────────
+            var allSubmittedSAs = await (
+                from sa in _db.StockAdjustments
+                join wh in _db.WarehouseMasters on sa.WarehouseID equals wh.ID into whJoin
+                from wh in whJoin.DefaultIfEmpty()
+                where sa.Status == "Submitted" && sa.IsActive
+                orderby sa.SubmittedDate ?? sa.LASTUPDATE
+                select new
+                {
+                    sa.ID, sa.AdjustmentNo, sa.AdjustmentDate, sa.SubmittedBy,
+                    sa.LastUpdatedBy, sa.SubmittedDate, sa.LASTUPDATE, sa.Status,
+                    WarehouseName = wh != null ? wh.Name : string.Empty
+                })
+                .ToListAsync();
+
+            var filteredSAs = isSuperAdmin
+                ? allSubmittedSAs
+                : allSubmittedSAs
+                    .Where(x => x.SubmittedBy != null &&
+                                lowerAllowedRequesters.Contains(x.SubmittedBy.ToLowerInvariant()))
+                    .ToList();
+
+            var sas = filteredSAs.Select(x => new PendingApprovalDto
+            {
+                DocumentType        = "STOCK_ADJUSTMENT",
+                DocumentTypeDisplay = "Stock Adjustment",
+                DocumentID          = x.ID,
+                DocumentNumber      = x.AdjustmentNo,
+                DocumentDate        = x.AdjustmentDate,
+                RequestedBy         = x.SubmittedBy ?? x.LastUpdatedBy ?? string.Empty,
+                SubmittedDate       = x.SubmittedDate ?? x.LASTUPDATE,
+                CurrentStatus       = x.Status,
+                WarehouseName       = x.WarehouseName,
+                BranchName          = null,
+                TotalAmount         = null,
+                ItemCount           = 1   // SA is always single-item
+            }).ToList();
+
+            foreach (var dto in sas)
+                dto.PendingSinceDays = dto.SubmittedDate.HasValue
+                    ? (int)(now - dto.SubmittedDate.Value).TotalDays : 0;
+
+            result.AddRange(sas);
+
+            // ── Asset Disposals ────────────────────────────────────────────────
+            var allSubmittedADs = await (
+                from ad in _db.AssetDisposals
+                join a in _db.AssetMasters on ad.AssetID equals a.ID into aJoin
+                from a in aJoin.DefaultIfEmpty()
+                where ad.Status == "Submitted" && ad.IsActive
+                orderby ad.SubmittedDate ?? ad.LASTUPDATE
+                select new
+                {
+                    ad.ID, ad.DisposalNo, ad.DisposalDate, ad.SubmittedBy,
+                    ad.LastUpdatedBy, ad.SubmittedDate, ad.LASTUPDATE, ad.Status,
+                    AssetName = a != null ? a.Name : string.Empty
+                })
+                .ToListAsync();
+
+            var filteredADs = isSuperAdmin
+                ? allSubmittedADs
+                : allSubmittedADs
+                    .Where(x => x.SubmittedBy != null &&
+                                lowerAllowedRequesters.Contains(x.SubmittedBy.ToLowerInvariant()))
+                    .ToList();
+
+            var ads = filteredADs.Select(x => new PendingApprovalDto
+            {
+                DocumentType        = "ASSET_DISPOSAL",
+                DocumentTypeDisplay = "Asset Disposal",
+                DocumentID          = x.ID,
+                DocumentNumber      = x.DisposalNo,
+                DocumentDate        = x.DisposalDate,
+                RequestedBy         = x.SubmittedBy ?? x.LastUpdatedBy ?? string.Empty,
+                SubmittedDate       = x.SubmittedDate ?? x.LASTUPDATE,
+                CurrentStatus       = x.Status,
+                WarehouseName       = x.AssetName,  // reuse WarehouseName field to show asset name
+                BranchName          = null,
+                TotalAmount         = null,
+                ItemCount           = 1
+            }).ToList();
+
+            foreach (var dto in ads)
+                dto.PendingSinceDays = dto.SubmittedDate.HasValue
+                    ? (int)(now - dto.SubmittedDate.Value).TotalDays : 0;
+
+            result.AddRange(ads);
+
             return result.OrderBy(r => r.SubmittedDate).ToList();
         }
 
@@ -241,11 +409,29 @@ namespace OBMS.WebAPI.Repositories.Implementation
             if (!hasDetails)
                 return (false, "Please add at least one item to the purchase order before submitting.");
 
+            // ── BUG-06 FIX: ApprovalConfiguration is now the master on/off switch. ──
+            // If ApprovalRequired = false for PURCHASE_ORDER → direct-approve flow regardless
+            // of any ApprovalRouting configuration.
+            bool approvalRequired = await IsApprovalRequired("PURCHASE_ORDER");
+            if (!approvalRequired)
+            {
+                // Approval is turned off for POs → auto-approve immediately.
+                po.Status        = "Approved";
+                po.ApprovedBy    = currentUser;
+                po.ApprovedDate  = DateTime.Now;
+                po.SubmittedBy   = currentUser;
+                po.SubmittedDate = DateTime.Now;
+                po.LASTUPDATE    = DateTime.Now;
+                po.LastUpdatedBy = currentUser;
+                await _db.SaveChangesAsync();
+                return (true, $"Purchase Order {po.PONumber} has been approved. Goods can now be received against this order.");
+            }
+
             // ── Routing check ──────────────────────────────────────────────
-            // Design note: ApprovalConfiguration.ApprovalRequired is informational only
-            // and is NOT enforced here. Approval requirement is determined solely by
-            // whether an active ApprovalRouting row exists for this requester+documentType.
-            // If no routing exists → direct-approve flow. If routing exists → submit flow.
+            // Approval is required. Check whether an active routing row exists
+            // for this requester → approver mapping.
+            // If no routing exists → direct-approve flow (no approver configured for this user).
+            // If routing exists → submit for approval flow.
             var approverUser = await GetApproverForUser(currentUser, "PURCHASE_ORDER");
             if (string.IsNullOrEmpty(approverUser))
             {
@@ -313,7 +499,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
         // ════════════════════════════════════════════════════════════════════
 
         public async Task<(bool Success, string Message)> ApprovePOWithHistory(
-            int id, string authenticatedUser, string? comments)
+            int id, string authenticatedUser, bool isSuperAdmin, string? comments)
         {
             var po = await _db.PurchaseOrders.FindAsync(id);
             if (po == null)
@@ -324,13 +510,20 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     $"This purchase order cannot be approved in its current status ({po.Status}).");
 
             // ── Security: verify the caller is the configured approver ─────
+            // BUG-04 FIX: isSuperAdmin is passed from the controller where it is
+            // derived from the JWT "IsAdmin" claim. No more hard-coded "superadmin" string.
             var submitter = po.SubmittedBy ?? po.LastUpdatedBy ?? string.Empty;
             var authorized = await IsAuthorizedApprover(
                 authenticatedUser, submitter, "PURCHASE_ORDER");
 
-            // Superadmin always allowed
-            bool isSuperAdmin = string.Equals(authenticatedUser, "superadmin",
-                                              StringComparison.OrdinalIgnoreCase);
+            // SuperAdmin has global authority — self-approval block does not apply.
+            // Normal users: cannot approve their own submission.
+            bool isSelfApproval  = !isSuperAdmin &&
+                                   !string.IsNullOrWhiteSpace(submitter) &&
+                                   string.Equals(authenticatedUser, submitter,
+                                                 StringComparison.OrdinalIgnoreCase);
+            if (isSelfApproval)
+                return (false, "You cannot approve a document that you submitted yourself.");
             if (!authorized && !isSuperAdmin)
                 return (false, "You are not authorized to approve this document.");
 
@@ -381,7 +574,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
         // ════════════════════════════════════════════════════════════════════
 
         public async Task<(bool Success, string Message)> RejectPO(
-            int id, string authenticatedUser, string rejectReason)
+            int id, string authenticatedUser, bool isSuperAdmin, string rejectReason)
         {
             if (string.IsNullOrWhiteSpace(rejectReason))
                 return (false,
@@ -395,12 +588,20 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     $"This purchase order cannot be rejected in its current status ({po.Status}).");
 
             // ── Security: verify caller is the configured approver ─────────
+            // BUG-04 FIX: isSuperAdmin is passed from the controller where it is
+            // derived from the JWT "IsAdmin" claim. No more hard-coded "superadmin" string.
             var submitter = po.SubmittedBy ?? po.LastUpdatedBy ?? string.Empty;
             var authorized = await IsAuthorizedApprover(
                 authenticatedUser, submitter, "PURCHASE_ORDER");
 
-            bool isSuperAdmin = string.Equals(authenticatedUser, "superadmin",
-                                              StringComparison.OrdinalIgnoreCase);
+            // SuperAdmin has global authority — self-rejection block does not apply.
+            // Normal users: cannot reject their own submission.
+            bool isSelfRejection = !isSuperAdmin &&
+                                   !string.IsNullOrWhiteSpace(submitter) &&
+                                   string.Equals(authenticatedUser, submitter,
+                                                 StringComparison.OrdinalIgnoreCase);
+            if (isSelfRejection)
+                return (false, "You cannot reject a document that you submitted yourself.");
             if (!authorized && !isSuperAdmin)
                 return (false, "You are not authorized to reject this document.");
 
@@ -498,6 +699,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
             {
                 ["PURCHASE_REQUISITION"] = "Purchase Requisition",
                 ["PURCHASE_ORDER"]       = "Purchase Order",
+                ["BRANCH_STOCK_REQUEST"] = "Branch Stock Request",   // BUG-E FIX: was missing
                 ["STOCK_ADJUSTMENT"]     = "Stock Adjustment",
                 ["STOCK_TRANSFER"]       = "Stock Transfer",
                 ["DAMAGE_LOSS"]          = "Damage / Loss",
@@ -518,6 +720,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     DocumentType     = r.DocumentType,
                     DocumentTypeDisplay = r.DocumentType == "PURCHASE_REQUISITION" ? "Purchase Requisition"
                                        : r.DocumentType == "PURCHASE_ORDER"        ? "Purchase Order"
+                                       : r.DocumentType == "BRANCH_STOCK_REQUEST"  ? "Branch Stock Request"   // BUG-E FIX
                                        : r.DocumentType == "STOCK_ADJUSTMENT"      ? "Stock Adjustment"
                                        : r.DocumentType == "STOCK_TRANSFER"        ? "Stock Transfer"
                                        : r.DocumentType == "DAMAGE_LOSS"           ? "Damage / Loss"

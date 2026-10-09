@@ -43,6 +43,16 @@ namespace OBMS.WebAPI.Models.Domain
 
         public string? LastUpdatedBy { get; set; }
 
+        // ── Approval workflow ────────────────────────────────────────────────
+        /// <summary>Draft | Submitted | Approved | Rejected</summary>
+        public string Status { get; set; } = "Draft";
+
+        public string? SubmittedBy    { get; set; }
+        public DateTime? SubmittedDate { get; set; }
+        public string? ApprovedBy     { get; set; }
+        public DateTime? ApprovedDate  { get; set; }
+        public string? ApprovalRemarks { get; set; }
+
         // Navigation properties
         [ForeignKey("WarehouseID")]
         public virtual WarehouseMaster? Warehouse { get; set; }

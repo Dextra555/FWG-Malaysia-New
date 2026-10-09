@@ -11,6 +11,7 @@ namespace OBMS.WebAPI.Models.DTO
         public int WarehouseID { get; set; }
         public DateTime GRNDate { get; set; }
         public string? DeliveryNoteRef { get; set; }
+        public string? SupplierInvoiceNo { get; set; }
         public string? Remarks { get; set; }
         public string? LastUpdatedBy { get; set; }
         public List<GRNDetailRequestDto> Details { get; set; } = new();
@@ -40,6 +41,7 @@ namespace OBMS.WebAPI.Models.DTO
         public string WarehouseName { get; set; } = string.Empty;
         public DateTime GRNDate { get; set; }
         public string? DeliveryNoteRef { get; set; }
+        public string? SupplierInvoiceNo { get; set; }
         public string? Remarks { get; set; }
         public DateTime LASTUPDATE { get; set; }
         public string? LastUpdatedBy { get; set; }

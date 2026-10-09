@@ -29,13 +29,14 @@ export class StockAdjustmentComponent implements OnInit, AfterViewInit {
 
   userAccessModel!: UserAccessModel;
   currentUser: string = '';
+  userRole: string = '';
   warningMessage: string = '';
   errorMessage: string = '';
   showLoadingSpinner: boolean = false;
   filterValue: string = '';
   pageSizeOptions: number[] = [10, 20, 30, 40, 50];
 
-  displayedColumns: string[] = ['AdjustmentNo', 'AdjustmentDate', 'WarehouseName', 'ItemName', 'AdjustmentType', 'AdjustmentQty', 'Reason', 'action'];
+  displayedColumns: string[] = ['AdjustmentNo', 'AdjustmentDate', 'WarehouseName', 'ItemName', 'AdjustmentType', 'AdjustmentQty', 'Status', 'Reason', 'action'];
   dataSource: MatTableDataSource<any> = new MatTableDataSource<any>([]);
 
   constructor(
@@ -54,6 +55,8 @@ export class StockAdjustmentComponent implements OnInit, AfterViewInit {
     if (!this.currentUser || this.currentUser === 'null') {
       this._dataService.getUsername().subscribe(u => { this.currentUser = u; });
     }
+    const raw = sessionStorage.getItem('userrole') ?? '0';
+    this.userRole = raw === '2' ? 'superadmin' : raw === '1' ? 'admin' : 'user';
     this.getUserAccessRights(this.currentUser, 'Stock Adjustment');
   }
 
@@ -61,20 +64,23 @@ export class StockAdjustmentComponent implements OnInit, AfterViewInit {
     this._masterService.getUserAccessRights(userName, screenName).subscribe(
       (data) => {
         if (data != null) {
-          this.showLoadingSpinner = true;
           this.userAccessModel.readAccess   = data.Read;
           this.userAccessModel.deleteAccess = data.Delete;
           this.userAccessModel.updateAccess = data.Update;
           this.userAccessModel.createAccess = data.Create;
-          if (this.userAccessModel.readAccess || this.currentUser === 'superadmin') {
-            this.loadList();
-          } else {
-            this.warningMessage = `Dear <b>${this.currentUser}</b>,<br>You do not have permission to view this page.<br>Please contact your administrator.`;
-            this.hideLoadingSpinner();
-          }
+        }
+        if (this.userAccessModel.readAccess || this.userRole === 'superadmin') {
+          this.showLoadingSpinner = true;
+          this.loadList();
+        } else {
+          this.warningMessage = `Dear <b>${this.currentUser}</b>,<br>You do not have permission to view this page.<br>Please contact your administrator.`;
+          this.hideLoadingSpinner();
         }
       },
-      () => { this.errorMessage = 'Unable to load this page right now. Please try again.'; this.hideLoadingSpinner(); }
+      () => {
+        this.showLoadingSpinner = true;
+        this.loadList();
+      }
     );
   }
 
@@ -127,6 +133,22 @@ export class StockAdjustmentComponent implements OnInit, AfterViewInit {
 
   formatNumber(val: number): string {
     return (val ?? 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  getStatusLabel(row: any): string {
+    const s = row.Status || 'Approved';   // pre-migration rows have no status — default Approved
+    if (s === 'Submitted') return 'Waiting Approval';
+    return s;
+  }
+
+  getStatusClass(row: any): string {
+    switch (row.Status || 'Approved') {
+      case 'Draft':     return 'badge-draft';
+      case 'Submitted': return 'badge-submitted';
+      case 'Approved':  return 'badge-approved';
+      case 'Rejected':  return 'badge-rejected';
+      default:          return 'badge-approved';
+    }
   }
 
   private extractErrorMessage(err: any, fallback: string): string {

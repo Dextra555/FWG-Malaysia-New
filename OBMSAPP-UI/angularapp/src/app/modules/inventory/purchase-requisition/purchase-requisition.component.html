@@ -61,7 +61,7 @@
           <th mat-header-cell *matHeaderCellDef mat-sort-header>Status</th>
           <td mat-cell *matCellDef="let row">
             <span class="status-badge" [ngClass]="getStatusClass(row.DisplayStatus || row.Status)">
-              {{ row.DisplayStatus || row.Status }}
+              {{ getStatusLabel(row) }}
             </span>
           </td>
         </ng-container>

@@ -127,6 +127,25 @@ export class NewStockDamageLossComponent implements OnInit {
       this.selectedItemName = selected.Name || '';
       this.selectedUOMName  = selected.UOMName || '';
       this.frm.get('UnitCost')?.setValue(selected.Price || 0);
+
+      // ── Default Warehouse auto-fill ──────────────────────────────────────
+      // Only for new records (isViewMode=false) and only when warehouse is
+      // not yet selected. Never overwrite a warehouse the user already chose.
+      // isViewMode is set true BEFORE loadExisting(), so valueChanges-triggered
+      // calls during patchValue on edit safely skip this block.
+      if (!this.isViewMode) {
+        const currentWH = +this.frm.get('WarehouseID')?.value;
+        if (currentWH === 0 && selected.WarehouseID) {
+          const whExists = this.warehouses.find((w: any) => w.ID === selected.WarehouseID);
+          if (whExists) {
+            this.frm.get('WarehouseID')?.setValue(selected.WarehouseID);
+          } else {
+            // Default warehouse is inactive — warn user, leave field empty
+            this.warningMessage =
+              'The default warehouse for this item is inactive. Please select another warehouse.';
+          }
+        }
+      }
     } else {
       this.selectedItemCode = this.selectedItemName = this.selectedUOMName = '';
     }
@@ -159,6 +178,7 @@ export class NewStockDamageLossComponent implements OnInit {
         this.selectedItemCode = d.ItemCode || '';
         this.selectedItemName = d.ItemName || '';
         this.selectedUOMName  = d.UOMName  || '';
+        this.warningMessage   = '';   // clear any stale default-warehouse warning
         this.frm.disable();
         this.hideLoadingSpinner();
       },

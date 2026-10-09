@@ -83,17 +83,27 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
         public async Task<List<Object>> GetCategoriesByCat(string cat)
         {
-            IEnumerable<InventoryCategory> ret;
-            if (cat == "d")
+            IQueryable<InventoryCategory> query = _oBMSDbContext.InventoryCategories;
+
+            if (cat != "d")
             {
-                ret = _oBMSDbContext.InventoryCategories.ToList().OrderBy(x => x.Name);                
+                query = query.Where(x => x.Cat == cat);
             }
-            else
-            {
-                ret = _oBMSDbContext.InventoryCategories.Where(x => x.Cat == cat).ToList().OrderBy(x => x.Name);
-            }
-            
-            return new List<Object>(ret);
+
+            var ret = query
+                .OrderBy(x => x.Name)
+                .Select(x => new
+                {
+                    x.ID,
+                    x.Name,
+                    x.Cat,
+                    x.AssetType,
+                    x.ParentCategoryID,
+                    x.LastUpdatedBy
+                })
+                .ToList<Object>();
+
+            return ret;
         }
 
 
@@ -124,6 +134,8 @@ namespace OBMS.WebAPI.Repositories.Implementation
                         from brand in brandJoin.DefaultIfEmpty()
                         join uom in _oBMSDbContext.UOMMasters on item.UOMID equals uom.ID into uomJoin
                         from uom in uomJoin.DefaultIfEmpty()
+                        join wh in _oBMSDbContext.WarehouseMasters on item.WarehouseID equals wh.ID into whJoin
+                        from wh in whJoin.DefaultIfEmpty()
                         select new
                         {
                             ID = item.ID,
@@ -132,6 +144,8 @@ namespace OBMS.WebAPI.Repositories.Implementation
                             CategoryName = category.Name,
                             BrandName = brand != null ? brand.Name : "",
                             UOMName = uom != null ? uom.Name : "",
+                            WarehouseID = item.WarehouseID,
+                            WarehouseName = wh != null ? wh.Name : "",
                             Price = item.Price,
                             ReorderLevel = item.ReorderLevel,
                             ReorderQuantity = item.ReorderQuantity,
@@ -252,11 +266,18 @@ namespace OBMS.WebAPI.Repositories.Implementation
             throw new NotImplementedException();
         }
 
-        public async Task<List<object>> GetSuppliers()
+        public async Task<List<object>> GetSuppliers(string? category = null)
         {
-            var ret = _oBMSDbContext.Suppliers.ToList();
-            return new List<Object>(ret);
-            throw new NotImplementedException();
+            var query = _oBMSDbContext.Suppliers.AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(category))
+            {
+                // Filter by category AND only active suppliers
+                query = query.Where(s => s.Category == category && s.Status == "A");
+            }
+
+            var ret = await query.OrderBy(s => s.Name).ToListAsync();
+            return new List<object>(ret);
         }
 
         public async Task<Supplier> GetSupplierByID(int ID)
@@ -310,13 +331,32 @@ namespace OBMS.WebAPI.Repositories.Implementation
             return obj;
         }
 
-        public async Task<Dictionary<string, Object>> GetUtilityBillsMasterList()
+        public async Task<Dictionary<string, Object>> GetUtilityBillsMasterList(string userID)
         {
+            bool isSuperAdmin = string.Equals(userID?.Trim(), "superadmin", StringComparison.OrdinalIgnoreCase);
 
             var results = new Dictionary<string, Object>();
 
-
-            var branchs = _oBMSDbContext.BranchMasters.ToList();
+            List<BranchMaster> branchs;
+            if (isSuperAdmin)
+            {
+                branchs = await _oBMSDbContext.BranchMasters
+                    .OrderBy(x => x.Name)
+                    .ToListAsync();
+            }
+            else
+            {
+                branchs = await _oBMSDbContext.BranchMasters
+                    .Join(_oBMSDbContext.OBMSBranches,
+                        branchmaster => branchmaster.Code,
+                        branches => branches.BranchCode,
+                        (branchmaster, branches) => new { branchmaster, branches })
+                    .Where(x => x.branches.Name == userID && x.branches.IsAllowed == true)
+                    .Select(x => x.branchmaster)
+                    .Distinct()
+                    .OrderBy(x => x.Name)
+                    .ToListAsync();
+            }
 
             results.Add("branchList", branchs);
 
@@ -710,7 +750,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
         public async Task<List<Object>> GetUOMMasters()
         {
             var ret = await _oBMSDbContext.UOMMasters.ToListAsync();
-            return new List<Object>(ret.OrderBy(x => x.Name).ToList());
+            return new List<Object>(ret.OrderBy(x => x.Code).ToList());
         }
 
         public async Task<UOMMaster> GetUOMByID(int ID)
@@ -1219,7 +1259,8 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 ApprovalRemarks = pr.ApprovalRemarks,
                 // Part 7: SubmittedBy/SubmittedDate must be in the DTO so the
                 // frontend can pass the correct requesterUser to IsCurrentUserApprover.
-                SubmittedBy     = pr.SubmittedBy,
+                // Fallback to LastUpdatedBy so the value is never null for old records.
+                SubmittedBy     = pr.SubmittedBy ?? pr.LastUpdatedBy,
                 SubmittedDate   = pr.SubmittedDate,
                 LASTUPDATE      = pr.LASTUPDATE,
                 LastUpdatedBy   = pr.LastUpdatedBy
@@ -1290,6 +1331,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     ItemName     = im.Name,
                     CategoryName = ic != null ? ic.Name : "",
                     RequiredQty  = d.RequiredQty,
+                    BuyingPrice  = d.BuyingPrice,
                     UOMID        = d.UOMID,
                     UOMName      = um != null ? um.Name : "",
                     Remarks      = d.Remarks
@@ -1383,6 +1425,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                             PRID          = pr.ID,
                             ItemID        = d.ItemID,
                             RequiredQty   = d.RequiredQty,
+                            BuyingPrice   = d.BuyingPrice,
                             UOMID         = d.UOMID == 0 ? null : d.UOMID,
                             Remarks       = d.Remarks,
                             LASTUPDATE    = DateTime.Now,
@@ -1410,13 +1453,27 @@ namespace OBMS.WebAPI.Repositories.Implementation
             if (!hasDetails)
                 return (false, "Please add at least one item to the requisition before submitting.");
 
-            // ── Routing check: find the configured approver before committing ──
-            // Design note: ApprovalConfiguration.ApprovalRequired is informational only
-            // and is NOT enforced here. Approval requirement is determined solely by
-            // whether an active ApprovalRouting row exists for this requester+documentType.
-            // If no routing exists → direct-approve flow. If routing exists → submit flow.
+            // ── BUG-06 FIX: ApprovalConfiguration is now the master on/off switch. ──
+            // If ApprovalRequired = false for PURCHASE_REQUISITION → direct-approve flow
+            // regardless of any ApprovalRouting configuration.
             if (_approval != null)
             {
+                bool approvalRequired = await _approval.IsApprovalRequired("PURCHASE_REQUISITION");
+                if (!approvalRequired)
+                {
+                    // Approval is turned off for PRs → auto-approve immediately.
+                    string prevDirect2 = pr.Status;
+                    pr.Status        = "Approved";
+                    pr.ApprovedBy    = currentUser;
+                    pr.ApprovedDate  = DateTime.Now;
+                    pr.SubmittedBy   = currentUser;
+                    pr.SubmittedDate = DateTime.Now;
+                    pr.LASTUPDATE    = DateTime.Now;
+                    pr.LastUpdatedBy = currentUser;
+                    await _oBMSDbContext.SaveChangesAsync();
+                    return (true, $"Purchase Requisition {pr.PRNumber} has been approved. You can now create a Purchase Order.");
+                }
+
                 var approverUser = await _approval.GetApproverForUser(
                     currentUser, "PURCHASE_REQUISITION");
 
@@ -1479,8 +1536,20 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
             // ── Security: verify the authenticated user is the configured approver ──
             var submitter = pr.SubmittedBy ?? pr.LastUpdatedBy ?? string.Empty;
-            bool isSuperAdmin = string.Equals(dto.ApprovedBy, "superadmin",
-                                              StringComparison.OrdinalIgnoreCase);
+            // BUG-05 FIX: isSuperAdmin is derived from the JWT "IsAdmin" claim value "2",
+            // passed in via PRApprovalDto.IsSuperAdmin. No more hard-coded "superadmin" string.
+            bool isSuperAdmin   = dto.IsSuperAdmin;
+
+            // SuperAdmin has global approval authority — they can approve ANY document
+            // including documents they submitted themselves (global override).
+            // Normal users: self-approval is always blocked.
+            bool isSelfApproval = !isSuperAdmin &&
+                                  !string.IsNullOrWhiteSpace(submitter) &&
+                                  string.Equals(dto.ApprovedBy, submitter,
+                                                StringComparison.OrdinalIgnoreCase);
+            if (isSelfApproval)
+                return (false, "You cannot approve a document that you submitted yourself.");
+
             if (!isSuperAdmin && _approval != null)
             {
                 var authorized = await _approval.IsAuthorizedApprover(
@@ -1521,8 +1590,19 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
             // ── Security: verify the authenticated user is the configured approver ──
             var submitter = pr.SubmittedBy ?? pr.LastUpdatedBy ?? string.Empty;
-            bool isSuperAdmin = string.Equals(dto.ApprovedBy, "superadmin",
-                                              StringComparison.OrdinalIgnoreCase);
+            // BUG-05 FIX: isSuperAdmin is derived from the JWT "IsAdmin" claim value "2",
+            // passed in via PRApprovalDto.IsSuperAdmin. No more hard-coded "superadmin" string.
+            bool isSuperAdmin    = dto.IsSuperAdmin;
+
+            // SuperAdmin has global authority — self-rejection block does not apply.
+            // Normal users: cannot reject their own submission.
+            bool isSelfRejection = !isSuperAdmin &&
+                                   !string.IsNullOrWhiteSpace(submitter) &&
+                                   string.Equals(dto.ApprovedBy, submitter,
+                                                 StringComparison.OrdinalIgnoreCase);
+            if (isSelfRejection)
+                return (false, "You cannot reject a document that you submitted yourself.");
+
             if (!isSuperAdmin && _approval != null)
             {
                 var authorized = await _approval.IsAuthorizedApprover(
@@ -1558,6 +1638,14 @@ namespace OBMS.WebAPI.Repositories.Implementation
             if (pr == null) return (false, "This purchase requisition could not be found.");
             if (pr.Status != "Draft")
                 return (false, $"This purchase requisition cannot be deleted because it has already been {pr.Status.ToLower()}. Only Draft requisitions can be deleted.");
+
+            // ── Dependency check: block if a PO has been raised from this PR ──
+            var linkedPO = await _oBMSDbContext.PurchaseOrders
+                .Where(po => po.PRID == id && po.IsActive)
+                .Select(po => new { po.PONumber })
+                .FirstOrDefaultAsync();
+            if (linkedPO != null)
+                return (false, $"Purchase Requisition {pr.PRNumber} cannot be deleted because Purchase Order {linkedPO.PONumber} has already been created from it. Please cancel Purchase Order {linkedPO.PONumber} first.");
 
             pr.IsActive      = false;
             pr.LASTUPDATE    = DateTime.Now;
@@ -1596,7 +1684,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 Remarks       = po.Remarks,
                 ApprovedBy    = po.ApprovedBy,
                 ApprovedDate  = po.ApprovedDate,
-                SubmittedBy   = po.SubmittedBy,
+                SubmittedBy   = po.SubmittedBy ?? po.LastUpdatedBy,   // fallback so Angular always gets a non-null value
                 SubmittedDate = po.SubmittedDate,
                 RejectReason  = po.RejectReason,
                 LASTUPDATE    = po.LASTUPDATE,
@@ -1692,13 +1780,49 @@ namespace OBMS.WebAPI.Repositories.Implementation
             if (dto.Details.Any(d => d.UnitPrice < 0))
                 return (false, "Unit price cannot be negative. Please enter a valid price for all items.", null);
 
-            // Validate status on edit
+            // Validate status on edit + dependency check
             if (dto.ID != 0)
             {
                 var existing = await _oBMSDbContext.PurchaseOrders.FindAsync(dto.ID);
                 if (existing == null) return (false, "This purchase order could not be found.", null);
-                if (existing.Status != "Draft")
+
+                // ── Editability rules ───────────────────────────────────────
+                // Draft      → always editable (normal path)
+                // Approved   → editable ONLY if no active GRN exists (GRN was deleted / never created)
+                // Any other status → blocked
+                if (existing.Status != "Draft" && existing.Status != "Approved")
                     return (false, $"This purchase order cannot be edited because it has already been {existing.Status.ToLower()}.", null);
+
+                // Check for active GRN regardless of status
+                var linkedGRN = await _oBMSDbContext.GoodsReceiptNotes
+                    .Where(g => g.POID == dto.ID && g.IsActive)
+                    .Select(g => new { g.GRNNumber })
+                    .FirstOrDefaultAsync();
+                if (linkedGRN != null)
+                    return (false, $"Purchase Order {existing.PONumber} cannot be edited because Goods Receipt {linkedGRN.GRNNumber} has already been created for this PO. Please delete Goods Receipt {linkedGRN.GRNNumber} first.", null);
+
+                // ── PR-linked item protection ───────────────────────────────
+                // If this PO was created from a PR, the item list (which items are ordered)
+                // is frozen — only Qty and UnitPrice per line may change.
+                // Detect if the user is trying to add/remove/swap items.
+                if (existing.PRID.HasValue && existing.PRID > 0)
+                {
+                    var existingItems = await _oBMSDbContext.PurchaseOrderDetails
+                        .Where(x => x.POID == dto.ID)
+                        .Select(x => x.ItemID)
+                        .OrderBy(x => x)
+                        .ToListAsync();
+                    var incomingItems = dto.Details
+                        .Select(d => d.ItemID)
+                        .OrderBy(x => x)
+                        .ToList();
+                    if (!existingItems.SequenceEqual(incomingItems))
+                        return (false,
+                            $"Purchase Order {existing.PONumber} was created from a Purchase Requisition. " +
+                            "The item list cannot be changed. " +
+                            "You may only update quantities and unit prices. " +
+                            "To change the items, please create a new Purchase Order without linking to a PR.", null);
+                }
             }
 
             // Validate linked PR if provided
@@ -1777,7 +1901,10 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     else
                     {
                         po = await _oBMSDbContext.PurchaseOrders.FindAsync(dto.ID)!;
-                        po.PRID          = dto.PRID.HasValue && dto.PRID > 0 ? dto.PRID : null;
+                        // If PO was Approved (GRN deleted and re-editing), reset back to Draft
+                        if (po.Status == "Approved")
+                            po.Status = "Draft";
+                        // PRID is immutable on edit — never allow changing the PR link
                         po.SupplierID    = dto.SupplierID;
                         po.WarehouseID   = dto.WarehouseID;
                         po.PODate        = dto.PODate;
@@ -1830,8 +1957,21 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
             // ── Security: verify the authenticated user is the configured approver ──
             var submitter = po.SubmittedBy ?? po.LastUpdatedBy ?? string.Empty;
-            bool isSuperAdmin = string.Equals(dto.ApprovedBy, "superadmin",
-                                              StringComparison.OrdinalIgnoreCase);
+            // BUG-13 FIX: use IsSuperAdmin from dto (stamped by controller from JWT claim).
+            // No more hard-coded "superadmin" username string check.
+            bool isSuperAdmin = dto.IsSuperAdmin;
+
+            // BUG-B FIX: add self-approval guard that was missing from this legacy method.
+            // ApprovePOWithHistory (ApprovalRepository) already has this guard; this legacy
+            // path was inconsistent.  SuperAdmin is exempt — they can approve any document
+            // including their own submissions.
+            bool isSelfApproval = !isSuperAdmin &&
+                                  !string.IsNullOrWhiteSpace(submitter) &&
+                                  string.Equals(dto.ApprovedBy, submitter,
+                                                StringComparison.OrdinalIgnoreCase);
+            if (isSelfApproval)
+                return (false, "You cannot approve a document that you submitted yourself.");
+
             if (!isSuperAdmin && _approval != null)
             {
                 var authorized = await _approval.IsAuthorizedApprover(
@@ -1871,12 +2011,73 @@ namespace OBMS.WebAPI.Repositories.Implementation
             if (po.Status == "Cancelled")
                 return (false, "This purchase order has already been cancelled.");
 
+            // ── Dependency check: explicit GRN message even if status wasn't Partially/Fully Received ──
+            var linkedGRN = await _oBMSDbContext.GoodsReceiptNotes
+                .Where(g => g.POID == id && g.IsActive)
+                .Select(g => new { g.GRNNumber })
+                .FirstOrDefaultAsync();
+            if (linkedGRN != null)
+                return (false, $"Purchase Order {po.PONumber} cannot be cancelled because Goods Receipt {linkedGRN.GRNNumber} has already been created for this PO. Please delete Goods Receipt {linkedGRN.GRNNumber} first.");
+
             po.Status        = "Cancelled";
             po.IsActive      = false;
             po.LASTUPDATE    = DateTime.Now;
             po.LastUpdatedBy = currentUser;
             await _oBMSDbContext.SaveChangesAsync();
             return (true, $"Purchase Order {po.PONumber} has been cancelled.");
+        }
+
+        /// <summary>
+        /// Returns the editability state of a PO for the frontend:
+        /// - CanEdit: is the form currently saveable?
+        /// - IsPRLinked: is the item list locked (only Qty/Price changeable)?
+        /// - Status: current PO status for banner display
+        /// - BlockReason: why editing is blocked (when CanEdit = false)
+        /// </summary>
+        public async Task<POEditabilityDto> GetPOEditability(int id)
+        {
+            var po = await _oBMSDbContext.PurchaseOrders.FindAsync(id);
+            if (po == null)
+                return new POEditabilityDto { CanEdit = false, Status = "Unknown", BlockReason = "This purchase order could not be found." };
+
+            // Check active GRN
+            var activeGRN = await _oBMSDbContext.GoodsReceiptNotes
+                .Where(g => g.POID == id && g.IsActive)
+                .Select(g => new { g.GRNNumber })
+                .FirstOrDefaultAsync();
+
+            // PO is editable only if: Draft, OR Approved with no active GRN
+            bool canEdit = po.Status == "Draft" ||
+                           (po.Status == "Approved" && activeGRN == null);
+
+            string? blockReason = null;
+            if (!canEdit)
+            {
+                if (activeGRN != null)
+                    blockReason = $"Goods Receipt {activeGRN.GRNNumber} has been posted for this PO. Delete the GRN first to re-enable editing.";
+                else
+                    blockReason = $"This purchase order cannot be edited because it is currently {po.Status}.";
+            }
+
+            // PR link info
+            string? linkedPRNumber = null;
+            if (po.PRID.HasValue && po.PRID > 0)
+            {
+                var pr = await _oBMSDbContext.PurchaseRequisitions
+                    .Where(r => r.ID == po.PRID.Value)
+                    .Select(r => new { r.PRNumber })
+                    .FirstOrDefaultAsync();
+                linkedPRNumber = pr?.PRNumber;
+            }
+
+            return new POEditabilityDto
+            {
+                CanEdit        = canEdit,
+                IsPRLinked     = po.PRID.HasValue && po.PRID > 0,
+                LinkedPRNumber = linkedPRNumber,
+                Status         = po.Status,
+                BlockReason    = blockReason
+            };
         }
 
 
@@ -1895,18 +2096,19 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 orderby grn.GRNDate descending, grn.ID descending
                 select new GRNListDto
                 {
-                    ID            = grn.ID,
-                    GRNNumber     = grn.GRNNumber,
-                    POID          = grn.POID,
-                    PONumber      = po.PONumber,
-                    SupplierName  = sup.Name,
-                    WarehouseID   = grn.WarehouseID,
-                    WarehouseName = wh.Name,
-                    GRNDate       = grn.GRNDate,
+                    ID              = grn.ID,
+                    GRNNumber       = grn.GRNNumber,
+                    POID            = grn.POID,
+                    PONumber        = po.PONumber,
+                    SupplierName    = sup.Name,
+                    WarehouseID     = grn.WarehouseID,
+                    WarehouseName   = wh.Name,
+                    GRNDate         = grn.GRNDate,
                     DeliveryNoteRef = grn.DeliveryNoteRef,
-                    Remarks       = grn.Remarks,
-                    LASTUPDATE    = grn.LASTUPDATE,
-                    LastUpdatedBy = grn.LastUpdatedBy
+                    SupplierInvoiceNo = grn.SupplierInvoiceNo,
+                    Remarks         = grn.Remarks,
+                    LASTUPDATE      = grn.LASTUPDATE,
+                    LastUpdatedBy   = grn.LastUpdatedBy
                 }
             ).ToListAsync();
 
@@ -1925,18 +2127,19 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 where g.ID == id
                 select new GRNListDto
                 {
-                    ID              = g.ID,
-                    GRNNumber       = g.GRNNumber,
-                    POID            = g.POID,
-                    PONumber        = po.PONumber,
-                    SupplierName    = sup.Name,
-                    WarehouseID     = g.WarehouseID,
-                    WarehouseName   = wh.Name,
-                    GRNDate         = g.GRNDate,
-                    DeliveryNoteRef = g.DeliveryNoteRef,
-                    Remarks         = g.Remarks,
-                    LASTUPDATE      = g.LASTUPDATE,
-                    LastUpdatedBy   = g.LastUpdatedBy
+                    ID                = g.ID,
+                    GRNNumber         = g.GRNNumber,
+                    POID              = g.POID,
+                    PONumber          = po.PONumber,
+                    SupplierName      = sup.Name,
+                    WarehouseID       = g.WarehouseID,
+                    WarehouseName     = wh.Name,
+                    GRNDate           = g.GRNDate,
+                    DeliveryNoteRef   = g.DeliveryNoteRef,
+                    SupplierInvoiceNo = g.SupplierInvoiceNo,
+                    Remarks           = g.Remarks,
+                    LASTUPDATE        = g.LASTUPDATE,
+                    LastUpdatedBy     = g.LastUpdatedBy
                 }
             ).FirstOrDefaultAsync();
 
@@ -1960,18 +2163,19 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 orderby g.GRNDate descending
                 select new GRNListDto
                 {
-                    ID              = g.ID,
-                    GRNNumber       = g.GRNNumber,
-                    POID            = g.POID,
-                    PONumber        = po.PONumber,
-                    SupplierName    = sup.Name,
-                    WarehouseID     = g.WarehouseID,
-                    WarehouseName   = wh.Name,
-                    GRNDate         = g.GRNDate,
-                    DeliveryNoteRef = g.DeliveryNoteRef,
-                    Remarks         = g.Remarks,
-                    LASTUPDATE      = g.LASTUPDATE,
-                    LastUpdatedBy   = g.LastUpdatedBy
+                    ID                = g.ID,
+                    GRNNumber         = g.GRNNumber,
+                    POID              = g.POID,
+                    PONumber          = po.PONumber,
+                    SupplierName      = sup.Name,
+                    WarehouseID       = g.WarehouseID,
+                    WarehouseName     = wh.Name,
+                    GRNDate           = g.GRNDate,
+                    DeliveryNoteRef   = g.DeliveryNoteRef,
+                    SupplierInvoiceNo = g.SupplierInvoiceNo,
+                    Remarks           = g.Remarks,
+                    LASTUPDATE        = g.LASTUPDATE,
+                    LastUpdatedBy     = g.LastUpdatedBy
                 }
             ).FirstOrDefaultAsync();
 
@@ -2094,15 +2298,16 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     // Save GRN header
                     var grn = new GoodsReceiptNote
                     {
-                        GRNNumber       = grnNumber,
-                        POID            = dto.POID,
-                        WarehouseID     = dto.WarehouseID,
-                        GRNDate         = dto.GRNDate,
-                        DeliveryNoteRef = dto.DeliveryNoteRef,
-                        Remarks         = dto.Remarks,
-                        IsActive        = true,
-                        LASTUPDATE      = DateTime.Now,
-                        LastUpdatedBy   = dto.LastUpdatedBy
+                        GRNNumber         = grnNumber,
+                        POID              = dto.POID,
+                        WarehouseID       = dto.WarehouseID,
+                        GRNDate           = dto.GRNDate,
+                        DeliveryNoteRef   = dto.DeliveryNoteRef,
+                        SupplierInvoiceNo = dto.SupplierInvoiceNo,
+                        Remarks           = dto.Remarks,
+                        IsActive          = true,
+                        LASTUPDATE        = DateTime.Now,
+                        LastUpdatedBy     = dto.LastUpdatedBy
                     };
                     _oBMSDbContext.GoodsReceiptNotes.Add(grn);
                     await _oBMSDbContext.SaveChangesAsync();
@@ -2177,6 +2382,153 @@ namespace OBMS.WebAPI.Repositories.Implementation
             });
 
             return (true, $"Goods Receipt {grnNumber} saved successfully. Stock has been updated.", savedRecord);
+        }
+
+        /// <summary>
+        /// Checks downstream dependencies for a GRN before allowing delete.
+        /// Returns (canDelete, blockingReason) where blockingReason is null when safe to delete.
+        /// </summary>
+        public async Task<(bool CanDelete, string? BlockingMessage, string? BlockingDocNumber)> CheckGRNDependency(int id)
+        {
+            var grn = await _oBMSDbContext.GoodsReceiptNotes
+                .Where(g => g.ID == id && g.IsActive)
+                .Select(g => new { g.GRNNumber })
+                .FirstOrDefaultAsync();
+            if (grn == null)
+                return (false, "This goods receipt could not be found.", null);
+
+            // 1. Check Finance Payment dependency
+            var linkedPayment = await _oBMSDbContext.BranchPaymentDetails
+                .Where(p => p.GRNID == id && p.IsDeleted != true)
+                .Select(p => new { p.PaymentID })
+                .FirstOrDefaultAsync();
+            if (linkedPayment != null)
+                return (false,
+                    $"Goods Receipt {grn.GRNNumber} cannot be deleted because it has already been used in Finance Payment (Payment ID: {linkedPayment.PaymentID}). Please reverse or cancel the related payment first.",
+                    grn.GRNNumber);
+
+            // 2. Check Purchase Return dependency
+            var linkedReturn = await _oBMSDbContext.PurchaseReturns
+                .Where(r => r.GRNID == id && r.IsActive)
+                .Select(r => new { r.ReturnNumber })
+                .FirstOrDefaultAsync();
+            if (linkedReturn != null)
+                return (false,
+                    $"Goods Receipt {grn.GRNNumber} cannot be deleted because Purchase Return {linkedReturn.ReturnNumber} has been created against it. Please delete Purchase Return {linkedReturn.ReturnNumber} first.",
+                    grn.GRNNumber);
+
+            return (true, null, grn.GRNNumber);
+        }
+
+        /// <summary>
+        /// Deletes a GRN transactionally:
+        /// - Blocks if linked to a Finance Payment or Purchase Return.
+        /// - Reverses StockLedger STOCK_IN rows.
+        /// - Decrements PurchaseOrderDetail.ReceivedQty.
+        /// - Recalculates PurchaseOrder status.
+        /// - Soft-deletes the GRN and its detail lines.
+        /// </summary>
+        public async Task<(bool Success, string Message)> DeleteGRN(int id, string currentUser)
+        {
+            var grn = await _oBMSDbContext.GoodsReceiptNotes.FindAsync(id);
+            if (grn == null || !grn.IsActive)
+                return (false, "This goods receipt could not be found.");
+
+            // ── Dependency checks (re-use helper logic inline for atomicity) ──
+            var paymentBlock = await _oBMSDbContext.BranchPaymentDetails
+                .Where(p => p.GRNID == id && p.IsDeleted != true)
+                .Select(p => new { p.PaymentID })
+                .FirstOrDefaultAsync();
+            if (paymentBlock != null)
+                return (false, $"Goods Receipt {grn.GRNNumber} cannot be deleted because it has already been used in Finance Payment (Payment ID: {paymentBlock.PaymentID}). Please reverse or cancel the related payment first.");
+
+            var returnBlock = await _oBMSDbContext.PurchaseReturns
+                .Where(r => r.GRNID == id && r.IsActive)
+                .Select(r => new { r.ReturnNumber })
+                .FirstOrDefaultAsync();
+            if (returnBlock != null)
+                return (false, $"Goods Receipt {grn.GRNNumber} cannot be deleted because Purchase Return {returnBlock.ReturnNumber} has been created against it. Please delete Purchase Return {returnBlock.ReturnNumber} first.");
+
+            // ── Transactional reversal ──────────────────────────────────────
+            var strategy = _oBMSDbContext.Database.CreateExecutionStrategy();
+            string resultMessage = "";
+            bool resultSuccess = false;
+
+            await strategy.ExecuteAsync(async () =>
+            {
+                using var tx = await _oBMSDbContext.Database.BeginTransactionAsync();
+                try
+                {
+                    // Load GRN detail lines before soft-delete
+                    var grnDetails = await _oBMSDbContext.GoodsReceiptNoteDetails
+                        .Where(d => d.GRNID == id)
+                        .ToListAsync();
+
+                    // 1. Remove StockLedger STOCK_IN entries created by this GRN
+                    var ledgerRows = await _oBMSDbContext.StockLedgers
+                        .Where(sl => sl.ReferenceID == id && sl.ReferenceType == "Goods Receipt" && sl.TransactionType == "STOCK_IN")
+                        .ToListAsync();
+                    if (ledgerRows.Any())
+                        _oBMSDbContext.StockLedgers.RemoveRange(ledgerRows);
+
+                    // 2. Reverse PurchaseOrderDetail.ReceivedQty for each line
+                    foreach (var detail in grnDetails)
+                    {
+                        var poDetail = await _oBMSDbContext.PurchaseOrderDetails.FindAsync(detail.PODetailID);
+                        if (poDetail != null)
+                        {
+                            poDetail.ReceivedQty  = Math.Max(0, poDetail.ReceivedQty - detail.ReceivedQty);
+                            poDetail.LASTUPDATE    = DateTime.Now;
+                            poDetail.LastUpdatedBy = currentUser;
+                            _oBMSDbContext.PurchaseOrderDetails.Update(poDetail);
+                        }
+                    }
+
+                    await _oBMSDbContext.SaveChangesAsync();
+
+                    // 3. Recalculate PurchaseOrder status
+                    var po = await _oBMSDbContext.PurchaseOrders.FindAsync(grn.POID);
+                    if (po != null)
+                    {
+                        // Check if any other active GRNs exist for this PO
+                        var otherGRNs = await _oBMSDbContext.GoodsReceiptNotes
+                            .AnyAsync(g => g.POID == grn.POID && g.IsActive && g.ID != id);
+
+                        if (otherGRNs)
+                        {
+                            // Recalculate from remaining GRNs
+                            var allPODetails = await _oBMSDbContext.PurchaseOrderDetails
+                                .Where(x => x.POID == grn.POID).ToListAsync();
+                            bool allReceived = allPODetails.All(x => x.ReceivedQty >= x.OrderedQty);
+                            po.Status = allReceived ? "Fully Received" : "Partially Received";
+                        }
+                        else
+                        {
+                            // No more GRNs — revert to Approved
+                            po.Status = "Approved";
+                            po.IsActive = true; // ensure PO remains active
+                        }
+                        po.LASTUPDATE    = DateTime.Now;
+                        po.LastUpdatedBy = currentUser;
+                        _oBMSDbContext.PurchaseOrders.Update(po);
+                    }
+
+                    // 4. Soft-delete GRN
+                    grn.IsActive      = false;
+                    grn.LASTUPDATE    = DateTime.Now;
+                    grn.LastUpdatedBy = currentUser;
+                    _oBMSDbContext.GoodsReceiptNotes.Update(grn);
+
+                    await _oBMSDbContext.SaveChangesAsync();
+                    await tx.CommitAsync();
+
+                    resultSuccess = true;
+                    resultMessage = $"Goods Receipt {grn.GRNNumber} has been deleted. Stock and purchase order status have been reversed.";
+                }
+                catch { await tx.RollbackAsync(); throw; }
+            });
+
+            return (resultSuccess, resultMessage);
         }
 
 
@@ -3269,7 +3621,14 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     Reason         = sa.Reason,
                     Remarks        = sa.Remarks,
                     LASTUPDATE     = sa.LASTUPDATE,
-                    LastUpdatedBy  = sa.LastUpdatedBy
+                    LastUpdatedBy  = sa.LastUpdatedBy,
+                    // Approval workflow fields
+                    Status         = sa.Status,
+                    SubmittedBy    = sa.SubmittedBy,
+                    SubmittedDate  = sa.SubmittedDate,
+                    ApprovedBy     = sa.ApprovedBy,
+                    ApprovedDate   = sa.ApprovedDate,
+                    ApprovalRemarks = sa.ApprovalRemarks
                 }
             ).ToListAsync();
             return list;
@@ -3305,11 +3664,24 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     Reason         = sa.Reason,
                     Remarks        = sa.Remarks,
                     LASTUPDATE     = sa.LASTUPDATE,
-                    LastUpdatedBy  = sa.LastUpdatedBy
+                    LastUpdatedBy  = sa.LastUpdatedBy,
+                    // Approval workflow fields
+                    Status         = sa.Status,
+                    SubmittedBy    = sa.SubmittedBy,
+                    SubmittedDate  = sa.SubmittedDate,
+                    ApprovedBy     = sa.ApprovedBy,
+                    ApprovedDate   = sa.ApprovedDate,
+                    ApprovalRemarks = sa.ApprovalRemarks
                 }
             ).FirstOrDefaultAsync();
         }
 
+        /// <summary>
+        /// Saves a Stock Adjustment as Draft (or updates an existing Draft).
+        /// Stock ledger is NOT updated at save time — it is applied only when the
+        /// adjustment is Approved (via ApproveSA).
+        /// Only Draft adjustments can be edited.
+        /// </summary>
         public async Task<(bool Success, string Message, StockAdjustment? Record)> SaveStockAdjustment(
             StockAdjustmentRequestDto dto)
         {
@@ -3328,14 +3700,12 @@ namespace OBMS.WebAPI.Repositories.Implementation
             var item = await _oBMSDbContext.ItemMasters.FindAsync(dto.ItemID);
             if (item == null) return (false, "Item not found.", null);
 
-            // MINUS: check against available stock
-            if (dto.AdjustmentType == "MINUS")
+            // For existing records, only Draft status can be edited
+            if (dto.ID > 0)
             {
-                var available = await GetCurrentStockInternal(dto.WarehouseID, dto.ItemID);
-                if (dto.AdjustmentQty > available)
-                    return (false,
-                        $"Insufficient stock. Available quantity for '{item.Name}' in {warehouse.Name} is {available:N2}.",
-                        null);
+                var existing = await _oBMSDbContext.StockAdjustments.FindAsync(dto.ID);
+                if (existing != null && existing.Status != "Draft")
+                    return (false, $"Only Draft adjustments can be edited. This adjustment is currently {existing.Status}.", null);
             }
 
             // ── Generate adjustment number ──────────────────────────────────────
@@ -3353,102 +3723,254 @@ namespace OBMS.WebAPI.Repositories.Implementation
             }
 
             StockAdjustment? savedRecord = null;
-            var strategy = _oBMSDbContext.Database.CreateExecutionStrategy();
-            await strategy.ExecuteAsync(async () =>
+            StockAdjustment adj;
+            if (dto.ID > 0)
             {
-                using var tx = await _oBMSDbContext.Database.BeginTransactionAsync();
-                try
+                adj = await _oBMSDbContext.StockAdjustments.FindAsync(dto.ID)
+                      ?? throw new InvalidOperationException("Adjustment not found.");
+            }
+            else
+            {
+                adj = new StockAdjustment();
+                _oBMSDbContext.StockAdjustments.Add(adj);
+            }
+
+            adj.AdjustmentNo   = adjNo;
+            adj.AdjustmentDate = dto.AdjustmentDate;
+            adj.WarehouseID    = dto.WarehouseID;
+            adj.ItemID         = dto.ItemID;
+            adj.AdjustmentType = dto.AdjustmentType;
+            adj.AdjustmentQty  = dto.AdjustmentQty;
+            adj.UnitCost       = dto.UnitCost;
+            adj.Reason         = dto.Reason;
+            adj.Remarks        = dto.Remarks;
+            adj.IsActive       = true;
+            adj.Status         = "Draft";
+            adj.LASTUPDATE     = DateTime.Now;
+            adj.LastUpdatedBy  = dto.LastUpdatedBy;
+
+            await _oBMSDbContext.SaveChangesAsync();
+            savedRecord = adj;
+
+            return (true, $"Stock Adjustment {adjNo} saved as Draft. Submit for approval when ready.", savedRecord);
+        }
+
+        /// <summary>
+        /// Submits a Draft Stock Adjustment for approval.
+        /// If ApprovalRequired = false OR no routing configured → auto-approves immediately
+        /// (applies the stock ledger entry).
+        /// Otherwise → sets Status = Submitted, notifies the configured approver.
+        /// </summary>
+        public async Task<(bool Success, string Message)> SubmitSA(int id, string currentUser)
+        {
+            var adj = await _oBMSDbContext.StockAdjustments.FindAsync(id);
+            if (adj == null) return (false, "Stock adjustment not found.");
+            if (adj.Status != "Draft")
+                return (false, $"Only a Draft adjustment can be submitted. This adjustment is currently {adj.Status}.");
+
+            if (_approval != null)
+            {
+                bool approvalRequired = await _approval.IsApprovalRequired("STOCK_ADJUSTMENT");
+                if (!approvalRequired)
                 {
-                    StockAdjustment adj;
-                    if (dto.ID > 0)
-                    {
-                        adj = await _oBMSDbContext.StockAdjustments.FindAsync(dto.ID)
-                              ?? throw new InvalidOperationException("Adjustment not found.");
-                        // Remove old ledger row
-                        var oldLedger = await _oBMSDbContext.StockLedgers
-                            .Where(l => l.ReferenceType == "Stock Adjustment" && l.ReferenceID == dto.ID)
-                            .ToListAsync();
-                        _oBMSDbContext.StockLedgers.RemoveRange(oldLedger);
-                        await _oBMSDbContext.SaveChangesAsync();
-                    }
-                    else
-                    {
-                        adj = new StockAdjustment();
-                        _oBMSDbContext.StockAdjustments.Add(adj);
-                    }
-
-                    adj.AdjustmentNo   = adjNo;
-                    adj.AdjustmentDate = dto.AdjustmentDate;
-                    adj.WarehouseID    = dto.WarehouseID;
-                    adj.ItemID         = dto.ItemID;
-                    adj.AdjustmentType = dto.AdjustmentType;
-                    adj.AdjustmentQty  = dto.AdjustmentQty;
-                    adj.UnitCost       = dto.UnitCost;
-                    adj.Reason         = dto.Reason;
-                    adj.Remarks        = dto.Remarks;
-                    adj.IsActive       = true;
-                    adj.LASTUPDATE     = DateTime.Now;
-                    adj.LastUpdatedBy  = dto.LastUpdatedBy;
-
-                    await _oBMSDbContext.SaveChangesAsync(); // get adj.ID
-
-                    // StockLedger — PLUS = In, MINUS = Out
-                    bool isPlus = dto.AdjustmentType == "PLUS";
-                    _oBMSDbContext.StockLedgers.Add(new StockLedger
-                    {
-                        TransactionNo   = await GenerateStockLedgerNo(),
-                        TransactionDate = dto.AdjustmentDate,
-                        TransactionType = isPlus ? "ADJ_PLUS" : "ADJ_MINUS",
-                        WarehouseID     = dto.WarehouseID,
-                        ItemID          = dto.ItemID,
-                        InQty           = isPlus ? dto.AdjustmentQty : 0,
-                        OutQty          = isPlus ? 0 : dto.AdjustmentQty,
-                        UnitCost        = dto.UnitCost,
-                        ReferenceType   = "Stock Adjustment",
-                        ReferenceID     = adj.ID,
-                        ReferenceNo     = adjNo,
-                        Remarks         = dto.Reason,
-                        LASTUPDATE      = DateTime.Now,
-                        LastUpdatedBy   = dto.LastUpdatedBy
-                    });
-
+                    // Approval off → auto-approve
+                    await ApplySALedger(adj, currentUser);
+                    adj.Status        = "Approved";
+                    adj.ApprovedBy    = currentUser;
+                    adj.ApprovedDate  = DateTime.Now;
+                    adj.SubmittedBy   = currentUser;
+                    adj.SubmittedDate = DateTime.Now;
+                    adj.LASTUPDATE    = DateTime.Now;
+                    adj.LastUpdatedBy = currentUser;
                     await _oBMSDbContext.SaveChangesAsync();
-                    await tx.CommitAsync();
-                    savedRecord = adj;
+                    return (true, $"Stock Adjustment {adj.AdjustmentNo} has been approved. Stock has been updated.");
                 }
-                catch { await tx.RollbackAsync(); throw; }
-            });
 
-            return (true, $"Stock Adjustment {adjNo} saved successfully. Stock has been updated.", savedRecord);
+                var approverUser = await _approval.GetApproverForUser(currentUser, "STOCK_ADJUSTMENT");
+                if (string.IsNullOrEmpty(approverUser))
+                {
+                    // No routing → auto-approve
+                    await ApplySALedger(adj, currentUser);
+                    adj.Status        = "Approved";
+                    adj.ApprovedBy    = currentUser;
+                    adj.ApprovedDate  = DateTime.Now;
+                    adj.SubmittedBy   = currentUser;
+                    adj.SubmittedDate = DateTime.Now;
+                    adj.LASTUPDATE    = DateTime.Now;
+                    adj.LastUpdatedBy = currentUser;
+                    await _oBMSDbContext.SaveChangesAsync();
+                    return (true, $"Stock Adjustment {adj.AdjustmentNo} has been approved. Stock has been updated.");
+                }
+
+                string prev       = adj.Status;
+                adj.Status        = "Submitted";
+                adj.SubmittedBy   = currentUser;
+                adj.SubmittedDate = DateTime.Now;
+                adj.LASTUPDATE    = DateTime.Now;
+                adj.LastUpdatedBy = currentUser;
+                await _oBMSDbContext.SaveChangesAsync();
+
+                await _approval.RecordHistory("STOCK_ADJUSTMENT", adj.ID, adj.AdjustmentNo,
+                    "Submitted", currentUser, prev, "Submitted", null);
+
+                if (_notif != null)
+                    await _notif.SendApprovalNotification(
+                        "PENDING_APPROVAL", "STOCK_ADJUSTMENT", adj.AdjustmentNo, adj.ID,
+                        approverUser, currentUser, null);
+            }
+            else
+            {
+                adj.Status        = "Submitted";
+                adj.SubmittedBy   = currentUser;
+                adj.SubmittedDate = DateTime.Now;
+                adj.LASTUPDATE    = DateTime.Now;
+                adj.LastUpdatedBy = currentUser;
+                await _oBMSDbContext.SaveChangesAsync();
+            }
+
+            return (true, $"Stock Adjustment {adj.AdjustmentNo} has been submitted for approval.");
+        }
+
+        /// <summary>
+        /// Approves a Submitted Stock Adjustment.
+        /// Applies the stock ledger entry ONLY on approval.
+        /// Enforces: JWT identity, self-approval block, IsAuthorizedApprover.
+        /// </summary>
+        public async Task<(bool Success, string Message)> ApproveSA(int id, SAApprovalDto dto)
+        {
+            var adj = await _oBMSDbContext.StockAdjustments.FindAsync(id);
+            if (adj == null) return (false, "Stock adjustment not found.");
+            if (adj.Status != "Submitted")
+                return (false, "Only a Submitted adjustment can be approved.");
+
+            var submitter = adj.SubmittedBy ?? adj.LastUpdatedBy ?? string.Empty;
+            bool isSuperAdmin   = dto.IsSuperAdmin;
+            bool isSelfApproval = !isSuperAdmin &&
+                                  !string.IsNullOrWhiteSpace(submitter) &&
+                                  string.Equals(dto.ApprovedBy, submitter, StringComparison.OrdinalIgnoreCase);
+            if (isSelfApproval)
+                return (false, "You cannot approve a document that you submitted yourself.");
+
+            if (!isSuperAdmin && _approval != null)
+            {
+                var authorized = await _approval.IsAuthorizedApprover(
+                    dto.ApprovedBy, submitter, "STOCK_ADJUSTMENT");
+                if (!authorized)
+                    return (false, "You are not authorized to approve this adjustment.");
+            }
+
+            // Apply the stock ledger entry now that it is approved
+            await ApplySALedger(adj, dto.ApprovedBy);
+
+            string prev       = adj.Status;
+            adj.Status        = "Approved";
+            adj.ApprovedBy    = dto.ApprovedBy;
+            adj.ApprovedDate  = DateTime.Now;
+            adj.ApprovalRemarks = dto.ApprovalRemarks;
+            adj.LASTUPDATE    = DateTime.Now;
+            adj.LastUpdatedBy = dto.ApprovedBy;
+            await _oBMSDbContext.SaveChangesAsync();
+
+            if (_approval != null)
+                await _approval.RecordHistory("STOCK_ADJUSTMENT", adj.ID, adj.AdjustmentNo,
+                    "Approved", dto.ApprovedBy, prev, "Approved", dto.ApprovalRemarks);
+            if (_notif != null && !string.IsNullOrEmpty(adj.SubmittedBy))
+                await _notif.SendApprovalNotification(
+                    "APPROVED", "STOCK_ADJUSTMENT", adj.AdjustmentNo, adj.ID,
+                    adj.SubmittedBy, dto.ApprovedBy, dto.ApprovalRemarks);
+
+            return (true, $"Stock Adjustment {adj.AdjustmentNo} has been approved. Stock has been updated.");
+        }
+
+        /// <summary>
+        /// Rejects a Submitted Stock Adjustment.
+        /// No stock ledger entry is made. Requester is notified.
+        /// </summary>
+        public async Task<(bool Success, string Message)> RejectSA(int id, SAApprovalDto dto)
+        {
+            var adj = await _oBMSDbContext.StockAdjustments.FindAsync(id);
+            if (adj == null) return (false, "Stock adjustment not found.");
+            if (adj.Status != "Submitted")
+                return (false, "Only a Submitted adjustment can be rejected.");
+            if (string.IsNullOrWhiteSpace(dto.ApprovalRemarks))
+                return (false, "Please enter a reason for rejection so the requester knows what to correct.");
+
+            var submitter = adj.SubmittedBy ?? adj.LastUpdatedBy ?? string.Empty;
+            bool isSuperAdmin    = dto.IsSuperAdmin;
+            bool isSelfRejection = !isSuperAdmin &&
+                                   !string.IsNullOrWhiteSpace(submitter) &&
+                                   string.Equals(dto.ApprovedBy, submitter, StringComparison.OrdinalIgnoreCase);
+            if (isSelfRejection)
+                return (false, "You cannot reject a document that you submitted yourself.");
+
+            if (!isSuperAdmin && _approval != null)
+            {
+                var authorized = await _approval.IsAuthorizedApprover(
+                    dto.ApprovedBy, submitter, "STOCK_ADJUSTMENT");
+                if (!authorized)
+                    return (false, "You are not authorized to reject this adjustment.");
+            }
+
+            string prev       = adj.Status;
+            adj.Status        = "Rejected";
+            adj.ApprovedBy    = dto.ApprovedBy;
+            adj.ApprovedDate  = DateTime.Now;
+            adj.ApprovalRemarks = dto.ApprovalRemarks;
+            adj.LASTUPDATE    = DateTime.Now;
+            adj.LastUpdatedBy = dto.ApprovedBy;
+            await _oBMSDbContext.SaveChangesAsync();
+
+            if (_approval != null)
+                await _approval.RecordHistory("STOCK_ADJUSTMENT", adj.ID, adj.AdjustmentNo,
+                    "Rejected", dto.ApprovedBy, prev, "Rejected", dto.ApprovalRemarks);
+            if (_notif != null && !string.IsNullOrEmpty(adj.SubmittedBy))
+                await _notif.SendApprovalNotification(
+                    "REJECTED", "STOCK_ADJUSTMENT", adj.AdjustmentNo, adj.ID,
+                    adj.SubmittedBy, dto.ApprovedBy, dto.ApprovalRemarks);
+
+            return (true, $"Stock Adjustment {adj.AdjustmentNo} has been rejected.");
+        }
+
+        /// <summary>
+        /// Internal helper: write the stock ledger row for an approved adjustment.
+        /// Separated so it can be called from both SubmitSA (auto-approve) and ApproveSA.
+        /// </summary>
+        private async Task ApplySALedger(StockAdjustment adj, string approvedBy)
+        {
+            bool isPlus = adj.AdjustmentType == "PLUS";
+            _oBMSDbContext.StockLedgers.Add(new StockLedger
+            {
+                TransactionNo   = await GenerateStockLedgerNo(),
+                TransactionDate = adj.AdjustmentDate,
+                TransactionType = isPlus ? "ADJ_PLUS" : "ADJ_MINUS",
+                WarehouseID     = adj.WarehouseID,
+                ItemID          = adj.ItemID,
+                InQty           = isPlus ? adj.AdjustmentQty : 0,
+                OutQty          = isPlus ? 0 : adj.AdjustmentQty,
+                UnitCost        = adj.UnitCost,
+                ReferenceType   = "Stock Adjustment",
+                ReferenceID     = adj.ID,
+                ReferenceNo     = adj.AdjustmentNo,
+                Remarks         = adj.Reason,
+                LASTUPDATE      = DateTime.Now,
+                LastUpdatedBy   = approvedBy
+            });
+            await _oBMSDbContext.SaveChangesAsync();
         }
 
         public async Task<(bool Success, string Message)> DeleteStockAdjustment(int id, string currentUser)
         {
             var adj = await _oBMSDbContext.StockAdjustments.FindAsync(id);
             if (adj == null) return (false, "Stock adjustment not found.");
+            if (adj.Status != "Draft")
+                return (false, $"Only Draft adjustments can be deleted. This adjustment is currently {adj.Status}.");
 
-            var strategy = _oBMSDbContext.Database.CreateExecutionStrategy();
-            await strategy.ExecuteAsync(async () =>
-            {
-                using var tx = await _oBMSDbContext.Database.BeginTransactionAsync();
-                try
-                {
-                    var ledgers = await _oBMSDbContext.StockLedgers
-                        .Where(l => l.ReferenceType == "Stock Adjustment" && l.ReferenceID == id)
-                        .ToListAsync();
-                    _oBMSDbContext.StockLedgers.RemoveRange(ledgers);
+            adj.IsActive      = false;
+            adj.LASTUPDATE    = DateTime.Now;
+            adj.LastUpdatedBy = currentUser;
+            await _oBMSDbContext.SaveChangesAsync();
 
-                    adj.IsActive      = false;
-                    adj.LASTUPDATE    = DateTime.Now;
-                    adj.LastUpdatedBy = currentUser;
-
-                    await _oBMSDbContext.SaveChangesAsync();
-                    await tx.CommitAsync();
-                }
-                catch { await tx.RollbackAsync(); throw; }
-            });
-
-            return (true, "Stock adjustment deleted successfully. Stock balance has been reversed.");
+            return (true, "Stock adjustment deleted successfully.");
         }
 
         // ────────────────────────────────────────────────────────────────────────
@@ -4974,7 +5496,12 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     DisposalDate = disp.DisposalDate, DisposalType = disp.DisposalType,
                     DisposalReason = disp.DisposalReason, DisposalValue = disp.DisposalValue,
                     ApprovedBy = disp.ApprovedBy, Remarks = disp.Remarks,
-                    LASTUPDATE = disp.LASTUPDATE, LastUpdatedBy = disp.LastUpdatedBy
+                    LASTUPDATE = disp.LASTUPDATE, LastUpdatedBy = disp.LastUpdatedBy,
+                    Status        = disp.Status,
+                    SubmittedBy   = disp.SubmittedBy,
+                    SubmittedDate = disp.SubmittedDate,
+                    ApprovedDate  = disp.ApprovedDate,
+                    ApprovalRemarks = disp.ApprovalRemarks
                 }
             ).ToListAsync();
         }
@@ -4992,11 +5519,21 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     DisposalDate = disp.DisposalDate, DisposalType = disp.DisposalType,
                     DisposalReason = disp.DisposalReason, DisposalValue = disp.DisposalValue,
                     ApprovedBy = disp.ApprovedBy, Remarks = disp.Remarks,
-                    LASTUPDATE = disp.LASTUPDATE, LastUpdatedBy = disp.LastUpdatedBy
+                    LASTUPDATE = disp.LASTUPDATE, LastUpdatedBy = disp.LastUpdatedBy,
+                    Status        = disp.Status,
+                    SubmittedBy   = disp.SubmittedBy,
+                    SubmittedDate = disp.SubmittedDate,
+                    ApprovedDate  = disp.ApprovedDate,
+                    ApprovalRemarks = disp.ApprovalRemarks
                 }
             ).FirstOrDefaultAsync();
         }
 
+        /// <summary>
+        /// Saves an Asset Disposal as Draft only — does NOT change asset status yet.
+        /// Asset status is only changed to Disposed when ApproveAD is called.
+        /// Only Draft records can be edited.
+        /// </summary>
         public async Task<(bool Success, string Message, AssetDisposal? Record)> SaveAssetDisposal(
             AssetDisposalRequestDto dto)
         {
@@ -5010,52 +5547,242 @@ namespace OBMS.WebAPI.Repositories.Implementation
             if (hasActiveAlloc)
                 return (false, "Asset has an active allocation. Please return the asset before disposal.", null);
 
-            string disposalNo = NextCode(_oBMSDbContext.AssetDisposals, x => x.DisposalNo, "DIS");
-            string prevStatus = asset.AssetStatus;
-
-            AssetDisposal? saved = null;
-            var strategy = _oBMSDbContext.Database.CreateExecutionStrategy();
-            await strategy.ExecuteAsync(async () =>
+            // For existing records, only Draft can be edited
+            if (dto.ID > 0)
             {
-                using var tx = await _oBMSDbContext.Database.BeginTransactionAsync();
-                try
+                var existing = await _oBMSDbContext.AssetDisposals.FindAsync(dto.ID);
+                if (existing != null && existing.Status != "Draft")
+                    return (false, $"Only Draft disposals can be edited. This record is currently {existing.Status}.", null);
+            }
+
+            string disposalNo = dto.DisposalNo ?? string.Empty;
+            if (string.IsNullOrEmpty(disposalNo))
+                disposalNo = NextCode(_oBMSDbContext.AssetDisposals, x => x.DisposalNo, "DIS");
+
+            AssetDisposal disp;
+            if (dto.ID > 0)
+            {
+                disp = await _oBMSDbContext.AssetDisposals.FindAsync(dto.ID)
+                       ?? throw new InvalidOperationException("Disposal record not found.");
+            }
+            else
+            {
+                disp = new AssetDisposal();
+                _oBMSDbContext.AssetDisposals.Add(disp);
+            }
+
+            disp.DisposalNo     = disposalNo;
+            disp.AssetID        = dto.AssetID;
+            disp.DisposalDate   = dto.DisposalDate;
+            disp.DisposalType   = dto.DisposalType;
+            disp.DisposalReason = dto.DisposalReason;
+            disp.DisposalValue  = dto.DisposalValue ?? 0;
+            disp.Remarks        = dto.Remarks;
+            disp.Status         = "Draft";
+            disp.IsActive       = true;
+            disp.LASTUPDATE     = DateTime.Now;
+            disp.LastUpdatedBy  = dto.LastUpdatedBy;
+
+            await _oBMSDbContext.SaveChangesAsync();
+
+            return (true, $"Asset disposal {disposalNo} saved as Draft. Submit for approval when ready.", disp);
+        }
+
+        /// <summary>
+        /// Submits a Draft Asset Disposal for approval.
+        /// Auto-approves if ApprovalRequired=false or no routing configured.
+        /// On auto-approve: asset status → Disposed (same as old SaveAssetDisposal behaviour).
+        /// </summary>
+        public async Task<(bool Success, string Message)> SubmitAD(int id, string currentUser)
+        {
+            var disp = await _oBMSDbContext.AssetDisposals.FindAsync(id);
+            if (disp == null) return (false, "Disposal record not found.");
+            if (disp.Status != "Draft")
+                return (false, $"Only a Draft disposal can be submitted. This record is currently {disp.Status}.");
+
+            if (_approval != null)
+            {
+                bool approvalRequired = await _approval.IsApprovalRequired("ASSET_DISPOSAL");
+                if (!approvalRequired)
                 {
-                    var disp = new AssetDisposal
-                    {
-                        DisposalNo    = disposalNo,
-                        AssetID       = dto.AssetID,
-                        DisposalDate  = dto.DisposalDate,
-                        DisposalType  = dto.DisposalType,
-                        DisposalReason= dto.DisposalReason,
-                        DisposalValue = dto.DisposalValue ?? 0,
-                        ApprovedBy    = dto.ApprovedBy,
-                        Remarks       = dto.Remarks,
-                        IsActive      = true,
-                        LASTUPDATE    = DateTime.Now,
-                        LastUpdatedBy = dto.LastUpdatedBy
-                    };
-                    _oBMSDbContext.AssetDisposals.Add(disp);
-
-                    asset.AssetStatus   = "Disposed";
-                    asset.LASTUPDATE    = DateTime.Now;
-                    asset.LastUpdatedBy = dto.LastUpdatedBy;
-
+                    await ApplyADDisposal(disp, currentUser);
+                    disp.Status        = "Approved";
+                    disp.ApprovedBy    = currentUser;
+                    disp.ApprovedDate  = DateTime.Now;
+                    disp.SubmittedBy   = currentUser;
+                    disp.SubmittedDate = DateTime.Now;
+                    disp.LASTUPDATE    = DateTime.Now;
+                    disp.LastUpdatedBy = currentUser;
                     await _oBMSDbContext.SaveChangesAsync();
-
-                    AppendMovementHistory(dto.AssetID, "Disposal",
-                        null, null, null, null,
-                        disposalNo, "Disposal", disp.ID,
-                        prevStatus, "Disposed",
-                        dto.DisposalReason, dto.LastUpdatedBy);
-
-                    await _oBMSDbContext.SaveChangesAsync();
-                    await tx.CommitAsync();
-                    saved = disp;
+                    var a = await _oBMSDbContext.AssetMasters.FindAsync(disp.AssetID);
+                    return (true, $"Asset disposal {disp.DisposalNo} approved. Asset {a?.AssetCode} has been disposed.");
                 }
-                catch { await tx.RollbackAsync(); throw; }
-            });
 
-            return (true, $"Asset {asset.AssetCode} disposed successfully as {disposalNo}.", saved);
+                var approverUser = await _approval.GetApproverForUser(currentUser, "ASSET_DISPOSAL");
+                if (string.IsNullOrEmpty(approverUser))
+                {
+                    await ApplyADDisposal(disp, currentUser);
+                    disp.Status        = "Approved";
+                    disp.ApprovedBy    = currentUser;
+                    disp.ApprovedDate  = DateTime.Now;
+                    disp.SubmittedBy   = currentUser;
+                    disp.SubmittedDate = DateTime.Now;
+                    disp.LASTUPDATE    = DateTime.Now;
+                    disp.LastUpdatedBy = currentUser;
+                    await _oBMSDbContext.SaveChangesAsync();
+                    var a = await _oBMSDbContext.AssetMasters.FindAsync(disp.AssetID);
+                    return (true, $"Asset disposal {disp.DisposalNo} approved. Asset {a?.AssetCode} has been disposed.");
+                }
+
+                string prev        = disp.Status;
+                disp.Status        = "Submitted";
+                disp.SubmittedBy   = currentUser;
+                disp.SubmittedDate = DateTime.Now;
+                disp.LASTUPDATE    = DateTime.Now;
+                disp.LastUpdatedBy = currentUser;
+                await _oBMSDbContext.SaveChangesAsync();
+
+                await _approval.RecordHistory("ASSET_DISPOSAL", disp.ID, disp.DisposalNo,
+                    "Submitted", currentUser, prev, "Submitted", null);
+
+                if (_notif != null)
+                    await _notif.SendApprovalNotification(
+                        "PENDING_APPROVAL", "ASSET_DISPOSAL", disp.DisposalNo, disp.ID,
+                        approverUser, currentUser, null);
+            }
+            else
+            {
+                disp.Status        = "Submitted";
+                disp.SubmittedBy   = currentUser;
+                disp.SubmittedDate = DateTime.Now;
+                disp.LASTUPDATE    = DateTime.Now;
+                disp.LastUpdatedBy = currentUser;
+                await _oBMSDbContext.SaveChangesAsync();
+            }
+
+            return (true, $"Asset disposal {disp.DisposalNo} has been submitted for approval.");
+        }
+
+        /// <summary>
+        /// Approves a Submitted Asset Disposal.
+        /// On approval: asset status → Disposed + movement history recorded.
+        /// </summary>
+        public async Task<(bool Success, string Message)> ApproveAD(int id, ADApprovalDto dto)
+        {
+            var disp = await _oBMSDbContext.AssetDisposals.FindAsync(id);
+            if (disp == null) return (false, "Disposal record not found.");
+            if (disp.Status != "Submitted")
+                return (false, "Only a Submitted disposal can be approved.");
+
+            var submitter = disp.SubmittedBy ?? disp.LastUpdatedBy ?? string.Empty;
+            bool isSuperAdmin   = dto.IsSuperAdmin;
+            bool isSelfApproval = !isSuperAdmin &&
+                                  !string.IsNullOrWhiteSpace(submitter) &&
+                                  string.Equals(dto.ApprovedBy, submitter, StringComparison.OrdinalIgnoreCase);
+            if (isSelfApproval)
+                return (false, "You cannot approve a document that you submitted yourself.");
+
+            if (!isSuperAdmin && _approval != null)
+            {
+                var authorized = await _approval.IsAuthorizedApprover(
+                    dto.ApprovedBy, submitter, "ASSET_DISPOSAL");
+                if (!authorized)
+                    return (false, "You are not authorized to approve this disposal.");
+            }
+
+            // Apply the actual disposal — set asset status to Disposed
+            await ApplyADDisposal(disp, dto.ApprovedBy);
+
+            string prev        = disp.Status;
+            disp.Status        = "Approved";
+            disp.ApprovedBy    = dto.ApprovedBy;
+            disp.ApprovedDate  = DateTime.Now;
+            disp.ApprovalRemarks = dto.ApprovalRemarks;
+            disp.LASTUPDATE    = DateTime.Now;
+            disp.LastUpdatedBy = dto.ApprovedBy;
+            await _oBMSDbContext.SaveChangesAsync();
+
+            if (_approval != null)
+                await _approval.RecordHistory("ASSET_DISPOSAL", disp.ID, disp.DisposalNo,
+                    "Approved", dto.ApprovedBy, prev, "Approved", dto.ApprovalRemarks);
+            if (_notif != null && !string.IsNullOrEmpty(disp.SubmittedBy))
+                await _notif.SendApprovalNotification(
+                    "APPROVED", "ASSET_DISPOSAL", disp.DisposalNo, disp.ID,
+                    disp.SubmittedBy, dto.ApprovedBy, dto.ApprovalRemarks);
+
+            var asset = await _oBMSDbContext.AssetMasters.FindAsync(disp.AssetID);
+            return (true, $"Asset disposal {disp.DisposalNo} approved. Asset {asset?.AssetCode} has been disposed.");
+        }
+
+        /// <summary>
+        /// Rejects a Submitted Asset Disposal. Asset status remains unchanged.
+        /// </summary>
+        public async Task<(bool Success, string Message)> RejectAD(int id, ADApprovalDto dto)
+        {
+            var disp = await _oBMSDbContext.AssetDisposals.FindAsync(id);
+            if (disp == null) return (false, "Disposal record not found.");
+            if (disp.Status != "Submitted")
+                return (false, "Only a Submitted disposal can be rejected.");
+            if (string.IsNullOrWhiteSpace(dto.ApprovalRemarks))
+                return (false, "Please enter a reason for rejection so the requester knows what to correct.");
+
+            var submitter = disp.SubmittedBy ?? disp.LastUpdatedBy ?? string.Empty;
+            bool isSuperAdmin    = dto.IsSuperAdmin;
+            bool isSelfRejection = !isSuperAdmin &&
+                                   !string.IsNullOrWhiteSpace(submitter) &&
+                                   string.Equals(dto.ApprovedBy, submitter, StringComparison.OrdinalIgnoreCase);
+            if (isSelfRejection)
+                return (false, "You cannot reject a document that you submitted yourself.");
+
+            if (!isSuperAdmin && _approval != null)
+            {
+                var authorized = await _approval.IsAuthorizedApprover(
+                    dto.ApprovedBy, submitter, "ASSET_DISPOSAL");
+                if (!authorized)
+                    return (false, "You are not authorized to reject this disposal.");
+            }
+
+            string prev        = disp.Status;
+            disp.Status        = "Rejected";
+            disp.ApprovedBy    = dto.ApprovedBy;
+            disp.ApprovedDate  = DateTime.Now;
+            disp.ApprovalRemarks = dto.ApprovalRemarks;
+            disp.LASTUPDATE    = DateTime.Now;
+            disp.LastUpdatedBy = dto.ApprovedBy;
+            await _oBMSDbContext.SaveChangesAsync();
+
+            if (_approval != null)
+                await _approval.RecordHistory("ASSET_DISPOSAL", disp.ID, disp.DisposalNo,
+                    "Rejected", dto.ApprovedBy, prev, "Rejected", dto.ApprovalRemarks);
+            if (_notif != null && !string.IsNullOrEmpty(disp.SubmittedBy))
+                await _notif.SendApprovalNotification(
+                    "REJECTED", "ASSET_DISPOSAL", disp.DisposalNo, disp.ID,
+                    disp.SubmittedBy, dto.ApprovedBy, dto.ApprovalRemarks);
+
+            return (true, $"Asset disposal {disp.DisposalNo} has been rejected.");
+        }
+
+        /// <summary>
+        /// Internal helper: set asset status → Disposed and record movement history.
+        /// Called from both SubmitAD (auto-approve path) and ApproveAD.
+        /// </summary>
+        private async Task ApplyADDisposal(AssetDisposal disp, string actorUser)
+        {
+            var asset = await _oBMSDbContext.AssetMasters.FindAsync(disp.AssetID);
+            if (asset == null) return;
+
+            string prevStatus  = asset.AssetStatus;
+            asset.AssetStatus  = "Disposed";
+            asset.LASTUPDATE   = DateTime.Now;
+            asset.LastUpdatedBy = actorUser;
+
+            AppendMovementHistory(disp.AssetID, "Disposal",
+                null, null, null, null,
+                disp.DisposalNo, "Disposal", disp.ID,
+                prevStatus, "Disposed",
+                disp.DisposalReason, actorUser);
+
+            await _oBMSDbContext.SaveChangesAsync();
         }
 
         // ────────────────────────────────────────────────────────────────────
@@ -5218,6 +5945,660 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 }
             ).ToListAsync();
             return list;
+        }
+
+        // ════════════════════════════════════════════════════════════════════════
+        // PART 9 — BRANCH STOCK REQUEST
+        // ════════════════════════════════════════════════════════════════════════
+
+        // ── Shared read-side query ────────────────────────────────────────────
+
+        private IQueryable<StockRequestListDto> BSRListQuery() =>
+            from sr  in _oBMSDbContext.StockRequests
+            join br  in _oBMSDbContext.BranchMasters    on sr.RequestingBranchID equals br.ID
+            join wh  in _oBMSDbContext.WarehouseMasters  on sr.SourceWarehouseID  equals wh.ID
+            join trf in _oBMSDbContext.StockTransfers    on sr.LinkedTransferID   equals trf.ID into trfJoin
+            from trf in trfJoin.DefaultIfEmpty()
+            where sr.IsActive == true
+            orderby sr.RequestDate descending, sr.ID descending
+            select new StockRequestListDto
+            {
+                ID                    = sr.ID,
+                RequestNo             = sr.RequestNo,
+                RequestDate           = sr.RequestDate,
+                RequestingBranchID    = sr.RequestingBranchID,
+                RequestingBranchName  = br.Name,
+                SourceWarehouseID     = sr.SourceWarehouseID,
+                SourceWarehouseName   = wh.Name,
+                RequestedBy           = sr.RequestedBy,
+                Status                = sr.Status,
+                Remarks               = sr.Remarks,
+                SubmittedBy           = sr.SubmittedBy ?? sr.LastUpdatedBy,   // fallback so frontend always gets a non-null requester
+                SubmittedDate         = sr.SubmittedDate,
+                ApprovedBy            = sr.ApprovedBy,
+                ApprovedDate          = sr.ApprovedDate,
+                ApprovalRemarks       = sr.ApprovalRemarks,
+                LinkedTransferID      = sr.LinkedTransferID,
+                LinkedTransferNo      = trf != null ? trf.TransferNo : null,
+                LASTUPDATE            = sr.LASTUPDATE,
+                LastUpdatedBy         = sr.LastUpdatedBy
+            };
+
+        private async Task<List<StockRequestDetailListDto>> GetBSRDetails(int requestID)
+        {
+            return await (
+                from d  in _oBMSDbContext.StockRequestDetails
+                join im in _oBMSDbContext.ItemMasters on d.ItemID equals im.ID
+                join um in _oBMSDbContext.UOMMasters  on d.UOMID  equals um.ID into umJoin
+                from um in umJoin.DefaultIfEmpty()
+                join cl in _oBMSDbContext.ClientMasters on d.ClientID equals cl.ID into clJoin
+                from cl in clJoin.DefaultIfEmpty()
+                where d.RequestID == requestID
+                orderby d.ID
+                select new StockRequestDetailListDto
+                {
+                    ID           = d.ID,
+                    RequestID    = d.RequestID,
+                    ItemID       = d.ItemID,
+                    ItemCode     = im.Code ?? "",
+                    ItemName     = im.Name,
+                    UOMID        = d.UOMID,
+                    UOMName      = um != null ? um.Name : "",
+                    RequestedQty = d.RequestedQty,
+                    BuyingPrice  = d.BuyingPrice,
+                    ClientID     = d.ClientID,
+                    ClientName   = cl != null ? cl.Name : "",
+                    Remarks      = d.Remarks
+                }
+            ).ToListAsync();
+        }
+
+        // ── GetBSRList ────────────────────────────────────────────────────────
+
+        public async Task<List<StockRequestListDto>> GetBSRList()
+        {
+            var list = await BSRListQuery().ToListAsync();
+            // Line items are not loaded for the list view (performance).
+            return list;
+        }
+
+        // ── GetBSRByID ────────────────────────────────────────────────────────
+
+        public async Task<StockRequestListDto?> GetBSRByID(int id)
+        {
+            var record = await BSRListQuery().FirstOrDefaultAsync(x => x.ID == id);
+            if (record == null) return null;
+            record.Details = await GetBSRDetails(id);
+            // Populate AvailableStock per line
+            foreach (var line in record.Details)
+                line.AvailableStock = await GetCurrentStockInternal(record.SourceWarehouseID, line.ItemID);
+            return record;
+        }
+
+        // ── SaveBSR ───────────────────────────────────────────────────────────
+
+        public async Task<(bool Success, string Message, StockRequest? Record)> SaveBSR(
+            StockRequestSaveDto dto, string currentUser)
+        {
+            // ── Validate header ────────────────────────────────────────────────
+            if (dto.RequestingBranchID <= 0)
+                return (false, "Please select the requesting branch.", null);
+            if (dto.SourceWarehouseID <= 0)
+                return (false, "Please select the source warehouse.", null);
+            if (dto.RequestDate == default)
+                return (false, "Please enter the request date.", null);
+            if (!dto.Details.Any())
+                return (false, "Please add at least one item to the request.", null);
+
+            // ── Validate line items ────────────────────────────────────────────
+            var seenItems = new HashSet<int>();
+            foreach (var line in dto.Details)
+            {
+                if (line.ItemID <= 0)
+                    return (false, "Please select an item for each line.", null);
+                if (line.RequestedQty <= 0)
+                    return (false, "Requested quantity must be greater than zero.", null);
+                if (!seenItems.Add(line.ItemID))
+                {
+                    var dupItem = await _oBMSDbContext.ItemMasters.FindAsync(line.ItemID);
+                    return (false,
+                        $"Item '{dupItem?.Name ?? $"ID {line.ItemID}"}' appears more than once. " +
+                        "Please combine duplicate lines.", null);
+                }
+
+                // NOTE: Stock availability is intentionally NOT validated here.
+                // A Branch Stock Request is a request TO the main warehouse asking
+                // for stock. The branch does not need to know the warehouse balance.
+                // The approver (warehouse manager) decides whether to fulfil the request.
+                // Stock is only deducted when the actual Stock Transfer is created.
+            }
+
+            // ── Editing guard ──────────────────────────────────────────────────
+            if (dto.ID > 0)
+            {
+                var existing = await _oBMSDbContext.StockRequests.FindAsync(dto.ID);
+                if (existing != null && existing.Status != "Draft")
+                    return (false,
+                        $"This stock request cannot be edited because it has already been " +
+                        $"{existing.Status.ToLower()}. Only Draft requests can be modified.", null);
+            }
+
+            // ── Generate request number ────────────────────────────────────────
+            string requestNo = dto.RequestNo ?? "";
+            if (string.IsNullOrWhiteSpace(requestNo))
+            {
+                var maxRow = await _oBMSDbContext.StockRequests
+                    .Where(x => x.RequestNo.StartsWith("SR"))
+                    .OrderByDescending(x => x.RequestNo)
+                    .FirstOrDefaultAsync();
+                requestNo = (maxRow == null || string.IsNullOrEmpty(maxRow.RequestNo))
+                    ? "SR0001"
+                    : int.TryParse(maxRow.RequestNo.Substring(2), out int n)
+                        ? "SR" + (n + 1).ToString("D4") : "SR0001";
+            }
+
+            StockRequest? saved = null;
+            await _oBMSDbContext.SaveChangesAsync(); // flush pending tracking state
+
+            if (dto.ID > 0)
+            {
+                var record = await _oBMSDbContext.StockRequests.FindAsync(dto.ID)
+                             ?? throw new InvalidOperationException("Stock request not found.");
+                // Remove old details
+                var oldDetails = await _oBMSDbContext.StockRequestDetails
+                    .Where(d => d.RequestID == dto.ID).ToListAsync();
+                _oBMSDbContext.StockRequestDetails.RemoveRange(oldDetails);
+                await _oBMSDbContext.SaveChangesAsync();
+
+                record.RequestDate         = dto.RequestDate;
+                record.RequestingBranchID  = dto.RequestingBranchID;
+                record.SourceWarehouseID   = dto.SourceWarehouseID;
+                record.Remarks             = dto.Remarks;
+                record.LASTUPDATE          = DateTime.Now;
+                record.LastUpdatedBy       = currentUser;
+                await _oBMSDbContext.SaveChangesAsync();
+                saved = record;
+            }
+            else
+            {
+                var record = new StockRequest
+                {
+                    RequestNo            = requestNo,
+                    RequestDate          = dto.RequestDate,
+                    RequestingBranchID   = dto.RequestingBranchID,
+                    SourceWarehouseID    = dto.SourceWarehouseID,
+                    RequestedBy          = currentUser,
+                    Status               = "Draft",
+                    Remarks              = dto.Remarks,
+                    IsActive             = true,
+                    LASTUPDATE           = DateTime.Now,
+                    LastUpdatedBy        = currentUser
+                };
+                _oBMSDbContext.StockRequests.Add(record);
+                await _oBMSDbContext.SaveChangesAsync();
+                saved = record;
+            }
+
+            // Add new detail lines
+            foreach (var line in dto.Details)
+            {
+                _oBMSDbContext.StockRequestDetails.Add(new StockRequestDetail
+                {
+                    RequestID     = saved!.ID,
+                    ItemID        = line.ItemID,
+                    UOMID         = line.UOMID,
+                    RequestedQty  = line.RequestedQty,
+                    BuyingPrice   = line.BuyingPrice,
+                    ClientID      = line.ClientID > 0 ? line.ClientID : null,
+                    Remarks       = line.Remarks,
+                    LASTUPDATE    = DateTime.Now,
+                    LastUpdatedBy = currentUser
+                });
+            }
+            await _oBMSDbContext.SaveChangesAsync();
+
+            return (true, $"Stock Request {saved!.RequestNo} saved successfully.", saved);
+        }
+
+        // ── SubmitBSR ─────────────────────────────────────────────────────────
+
+        public async Task<(bool Success, string Message)> SubmitBSR(int id, string currentUser)
+        {
+            var sr = await _oBMSDbContext.StockRequests.FindAsync(id);
+            if (sr == null)
+                return (false, "This stock request could not be found.");
+            if (sr.Status != "Draft")
+                return (false,
+                    $"Only a Draft stock request can be submitted. " +
+                    $"This request is currently {sr.Status}.");
+
+            var hasDetails = await _oBMSDbContext.StockRequestDetails.AnyAsync(x => x.RequestID == id);
+            if (!hasDetails)
+                return (false, "Please add at least one item to the request before submitting.");
+
+            if (_approval != null)
+            {
+                // BUG-06 FIX: ApprovalConfiguration is now the master on/off switch.
+                // If ApprovalRequired = false for BRANCH_STOCK_REQUEST → direct-approve flow
+                // regardless of any ApprovalRouting configuration.
+                bool approvalRequired = await _approval.IsApprovalRequired("BRANCH_STOCK_REQUEST");
+                if (!approvalRequired)
+                {
+                    sr.Status        = "Approved";
+                    sr.ApprovedBy    = currentUser;
+                    sr.ApprovedDate  = DateTime.Now;
+                    sr.SubmittedBy   = currentUser;
+                    sr.SubmittedDate = DateTime.Now;
+                    sr.LASTUPDATE    = DateTime.Now;
+                    sr.LastUpdatedBy = currentUser;
+                    await _oBMSDbContext.SaveChangesAsync();
+                    return (true,
+                        $"Stock Request {sr.RequestNo} has been approved directly. " +
+                        "You can now create a Stock Transfer.");
+                }
+
+                var approverUser = await _approval.GetApproverForUser(currentUser, "BRANCH_STOCK_REQUEST");
+
+                if (string.IsNullOrEmpty(approverUser))
+                {
+                    // ── No routing configured → direct-approve flow ────────────
+                    sr.Status        = "Approved";
+                    sr.ApprovedBy    = currentUser;
+                    sr.ApprovedDate  = DateTime.Now;
+                    sr.SubmittedBy   = currentUser;
+                    sr.SubmittedDate = DateTime.Now;
+                    sr.LASTUPDATE    = DateTime.Now;
+                    sr.LastUpdatedBy = currentUser;
+                    await _oBMSDbContext.SaveChangesAsync();
+                    return (true,
+                        $"Stock Request {sr.RequestNo} has been approved directly. " +
+                        "You can now create a Stock Transfer.");
+                }
+
+                string prev  = sr.Status;
+                sr.Status        = "Submitted";
+                sr.SubmittedBy   = currentUser;
+                sr.SubmittedDate = DateTime.Now;
+                sr.LASTUPDATE    = DateTime.Now;
+                sr.LastUpdatedBy = currentUser;
+                await _oBMSDbContext.SaveChangesAsync();
+
+                // Record history
+                await _approval.RecordHistory("BRANCH_STOCK_REQUEST", sr.ID, sr.RequestNo,
+                    "Submitted", currentUser, prev, "Submitted", null);
+
+                // Notify approver
+                if (_notif != null)
+                    await _notif.SendApprovalNotification(
+                        "PENDING_APPROVAL", "BRANCH_STOCK_REQUEST", sr.RequestNo, sr.ID,
+                        approverUser, currentUser, null);
+            }
+            else
+            {
+                // Fallback — no approval service injected
+                sr.Status        = "Submitted";
+                sr.SubmittedBy   = currentUser;
+                sr.SubmittedDate = DateTime.Now;
+                sr.LASTUPDATE    = DateTime.Now;
+                sr.LastUpdatedBy = currentUser;
+                await _oBMSDbContext.SaveChangesAsync();
+            }
+
+            return (true, $"Stock Request {sr.RequestNo} has been submitted for approval.");
+        }
+
+        // ── ApproveBSR ────────────────────────────────────────────────────────
+
+        public async Task<(bool Success, string Message)> ApproveBSR(int id, StockRequestApprovalDto dto)
+        {
+            var sr = await _oBMSDbContext.StockRequests.FindAsync(id);
+            if (sr == null)
+                return (false, "This stock request could not be found.");
+            if (sr.Status != "Submitted")
+                return (false, "Only a Submitted stock request can be approved.");
+
+            var submitter = sr.SubmittedBy ?? sr.LastUpdatedBy ?? string.Empty;
+
+            // BUG-05 FIX: isSuperAdmin is derived from the JWT "IsAdmin" claim value "2",
+            // passed in via StockRequestApprovalDto.IsSuperAdmin. No more hard-coded "superadmin" string.
+            bool isSuperAdmin   = dto.IsSuperAdmin;
+
+            // SuperAdmin has global approval authority — self-approval block does not apply.
+            // Normal users: cannot approve their own submission.
+            bool isSelfApproval = !isSuperAdmin &&
+                                  !string.IsNullOrWhiteSpace(submitter) &&
+                                  string.Equals(dto.ApprovedBy, submitter,
+                                                StringComparison.OrdinalIgnoreCase);
+            if (isSelfApproval)
+                return (false, "You cannot approve a document that you submitted yourself.");
+
+            if (!isSuperAdmin && _approval != null)
+            {
+                var authorized = await _approval.IsAuthorizedApprover(
+                    dto.ApprovedBy, submitter, "BRANCH_STOCK_REQUEST");
+                if (!authorized)
+                    return (false, "You are not authorized to approve this stock request.");
+            }
+
+            string prev        = sr.Status;
+            sr.Status          = "Approved";
+            sr.ApprovedBy      = dto.ApprovedBy;
+            sr.ApprovedDate    = DateTime.Now;
+            sr.ApprovalRemarks = dto.ApprovalRemarks;
+            sr.LASTUPDATE      = DateTime.Now;
+            sr.LastUpdatedBy   = dto.ApprovedBy;
+            await _oBMSDbContext.SaveChangesAsync();
+
+            if (_approval != null)
+                await _approval.RecordHistory("BRANCH_STOCK_REQUEST", sr.ID, sr.RequestNo,
+                    "Approved", dto.ApprovedBy, prev, "Approved", dto.ApprovalRemarks);
+
+            if (_notif != null && !string.IsNullOrEmpty(sr.SubmittedBy))
+                await _notif.SendApprovalNotification(
+                    "APPROVED", "BRANCH_STOCK_REQUEST", sr.RequestNo, sr.ID,
+                    sr.SubmittedBy, dto.ApprovedBy, dto.ApprovalRemarks);
+
+            return (true,
+                $"Stock Request {sr.RequestNo} has been approved. " +
+                "The requester can now create a Stock Transfer.");
+        }
+
+        // ── RejectBSR ─────────────────────────────────────────────────────────
+
+        public async Task<(bool Success, string Message)> RejectBSR(int id, StockRequestApprovalDto dto)
+        {
+            var sr = await _oBMSDbContext.StockRequests.FindAsync(id);
+            if (sr == null)
+                return (false, "This stock request could not be found.");
+            if (sr.Status != "Submitted")
+                return (false, "Only a Submitted stock request can be rejected.");
+            if (string.IsNullOrWhiteSpace(dto.ApprovalRemarks))
+                return (false,
+                    "Please enter a reason for rejection so the requester knows what to correct.");
+
+            var submitter = sr.SubmittedBy ?? sr.LastUpdatedBy ?? string.Empty;
+
+            // BUG-05 FIX: isSuperAdmin derived from JWT "IsAdmin" claim, not username string.
+            bool isSuperAdmin    = dto.IsSuperAdmin;
+
+            // SuperAdmin has global authority — self-rejection block does not apply.
+            // Normal users: cannot reject their own submission.
+            bool isSelfRejection = !isSuperAdmin &&
+                                   !string.IsNullOrWhiteSpace(submitter) &&
+                                   string.Equals(dto.ApprovedBy, submitter,
+                                                 StringComparison.OrdinalIgnoreCase);
+            if (isSelfRejection)
+                return (false, "You cannot reject a document that you submitted yourself.");
+
+            if (!isSuperAdmin && _approval != null)
+            {
+                var authorized = await _approval.IsAuthorizedApprover(
+                    dto.ApprovedBy, submitter, "BRANCH_STOCK_REQUEST");
+                if (!authorized)
+                    return (false, "You are not authorized to reject this stock request.");
+            }
+
+            string prev        = sr.Status;
+            sr.Status          = "Rejected";
+            sr.ApprovedBy      = dto.ApprovedBy;
+            sr.ApprovedDate    = DateTime.Now;
+            sr.ApprovalRemarks = dto.ApprovalRemarks;
+            sr.LASTUPDATE      = DateTime.Now;
+            sr.LastUpdatedBy   = dto.ApprovedBy;
+            await _oBMSDbContext.SaveChangesAsync();
+
+            if (_approval != null)
+                await _approval.RecordHistory("BRANCH_STOCK_REQUEST", sr.ID, sr.RequestNo,
+                    "Rejected", dto.ApprovedBy, prev, "Rejected", dto.ApprovalRemarks);
+
+            if (_notif != null && !string.IsNullOrEmpty(sr.SubmittedBy))
+                await _notif.SendApprovalNotification(
+                    "REJECTED", "BRANCH_STOCK_REQUEST", sr.RequestNo, sr.ID,
+                    sr.SubmittedBy, dto.ApprovedBy, dto.ApprovalRemarks);
+
+            return (true, $"Stock Request {sr.RequestNo} has been rejected.");
+        }
+
+        // ── DeleteBSR ─────────────────────────────────────────────────────────
+
+        public async Task<(bool Success, string Message)> DeleteBSR(int id, string currentUser)
+        {
+            var sr = await _oBMSDbContext.StockRequests.FindAsync(id);
+            if (sr == null)
+                return (false, "This stock request could not be found.");
+            if (sr.Status != "Draft")
+                return (false,
+                    $"This stock request cannot be deleted because it has already been " +
+                    $"{sr.Status.ToLower()}. Only Draft requests can be deleted.");
+
+            sr.IsActive      = false;
+            sr.LASTUPDATE    = DateTime.Now;
+            sr.LastUpdatedBy = currentUser;
+            await _oBMSDbContext.SaveChangesAsync();
+            return (true, "Stock request removed successfully.");
+        }
+
+        // ── LinkBSRTransfer ───────────────────────────────────────────────────
+
+        public async Task<(bool Success, string Message)> LinkBSRTransfer(
+            int id, int transferID, string currentUser)
+        {
+            var sr = await _oBMSDbContext.StockRequests.FindAsync(id);
+            if (sr == null)
+                return (false, "Stock request not found.");
+            if (sr.Status != "Approved")
+                return (false,
+                    "Only an Approved stock request can be linked to a transfer.");
+
+            var trf = await _oBMSDbContext.StockTransfers.FindAsync(transferID);
+            if (trf == null)
+                return (false, "The specified stock transfer could not be found.");
+
+            sr.LinkedTransferID = transferID;
+            sr.LASTUPDATE       = DateTime.Now;
+            sr.LastUpdatedBy    = currentUser;
+            await _oBMSDbContext.SaveChangesAsync();
+
+            return (true,
+                $"Stock Transfer {trf.TransferNo} has been linked to " +
+                $"Stock Request {sr.RequestNo}.");
+        }
+
+        // ══════════════════════════════════════════════════════════════════════
+        // Stock Issue → Uniform Loan integration
+        // ══════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Returns active employees/guards for the given warehouse's branch,
+        /// filtered by issueToType:
+        ///   "Guard" → EMP_ROLE IN ('Guard', 'FGuard', 'Foreign Guard')
+        ///   "Staff" → EMP_ROLE = 'Staff'
+        /// Only employees with no resign date (or resign date in the future) are returned.
+        /// </summary>
+        public async Task<List<EmployeeForIssueDto>> GetEmployeesByWarehouse(
+            int warehouseID, string issueToType)
+        {
+            // Resolve the branch code from the warehouse
+            var warehouse = await _oBMSDbContext.WarehouseMasters
+                .Include(w => w.Branch)
+                .FirstOrDefaultAsync(w => w.ID == warehouseID && w.IsActive);
+
+            if (warehouse?.Branch == null)
+                return new List<EmployeeForIssueDto>();
+
+            string branchCode = warehouse.Branch.Code;
+
+            // Determine role filter
+            IQueryable<Employee> query = _oBMSDbContext.Employees
+                .Where(e => e.EMP_BRANCH_CODE == branchCode && !e.HasTransfered);
+
+            if (issueToType.Equals("Guard", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(e =>
+                    e.EMP_ROLE == "Guard" ||
+                    e.EMP_ROLE == "FGuard" ||
+                    e.EMP_ROLE == "Foreign Guard");
+            }
+            else if (issueToType.Equals("Staff", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(e => e.EMP_ROLE == "Staff");
+            }
+
+            // Join EmploymentDetails to filter out resigned employees
+            var today = DateTime.Today;
+            var result = await (
+                from emp in query
+                join ed in _oBMSDbContext.EmploymentDetails
+                    on emp.EMP_CODE equals ed.EMPPAY_CODE
+                where ed.EMPPAY_DATE_RESIGNED == null ||
+                      ed.EMPPAY_DATE_RESIGNED >= today
+                orderby emp.EMP_NAME
+                select new EmployeeForIssueDto
+                {
+                    EMP_ID          = emp.EMP_ID,
+                    EMP_CODE        = emp.EMP_CODE,
+                    EMP_NAME        = emp.EMP_NAME,
+                    EMP_ROLE        = emp.EMP_ROLE,
+                    EMP_BRANCH_CODE = emp.EMP_BRANCH_CODE
+                }
+            ).ToListAsync();
+
+            return result;
+        }
+
+        /// <summary>
+        /// Returns all StockIssueDocs issued to the given employee (IssueToID = employeeID,
+        /// IssueToType IN ('Guard','Staff')) that are NOT already linked to an active
+        /// Uniform Loan (StockIssueUniformLoanLink.IsActive = true).
+        /// </summary>
+        public async Task<List<PendingStockIssueDto>> GetPendingStockIssuesForEmployee(
+            int employeeID)
+        {
+            // IDs of already-linked active documents
+            var linkedIDs = await _oBMSDbContext.StockIssueUniformLoanLinks
+                .Where(l => l.IsActive)
+                .Select(l => l.StockIssueDocID)
+                .ToListAsync();
+
+            var docs = await _oBMSDbContext.StockIssueDocs
+                .Where(d => d.IsActive
+                    && (d.IssueToType == "Guard" || d.IssueToType == "Staff")
+                    && d.IssueToID == employeeID
+                    && !linkedIDs.Contains(d.ID))
+                .OrderByDescending(d => d.IssueDate)
+                .ToListAsync();
+
+            if (!docs.Any())
+                return new List<PendingStockIssueDto>();
+
+            var docIDs = docs.Select(d => d.ID).ToList();
+
+            // Fetch all detail lines + item names in one query
+            var details = await (
+                from det in _oBMSDbContext.StockIssueDocDetails
+                join item in _oBMSDbContext.ItemMasters on det.ItemID equals item.ID
+                where docIDs.Contains(det.IssueDocID)
+                select new
+                {
+                    det.IssueDocID,
+                    det.ID,
+                    det.ItemID,
+                    ItemName = item.Name,
+                    ItemCode = item.Code,
+                    det.IssueQty,
+                    det.UnitCost
+                }
+            ).ToListAsync();
+
+            // Fetch warehouse names
+            var warehouseIDs = docs.Select(d => d.WarehouseID).Distinct().ToList();
+            var warehouses = await _oBMSDbContext.WarehouseMasters
+                .Where(w => warehouseIDs.Contains(w.ID))
+                .ToDictionaryAsync(w => w.ID, w => w.Name);
+
+            var result = docs.Select(doc =>
+            {
+                var lines = details
+                    .Where(d => d.IssueDocID == doc.ID)
+                    .Select(d => new PendingStockIssueLineDto
+                    {
+                        IssueDetailID = d.ID,
+                        ItemID        = d.ItemID,
+                        ItemName      = d.ItemName,
+                        ItemCode      = d.ItemCode,
+                        IssueQty      = d.IssueQty,
+                        UnitCost      = d.UnitCost,
+                        TotalCost     = d.IssueQty * d.UnitCost
+                    }).ToList();
+
+                return new PendingStockIssueDto
+                {
+                    IssueDocID    = doc.ID,
+                    IssueNo       = doc.IssueNo,
+                    IssueDate     = doc.IssueDate,
+                    WarehouseName = warehouses.TryGetValue(doc.WarehouseID, out var wn) ? wn : "",
+                    TotalValue    = lines.Sum(l => l.TotalCost),
+                    Lines         = lines
+                };
+            }).ToList();
+
+            return result;
+        }
+
+        /// <summary>
+        /// Creates a StockIssueUniformLoanLink to permanently associate a Stock Issue
+        /// with a Uniform Loan. Enforces that no other active link exists for the same
+        /// StockIssueDoc. Safe to call on loan update — returns success silently if the
+        /// exact same link already exists.
+        /// </summary>
+        public async Task<(bool Success, string Message)> LinkStockIssueToUniformLoan(
+            LinkStockIssueToLoanRequestDto dto)
+        {
+            if (dto.StockIssueDocID <= 0)
+                return (false, "Invalid Stock Issue reference.");
+            if (dto.SalaryAdvanceID <= 0)
+                return (false, "Invalid Uniform Loan reference.");
+
+            // Check if an active link already exists for this doc
+            var existing = await _oBMSDbContext.StockIssueUniformLoanLinks
+                .FirstOrDefaultAsync(l => l.StockIssueDocID == dto.StockIssueDocID && l.IsActive);
+
+            if (existing != null)
+            {
+                // If it points to the same loan, it's a no-op (idempotent on update)
+                if (existing.SalaryAdvanceID == dto.SalaryAdvanceID)
+                    return (true, "Stock Issue is already linked to this Uniform Loan.");
+
+                return (false,
+                    "This Stock Issue is already linked to another active Uniform Loan. " +
+                    "Please delete the existing loan link first.");
+            }
+
+            // Validate the StockIssueDoc exists
+            var doc = await _oBMSDbContext.StockIssueDocs.FindAsync(dto.StockIssueDocID);
+            if (doc == null || !doc.IsActive)
+                return (false, "The referenced Stock Issue document was not found or is inactive.");
+
+            // Validate the SalaryAdvance exists and is TransType=4
+            var advance = await _oBMSDbContext.SalaryAdvances.FindAsync(dto.SalaryAdvanceID);
+            if (advance == null || advance.IsDeleted)
+                return (false, "The referenced Uniform Loan record was not found or has been deleted.");
+            if (advance.TransType != 4)
+                return (false, "The referenced advance is not a Uniform Loan (TransType must be 4).");
+
+            _oBMSDbContext.StockIssueUniformLoanLinks.Add(new StockIssueUniformLoanLink
+            {
+                StockIssueDocID = dto.StockIssueDocID,
+                SalaryAdvanceID = dto.SalaryAdvanceID,
+                LinkedDate      = DateTime.Now,
+                LinkedBy        = dto.LinkedBy,
+                IsActive        = true,
+                LASTUPDATE      = DateTime.Now,
+                LastUpdatedBy   = dto.LinkedBy
+            });
+            await _oBMSDbContext.SaveChangesAsync();
+
+            return (true, "Stock Issue successfully linked to Uniform Loan.");
         }
     }
 }

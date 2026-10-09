@@ -106,7 +106,7 @@ export class AssetAllocationComponent implements OnInit, AfterViewInit {
 
   loadDropdowns(): void {
     this.service.getAssetList().subscribe({ next: d => { this.assetList = (d || []).filter((a: any) => a.AssetStatus !== 'Disposed'); this.filteredAssets = [...this.assetList]; }, error: () => {} });
-    this.service.getBranchList().subscribe({ next: d => { this.branchList = d || []; this.filteredBranches = [...this.branchList]; }, error: () => {} });
+    this.service.getBranchListByUser(this.currentUser).subscribe({ next: d => { this.branchList = d || []; this.filteredBranches = [...this.branchList]; }, error: () => {} });
     this._payroll.getEmployeeList().subscribe({ next: d => { this.employeeList = d || []; this.filteredEmployeeList = this.employeeList; }, error: () => {} });
   }
 
@@ -159,7 +159,7 @@ export class AssetAllocationComponent implements OnInit, AfterViewInit {
   }
 
   cancelAllocation(row: any): void {
-    this.dialog.open(DialogConfirmationComponent, { data: `Cancel allocation <b>${row.AllocationNo}</b>? The asset will be returned to Available status.` })
+    this.dialog.open(DialogConfirmationComponent, { data: { message: `Cancel allocation <b>${row.AllocationNo}</b>? The asset will be returned to Available status.` } })
       .afterClosed().subscribe((r: any) => {
         if (r?.confirmDialog) {
           this.showLoadingSpinner = true;

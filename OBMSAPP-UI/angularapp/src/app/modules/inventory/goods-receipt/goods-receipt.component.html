@@ -39,9 +39,10 @@
         <ng-container matColumnDef="WarehouseName"><th mat-header-cell *matHeaderCellDef mat-sort-header>Warehouse</th><td mat-cell *matCellDef="let r">{{r.WarehouseName}}</td></ng-container>
         <ng-container matColumnDef="DeliveryNoteRef"><th mat-header-cell *matHeaderCellDef>Delivery Note Ref</th><td mat-cell *matCellDef="let r">{{r.DeliveryNoteRef || '—'}}</td></ng-container>
         <ng-container matColumnDef="action" stickyEnd>
-          <th mat-header-cell *matHeaderCellDef style="text-align:center;width:100px">Action</th>
+          <th mat-header-cell *matHeaderCellDef style="text-align:center;width:120px">Action</th>
           <td mat-cell *matCellDef="let r" style="text-align:center">
             <a *ngIf="userAccessModel.readAccess || currentUser === 'superadmin'" style="cursor:pointer" class="wlt-c-furg-text-primary mr-2" matTooltip="View" [routerLink]="['/inventory/goods-receipt/new-grn', r.ID]"><mat-icon>visibility</mat-icon></a>
+            <a *ngIf="userAccessModel.deleteAccess || currentUser === 'superadmin'" style="cursor:pointer" class="wlt-c-furg-text-danger" matTooltip="Delete GRN" (click)="deleteClick(r)"><mat-icon>delete_outline</mat-icon></a>
           </td>
         </ng-container>
         <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>

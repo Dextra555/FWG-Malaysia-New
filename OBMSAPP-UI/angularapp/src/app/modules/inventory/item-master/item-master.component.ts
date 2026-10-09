@@ -19,6 +19,8 @@ export interface IItem {
   CategoryName: string;
   BrandName: string;
   UOMName: string;
+  WarehouseID: number | null;
+  WarehouseName: string;
   Price: number;
   ReorderLevel: number;
   ReorderQuantity: number;
@@ -47,7 +49,7 @@ export class ItemMasterComponent implements AfterViewInit {
   errorMessage: string = '';
   showLoadingSpinner: boolean = false;
   data: any = [];
-  displayedColumns: string[] = ['Code', 'ItemName', 'CategoryName', 'BrandName', 'UOMName', 'Price', 'ReorderLevel', 'Remarks', 'action'];
+  displayedColumns: string[] = ['Code', 'ItemName', 'CategoryName', 'BrandName', 'UOMName', 'WarehouseName', 'Price', 'ReorderLevel', 'Remarks', 'action'];
   dataSource: MatTableDataSource<IItem> = new MatTableDataSource<IItem>([]);
   pageSizeOptions: number[] = [];
 

@@ -21,3 +21,138 @@
   background-color: #ffebee;
   color: #c62828;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PRINT / PDF STYLES
+   #printSection is hidden on screen.
+   @media print hides everything EXCEPT #printSection.
+   User opens Print dialog → Destination = "Save as PDF" for a PDF file.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Hide print section on screen */
+.print-only {
+  display: none;
+}
+
+@media print {
+
+  /* Hide entire Angular app chrome */
+  body > * {
+    display: none !important;
+  }
+
+  /* Show only the print section */
+  #printSection,
+  #printSection * {
+    display: block !important;
+    visibility: visible !important;
+  }
+
+  #printSection {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 10pt;
+    color: #000;
+  }
+
+  /* Company header */
+  .print-company-header {
+    text-align: center;
+    margin-bottom: 6px;
+  }
+
+  .print-company-name {
+    font-size: 13pt;
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+
+  .print-company-sub {
+    font-size: 9pt;
+    color: #333;
+  }
+
+  /* Report title */
+  .print-report-title {
+    text-align: center;
+    font-size: 12pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    border-top: 2px solid #000;
+    border-bottom: 2px solid #000;
+    padding: 4px 0;
+    margin: 6px 0;
+    letter-spacing: 1px;
+  }
+
+  /* Filter summary line */
+  .print-filter-summary {
+    font-size: 9pt;
+    margin-bottom: 8px;
+    color: #333;
+  }
+
+  /* Main ledger table */
+  .print-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 8.5pt;
+    page-break-inside: auto;
+  }
+
+  .print-table thead {
+    display: table-header-group; /* repeat header on every page */
+  }
+
+  .print-table th {
+    background-color: #1a3a5c !important;
+    color: #fff !important;
+    padding: 4px 5px;
+    border: 1px solid #ccc;
+    font-weight: bold;
+    white-space: nowrap;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print-table td {
+    padding: 3px 5px;
+    border: 1px solid #ddd;
+    vertical-align: top;
+  }
+
+  /* Alternate row shading */
+  .print-table tbody tr:nth-child(even) td {
+    background-color: #f7f7f7 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Totals footer row */
+  .print-total-row td {
+    background-color: #e8f0fe !important;
+    font-weight: bold;
+    border-top: 2px solid #1a3a5c;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Generated-by footer */
+  .print-footer {
+    margin-top: 10px;
+    font-size: 8pt;
+    color: #555;
+    text-align: right;
+    border-top: 1px solid #ccc;
+    padding-top: 4px;
+  }
+
+  /* Page settings */
+  @page {
+    size: A4 landscape;
+    margin: 12mm 10mm;
+  }
+}

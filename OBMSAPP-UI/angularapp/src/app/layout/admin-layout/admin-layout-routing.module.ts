@@ -86,6 +86,10 @@ import { MaterialIssueComponent } from "../../modules/inventory/material-issue/m
 import { PendingApprovalsComponent } from "../../modules/inventory/pending-approvals/pending-approvals.component";
 import { ApprovalHistoryComponent } from "../../modules/inventory/approval-history/approval-history.component";
 import { NotificationListComponent } from "../../modules/inventory/notification-list/notification-list.component";
+
+// Part 9: Branch Stock Request
+import { BranchStockRequestComponent } from "../../modules/inventory/branch-stock-request/branch-stock-request.component";
+import { NewBSRComponent } from "../../modules/inventory/branch-stock-request/new-bsr/new-bsr.component";
 import { EmployeemonthlyadvanceComponent } from 'src/app/modules/payroll/employee-monthly-advance/employeemonthlyadvance.component';
 import { NewEmployeeMonthlyAdvanceComponent } from 'src/app/modules/payroll/employee-monthly-advance/new-employee-monthly-advance/new-employee-monthly-advance.component';
 import { NewEmployeeLoanComponent } from 'src/app/modules/payroll/employee-loan/new-employee-loan.component';
@@ -132,6 +136,7 @@ import { KKDNComponent } from 'src/app/modules/report/master/kkdn/kkdn.component
 import { MonthlyAdvanceReportComponent } from 'src/app/modules/report/payroll/monthly-advance-report/monthly-advance-report.component';
 import { HQStockLedgerComponent } from "../../modules/report/inventory/hq-stock-ledger/hq-stock-ledger.component";
 import { BranchStockLedgerComponent } from "../../modules/report/inventory/branch-stock-ledger/branch-stock-ledger.component";
+import { StockLedgerReportComponent } from "../../modules/report/inventory/stock-ledger-report/stock-ledger-report.component";
 import { PaySheetComponent } from "../../modules/report/payroll/pay-sheet/pay-sheet.component";
 import { YearlyPaySheetComponent } from "../../modules/report/payroll/yearly-pay-sheet/yearly-pay-sheet.component";
 import { PayHistoryComponent } from "../../modules/report/payroll/pay-history/pay-history.component";
@@ -299,6 +304,10 @@ const routes: Routes = [
   { path: 'inventory/stock-transfer', component: StockTransferComponent, canActivate: [AuthGuard] },
   { path: 'inventory/stock-transfer/new-stock-transfer', component: NewStockTransferComponent, canActivate: [AuthGuard] },
   { path: 'inventory/stock-transfer/new-stock-transfer/:ID', component: NewStockTransferComponent, canActivate: [AuthGuard] },
+  // Part 9: Branch Stock Request
+  { path: 'inventory/branch-stock-request',             component: BranchStockRequestComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/branch-stock-request/new-bsr',     component: NewBSRComponent,             canActivate: [AuthGuard] },
+  { path: 'inventory/branch-stock-request/new-bsr/:ID', component: NewBSRComponent,             canActivate: [AuthGuard] },
   // Part 4: Stock Adjustment
   { path: 'inventory/stock-adjustment', component: StockAdjustmentComponent, canActivate: [AuthGuard] },
   { path: 'inventory/stock-adjustment/new-stock-adjustment', component: NewStockAdjustmentComponent, canActivate: [AuthGuard] },
@@ -323,6 +332,7 @@ const routes: Routes = [
   { path: 'inventory/asset-maintenance', component: AssetMaintenanceComponent, canActivate: [AuthGuard] },
   { path: 'inventory/asset-damage', component: AssetDamageComponent, canActivate: [AuthGuard] },
   { path: 'inventory/asset-disposal', component: AssetDisposalComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/asset-disposal/:ID', component: AssetDisposalComponent, canActivate: [AuthGuard] },
   { path: 'inventory/asset-movement-history/:assetID', component: AssetMovementHistoryComponent, canActivate: [AuthGuard] },
   { path: 'inventory/asset-location', component: AssetLocationComponent, canActivate: [AuthGuard] },
   { path: 'inventory/asset-location/:assetID', component: AssetLocationComponent, canActivate: [AuthGuard] },
@@ -396,6 +406,7 @@ const routes: Routes = [
   //Inventory report module
   { path: 'inventory/report/hq-stock-ledger', component: HQStockLedgerComponent, canActivate: [AuthGuard] },
   { path: 'inventory/report/branch-stock-ledger', component: BranchStockLedgerComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/report/stock-ledger-report', component: StockLedgerReportComponent, canActivate: [AuthGuard] },
 
   //payroll report module
   { path: 'report/payroll/monthly-advance-report', component: MonthlyAdvanceReportComponent, canActivate: [AuthGuard] },

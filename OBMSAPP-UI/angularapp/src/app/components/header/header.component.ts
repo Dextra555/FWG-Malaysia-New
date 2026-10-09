@@ -53,7 +53,13 @@ export class HeaderComponent implements OnInit {
     }
   }
   logout() {
+    // Clear ALL session data so the next user gets a completely fresh session.
+    // Without this, localStorage token from the previous user persists and the
+    // JWT sent to the API identifies the wrong user (causing IsApprover=false,
+    // wrong CurrentUser in approval checks, etc.).
     this.authService.getManulLogout();
+    this.authService.clearToken();   // remove auth_token from localStorage
+    sessionStorage.clear();          // remove username, userrole, currentUser
     this._router.navigate(['/login']);
   }
 }

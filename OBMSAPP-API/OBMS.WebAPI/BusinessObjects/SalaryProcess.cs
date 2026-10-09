@@ -3484,8 +3484,10 @@ namespace OBMS.WebAPI.BusinessObjects
                                         {
                                             if (sEmpNational.Equals("Nepal", StringComparison.OrdinalIgnoreCase))
                                             {
-                                                dEPFEmployee = Math.Ceiling(dGrossSalary * 0.02M);
-                                                dEPFEmployer = Math.Ceiling(dGrossSalary * 0.02M);
+                                                dEPFEmployer = Math.Ceiling(decimal.Parse(BasicSalary.ToString("N2")) * 0.02M);
+                                                dEPFEmployee = Math.Ceiling(decimal.Parse(BasicSalary.ToString("N2")) * 0.02M);
+                                                
+
                                             }
                                             else
                                             {

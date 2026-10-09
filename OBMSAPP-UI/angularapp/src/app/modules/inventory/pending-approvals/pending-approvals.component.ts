@@ -32,6 +32,7 @@ export class PendingApprovalsComponent implements OnInit, AfterViewInit {
 
   userAccessModel!: UserAccessModel;
   currentUser    = '';
+  userRole       = '';   // BUG-07/08 FIX: derived from sessionStorage 'userrole' ('0'→'user','1'→'admin','2'→'superadmin')
   warningMessage = '';
   errorMessage   = '';
   showLoadingSpinner = false;
@@ -61,6 +62,18 @@ export class PendingApprovalsComponent implements OnInit, AfterViewInit {
     if (!this.currentUser || this.currentUser === 'null') {
       this._dataService.getUsername().subscribe(u => this.currentUser = u);
     }
+    // BUG-07 FIX: load role from sessionStorage 'userrole' (set at login from OBMSUsers.IsAdmin)
+    // '0' = user, '1' = admin, '2' = superadmin
+    const raw = sessionStorage.getItem('userrole') ?? '0';
+    this.userRole = raw === '2' ? 'superadmin' : raw === '1' ? 'admin' : 'user';
+    // Always load the list immediately — the backend (GetPendingApprovals) is the
+    // authoritative gate: it only returns documents the JWT user is authorised to
+    // see (routing-filtered for normal users, all docs for SuperAdmin).
+    // getUserAccessRights is still called so canActOnRow() has the updateAccess
+    // flag for the Approve/Reject button guard, but we don't block the list load
+    // on its result to avoid approvers being locked out by missing permission rows.
+    this.showLoadingSpinner = true;
+    this.loadList();
     this.getUserAccessRights(this.currentUser, 'Pending Approvals');
   }
 
@@ -68,20 +81,15 @@ export class PendingApprovalsComponent implements OnInit, AfterViewInit {
     this._masterService.getUserAccessRights(userName, screenName).subscribe(
       data => {
         if (data) {
-          this.showLoadingSpinner = true;
-          this.userAccessModel.readAccess   = data.Read;
-          this.userAccessModel.updateAccess = data.Update;
-          this.userAccessModel.createAccess = data.Create;
-          this.userAccessModel.deleteAccess = data.Delete;
-          if (this.userAccessModel.readAccess || this.currentUser === 'superadmin') {
-            this.loadList();
-          } else {
-            this.warningMessage = `Dear <b>${this.currentUser}</b>,<br>You do not have permission to view pending approvals.<br>Please contact your administrator.`;
-            this.hideSpinner();
-          }
+          this.userAccessModel.readAccess   = data.Read   ?? data.read   ?? false;
+          this.userAccessModel.updateAccess = data.Update ?? data.update ?? false;
+          this.userAccessModel.createAccess = data.Create ?? data.create ?? false;
+          this.userAccessModel.deleteAccess = data.Delete ?? data.delete ?? false;
         }
+        // List is already loading (started in ngOnInit).
+        // warningMessage is NOT shown — backend returns empty list for unauthorized users.
       },
-      () => { this.errorMessage = 'Unable to load page permissions. Please try again.'; this.hideSpinner(); }
+      () => { /* permission check failed — list still loads, backend is the gate */ }
     );
   }
 
@@ -111,17 +119,53 @@ export class PendingApprovalsComponent implements OnInit, AfterViewInit {
 
   viewDocument(row: any): void {
     if (row.DocumentType === 'PURCHASE_REQUISITION') {
-      // new-pr route uses route param :ID
       this.route.navigate(['/inventory/purchase-requisition/new-pr', row.DocumentID]);
     } else if (row.DocumentType === 'PURCHASE_ORDER') {
-      // new-po route uses route param :ID
       this.route.navigate(['/inventory/purchase-order/new-po', row.DocumentID]);
+    } else if (row.DocumentType === 'BRANCH_STOCK_REQUEST') {
+      this.route.navigate(['/inventory/branch-stock-request/new-bsr', row.DocumentID]);
+    } else if (row.DocumentType === 'STOCK_ADJUSTMENT') {
+      this.route.navigate(['/inventory/stock-adjustment/new-stock-adjustment', row.DocumentID]);
+    } else if (row.DocumentType === 'ASSET_DISPOSAL') {
+      this.route.navigate(['/inventory/asset-disposal', row.DocumentID]);
     }
   }
 
+  // ── Per-row authorization helper ─────────────────────────────────────────
+  // Returns false (non-actionable) when:
+  //   • The current user is NOT SuperAdmin (IsAdmin='2')
+  //   AND
+  //   • row.RequestedBy matches the current user (self-submission block)
+  // SuperAdmin can act on any row, including documents they submitted themselves.
+  // Also returns false when basic screen permission (updateAccess) is missing and
+  // the user is not SuperAdmin.
+  canActOnRow(row: any): boolean {
+    // SuperAdmin override — always actionable
+    if (this.userRole === 'superadmin') return true;
+
+    // Screen-level permission gate
+    if (!this.userAccessModel.updateAccess) return false;
+
+    // Self-submission block: requester must not act on their own document
+    const requestedBy = (row?.RequestedBy ?? '').toLowerCase().trim();
+    const me          = (this.currentUser ?? '').toLowerCase().trim();
+    if (requestedBy && me && requestedBy === me) return false;
+
+    return true;
+  }
+
   approveClick(row: any): void {
-    if (!this.userAccessModel.updateAccess && this.currentUser !== 'superadmin') {
-      this.showMsg('You do not have permission to approve documents.', 'warning', 'Warning Message');
+    // Guard: self-submission block + screen permission (mirrors button [disabled] logic)
+    if (!this.canActOnRow(row)) {
+      const isSelf = (row?.RequestedBy ?? '').toLowerCase().trim() ===
+                     (this.currentUser ?? '').toLowerCase().trim();
+      if (isSelf) {
+        this.showMsg(
+          'You cannot approve a document that you submitted yourself.',
+          'warning', 'Warning Message');
+      } else {
+        this.showMsg('You do not have permission to approve documents.', 'warning', 'Warning Message');
+      }
       return;
     }
     this.dialog.open(DialogConfirmationComponent, {
@@ -140,33 +184,85 @@ export class PendingApprovalsComponent implements OnInit, AfterViewInit {
           next: (res: any) => { this.showMsg(res?.message || 'Approved.', 'success', 'Success Message'); this.loadList(); },
           error: (err: any) => { this.showMsg(this.extractMsg(err, 'Unable to approve. Please try again.'), 'error', 'Error Message'); this.hideSpinner(); }
         });
+      } else if (row.DocumentType === 'BRANCH_STOCK_REQUEST') {
+        this.service.approveBSR(row.DocumentID, { ApprovalRemarks: '' }).subscribe({
+          next: (res: any) => { this.showMsg(res?.message || 'Approved.', 'success', 'Success Message'); this.loadList(); },
+          error: (err: any) => { this.showMsg(this.extractMsg(err, 'Unable to approve. Please try again.'), 'error', 'Error Message'); this.hideSpinner(); }
+        });
+      } else if (row.DocumentType === 'STOCK_ADJUSTMENT') {
+        this.service.approveSA(row.DocumentID, { ApprovalRemarks: '' }).subscribe({
+          next: (res: any) => { this.showMsg(res?.message || 'Approved.', 'success', 'Success Message'); this.loadList(); },
+          error: (err: any) => { this.showMsg(this.extractMsg(err, 'Unable to approve. Please try again.'), 'error', 'Error Message'); this.hideSpinner(); }
+        });
+      } else if (row.DocumentType === 'ASSET_DISPOSAL') {
+        this.service.approveAD(row.DocumentID, { ApprovalRemarks: '' }).subscribe({
+          next: (res: any) => { this.showMsg(res?.message || 'Approved.', 'success', 'Success Message'); this.loadList(); },
+          error: (err: any) => { this.showMsg(this.extractMsg(err, 'Unable to approve. Please try again.'), 'error', 'Error Message'); this.hideSpinner(); }
+        });
       }
     });
   }
 
   rejectClick(row: any): void {
-    if (!this.userAccessModel.updateAccess && this.currentUser !== 'superadmin') {
-      this.showMsg('You do not have permission to reject documents.', 'warning', 'Warning Message');
+    // Guard: self-submission block + screen permission (mirrors button [disabled] logic)
+    if (!this.canActOnRow(row)) {
+      const isSelf = (row?.RequestedBy ?? '').toLowerCase().trim() ===
+                     (this.currentUser ?? '').toLowerCase().trim();
+      if (isSelf) {
+        this.showMsg(
+          'You cannot reject a document that you submitted yourself.',
+          'warning', 'Warning Message');
+      } else {
+        this.showMsg('You do not have permission to reject documents.', 'warning', 'Warning Message');
+      }
       return;
     }
-    const reason = prompt(`Please enter the reason for rejecting ${row.DocumentTypeDisplay} ${row.DocumentNumber}:`);
-    if (!reason || reason.trim() === '') {
-      this.showMsg('Please enter a reason for rejection.', 'warning', 'Warning Message');
-      return;
-    }
-    this.showLoadingSpinner = true;
+    Swal.fire({
+      title: `Reject ${row.DocumentTypeDisplay}`,
+      html: `<b>${row.DocumentNumber}</b> — Please enter the reason for rejection:`,
+      input: 'textarea',
+      inputPlaceholder: 'Enter rejection reason here…',
+      inputAttributes: { rows: '3' },
+      showCancelButton: true,
+      confirmButtonText: 'Reject',
+      confirmButtonColor: '#d33',
+      cancelButtonText: 'Cancel',
+      inputValidator: (value) => {
+        if (!value || value.trim() === '') return 'Please enter a reason for rejection.';
+        return null;
+      }
+    }).then(result => {
+      if (!result.isConfirmed || !result.value?.trim()) return;
+      const reason = result.value.trim();
+      this.showLoadingSpinner = true;
 
-    if (row.DocumentType === 'PURCHASE_REQUISITION') {
-      this.service.rejectPR(row.DocumentID, { ApprovedBy: this.currentUser, ApprovalRemarks: reason }).subscribe({
-        next: (res: any) => { this.showMsg(res?.message || 'Rejected.', 'warning', 'Warning Message'); this.loadList(); },
-        error: (err: any) => { this.showMsg(this.extractMsg(err, 'Unable to reject. Please try again.'), 'error', 'Error Message'); this.hideSpinner(); }
-      });
-    } else if (row.DocumentType === 'PURCHASE_ORDER') {
-      this.service.rejectPO(row.DocumentID, { RejectedBy: this.currentUser, RejectReason: reason }).subscribe({
-        next: (res: any) => { this.showMsg(res?.message || 'Rejected.', 'warning', 'Warning Message'); this.loadList(); },
-        error: (err: any) => { this.showMsg(this.extractMsg(err, 'Unable to reject. Please try again.'), 'error', 'Error Message'); this.hideSpinner(); }
-      });
-    }
+      if (row.DocumentType === 'PURCHASE_REQUISITION') {
+        this.service.rejectPR(row.DocumentID, { ApprovedBy: this.currentUser, ApprovalRemarks: reason }).subscribe({
+          next: (res: any) => { this.showMsg(res?.message || 'Rejected.', 'warning', 'Warning Message'); this.loadList(); },
+          error: (err: any) => { this.showMsg(this.extractMsg(err, 'Unable to reject. Please try again.'), 'error', 'Error Message'); this.hideSpinner(); }
+        });
+      } else if (row.DocumentType === 'PURCHASE_ORDER') {
+        this.service.rejectPO(row.DocumentID, { RejectedBy: this.currentUser, RejectReason: reason }).subscribe({
+          next: (res: any) => { this.showMsg(res?.message || 'Rejected.', 'warning', 'Warning Message'); this.loadList(); },
+          error: (err: any) => { this.showMsg(this.extractMsg(err, 'Unable to reject. Please try again.'), 'error', 'Error Message'); this.hideSpinner(); }
+        });
+      } else if (row.DocumentType === 'BRANCH_STOCK_REQUEST') {
+        this.service.rejectBSR(row.DocumentID, { ApprovalRemarks: reason }).subscribe({
+          next: (res: any) => { this.showMsg(res?.message || 'Rejected.', 'warning', 'Warning Message'); this.loadList(); },
+          error: (err: any) => { this.showMsg(this.extractMsg(err, 'Unable to reject. Please try again.'), 'error', 'Error Message'); this.hideSpinner(); }
+        });
+      } else if (row.DocumentType === 'STOCK_ADJUSTMENT') {
+        this.service.rejectSA(row.DocumentID, { ApprovalRemarks: reason }).subscribe({
+          next: (res: any) => { this.showMsg(res?.message || 'Rejected.', 'warning', 'Warning Message'); this.loadList(); },
+          error: (err: any) => { this.showMsg(this.extractMsg(err, 'Unable to reject. Please try again.'), 'error', 'Error Message'); this.hideSpinner(); }
+        });
+      } else if (row.DocumentType === 'ASSET_DISPOSAL') {
+        this.service.rejectAD(row.DocumentID, { ApprovalRemarks: reason }).subscribe({
+          next: (res: any) => { this.showMsg(res?.message || 'Rejected.', 'warning', 'Warning Message'); this.loadList(); },
+          error: (err: any) => { this.showMsg(this.extractMsg(err, 'Unable to reject. Please try again.'), 'error', 'Error Message'); this.hideSpinner(); }
+        });
+      }
+    });
   }
 
   viewHistory(row: any): void {
@@ -190,6 +286,9 @@ export class PendingApprovalsComponent implements OnInit, AfterViewInit {
     switch (t) {
       case 'PURCHASE_REQUISITION': return 'badge-pr';
       case 'PURCHASE_ORDER':       return 'badge-po';
+      case 'BRANCH_STOCK_REQUEST': return 'badge-bsr';
+      case 'STOCK_ADJUSTMENT':     return 'badge-sa';
+      case 'ASSET_DISPOSAL':       return 'badge-disposal';
       default:                     return 'badge-draft';
     }
   }

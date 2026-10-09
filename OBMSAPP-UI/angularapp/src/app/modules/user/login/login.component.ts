@@ -85,6 +85,9 @@ export class LoginComponent implements OnInit {
   // Function to check password expiration
   checkPasswordExpiration(response: any) {
     this._dataSharingService.setUsername(response.Users.Name);
+    // Clear previous session before stamping new user data
+    sessionStorage.clear();
+    this.authService.clearToken();
     sessionStorage.setItem('username', this.response.Users.Name);
     sessionStorage.setItem('userrole', this.response.Users.IsAdmin);
     const dtLastUpdatedDate = new Date(response.Users.LastUpdatedDate);
@@ -115,7 +118,18 @@ export class LoginComponent implements OnInit {
   successLogin(response: any) {
     this.userName = response.Users.Name;
     this._dataSharingService.setUsername(response.Users.Name);
+    // Clear ALL previous session data before setting new user's data.
+    // This prevents stale tokens/usernames from a previous login (same tab
+    // or same browser window) from leaking into the new session.
+    sessionStorage.clear();
+    this.authService.clearToken();
     sessionStorage.setItem('username', response.Users.Name);
+    // BUG-A FIX: always stamp 'userrole' here so the value is set regardless
+    // of whether checkPasswordExpiration() was the caller or successLogin() was
+    // called directly (e.g. after the password-expiry warning "No" path).
+    // All approval components read sessionStorage.getItem('userrole') to derive
+    // SuperAdmin status — if this is missing, the entire approval UI is broken.
+    sessionStorage.setItem('userrole', response.Users.IsAdmin ?? '0');
     this.register = response.Users;
     let data = this.register
     data['Password'] = "";

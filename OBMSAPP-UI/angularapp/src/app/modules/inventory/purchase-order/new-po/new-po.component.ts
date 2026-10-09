@@ -59,12 +59,22 @@ export class NewPOComponent implements OnInit {
   // ── Approver visibility flag ─────────────────────────────────────────────
   isApprover        = false;
   approverCheckDone = false;
+  approverName      = '';      // configured approver username — shown in the pending banner
 
   // ── Linked GRN (set after loadExisting when PO is Approved or Received) ──
   linkedGRN: any = null;   // holds GRN info if a GRN has already been posted for this PO
 
+  // ── PO Editability (from backend) ────────────────────────────────────────
+  canEditPO         = false;   // true = form can be saved
+  isPRLinked        = false;   // true = item list is locked, only Qty/Price editable
+  linkedPRNumber    = '';      // PR number shown in lock banner
+  editabilityLoaded = false;   // prevents flickering before first API response
+
   userAccessModel!: UserAccessModel;
   currentUser       = '';
+  // BUG-11 FIX: use userRole derived from sessionStorage 'userrole', not currentUser string.
+  // '0'→'user', '1'→'admin', '2'→'superadmin'  (matches OBMSUsers.IsAdmin values)
+  userRole          = '';
   warningMessage    = '';
   errorMessage      = '';
   showLoadingSpinner = false;
@@ -113,6 +123,9 @@ export class NewPOComponent implements OnInit {
     this.prID = this.activatedRoute.snapshot.queryParams['prID'];
 
     this.currentUser = sessionStorage.getItem('username') || '';
+    // BUG-11 FIX: load role from sessionStorage 'userrole' (set at login from OBMSUsers.IsAdmin)
+    const rawRole = sessionStorage.getItem('userrole') ?? '0';
+    this.userRole = rawRole === '2' ? 'superadmin' : rawRole === '1' ? 'admin' : 'user';
     if (!this.currentUser || this.currentUser === 'null') {
       this._dataService.getUsername().subscribe(u => {
         this.currentUser = u;
@@ -128,6 +141,9 @@ export class NewPOComponent implements OnInit {
       this.isEdit = true;
       this.loadExisting();
     } else {
+      // New PO — fully editable by default
+      this.canEditPO         = true;
+      this.editabilityLoaded = true;
       this.service.getPOCode().subscribe({
         next: (d: any) => this.frm.get('PONumber')?.setValue(d.Code),
         error: () => {}
@@ -179,7 +195,7 @@ export class NewPOComponent implements OnInit {
   }
 
   loadDropdowns(): void {
-    this.service.getSuppliers().subscribe({
+    this.service.getSuppliers('P').subscribe({
       next: (d: any[]) => { this.suppliers = d || []; this.filteredSuppliers = [...this.suppliers]; },
       error: () => { this.errorMessage = 'Unable to load the supplier list. Please try again.'; }
     });
@@ -243,12 +259,39 @@ export class NewPOComponent implements OnInit {
           PODate: new Date(d.PODate), ExpectedDate: new Date(d.ExpectedDate),
           Remarks: d.Remarks
         });
+        this.warningMessage = '';   // clear any stale default-warehouse warning
         this.lines = (d.Details || []).map((l: any) => ({
           ...l, LineTotal: l.TotalPrice, _index: -1
         }));
         this.calcTotal();
-        if (d.Status !== 'Draft') { this.frm.disable(); }
+
+        // Always disable the form initially — editability API decides final state
+        this.frm.disable();
         this.hideSpinner();
+
+        // ── Load editability from backend ──────────────────────────────────
+        this.service.getPOEditability(+this.ID).subscribe({
+          next: (edit: any) => {
+            this.canEditPO      = edit.canEdit  ?? false;
+            this.isPRLinked     = edit.isPRLinked ?? false;
+            this.linkedPRNumber = edit.linkedPRNumber ?? '';
+            this.editabilityLoaded = true;
+
+            // Re-enable form fields when editing is allowed
+            if (this.canEditPO) {
+              this.frm.enable();
+              // PONumber is always readonly
+              this.frm.get('PONumber')?.disable();
+              // PRID is never changeable on edit
+              this.frm.get('PRID')?.disable();
+            }
+          },
+          error: () => {
+            // On error, keep form locked — safe default
+            this.canEditPO         = false;
+            this.editabilityLoaded = true;
+          }
+        });
 
         // Check approver visibility
         if (d.Status === 'Submitted') {
@@ -275,17 +318,21 @@ export class NewPOComponent implements OnInit {
   }
 
   private checkIsApprover(requesterUser: string): void {
-    if (!requesterUser) {
-      this.approverCheckDone = true;
-      return;
-    }
-    this.service.isCurrentUserApprover('PURCHASE_ORDER', requesterUser).subscribe({
+    // Guard: if already confirmed as approver, don't let a second call override it.
+    if (this.isApprover && this.approverCheckDone) return;
+    this.service.isCurrentUserApprover('PURCHASE_ORDER', requesterUser || '').subscribe({
       next: (res: any) => {
-        this.isApprover        = res?.IsApprover === true;
+        if (!this.isApprover) {
+          this.isApprover   = res?.IsApprover === true;
+          this.approverName = res?.ApproverUser || '';
+        }
         this.approverCheckDone = true;
       },
       error: () => {
-        this.isApprover        = false;
+        if (!this.approverCheckDone) {
+          this.isApprover   = false;
+          this.approverName = '';
+        }
         this.approverCheckDone = true;
       }
     });
@@ -297,6 +344,24 @@ export class NewPOComponent implements OnInit {
     if (item) {
       this.lineForm.get('UOMID')?.setValue(item.UOMID || 0);
       this.lineForm.get('UnitPrice')?.setValue(item.Price || 0);
+
+      // ── Default Warehouse auto-fill ──────────────────────────────────────
+      // Only on a new PO (isEdit=false) or when the header warehouse is still
+      // unset (0). Never overwrite a warehouse the user has already chosen,
+      // and never fire during edit mode where the saved value must be preserved.
+      if (!this.isEdit) {
+        const currentWH = +this.frm.get('WarehouseID')?.value;
+        if (currentWH === 0 && item.WarehouseID) {
+          const whExists = this.warehouses.find((w: any) => w.ID === item.WarehouseID);
+          if (whExists) {
+            this.frm.get('WarehouseID')?.setValue(item.WarehouseID);
+          } else if (item.WarehouseID) {
+            // Default warehouse is inactive — warn and leave field empty
+            this.warningMessage =
+              'The default warehouse for this item is inactive. Please select another warehouse.';
+          }
+        }
+      }
     }
     this.calcLineTotal();
   }
@@ -353,17 +418,20 @@ export class NewPOComponent implements OnInit {
   }
 
   // ── State helpers ─────────────────────────────────────────────────────────
-  canEdit():   boolean { return this.currentStatus === 'Draft'; }
+  // New form (isEdit=false): always editable, no PR lock yet.
+  // Existing form (isEdit=true): driven by canEditPO from backend.
+  canEdit():   boolean { return !this.isEdit || this.canEditPO; }
+  // Submit is available on a new (unsaved) form with at least one line,
+  // OR on an existing Draft (or Approved-GRN-deleted, which will be reset to Draft on save).
   canSubmit(): boolean {
-    return this.isEdit &&
-           this.currentStatus === 'Draft' &&
-           this.lines.length > 0;
+    return this.lines.length > 0 && (!this.isEdit || this.canEditPO);
   }
   canApproveAction(): boolean {
-    return this.isEdit &&
-           this.currentStatus === 'Submitted' &&
-           this.isApprover &&
-           this.approverCheckDone;
+    if (!this.isEdit || this.currentStatus !== 'Submitted') return false;
+    // SuperAdmin (IsAdmin='2') has global approval authority — including their own submissions.
+    if (this.userRole === 'superadmin') return true;
+    // Normal users: configured approver only, self-approval blocked
+    return this.isApprover && this.approverCheckDone;
   }
   canGRN(): boolean {
     return this.isEdit &&
@@ -402,17 +470,16 @@ export class NewPOComponent implements OnInit {
     this.service.savePO(payload).subscribe({
       next: (res: any) => {
         this.showMsg(
-          res?.message || 'Purchase order saved successfully.',
+          res?.message || 'Purchase order saved as draft.',
           'success', 'Success Message'
         );
         // Navigate to the saved PO's edit page so the user can immediately
-        // click "Send for Approval". For updates, reload in-place.
+        // see both [Save Draft] and [Submit] buttons. For updates, reload in-place.
         if (res?.id) {
           this.route.navigateByUrl('/dummy', { skipLocationChange: true })
             .then(() => this.route.navigate(['/inventory/purchase-order/new-po', res.id]));
         } else {
-          this.route.navigateByUrl('/dummy', { skipLocationChange: true })
-            .then(() => this.route.navigate(['/inventory/purchase-order']));
+          this.loadExisting();
         }
       },
       error: (err: any) => {
@@ -445,6 +512,91 @@ export class NewPOComponent implements OnInit {
     });
   }
 
+  // ── Direct Submit (New form → save as Draft → immediately submit) ─────────
+  // Allows the user to click [Submit] on a brand-new PO form without first saving a Draft.
+  // If the PO is already a saved Draft (isEdit=true), this skips the save step.
+  onSubmitDirect(): void {
+    if (this.frm.invalid) { this.frm.markAllAsTouched(); return; }
+    if (this.lines.length === 0) {
+      this.showMsg('Please add at least one item to the purchase order before submitting.', 'warning', 'Warning Message');
+      return;
+    }
+
+    const poLabel = this.isEdit ? this.frm.get('PONumber')?.value : 'this purchase order';
+    this.dialog.open(DialogConfirmationComponent, {
+      data: `Submit Purchase Order <b>${poLabel}</b> for approval?`
+    }).afterClosed().subscribe((r: any) => {
+      if (!r?.confirmDialog) return;
+
+      this.showLoadingSpinner = true;
+
+      if (this.isEdit) {
+        // Already a saved Draft — just submit
+        this.service.submitPO(this.ID, this.currentUser).subscribe({
+          next: (res: any) => {
+            this.showMsg(res?.message || 'Purchase order submitted for approval.', 'success', 'Success Message');
+            this.loadExisting();
+          },
+          error: (err: any) => {
+            this.showMsg(this.extractMsg(err, 'Unable to submit. Please try again.'), 'error', 'Error Message');
+            this.hideSpinner();
+          }
+        });
+      } else {
+        // New form — save as Draft first, then immediately submit
+        const raw = this.frm.getRawValue();
+        const payload = {
+          ID: 0, PONumber: raw.PONumber,
+          PRID: raw.PRID || null,
+          SupplierID:   +raw.SupplierID,
+          WarehouseID:  +raw.WarehouseID,
+          PODate:       raw.PODate,
+          ExpectedDate: raw.ExpectedDate,
+          Remarks:      raw.Remarks,
+          LastUpdatedBy: this.currentUser,
+          Details: this.lines.map(l => ({
+            ID:         0,
+            ItemID:     l.ItemID,
+            UOMID:      l.UOMID || null,
+            OrderedQty: +l.OrderedQty,
+            UnitPrice:  +l.UnitPrice,
+            Remarks:    l.Remarks || '',
+            LastUpdatedBy: this.currentUser
+          }))
+        };
+        this.service.savePO(payload).subscribe({
+          next: (saveRes: any) => {
+            const newID = saveRes?.id;
+            if (!newID) {
+              this.showMsg('Unable to save the purchase order. Please try again.', 'error', 'Error Message');
+              this.hideSpinner();
+              return;
+            }
+            // Draft saved — now submit
+            this.service.submitPO(newID, this.currentUser).subscribe({
+              next: (submitRes: any) => {
+                this.showMsg(submitRes?.message || 'Purchase order submitted for approval.', 'success', 'Success Message');
+                // Navigate to the saved/submitted record
+                this.route.navigateByUrl('/dummy', { skipLocationChange: true })
+                  .then(() => this.route.navigate(['/inventory/purchase-order/new-po', newID]));
+              },
+              error: (err: any) => {
+                // Save succeeded but submit failed — navigate to draft so user can retry
+                this.showMsg(this.extractMsg(err, 'Saved as Draft, but submit failed. Please open the draft and try submitting again.'), 'error', 'Error Message');
+                this.route.navigateByUrl('/dummy', { skipLocationChange: true })
+                  .then(() => this.route.navigate(['/inventory/purchase-order/new-po', newID]));
+              }
+            });
+          },
+          error: (err: any) => {
+            this.showMsg(this.extractMsg(err, 'Unable to save the purchase order right now. Please try again.'), 'error', 'Error Message');
+            this.hideSpinner();
+          }
+        });
+      }
+    });
+  }
+
   onApprove(): void {
     this.dialog.open(DialogConfirmationComponent, {
       data: `Are you sure you want to approve Purchase Order <b>${this.frm.get('PONumber')?.value}</b>?`
@@ -466,22 +618,34 @@ export class NewPOComponent implements OnInit {
   }
 
   onReject(): void {
-    const reason = prompt('Please enter the reason for rejecting this purchase order:');
-    if (!reason || reason.trim() === '') {
-      this.showMsg('Please enter a rejection reason.', 'warning', 'Warning Message');
-      return;
-    }
-    this.showLoadingSpinner = true;
-    // Uses /api/Approval/RejectPO — reads identity from JWT
-    this.service.rejectPO(this.ID, { RejectedBy: this.currentUser, RejectReason: reason }).subscribe({
-      next: (res: any) => {
-        this.showMsg(res?.message || 'Purchase order rejected.', 'warning', 'Warning Message');
-        this.loadExisting();
-      },
-      error: (err: any) => {
-        this.showMsg(this.extractMsg(err, 'Unable to reject right now.'), 'error', 'Error Message');
-        this.hideSpinner();
+    Swal.fire({
+      title: 'Reject Purchase Order',
+      text: 'Please enter the reason for rejection:',
+      input: 'textarea',
+      inputPlaceholder: 'Enter rejection reason here…',
+      inputAttributes: { rows: '3' },
+      showCancelButton: true,
+      confirmButtonText: 'Reject',
+      confirmButtonColor: '#d33',
+      cancelButtonText: 'Cancel',
+      inputValidator: (value) => {
+        if (!value || value.trim() === '') return 'Please enter a rejection reason.';
+        return null;
       }
+    }).then(result => {
+      if (!result.isConfirmed || !result.value?.trim()) return;
+      this.showLoadingSpinner = true;
+      // Uses /api/Approval/RejectPO — reads identity from JWT
+      this.service.rejectPO(this.ID, { RejectedBy: this.currentUser, RejectReason: result.value.trim() }).subscribe({
+        next: (res: any) => {
+          this.showMsg(res?.message || 'Purchase order rejected.', 'warning', 'Warning Message');
+          this.loadExisting();
+        },
+        error: (err: any) => {
+          this.showMsg(this.extractMsg(err, 'Unable to reject right now.'), 'error', 'Error Message');
+          this.hideSpinner();
+        }
+      });
     });
   }
 

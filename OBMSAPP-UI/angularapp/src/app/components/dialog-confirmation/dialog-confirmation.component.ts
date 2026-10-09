@@ -22,7 +22,12 @@ export class DialogConfirmationComponent implements OnInit {
 
     if (data) {
       this.showRemarks = data.showRemarks ?? false;
-      this.message = data.message ?? this.message;
+      // Support both plain string: data("message") and object: data({ message: "..." })
+      if (typeof data === 'string') {
+        this.message = data;
+      } else {
+        this.message = data.message ?? this.message;
+      }
     }
   }
 

@@ -5,22 +5,23 @@ import { MatDialog } from '@angular/material/dialog';
 import Swal from 'sweetalert2';
 
 import { InventoryService } from '../../../../service/inventory.service';
-import { MastermoduleService } from '../../../../service/mastermodule.service';
 import { DatasharingService } from '../../../../service/datasharing.service';
-import { PayrollModuleService } from '../../../../service/payrollmodule.service';
+import { MastermoduleService } from '../../../../service/mastermodule.service';
 import { UserAccessModel } from '../../../../model/userAccesModel';
 
-function mustSelect(): ValidatorFn {
-  return (c: AbstractControl) => {
-    const v = c.value;
-    return (v === null || v === undefined || v === '' || +v === 0) ? { mustSelect: true } : null;
+/** Validator: value must be > 0 */
+function greaterThanZero(): ValidatorFn {
+  return (control: AbstractControl) => {
+    const v = parseFloat(control.value);
+    return (isNaN(v) || v <= 0) ? { greaterThanZero: true } : null;
   };
 }
 
-function greaterThanZero(): ValidatorFn {
-  return (c: AbstractControl) => {
-    const v = parseFloat(c.value);
-    return isNaN(v) || v <= 0 ? { greaterThanZero: true } : null;
+/** Validator: mat-select must not be 0 / null / '' */
+function mustSelect(): ValidatorFn {
+  return (control: AbstractControl) => {
+    const v = control.value;
+    return (v === null || v === undefined || v === 0 || v === '') ? { mustSelect: true } : null;
   };
 }
 
@@ -41,10 +42,15 @@ export class NewStockIssueComponent implements OnInit {
   issueToTypes: string[] = ['Staff', 'Guard', 'Branch', 'Other'];
 
   // Recipient lookup lists
-  employeeList:      any[] = [];   // for Employee & Guard
-  branchList:        any[] = [];   // for Branch
-  filteredRecipients: any[] = [];  // currently shown after search filter
-  recipientSearch:   string = '';  // search box value
+  /** Full list loaded from API (filtered by warehouse + role) */
+  employeeList:      any[] = [];
+  branchList:        any[] = [];
+  /** Currently displayed in the searchable dropdown */
+  filteredRecipients: any[] = [];
+  recipientSearch:   string = '';
+
+  /** true while loading employee list after warehouse/type change */
+  loadingEmployees: boolean = false;
 
   // Available stock display per row
   availableStockMap: { [key: number]: number } = {};
@@ -62,8 +68,7 @@ export class NewStockIssueComponent implements OnInit {
     public dialog: MatDialog,
     private service: InventoryService,
     private _dataService: DatasharingService,
-    private _masterService: MastermoduleService,
-    private _payrollService: PayrollModuleService
+    private _masterService: MastermoduleService
   ) {
     this.userAccessModel = { readAccess: false, updateAccess: false, deleteAccess: false, createAccess: false };
     this.buildForm();
@@ -94,7 +99,6 @@ export class NewStockIssueComponent implements OnInit {
     this.getUserAccessRights(this.currentUser, 'Stock Issue');
     this.loadWarehouses();
     this.loadItems();
-    this.loadEmployeeList();
     this.loadBranchList();
 
     if (this.ID && this.ID !== '0') {
@@ -137,35 +141,75 @@ export class NewStockIssueComponent implements OnInit {
     });
   }
 
-  loadEmployeeList(): void {
-    this._payrollService.getEmployeeList().subscribe({
-      next: (d: any[]) => { this.employeeList = d || []; },
-      error: () => {}  // non-critical — form still usable
-    });
-  }
-
   loadBranchList(): void {
-    this.service.getBranchList().subscribe({
+    this.service.getBranchListByUser(this.currentUser).subscribe({
       next: (d: any[]) => { this.branchList = d || []; },
       error: () => {}
     });
   }
 
-  // ── Called when Issue To Type changes ─────────────────────────────────────
+  // ── Called when Warehouse selection changes ────────────────────────────────
+  onWarehouseChange(): void {
+    // Reset item stock map
+    this.availableStockMap = {};
+    // Reload available stock for any existing rows
+    for (let i = 0; i < this.details.length; i++) {
+      const itemID = this.details.at(i).get('ItemID')?.value;
+      if (itemID && itemID !== 0) this.loadAvailableStock(i);
+    }
+    // Reload employee list for current type (if Guard/Staff already selected)
+    this.reloadEmployeesByWarehouseAndType();
+  }
 
+  // ── Called when Issue To Type changes ─────────────────────────────────────
   onIssueToTypeChange(): void {
-    // Clear previous selection
     this.frm.get('IssueToID')?.setValue(null);
     this.frm.get('IssueToName')?.setValue('');
-    this.recipientSearch  = '';
-    this.filteredRecipients = this.getSourceList();
+    this.recipientSearch   = '';
+    this.filteredRecipients = [];
+    this.reloadEmployeesByWarehouseAndType();
+  }
+
+  /**
+   * Core logic: load employees from the API filtered by warehouse branch + role.
+   * Only fires when IssueToType is Guard or Staff AND a warehouse is selected.
+   * For Branch/Other, uses branchList (already loaded) or clears the list.
+   */
+  private reloadEmployeesByWarehouseAndType(): void {
+    const type        = this.frm.get('IssueToType')?.value;
+    const warehouseID = +(this.frm.get('WarehouseID')?.value || 0);
+
+    if (type === 'Staff' || type === 'Guard') {
+      if (warehouseID <= 0) {
+        this.employeeList       = [];
+        this.filteredRecipients = [];
+        return;
+      }
+      this.loadingEmployees = true;
+      this.service.getEmployeesByWarehouse(warehouseID, type).subscribe({
+        next: (d: any[]) => {
+          this.employeeList       = d || [];
+          this.filteredRecipients = [...this.employeeList];
+          this.loadingEmployees   = false;
+        },
+        error: () => {
+          this.employeeList       = [];
+          this.filteredRecipients = [];
+          this.loadingEmployees   = false;
+        }
+      });
+    } else if (type === 'Branch') {
+      this.filteredRecipients = [...this.branchList];
+    } else {
+      this.filteredRecipients = [];
+    }
   }
 
   // Returns the right source list based on current type
   getSourceList(): any[] {
     const type = this.frm.get('IssueToType')?.value;
     if (type === 'Staff' || type === 'Guard') return this.employeeList;
-    if (type === 'Branch') return this.branchList;
+    if (type === 'Branch')                    return this.branchList;
     return [];
   }
 
@@ -175,12 +219,11 @@ export class NewStockIssueComponent implements OnInit {
     if (type === 'Branch') {
       return `${item.Code || ''} — ${item.Name || ''}`.trim().replace(/^—\s*/, '');
     }
-    // Staff / Guard: EMP_NAME + EMP_ID
-    return `${item.EMP_NAME || ''} (${item.EMP_ID || ''})`;
+    // Staff / Guard
+    return `${item.EMP_NAME || ''} (${item.EMP_ROLE || ''} — ID: ${item.EMP_ID || ''})`;
   }
 
   // ── Search filter ──────────────────────────────────────────────────────────
-
   onRecipientSearch(searchVal: string): void {
     this.recipientSearch = searchVal;
     const lower  = searchVal.trim().toLowerCase();
@@ -196,21 +239,19 @@ export class NewStockIssueComponent implements OnInit {
   }
 
   // ── Called when user selects a recipient from the dropdown ────────────────
-
   onRecipientSelect(item: any): void {
     const type = this.frm.get('IssueToType')?.value;
     if (type === 'Branch') {
       this.frm.get('IssueToID')?.setValue(item.ID);
       this.frm.get('IssueToName')?.setValue(item.Name || '');
     } else {
-      // Employee / Guard — fields are EMP_ID, EMP_NAME
+      // Employee / Guard
       this.frm.get('IssueToID')?.setValue(item.EMP_ID);
       this.frm.get('IssueToName')?.setValue(item.EMP_NAME || '');
     }
   }
 
-  // ── Items table ────────────────────────────────────────────────────────────
-
+  // ── Load existing record (view mode) ──────────────────────────────────────
   loadExistingRecord(): void {
     this.showLoadingSpinner = true;
     this.service.getStockIssueByID(this.ID).subscribe({
@@ -219,95 +260,114 @@ export class NewStockIssueComponent implements OnInit {
         this.frm.patchValue({
           ID:          d.ID,
           IssueNo:     d.IssueNo,
-          IssueDate:   new Date(d.IssueDate),
+          IssueDate:   d.IssueDate ? new Date(d.IssueDate) : new Date(),
           WarehouseID: d.WarehouseID,
           IssueToType: d.IssueToType,
           IssueToID:   d.IssueToID,
           IssueToName: d.IssueToName,
           Remarks:     d.Remarks
         });
-        this.details.clear();
-        (d.Details || []).forEach((line: any) => {
-          this.details.push(this.fb.group({
-            ID:        [line.ID],
-            ItemID:    [line.ItemID, [Validators.required, mustSelect()]],
-            UOMID:     [line.UOMID],
-            IssueQty:  [line.IssueQty, [Validators.required, greaterThanZero()]],
-            UnitCost:  [line.UnitCost],
-            Remarks:   [line.Remarks || ''],
-            _ItemName: [line.ItemName],
-            _UOMName:  [line.UOMName],
-            _Available:[0]
-          }));
-        });
+        this.warningMessage = '';   // clear any stale default-warehouse warning
         this.frm.disable();
+
+        const detailsArray = this.frm.get('Details') as FormArray;
+        detailsArray.clear();
+        (d.Details || []).forEach((line: any) => {
+          const row = this.fb.group({
+            ID:       [line.ID],
+            ItemID:   [line.ItemID,  [Validators.required, mustSelect()]],
+            _ItemName:[line.ItemName || ''],
+            UOMID:    [line.UOMID],
+            IssueQty: [line.IssueQty, [Validators.required, greaterThanZero()]],
+            UnitCost: [line.UnitCost || 0],
+            Remarks:  [line.Remarks]
+          });
+          detailsArray.push(row);
+        });
         this.hideLoadingSpinner();
       },
-      error: () => { this.errorMessage = 'Unable to load the stock issue. Please try again.'; this.hideLoadingSpinner(); }
+      error: () => {
+        this.errorMessage = 'Unable to load this stock issue. Please try again.';
+        this.hideLoadingSpinner();
+      }
     });
   }
 
+  // ── Detail rows ────────────────────────────────────────────────────────────
   addDetailRow(): void {
     this.details.push(this.fb.group({
-      ID:        [0],
-      ItemID:    [0, [Validators.required, mustSelect()]],
-      UOMID:     [null],
-      IssueQty:  ['', [Validators.required, greaterThanZero()]],
-      UnitCost:  [0],
-      Remarks:   [''],
-      _ItemName: [''],
-      _UOMName:  [''],
-      _Available:[0]
+      ID:       [0],
+      ItemID:   [0,   [Validators.required, mustSelect()]],
+      _ItemName:[''],
+      UOMID:    [null],
+      IssueQty: [null, [Validators.required, greaterThanZero()]],
+      UnitCost: [0],
+      Remarks:  ['']
     }));
   }
 
   removeDetailRow(i: number): void {
     this.details.removeAt(i);
     delete this.availableStockMap[i];
-  }
-
-  onWarehouseChange(): void {
-    this.details.controls.forEach((_, i) => {
-      const itemID = this.details.at(i).get('ItemID')?.value;
-      if (itemID && itemID > 0) this.loadAvailableStock(i);
+    // Re-key the map
+    const newMap: { [key: number]: number } = {};
+    Object.keys(this.availableStockMap).forEach(k => {
+      const ki = +k;
+      if (ki > i) newMap[ki - 1] = this.availableStockMap[ki];
+      else if (ki < i) newMap[ki] = this.availableStockMap[ki];
     });
+    this.availableStockMap = newMap;
   }
 
   onItemChange(i: number): void {
-    const line     = this.details.at(i);
-    const itemID   = +line.get('ItemID')?.value;
-    const selected = this.items.find(x => x.ID === itemID);
-    if (selected) {
-      line.get('_ItemName')?.setValue(selected.Name);
-      line.get('_UOMName')?.setValue(selected.UOMName || '');
-      line.get('UOMID')?.setValue(selected.UOMID || null);
-      line.get('UnitCost')?.setValue(selected.Price || 0);
+    const row  = this.details.at(i);
+    const item = this.items.find((it: any) => it.ID === row.get('ItemID')?.value);
+    row.get('_ItemName')?.setValue(item?.Name || '');
+    row.get('UnitCost')?.setValue(item?.Price ?? 0);
+
+    // ── Default Warehouse auto-fill ──────────────────────────────────────────
+    // Only populate when header warehouse is not yet selected (new document).
+    // Never overwrite a warehouse the user has already chosen.
+    // View mode (isViewMode=true) cannot reach here — form is disabled.
+    const currentWarehouse = this.frm.get('WarehouseID')?.value;
+    if ((!currentWarehouse || +currentWarehouse === 0) && item?.WarehouseID) {
+      const whExists = this.warehouses.find((w: any) => w.ID === item.WarehouseID);
+      if (whExists) {
+        this.frm.get('WarehouseID')?.setValue(item.WarehouseID);
+        // Re-trigger employee list reload now that warehouse is known
+        this.reloadEmployeesByWarehouseAndType();
+      } else {
+        // Default warehouse is inactive — warn user, leave field empty
+        this.warningMessage =
+          'The default warehouse for this item is inactive. Please select another warehouse.';
+      }
     }
+
     this.loadAvailableStock(i);
   }
 
   loadAvailableStock(i: number): void {
-    const warehouseID = +this.frm.get('WarehouseID')?.value;
-    const itemID      = +this.details.at(i).get('ItemID')?.value;
-    if (warehouseID > 0 && itemID > 0) {
-      this.service.getCurrentStock(warehouseID, itemID).subscribe({
-        next: (res: any) => {
-          this.availableStockMap[i] = res?.currentStock ?? 0;
-          this.details.at(i).get('_Available')?.setValue(res?.currentStock ?? 0);
-        },
-        error: () => { this.availableStockMap[i] = 0; }
-      });
-    }
+    const warehouseID = +(this.frm.get('WarehouseID')?.value || 0);
+    const itemID      = +(this.details.at(i).get('ItemID')?.value || 0);
+    if (warehouseID <= 0 || itemID <= 0) return;
+    this.service.getCurrentStock(warehouseID, itemID).subscribe({
+      next: (d: any) => {
+        // API returns { currentStock: number } — fall back through all known shapes
+        this.availableStockMap[i] =
+          typeof d === 'number'
+            ? d
+            : (d?.currentStock ?? d?.CurrentStock ?? d?.quantity ?? d?.Quantity ?? 0);
+      },
+      error: () => { this.availableStockMap[i] = 0; }
+    });
   }
 
   formatNumber(val: number): string {
     return (val ?? 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
-  // ── helpers for template ───────────────────────────────────────────────────
-
-  get issueToType(): string { return this.frm.get('IssueToType')?.value || ''; }
-  get issueToName(): string { return this.frm.get('IssueToName')?.value || ''; }
+  get issueToType(): string  { return this.frm.get('IssueToType')?.value || ''; }
+  get issueToName(): string  { return this.frm.get('IssueToName')?.value || ''; }
   get showRecipientDropdown(): boolean {
     return ['Staff', 'Guard', 'Branch'].includes(this.issueToType);
   }

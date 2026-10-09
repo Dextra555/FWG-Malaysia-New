@@ -32,6 +32,12 @@ namespace OBMS.WebAPI.Models.DTO
     public class POApprovalDto
     {
         public string ApprovedBy { get; set; } = string.Empty;
+        /// <summary>
+        /// Set by the controller from the JWT "IsAdmin" claim (value "2" = superadmin).
+        /// Never trusted from the client — always overridden server-side.
+        /// BUG-13 FIX: replaces hard-coded "superadmin" username check in legacy ApprovePO.
+        /// </summary>
+        public bool IsSuperAdmin { get; set; } = false;
     }
 
     // ── List/Detail DTOs ────────────────────────────────────────────────────────
@@ -77,5 +83,30 @@ namespace OBMS.WebAPI.Models.DTO
         public decimal UnitPrice { get; set; }
         public decimal TotalPrice { get; set; }
         public string? Remarks { get; set; }
+    }
+
+    /// <summary>
+    /// Returned by GET /api/Inventory/GetPOEditability.
+    /// Tells the frontend exactly what the user can and cannot change on a PO.
+    /// </summary>
+    public class POEditabilityDto
+    {
+        /// <summary>True when the PO form fields may be saved.</summary>
+        public bool CanEdit { get; set; }
+
+        /// <summary>
+        /// True when this PO was created from a PR.
+        /// When true, the item list is locked — only Qty and UnitPrice may change.
+        /// </summary>
+        public bool IsPRLinked { get; set; }
+
+        /// <summary>PR number shown in the lock banner (only when IsPRLinked).</summary>
+        public string? LinkedPRNumber { get; set; }
+
+        /// <summary>Current PO status — used by the frontend to decide which buttons to show.</summary>
+        public string Status { get; set; } = string.Empty;
+
+        /// <summary>Why editing is blocked (only when CanEdit = false).</summary>
+        public string? BlockReason { get; set; }
     }
 }
