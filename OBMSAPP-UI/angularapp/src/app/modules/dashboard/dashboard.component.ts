@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+﻿import { Component, OnInit, ViewChild } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 import { UserAccessModel } from 'src/app/model/userAccesModel';
@@ -19,6 +19,7 @@ export class DashboardComponent implements OnInit {
   urlSafe: SafeResourceUrl | undefined;
   currentUrl: string = "Finance/PaymentDueList.aspx?"
   currentUser: string = "";
+  userRole: string = '';
   errorMessage: string = '';
   warningMessage: string = '';
   showLoadingSpinner: boolean = false;
@@ -39,6 +40,10 @@ export class DashboardComponent implements OnInit {
 
   ngOnInit(): void {
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == null) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;
@@ -64,7 +69,7 @@ export class DashboardComponent implements OnInit {
           this.userAccessModel.updateAccess = data.Update;
           this.userAccessModel.createAccess = data.Create;
 
-          if (this.userAccessModel.readAccess === true || this.currentUser == 'superadmin') {
+          if (this.userAccessModel.readAccess === true || this.userRole == 'superadmin') {
             this.url = environment.baseReportUrl
             this.url += this.currentUrl;
             this.loadFinanceReport();
@@ -84,6 +89,10 @@ export class DashboardComponent implements OnInit {
   }
   private loadFinanceReport(): void {
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
 
     if (this.currentUser == null || this.currentUser == undefined) {
       // optional fallback if username not found

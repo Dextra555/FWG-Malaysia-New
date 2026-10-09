@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { NavigationEnd, Router } from '@angular/router';
 import { UserAccessModel } from 'src/app/model/userAccesModel';
@@ -17,6 +17,7 @@ export class LeaveApplicationFormComponent implements OnInit {
   showLoadingSpinner: boolean = false;
   warningMessage: string = '';
   currentUser: string = '';
+  userRole: string = '';
   errorMessage: string = '';
   userAccessModel!: UserAccessModel;
   constructor(public sanitizer: DomSanitizer, private _dataService: DatasharingService, 
@@ -36,6 +37,10 @@ export class LeaveApplicationFormComponent implements OnInit {
       }
     });
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == null || this.currentUser == undefined) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;
@@ -52,7 +57,7 @@ export class LeaveApplicationFormComponent implements OnInit {
           this.userAccessModel.deleteAccess = data.Delete;
           this.userAccessModel.updateAccess = data.Update;
           this.userAccessModel.createAccess = data.Create;
-          if (this.userAccessModel.readAccess === true || this.currentUser == 'superadmin') {
+          if (this.userAccessModel.readAccess === true || this.userRole == 'superadmin') {
             this.warningMessage = '';
             this.url = environment.baseReportUrl;
             this.url += 'Payroll/LeaveApplicationForms.aspx';

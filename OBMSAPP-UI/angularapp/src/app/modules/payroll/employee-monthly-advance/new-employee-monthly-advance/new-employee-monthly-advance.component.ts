@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+﻿import { DatePipe } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDatepickerInputEvent } from '@angular/material/datepicker';
@@ -36,6 +36,7 @@ export class NewEmployeeMonthlyAdvanceComponent implements OnInit {
   year!: number;
   month!: number;
   currentUser: string = '';
+  userRole: string = '';
   errorMessage: string = '';
   userAccessModel!: UserAccessModel;
   empId: number = 0;
@@ -119,6 +120,10 @@ export class NewEmployeeMonthlyAdvanceComponent implements OnInit {
     });
 
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == null || this.currentUser == undefined) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;

@@ -17,69 +17,99 @@ namespace OBMS.WebAPI.Repositories.Implementation
             _oBMSDbContext = oBMSDbContext;
 
         }
+
+        /// <summary>
+        /// Returns true if the given username is a SuperAdmin.
+        /// Checks BOTH the legacy reserved username "superadmin" AND the IsAdmin == "2" flag
+        /// so that any existing user promoted to SuperAdmin via IsAdmin='2' receives full access.
+        /// </summary>
+        private bool IsSuperAdmin(string userName)
+        {
+            if (string.IsNullOrEmpty(userName)) return false;
+            if (userName.Equals("superadmin", StringComparison.OrdinalIgnoreCase)) return true;
+            var user = _oBMSDbContext.Obmsusers
+                .FirstOrDefault(u => u.Name == userName && !u.IsDeleted);
+            return user != null && user.IsAdmin == "2";
+        }
         public async Task<Dictionary<string, string>> GetEmployeeNoByBranchID(string clientId)
         {
             var results = new Dictionary<string, string>();
+            var company = Utility.Utility.GetCompnay();
+            string shortName = company["ShortName"];
 
-            var result = (from cm in _oBMSDbContext.ClientMasters
-                          where cm.Code == clientId
-                          join emp in _oBMSDbContext.Employees
-                          on cm.Code equals emp.EMP_CLIENT into empGroup
-                          from emp in empGroup.DefaultIfEmpty()
-                          group new { cm, emp } by new { cm.Shortname } into grouped
-                          select new
-                          {
-                              ShortName = grouped.Key.Shortname.Trim(),
-                              NextEmployeeCode = Convert.ToInt32(
-                                  grouped.Max(g => g.emp != null ? g.emp.EMP_CODE : g.cm.Shortname)
-                                        .Substring(grouped.Key.Shortname.Length + 1, 6))
-                          }).FirstOrDefault();
+            // ✅ Fix: use MAX(EMP_ID) on non-null codes — same reliable approach as GetEmployeeNo().
+            // Old code used string MAX on EMP_CODE which can sort alphabetically wrong
+            // (e.g. "FWGG001839" > "FWGG001841" alphabetically but numerically wrong after branch filter).
+            string latestCode = _oBMSDbContext.Employees
+                    .Where(emp => emp.EMP_BRANCH_CODE == clientId
+                                  && emp.EMP_CODE != null
+                                  && emp.EMP_CODE != "")
+                    .OrderByDescending(emp => emp.EMP_ID)
+                    .Select(emp => emp.EMP_CODE)
+                    .FirstOrDefault();
 
-            if (result != null)
+            // If no employee in this branch yet, fall back to global latest
+            if (string.IsNullOrEmpty(latestCode))
             {
-                string shortName = result.ShortName;
-                int nextEmployeeCode = result.NextEmployeeCode + 1;
-                results.Add("ShortName", shortName);
-                results.Add("Code", nextEmployeeCode.ToString("D6"));
-                return results;
+                latestCode = _oBMSDbContext.Employees
+                        .Where(emp => emp.EMP_CODE != null && emp.EMP_CODE != "")
+                        .OrderByDescending(emp => emp.EMP_ID)
+                        .Select(emp => emp.EMP_CODE)
+                        .FirstOrDefault();
             }
-            else
+
+            if (!string.IsNullOrEmpty(latestCode) && latestCode.Length >= shortName.Length + 7)
             {
-                return null;
+                string numericStr = latestCode.Substring(latestCode.Length - 6, 6);
+                if (int.TryParse(numericStr, out int numericPart))
+                {
+                    results.Add("ShortName", shortName);
+                    results.Add("Code", (numericPart + 1).ToString("D6"));
+                    return results;
+                }
             }
+
+            results.Add("ShortName", shortName);
+            results.Add("Code", "000001");
+            return results;
         }
-
 
         public async Task<Dictionary<string, string>> GetEmployeeNo()
         {
             var results = new Dictionary<string, string>();
-
-            string nextEmployeeCode = _oBMSDbContext.Employees
-                    .OrderByDescending(emp => emp.EMP_ID)
-                    .Select(emp => emp.EMP_CODE)
-                    .Where(empCode => empCode != null)
-                    .FirstOrDefault();
             var company = Utility.Utility.GetCompnay();
             string shortName = company["ShortName"];
 
-            if (nextEmployeeCode != null && nextEmployeeCode !="")
+            // ✅ Fix: Filter null/empty EMP_CODE BEFORE ordering, then pick the highest
+            // EMP_ID among records that actually have a code.
+            // Previous bug: .Where() after .Select() was not filtering properly in EF Core,
+            // causing null to bubble up → fallback "000001" shown even with 1800+ employees.
+            // Also use MAX(EMP_ID) on non-null codes only — most reliable source of truth.
+            string latestCode = _oBMSDbContext.Employees
+                    .Where(emp => emp.EMP_CODE != null && emp.EMP_CODE != "")
+                    .OrderByDescending(emp => emp.EMP_ID)
+                    .Select(emp => emp.EMP_CODE)
+                    .FirstOrDefault();
+
+            if (!string.IsNullOrEmpty(latestCode) && latestCode.Length >= shortName.Length + 7)
             {
-                
-                int numericPart = int.Parse(nextEmployeeCode.Substring(shortName.Length + 1, 6)) + 1;
+                // EMP_CODE format: {ShortName}{RoleChar}{6-digit-number}
+                // e.g. "FWGG001841" → shortName="FWG", roleChar="G", number="001841"
+                // Extract the last 6 numeric digits regardless of role character
+                string numericStr = latestCode.Substring(latestCode.Length - 6, 6);
 
-
-                results.Add("ShortName", shortName);
-
-                results.Add("Code", numericPart.ToString("D6"));
-                return results;
+                if (int.TryParse(numericStr, out int numericPart))
+                {
+                    results.Add("ShortName", shortName);
+                    results.Add("Code", (numericPart + 1).ToString("D6"));
+                    return results;
+                }
             }
-            else
-            {
-                results.Add("ShortName", shortName);
 
-                results.Add("Code", "000001");
-                return results;
-            }
+            // Fallback — should never reach here in a populated database
+            results.Add("ShortName", shortName);
+            results.Add("Code", "000001");
+            return results;
         }
 
         #region Employee Master Module
@@ -100,6 +130,27 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
                 var salaryDetail = _oBMSDbContext.EmployeeSalaryDetails.Where(x => x.EMPFL_CODE == employee.EMP_CODE).FirstOrDefault();
 
+                // If no SalaryDetails record exists, return a default object so UI doesn't crash
+                if (salaryDetail == null)
+                {
+                    salaryDetail = new EmployeeSalaryDetails
+                    {
+                        EMPFL_CODE = employee.EMP_CODE,
+                        EMPFL_BRANCHCODE = employee.EMP_BRANCH_CODE,
+                        SplitSalaryPayment = false,
+                        SKBBK = true,
+                        EPFDETECT = false,
+                        PAYMODE = "Cheque",
+                        PAYMODE2 = "Cheque",
+                        SOCSODETECT = false,
+                        TMPGUARD = false,
+                        DETECTBYND55 = false,
+                        INCOMETAXDETECT = false,
+                        LASTUPDATE = DateTime.Now,
+                        LastUpdatedBy = "system"
+                    };
+                }
+
                 results.Add("salaryDetail", salaryDetail);
 
             }
@@ -110,7 +161,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
         {
 
             var results = new Dictionary<string, Object>();
-            bool isSuperAdmin = string.Equals(userID.Trim().ToLower(), "superadmin", StringComparison.OrdinalIgnoreCase);
+            bool isSuperAdmin = IsSuperAdmin(userID);
 
             List<BranchMaster> branchList;
             List<BankList> bankList;

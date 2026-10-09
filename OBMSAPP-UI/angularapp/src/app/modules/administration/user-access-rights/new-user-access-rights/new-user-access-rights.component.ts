@@ -83,7 +83,10 @@ export class NewUserAccessRightsComponent implements OnInit {
       if (params['name'] != undefined) {
         this.userAccessTitle = 'edit';
         this.userName = params['name'];
-        if (this.userRole == 'admin' || this.userRole == 'superadmin' || this.currentUser == 'admin' || this.currentUser == 'superadmin') {
+        const userRole = sessionStorage.getItem('userrole');
+        const isAdmin = userRole === '1' || userRole === '2'
+          || this.currentUser?.toLowerCase() === 'superadmin';
+        if (isAdmin) {
           this.isReadEditable = false;
           this.isCreateEditable = false;
           this.isUpdateEditable = false;

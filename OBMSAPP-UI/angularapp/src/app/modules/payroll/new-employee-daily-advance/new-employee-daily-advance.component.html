@@ -1,4 +1,4 @@
-<div class="wlt-c-furg-content-header">
+﻿<div class="wlt-c-furg-content-header">
     <div class="container-fluid">
         <div class="row mb-2">
             <div class="col-12 col-sm-12 col-md-4 col-lg-4">
@@ -123,6 +123,15 @@
                                                   </mat-error>                                              
                                             </div>
                                         </div>
+                                        <!-- Row-level delete: superadmin only, only for saved rows (ID > 0) -->
+                                        <div class="col-12 col-sm-12 col-md-1 col-lg-1 d-flex align-items-center"
+                                            *ngIf="userRole === 'superadmin' && control.get('ID')?.value > 0">
+                                            <button type="button" class="btn btn-sm btn-danger"
+                                                title="Delete this advance entry"
+                                                (click)="onDeleteRowClick(control.get('ID')?.value, i)">
+                                                <i class="fa fa-trash"></i>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -137,10 +146,10 @@
                             (click)="clearEmployeeAdvanceDetails()"> Cancel</button>
                         <button class="btn wlt-c-furg-btn-danger mr-3"
                             [disabled]="!btnDelete"
-                            *ngIf="this.userAccessModel.deleteAccess == true || currentUser == 'superadmin'"
+                            *ngIf="this.userAccessModel.deleteAccess == true || userRole == 'superadmin'"
                             (click)="onDeleteClick()"> Delete</button>
                         <button
-                            *ngIf="(this.userAccessModel.updateAccess == true || this.userAccessModel.createAccess == true || currentUser == 'superadmin')"
+                            *ngIf="(this.userAccessModel.updateAccess == true || this.userAccessModel.createAccess == true || userRole == 'superadmin')"
                             class="btn wlt-c-furg-btn-primary" [disabled]="employeeDailyForm.invalid"
                             (click)="savebuttonClick()"> {{advanceID == 0 ? 'Save' : 'Update'
                             }}</button>

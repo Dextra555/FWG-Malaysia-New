@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { debounceTime, Subject } from 'rxjs';
@@ -28,6 +28,7 @@ export class ClientMasterReportComponent implements OnInit {
   frm!: FormGroup;
   branchList: any = [];
   currentUser: string = "";
+  userRole: string = '';
 
   constructor(public sanitizer: DomSanitizer, private _masterService: MastermoduleService, private fb: FormBuilder, private _dataService: DatasharingService) {
     this.frm = fb.group({
@@ -48,6 +49,10 @@ export class ClientMasterReportComponent implements OnInit {
       this.branchList = [...this.filteredBranchList];
     });
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == null || this.currentUser == undefined) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;
@@ -64,7 +69,7 @@ export class ClientMasterReportComponent implements OnInit {
           this.userAccessModel.deleteAccess = data.Delete;
           this.userAccessModel.updateAccess = data.Update;
           this.userAccessModel.createAccess = data.Create;
-          if (this.userAccessModel.readAccess === true || this.currentUser == 'superadmin') {
+          if (this.userAccessModel.readAccess === true || this.userRole == 'superadmin') {
             this.warningMessage = '';
             this._masterService.GetBranchListByUserName(this.currentUser).subscribe((d: any) => {
               this.branchList = d;

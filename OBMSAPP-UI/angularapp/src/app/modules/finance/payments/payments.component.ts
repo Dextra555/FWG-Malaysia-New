@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ViewChild, ChangeDetectorRef } from '@angular/core';
+﻿import { AfterViewInit, Component, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { AbstractControl, FormArray, FormBuilder, FormControl, FormGroup, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { MatTableDataSource } from '@angular/material/table';
@@ -48,6 +48,7 @@ export class PaymentsComponent implements AfterViewInit {
   frm!: FormGroup
   userAccessModel!: UserAccessModel;
   currentUser: string = '';
+  userRole: string = '';
   warningMessage: string = '';
   errorMessage: string = '';
   showLoadingSpinner: boolean = false;
@@ -87,6 +88,10 @@ export class PaymentsComponent implements AfterViewInit {
   constructor(private fb: FormBuilder, public dialog: MatDialog, private _liveAnnouncer: LiveAnnouncer, private _dataService: DatasharingService, private cdr: ChangeDetectorRef,
     private _masterService: MastermoduleService, private _financeService: FinanceService, private _activatedRoute: ActivatedRoute, private route: Router) {
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     this.frmInitialization();
     this.checklistItems.forEach((item) => {
       this.frm.addControl(`purposeListItem_${item.value}`, new FormControl(false));
@@ -301,7 +306,7 @@ export class PaymentsComponent implements AfterViewInit {
           this.userAccessModel.updateAccess = data.Update;
           this.userAccessModel.createAccess = data.Create;
 
-          if (this.userAccessModel.readAccess === true || this.currentUser == 'superadmin') {
+          if (this.userAccessModel.readAccess === true || this.userRole == 'superadmin') {
             this.warningMessage = '';
             this.showLoadingSpinner = false;
           } else {

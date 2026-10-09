@@ -409,6 +409,47 @@ namespace OBMS.WebAPI.Controllers
                     }
                 }
 
+                // ── Duplicate EMP_CODE guard (prevents race-condition duplicates) ──────
+                // When two users open the New Employee form simultaneously, both receive
+                // the same suggested EMP_CODE from the API.  Whoever saves second must be
+                // rejected here so we can return a fresh, unused code to the UI.
+                if (employeeRequestDto.EMP_ID == 0)
+                {
+                    bool codeAlreadyExists = _oBMSDbContext.Employees
+                        .Any(x => x.EMP_CODE == employeeRequestDto.EMP_CODE);
+
+                    if (codeAlreadyExists)
+                    {
+                        // Re-generate the next available code and tell the UI to retry
+                        var nextEmpNo = await _employeeRepository.GetEmployeeNo();
+                        string suggestedCode = nextEmpNo["ShortName"]
+                                               + employeeRequestDto.EMP_ROLE[0]
+                                               + nextEmpNo["Code"];
+
+                        dictResult.Add("Success", "Warning");
+                        dictResult.Add("DuplicateEmpCode", employeeRequestDto.EMP_CODE);
+                        dictResult.Add("SuggestedEmpCode", suggestedCode);
+                        dictResult.Add("Message",
+                            $"Employee No {employeeRequestDto.EMP_CODE} was just assigned to another employee. " +
+                            $"Please use {suggestedCode} instead.");
+                        return Ok(dictResult);
+                    }
+                }
+                // ────────────────────────────────────────────────────────────────────────
+
+                // ── EMP_CODE null/empty guard ────────────────────────────────────────────
+                // Blocks saving when Type = "None" or EMP_CODE was never generated.
+                // Also protects updates — a blank EMP_CODE on an existing employee would
+                // wipe the Employee No (e.g. caused by typeChange() firing during edit-mode
+                // initialisation before the fix was applied).
+                if (string.IsNullOrWhiteSpace(employeeRequestDto.EMP_CODE))
+                {
+                    dictResult.Add("Success", "Warning");
+                    dictResult.Add("Message", "Employee No cannot be empty. Please select a valid Employee Type (Guard / Staff / Other Guards) before saving.");
+                    return Ok(dictResult);
+                }
+                // ────────────────────────────────────────────────────────────────────────
+
                 // Continue with rest of the flow...
                 // Validate branch-change date is provided when branch is being changed
                 if (employeeRequestDto.EMP_ID != 0

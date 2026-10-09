@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ViewChild } from '@angular/core';
+﻿import { AfterViewInit, Component, ViewChild } from '@angular/core';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
 import { MatSort, Sort } from '@angular/material/sort';
@@ -41,6 +41,7 @@ export class CategorySearchComponent implements AfterViewInit {
   reportUrlSafe: SafeResourceUrl | undefined;
   showReport: boolean = false;
   currentUser: string = '';
+  userRole: string = '';
 
   private formatDate(date: any) {
     const d = new Date(date);

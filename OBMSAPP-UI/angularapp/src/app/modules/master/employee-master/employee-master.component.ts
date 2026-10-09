@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
+﻿import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
 import { MatSort, Sort } from '@angular/material/sort';
@@ -84,6 +84,10 @@ export class EmployeeMasterComponent implements OnInit {
       this.branchList = [...this.filteredBranchList];
     });
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == null) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;
@@ -100,7 +104,7 @@ export class EmployeeMasterComponent implements OnInit {
   //         this.userAccessModel.deleteAccess = data.Delete;
   //         this.userAccessModel.updateAccess = data.Update;
   //         this.userAccessModel.createAccess = data.Create;
-  //         if (this.currentUser == 'superadmin') {
+  //         if (this.userRole == 'superadmin') {
   //            this.getBranchMasterListByUser(this.currentUser);
   //         } else {
   //           if (this.userAccessModel.readAccess === true) {

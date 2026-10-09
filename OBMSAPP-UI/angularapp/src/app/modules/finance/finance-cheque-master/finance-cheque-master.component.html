@@ -1,4 +1,4 @@
-<div class="wlt-c-furg-content-header">
+﻿<div class="wlt-c-furg-content-header">
   <div class="container-fluid">
     <div class="row mb-2">
       <div class="col-12 col-sm-12 col-md-4 col-lg-4">
@@ -116,10 +116,10 @@
       <div class="row">
         <div class="col-12">
           <div class="text-right">
-            <button *ngIf="this.userAccessModel.deleteAccess == true || currentUser == 'superadmin'"
+            <button *ngIf="this.userAccessModel.deleteAccess == true || userRole == 'superadmin'"
               class="btn wlt-c-furg-btn-gray mr-3"> Delete</button>
             <button
-              *ngIf="this.userAccessModel.createAccess == true || this.userAccessModel.updateAccess == true || currentUser == 'superadmin'"
+              *ngIf="this.userAccessModel.createAccess == true || this.userAccessModel.updateAccess == true || userRole == 'superadmin'"
               class="btn wlt-c-furg-btn-primary"> Save</button>
           </div>
         </div>

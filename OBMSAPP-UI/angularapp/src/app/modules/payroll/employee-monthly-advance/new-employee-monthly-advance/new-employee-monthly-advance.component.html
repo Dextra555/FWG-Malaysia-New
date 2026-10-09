@@ -1,4 +1,4 @@
-<div class="wlt-c-furg-content-header">
+﻿<div class="wlt-c-furg-content-header">
     <div class="container-fluid">
         <div class="row mb-2">
             <div class="col-12 col-sm-12 col-md-4 col-lg-4">
@@ -182,7 +182,7 @@
                                                         <button class="btn wlt-c-furg-btn-gray mr-3" mat-dialog-close
                                                             (click)="clearEmployeeAdvanceDetails()"> Cancel</button>
                                                         <button
-                                                            *ngIf="(this.userAccessModel.updateAccess == true || this.userAccessModel.createAccess == true || currentUser == 'superadmin')"
+                                                            *ngIf="(this.userAccessModel.updateAccess == true || this.userAccessModel.createAccess == true || userRole == 'superadmin')"
                                                             class="btn wlt-c-furg-btn-primary"
                                                             [disabled]="isSaving"
                                                             (click)="savebuttonClick()">

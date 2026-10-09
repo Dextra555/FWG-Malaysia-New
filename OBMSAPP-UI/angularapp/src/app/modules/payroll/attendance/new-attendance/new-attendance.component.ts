@@ -304,7 +304,7 @@ export class NewAttendanceComponent implements OnInit {
           this.userAccessModel.updateAccess = data.Update;
           this.userAccessModel.createAccess = data.Create;
 
-          if (this.userAccessModel.readAccess === true || this.currentUser == 'superadmin') {
+          if (this.userAccessModel.readAccess === true || this.userRole == 'superadmin') {
             this.warningMessage = '';
             this.hideloadingSpinner();
             this.getBranchMasterListByUser(this.currentUser!);
@@ -1254,7 +1254,14 @@ export class NewAttendanceComponent implements OnInit {
     if (advanceDate.getMonth() === today.getMonth() && advanceDate.getFullYear() === today.getFullYear()) {
       iNoOfDays = advanceDate.getDate();
     } else {
-      iNoOfDays = this.getDaysInMonth(advanceDate.toString()); // Use utility function to get days in month
+      // If joinDate and resignDate are in the same month, calculate difference
+      if (joinDate && resignDate
+        && joinDate.getMonth() === resignDate.getMonth()
+        && joinDate.getFullYear() === resignDate.getFullYear()) {
+        iNoOfDays = resignDate.getDate() - joinDate.getDate() + 1; // include both days
+      } else {
+        iNoOfDays = this.getDaysInMonth(advanceDate.toString()); // Use utility function to get days in month
+      }
     }
     const attendanceDate = new Date(advanceDate.getFullYear(), advanceDate.getMonth(), 1);
     // Check if the employee has a resignation date
@@ -1266,8 +1273,13 @@ export class NewAttendanceComponent implements OnInit {
         this.hideloadingSpinner();
         return;
       } else if (this.dtAttendanceDate.getMonth() === resignDate.getMonth() && this.dtAttendanceDate.getFullYear() === resignDate.getFullYear()) {
-        this.dtAttendanceDate = resignDate
-        iNoOfDays = resignDate.getDate();
+        this.dtAttendanceDate = resignDate;
+        // Handle join + resign in same month
+        if (joinDate && joinDate.getMonth() === resignDate.getMonth() && joinDate.getFullYear() === resignDate.getFullYear()) {
+          iNoOfDays = resignDate.getDate() - joinDate.getDate() + 1;
+        } else {
+          iNoOfDays = resignDate.getDate();
+        }
       }
     }
 

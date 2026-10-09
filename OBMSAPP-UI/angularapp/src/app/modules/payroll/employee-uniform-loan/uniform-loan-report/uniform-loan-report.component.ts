@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
 import { DatasharingService } from 'src/app/service/datasharing.service';
@@ -13,6 +13,7 @@ export class UniformLoanReportComponent implements OnInit {
   url: string = environment.baseReportUrl;
   urlSafe: SafeResourceUrl | undefined;
   currentUser: string = "";
+  userRole: string = '';
   ID!: number;
   currentUrl: string = "PayRoll/MaterialVoucherReport.aspx?"
   constructor(private _dataService: DatasharingService, public sanitizer: DomSanitizer, private _activatedRoute: ActivatedRoute,
@@ -27,6 +28,10 @@ export class UniformLoanReportComponent implements OnInit {
     });
     let localURL = "";
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == null || this.currentUser == undefined) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;

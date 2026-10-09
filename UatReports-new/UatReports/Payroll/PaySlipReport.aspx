@@ -11,8 +11,7 @@
     <form id="form1" runat="server">
         <div>
             <CR:CrystalReportViewer ID="crptPaySlipList" runat="server" AutoDataBind="True"
-                Height="1039px" Width="901px" ReportSourceID="crptPaySlip"
-                ToolPanelView="None" EnableParameterPrompt="False" />
+                Height="1039px" Width="901px" ReportSourceID="crptPaySlip" ToolPanelView="None" />
             <CR:CrystalReportSource ID="crptPaySlip" runat="server">
                 <Report FileName="..\Payroll\PaySlip.rpt">
                     <DataSources>

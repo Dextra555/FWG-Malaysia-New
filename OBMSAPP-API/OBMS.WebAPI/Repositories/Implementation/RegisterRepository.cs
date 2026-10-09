@@ -20,6 +20,20 @@ namespace OBMS.WebAPI.Repositories.Implementation
             _dbContext = dbContext;
         }
 
+        /// <summary>
+        /// Returns true if the given username is a SuperAdmin.
+        /// Checks BOTH the legacy reserved username "superadmin" AND the IsAdmin == "2" flag
+        /// so that any existing user promoted to SuperAdmin via IsAdmin='2' receives full access.
+        /// </summary>
+        private bool IsSuperAdmin(string userName)
+        {
+            if (string.IsNullOrEmpty(userName)) return false;
+            if (userName.Equals("superadmin", StringComparison.OrdinalIgnoreCase)) return true;
+            var user = _dbContext.Obmsusers
+                .FirstOrDefault(u => u.Name == userName && !u.IsDeleted);
+            return user != null && user.IsAdmin == "2";
+        }
+
         public Task<Obmsuser?> LoginUser(Obmsuser user)
         {
           var userAvailable =  _dbContext.Obmsusers.Where(u=>u.Name == user.Name && u.Password == user.Password).SingleOrDefault();
@@ -126,7 +140,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
         }
         public async Task<List<BankList>> GetUserBankList(string user)
         {
-            bool isSuperAdmin = user.Equals("superadmin", StringComparison.OrdinalIgnoreCase);
+            bool isSuperAdmin = IsSuperAdmin(user);
 
             var query = from obms in _dbContext.OBMSBanks
                         join bm in _dbContext.BankMasters on obms.BankID equals bm.BankId
@@ -369,20 +383,28 @@ namespace OBMS.WebAPI.Repositories.Implementation
         {
             try
             {
-                if (string.Compare(currentUser.ToUpper(), "SUPERADMIN", true) == 0)
+                // SuperAdmin → all users
+                if (IsSuperAdmin(currentUser))
                 {
                     return _dbContext.Obmsusers
                         .Where(u => !u.IsDeleted).ToList();
                 }
-                else if (string.Compare(currentUser.ToUpper(), "ADMIN", true) == 0)
+
+                // Check if the logged-in user has IsAdmin == "1" (Admin tier)
+                var loggedInUser = _dbContext.Obmsusers
+                    .FirstOrDefault(u => u.Name == currentUser && !u.IsDeleted);
+
+                if (loggedInUser != null && !string.IsNullOrEmpty(loggedInUser.IsAdmin))
                 {
+                    // Admin → all non-deleted, non-view users
                     return _dbContext.Obmsusers
                         .Where(u => !u.IsDeleted && u.IsView == false).ToList();
                 }
                 else
                 {
+                    // Normal user → only records they created
                     return _dbContext.Obmsusers
-                        .Where(u => (u.CreatedBy == currentUser) && !u.IsDeleted && u.IsView == false).ToList();
+                        .Where(u => u.CreatedBy == currentUser && !u.IsDeleted && u.IsView == false).ToList();
                 }
             }
             catch
@@ -599,13 +621,26 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
         public OBMSPermissions GetUserAccessRights(string userName, string screenName)
         {
-            if(userName != null)
+            if (userName != null)
             {
+                // SuperAdmin always gets full access — no permission row needed
+                if (IsSuperAdmin(userName))
+                {
+                    return new OBMSPermissions
+                    {
+                        Name = userName,
+                        ScreenName = screenName,
+                        Read   = true,
+                        Create = true,
+                        Update = true,
+                        Delete = true
+                    };
+                }
+
                 var result = _dbContext.OBMSPermissions.Where(x => x.Name == userName && x.ScreenName == screenName).SingleOrDefault();
                 return result ?? new OBMSPermissions();
             }
             return new OBMSPermissions();
-
         }
 
         public List<OBMSBranches> GetObmsBranchesPermission()

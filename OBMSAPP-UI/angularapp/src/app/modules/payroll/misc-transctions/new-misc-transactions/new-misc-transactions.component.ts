@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDatepickerInputEvent } from '@angular/material/datepicker';
 import { MatDialog } from '@angular/material/dialog';
@@ -31,6 +31,7 @@ export class NewMiscTransactionsComponent implements OnInit {
   minDate = new Date();
   branchModel!: BranchModel[];
   currentUser: string = '';
+  userRole: string = '';
   employeeListModel!: EmployeeAdvanceListModel[];
   userAccessModel!: UserAccessModel;
   warningMessage: string = '';
@@ -104,6 +105,10 @@ export class NewMiscTransactionsComponent implements OnInit {
       this.branchModel = this.filteredBranchList;
     });
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == null) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;

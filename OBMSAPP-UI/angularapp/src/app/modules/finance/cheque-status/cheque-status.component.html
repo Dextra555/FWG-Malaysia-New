@@ -1,4 +1,4 @@
-<div class="wlt-c-furg-content-header">
+﻿<div class="wlt-c-furg-content-header">
     <div class="container-fluid">
         <div class="row mb-2">
             <div class="col-12 col-sm-12 col-md-4 col-lg-4">
@@ -141,7 +141,7 @@
                 <div class="col-12 col-sm-12 col-md-6 col-lg-3">
                     <div class="text-left">
                         <button
-                            *ngIf="this.userAccessModel.createAccess == true ||this.userAccessModel.updateAccess == true || currentUser == 'superadmin'"
+                            *ngIf="this.userAccessModel.createAccess == true ||this.userAccessModel.updateAccess == true || userRole == 'superadmin'"
                             class="btn wlt-c-furg-btn-primary" [disabled]="dataSource?.length <= 0"
                             (click)="onSubmitClick()"> {{ frm.get('chequeStatus')?.value == 'D' ? 'Return' :
                             'Deposite' }}</button>

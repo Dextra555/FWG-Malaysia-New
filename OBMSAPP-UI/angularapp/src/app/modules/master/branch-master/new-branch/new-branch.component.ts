@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -21,6 +21,7 @@ export class NewBranchComponent implements OnInit {
   showLoadingSpinner: boolean = false;
   errorMessage: string = '';
   currentUser: string = '';
+  userRole: string = '';
   userAccessModel!: UserAccessModel;
   statesList: any[] = [
     { id: 1, name: 'Johor' },
@@ -79,6 +80,10 @@ export class NewBranchComponent implements OnInit {
   }
   ngOnInit(): void {
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == null || this.currentUser == undefined) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;

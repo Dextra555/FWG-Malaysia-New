@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -24,6 +24,7 @@ export class NewUserBankAccessComponent implements OnInit {
   branchCode: string = 'null';
   bankCount: number = 50;
   currentUser: string = '';
+  userRole: string = '';
   isAllowedEditable: boolean = false;
   userAccessModel!: UserAccessModel;
   existingFormData!: any;
@@ -60,6 +61,10 @@ export class NewUserBankAccessComponent implements OnInit {
 
   ngOnInit(): void {
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == null) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;

@@ -1,4 +1,4 @@
-<div class="wlt-c-furg-content-header">
+﻿<div class="wlt-c-furg-content-header">
     <div class="container-fluid">
         <div class="row mb-2">
             <div class="col-12 col-sm-12 col-md-4 col-lg-4">
@@ -161,7 +161,7 @@
                         <button class="btn wlt-c-furg-btn-gray mr-3" mat-dialog-close (click)="clearBranchDetails()">
                             Clear</button>
                         <button *ngIf=" (this.userAccessModel.createAccess == true ||this.userAccessModel.updateAccess == true) 
-                       || (currentUser== 'superadmin')"
+                       || (userRole == 'superadmin')"
                         class="btn wlt-c-furg-btn-primary" (click)="savebuttonClick()"
                             [disabled]="branchForm.invalid"> {{branchForm.get('ID')?.value == 0 ? 'Save' : 'Update' }} </button>
                     </div>
