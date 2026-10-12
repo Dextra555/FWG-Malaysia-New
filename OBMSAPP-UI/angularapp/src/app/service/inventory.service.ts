@@ -690,6 +690,12 @@ export class InventoryService {
       .pipe(catchError(this.errorHandle));
   }
 
+  getEmployeesByBranch(branchCode: string, issueToType: string = ''): Observable<any[]> {
+    return this.httpClient.get<any[]>(this.apiUrl + 'Inventory/GetEmployeesByBranch',
+      { params: new HttpParams().set('branchCode', branchCode).set('issueToType', issueToType) })
+      .pipe(catchError(this.errorHandle));
+  }
+
   /**
    * Returns Stock Issue documents issued to the given employee
    * that are not yet linked to an active Uniform Loan.
@@ -698,6 +704,11 @@ export class InventoryService {
   getPendingStockIssuesForEmployee(employeeID: number): Observable<any[]> {
     return this.httpClient.get<any[]>(this.apiUrl + 'Inventory/GetPendingStockIssuesForEmployee',
       { params: new HttpParams().set('employeeID', employeeID) })
+      .pipe(catchError(this.errorHandle));
+  }
+
+  getAllPendingStockIssues(): Observable<any[]> {
+    return this.httpClient.get<any[]>(this.apiUrl + 'Inventory/GetAllPendingStockIssues')
       .pipe(catchError(this.errorHandle));
   }
 

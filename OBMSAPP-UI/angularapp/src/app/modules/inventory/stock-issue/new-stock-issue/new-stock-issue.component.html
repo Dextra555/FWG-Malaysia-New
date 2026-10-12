@@ -25,139 +25,163 @@
         <div class="col-12"><h6 class="wlt-c-section-label"><strong>Issue Information</strong></h6><hr class="mt-0"></div>
       </div>
 
-      <div class="row">
-        <div class="col-12 col-md-3">
-          <mat-form-field appearance="outline">
-            <mat-label>Issue No</mat-label>
-            <input matInput formControlName="IssueNo" readonly placeholder="AUTO">
-            <mat-hint>Auto-generated</mat-hint>
-          </mat-form-field>
+      <!-- ── VIEW MODE ── -->
+      <div *ngIf="isViewMode" class="row mb-3">
+        <div class="col-6 col-md-3">
+          <div class="wlt-view-field">
+            <span class="wlt-view-label">Issue No</span>
+            <span class="wlt-view-value">{{frm.get('IssueNo')?.value || '—'}}</span>
+          </div>
         </div>
-        <div class="col-12 col-md-3">
-          <mat-form-field appearance="outline">
-            <mat-label>Issue Date <span style="color:red">*</span></mat-label>
-            <input matInput [matDatepicker]="picker" formControlName="IssueDate" autocomplete="off">
-            <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
-            <mat-datepicker #picker></mat-datepicker>
-            <mat-error *ngIf="frm.get('IssueDate')?.hasError('required')">Please enter the issue date.</mat-error>
-          </mat-form-field>
+        <div class="col-6 col-md-3">
+          <div class="wlt-view-field">
+            <span class="wlt-view-label">Issue Date</span>
+            <span class="wlt-view-value">{{frm.get('IssueDate')?.value | date:'dd/MM/yyyy'}}</span>
+          </div>
         </div>
-        <div class="col-12 col-md-6">
-          <mat-form-field appearance="outline">
-            <mat-label>Warehouse <span style="color:red">*</span></mat-label>
-            <mat-select formControlName="WarehouseID" (selectionChange)="onWarehouseChange()">
-              <mat-option [value]="0">-- Select Warehouse --</mat-option>
-              <mat-option *ngFor="let w of warehouses" [value]="w.ID">{{w.Name}}</mat-option>
-            </mat-select>
-            <mat-error *ngIf="frm.get('WarehouseID')?.hasError('mustSelect')">Please select a warehouse.</mat-error>
-          </mat-form-field>
+        <div class="col-6 col-md-3">
+          <div class="wlt-view-field">
+            <span class="wlt-view-label">Warehouse</span>
+            <span class="wlt-view-value">{{viewWarehouseName}}</span>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="wlt-view-field">
+            <span class="wlt-view-label">Issue To</span>
+            <span class="wlt-view-value">{{issueToType}}{{issueToName ? ' — ' + issueToName : ''}}</span>
+          </div>
+        </div>
+        <div class="col-6 col-md-3" *ngIf="frm.get('Remarks')?.value">
+          <div class="wlt-view-field">
+            <span class="wlt-view-label">Remarks</span>
+            <span class="wlt-view-value">{{frm.get('Remarks')?.value}}</span>
+          </div>
         </div>
       </div>
 
-      <!-- ── ISSUE TO ────────────────────────────────────────────────────── -->
-      <div class="row">
-        <!-- Issue To Type -->
-        <div class="col-12 col-md-3">
-          <mat-form-field appearance="outline">
-            <mat-label>Issue To (Type) <span style="color:red">*</span></mat-label>
-            <mat-select formControlName="IssueToType" (selectionChange)="onIssueToTypeChange()">
-              <mat-option value="">-- Select --</mat-option>
-              <mat-option value="Staff">Staff</mat-option>
-              <mat-option value="Guard">Guard</mat-option>
-              <mat-option value="Branch">Branch</mat-option>
-              <mat-option value="Other">Other</mat-option>
-            </mat-select>
-            <mat-error *ngIf="frm.get('IssueToType')?.hasError('required')">Please select who the stock is issued to.</mat-error>
-          </mat-form-field>
-        </div>
-
-        <!-- Employee / Guard lookup — searchable dropdown, filtered by warehouse + role -->
-        <div class="col-12 col-md-5" *ngIf="showRecipientDropdown && !isViewMode">
-          <mat-form-field appearance="outline">
-            <mat-label>
-              {{ issueToType === 'Branch' ? 'Select Branch' : 'Select ' + issueToType }}
-              <span style="color:red">*</span>
-            </mat-label>
-            <mat-select [value]="frm.get('IssueToID')?.value"
-                        (selectionChange)="onRecipientSelect($event.value)"
-                        (openedChange)="onRecipientSearch('')">
-              <!-- Loading state -->
-              <mat-option disabled *ngIf="loadingEmployees">
-                <span style="font-size:12px; color:#888;">Loading…</span>
-              </mat-option>
-              <!-- No warehouse selected warning -->
-              <mat-option disabled *ngIf="!loadingEmployees && (issueToType==='Guard'||issueToType==='Staff') && frm.get('WarehouseID')?.value <= 0">
-                <span style="font-size:12px; color:#e65100;">⚠ Please select a warehouse first.</span>
-              </mat-option>
-              <!-- Search box inside dropdown -->
-              <mat-option disabled style="position:sticky; top:0; background:#fff; z-index:1; padding:0"
-                          *ngIf="!loadingEmployees">
-                <div style="padding: 4px 10px;">
-                  <input
-                    type="text"
-                    placeholder="Search…"
-                    [value]="recipientSearch"
-                    (input)="onRecipientSearch($any($event.target).value)"
-                    (click)="$event.stopPropagation()"
-                    (keydown)="$event.stopPropagation()"
-                    style="width:100%; border:1px solid #ccc; border-radius:4px; padding:6px 8px; font-size:13px; outline:none;">
-                </div>
-              </mat-option>
-              <!-- List items -->
-              <ng-container *ngIf="!loadingEmployees">
-                <mat-option
-                  *ngFor="let item of (filteredRecipients.length > 0 || recipientSearch ? filteredRecipients : getSourceList())"
-                  [value]="item">
-                  {{ getRecipientLabel(item) }}
-                </mat-option>
-              </ng-container>
-              <mat-option disabled *ngIf="!loadingEmployees && filteredRecipients.length === 0 && recipientSearch.length > 0">
-                No results found.
-              </mat-option>
-              <mat-option disabled *ngIf="!loadingEmployees && getSourceList().length === 0 && !recipientSearch && (issueToType==='Guard'||issueToType==='Staff') && frm.get('WarehouseID')?.value > 0">
-                <span style="font-size:12px; color:#888;">No active {{issueToType}}s found for this warehouse.</span>
-              </mat-option>
-            </mat-select>
-          </mat-form-field>
-          <!-- Helper text when warehouse not yet selected -->
-          <small class="text-warning d-block mt-n2 mb-2"
-                 *ngIf="(issueToType==='Guard'||issueToType==='Staff') && frm.get('WarehouseID')?.value <= 0">
-            Select a warehouse to load the {{issueToType}} list.
-          </small>
-        </div>
-
-        <!-- View-mode: just show the name as read-only -->
-        <div class="col-12 col-md-5" *ngIf="showRecipientDropdown && isViewMode">
-          <mat-form-field appearance="outline">
-            <mat-label>{{ issueToType }}</mat-label>
-            <input matInput [value]="issueToName" readonly>
-          </mat-form-field>
-        </div>
-
-        <!-- Other — free text -->
-        <div class="col-12 col-md-5" *ngIf="issueToType === 'Other'">
-          <mat-form-field appearance="outline">
-            <mat-label>Recipient Name</mat-label>
-            <input matInput formControlName="IssueToName" placeholder="Enter recipient name">
-          </mat-form-field>
-        </div>
-
-        <!-- Selected name display (Employee/Guard/Branch) — read-only confirmation chip -->
-        <div class="col-12 col-md-4" *ngIf="showRecipientDropdown && issueToName && !isViewMode">
-          <div class="p-2 mt-1" style="background:#e8f5e9; border-left:4px solid #43a047; border-radius:4px; min-height:56px; display:flex; align-items:center; gap:8px;">
-            <mat-icon style="color:#43a047; font-size:18px;">person_pin</mat-icon>
-            <div>
-              <small class="text-muted d-block" style="font-size:10px; line-height:1.2;">Selected {{issueToType}}</small>
-              <strong style="font-size:13px;">{{issueToName}}</strong>
-            </div>
+      <!-- ── EDIT MODE ── -->
+      <div *ngIf="!isViewMode">
+        <div class="row">
+          <div class="col-12 col-md-3">
+            <mat-form-field appearance="outline">
+              <mat-label>Issue No</mat-label>
+              <input matInput formControlName="IssueNo" readonly placeholder="AUTO">
+              <mat-hint>Auto-generated</mat-hint>
+            </mat-form-field>
+          </div>
+          <div class="col-12 col-md-3">
+            <mat-form-field appearance="outline">
+              <mat-label>Issue Date <span style="color:red">*</span></mat-label>
+              <input matInput [matDatepicker]="picker" formControlName="IssueDate" autocomplete="off">
+              <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+              <mat-datepicker #picker></mat-datepicker>
+              <mat-error *ngIf="frm.get('IssueDate')?.hasError('required')">Please enter the issue date.</mat-error>
+            </mat-form-field>
+          </div>
+          <div class="col-12 col-md-6">
+            <mat-form-field appearance="outline">
+              <mat-label>Warehouse <span style="color:red">*</span></mat-label>
+              <mat-select formControlName="WarehouseID" (selectionChange)="onWarehouseChange()">
+                <mat-option [value]="0">-- Select Warehouse --</mat-option>
+                <mat-option *ngFor="let w of warehouses" [value]="w.ID">{{w.Name}}</mat-option>
+              </mat-select>
+              <mat-error *ngIf="frm.get('WarehouseID')?.hasError('mustSelect')">Please select a warehouse.</mat-error>
+            </mat-form-field>
           </div>
         </div>
 
-        <div class="col-12 col-md-4">
-          <mat-form-field appearance="outline">
-            <mat-label>Remarks</mat-label>
-            <input matInput formControlName="Remarks" placeholder="Optional">
-          </mat-form-field>
+        <!-- ── ISSUE TO ────────────────────────────────────────────────────── -->
+        <div class="row">
+          <!-- Issue To Type -->
+          <div class="col-12 col-md-3">
+            <mat-form-field appearance="outline">
+              <mat-label>Issue To (Type) <span style="color:red">*</span></mat-label>
+              <mat-select formControlName="IssueToType" (selectionChange)="onIssueToTypeChange()">
+                <mat-option value="">-- Select --</mat-option>
+                <mat-option value="Staff">Staff</mat-option>
+                <mat-option value="Guard">Guard</mat-option>
+                <mat-option value="Branch">Branch</mat-option>
+                <mat-option value="Other">Other</mat-option>
+              </mat-select>
+              <mat-error *ngIf="frm.get('IssueToType')?.hasError('required')">Please select who the stock is issued to.</mat-error>
+            </mat-form-field>
+          </div>
+
+          <!-- Employee / Guard lookup — searchable dropdown, filtered by warehouse + role -->
+          <div class="col-12 col-md-5" *ngIf="showRecipientDropdown">
+            <mat-form-field appearance="outline">
+              <mat-label>
+                {{ issueToType === 'Branch' ? 'Select Branch' : 'Select ' + issueToType }}
+                <span style="color:red">*</span>
+              </mat-label>
+              <mat-select [value]="frm.get('IssueToID')?.value"
+                          (selectionChange)="onRecipientSelect($event.value)"
+                          (openedChange)="onRecipientSearch('')">
+                <mat-option disabled *ngIf="loadingEmployees">
+                  <span style="font-size:12px; color:#888;">Loading…</span>
+                </mat-option>
+                <mat-option disabled *ngIf="!loadingEmployees && (issueToType==='Guard'||issueToType==='Staff') && frm.get('WarehouseID')?.value <= 0">
+                  <span style="font-size:12px; color:#e65100;">⚠ Please select a warehouse first.</span>
+                </mat-option>
+                <mat-option disabled style="position:sticky; top:0; background:#fff; z-index:1; padding:0"
+                            *ngIf="!loadingEmployees">
+                  <div style="padding: 4px 10px;">
+                    <input
+                      type="text"
+                      placeholder="Search…"
+                      [value]="recipientSearch"
+                      (input)="onRecipientSearch($any($event.target).value)"
+                      (click)="$event.stopPropagation()"
+                      (keydown)="$event.stopPropagation()"
+                      style="width:100%; border:1px solid #ccc; border-radius:4px; padding:6px 8px; font-size:13px; outline:none;">
+                  </div>
+                </mat-option>
+                <ng-container *ngIf="!loadingEmployees">
+                  <mat-option
+                    *ngFor="let item of (filteredRecipients.length > 0 || recipientSearch ? filteredRecipients : getSourceList())"
+                    [value]="item">
+                    {{ getRecipientLabel(item) }}
+                  </mat-option>
+                </ng-container>
+                <mat-option disabled *ngIf="!loadingEmployees && filteredRecipients.length === 0 && recipientSearch.length > 0">
+                  No results found.
+                </mat-option>
+                <mat-option disabled *ngIf="!loadingEmployees && getSourceList().length === 0 && !recipientSearch && (issueToType==='Guard'||issueToType==='Staff') && frm.get('WarehouseID')?.value > 0">
+                  <span style="font-size:12px; color:#888;">No active {{issueToType}}s found for this warehouse.</span>
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+            <small class="text-warning d-block mt-n2 mb-2"
+                   *ngIf="(issueToType==='Guard'||issueToType==='Staff') && frm.get('WarehouseID')?.value <= 0">
+              Select a warehouse to load the {{issueToType}} list.
+            </small>
+          </div>
+
+          <!-- Other — free text -->
+          <div class="col-12 col-md-5" *ngIf="issueToType === 'Other'">
+            <mat-form-field appearance="outline">
+              <mat-label>Recipient Name</mat-label>
+              <input matInput formControlName="IssueToName" placeholder="Enter recipient name">
+            </mat-form-field>
+          </div>
+
+          <!-- Selected name confirmation chip -->
+          <div class="col-12 col-md-4" *ngIf="showRecipientDropdown && issueToName">
+            <div class="p-2 mt-1" style="background:#e8f5e9; border-left:4px solid #43a047; border-radius:4px; min-height:56px; display:flex; align-items:center; gap:8px;">
+              <mat-icon style="color:#43a047; font-size:18px;">person_pin</mat-icon>
+              <div>
+                <small class="text-muted d-block" style="font-size:10px; line-height:1.2;">Selected {{issueToType}}</small>
+                <strong style="font-size:13px;">{{issueToName}}</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-4">
+            <mat-form-field appearance="outline">
+              <mat-label>Remarks</mat-label>
+              <input matInput formControlName="Remarks" placeholder="Optional">
+            </mat-form-field>
+          </div>
         </div>
       </div>
 

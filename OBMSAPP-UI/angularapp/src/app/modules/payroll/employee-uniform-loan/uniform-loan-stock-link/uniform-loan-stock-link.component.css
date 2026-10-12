@@ -1,0 +1,32 @@
+/* ── inner item detail table ─────────────────────────────────────────────── */
+.wlt-inner-table {
+  font-size: 0.82rem;
+}
+
+.wlt-inner-table th,
+.wlt-inner-table td {
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+/* ── mat-table row hover ─────────────────────────────────────────────────── */
+.wlt-table-row:hover {
+  background-color: rgba(63, 81, 181, 0.05);
+  cursor: default;
+}
+
+.wlt-row-expanded {
+  background-color: rgba(63, 81, 181, 0.04);
+}
+
+/* ── "Link to Loan" button compact size ─────────────────────────────────── */
+.btn-sm.mat-flat-button {
+  font-size: 0.8rem;
+  line-height: 32px;
+  padding: 0 10px;
+}
+
+/* ── result count row ────────────────────────────────────────────────────── */
+.text-muted.small mat-icon {
+  color: #6c757d;
+}

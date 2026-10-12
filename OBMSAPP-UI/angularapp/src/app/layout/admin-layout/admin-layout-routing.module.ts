@@ -83,9 +83,9 @@ import { AssetDisposalComponent } from "../../modules/inventory/asset-disposal/a
 import { PurchaseBillsComponent } from "../../modules/inventory/purchase-bills/purchase-bills.component";
 import { MaterialIssueComponent } from "../../modules/inventory/material-issue/material-issue.component";
 // Part 7: Approval Workflow + Notifications
-import { PendingApprovalsComponent } from "../../modules/inventory/pending-approvals/pending-approvals.component";
-import { ApprovalHistoryComponent } from "../../modules/inventory/approval-history/approval-history.component";
-import { NotificationListComponent } from "../../modules/inventory/notification-list/notification-list.component";
+import { PendingApprovalsComponent } from "../../modules/administration/pending-approvals/pending-approvals.component";
+import { ApprovalHistoryComponent } from "../../modules/administration/approval-history/approval-history.component";
+import { NotificationListComponent } from "../../modules/administration/notification-list/notification-list.component";
 
 // Part 9: Branch Stock Request
 import { BranchStockRequestComponent } from "../../modules/inventory/branch-stock-request/branch-stock-request.component";
@@ -192,6 +192,7 @@ import { ReceiptVoucherReportComponent } from 'src/app/modules/finance/receipts/
 import { EmployeeHistoryComponent } from 'src/app/modules/master/employee-history/employee-history.component';
 import { SearchEmployeeLoanComponent } from 'src/app/modules/payroll/employee-loan/search-employee-loan/search-employee-loan.component';
 import { SearchEmployeeUniformLoanComponent } from 'src/app/modules/payroll/employee-uniform-loan/search-employee-uniform-loan/search-employee-uniform-loan.component';
+import { UniformLoanStockLinkComponent } from 'src/app/modules/payroll/employee-uniform-loan/uniform-loan-stock-link/uniform-loan-stock-link.component';
 import { CategorySearchComponent } from 'src/app/modules/finance/payments/search-payments/category-search/category-search.component';
 import { SearchUtilityBillsComponent } from 'src/app/modules/inventory/utility-bills/search-utility-bills/search-utility-bills.component';
 import { CreditNoteComponent } from 'src/app/modules/finance/credit-note/credit-note.component';
@@ -353,6 +354,7 @@ const routes: Routes = [
   { path: 'payroll/salary-processing', component: SalaryProcessingComponent, canActivate: [AuthGuard] },
   { path: 'payroll/search-employee-loan', component: SearchEmployeeLoanComponent, canActivate: [AuthGuard] },
   { path: 'payroll/search-employee-uniform-loan', component: SearchEmployeeUniformLoanComponent, canActivate: [AuthGuard] },
+  { path: 'payroll/uniform-loan-stock-link', component: UniformLoanStockLinkComponent, canActivate: [AuthGuard] },
 
   //Administration module
   { path: 'administration/user-registration', component: UserRegistrationComponent, canActivate: [AuthGuard] },

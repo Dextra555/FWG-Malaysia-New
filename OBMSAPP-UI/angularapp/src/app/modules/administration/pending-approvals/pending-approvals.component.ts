@@ -282,6 +282,16 @@ export class PendingApprovalsComponent implements OnInit, AfterViewInit {
     }
   }
 
+  getStatusLabel(s: string): string {
+    switch (s) {
+      case 'Submitted': return 'Submitted — Pending';
+      case 'Approved':  return 'Approved';
+      case 'Rejected':  return 'Rejected';
+      case 'Draft':     return 'Draft';
+      default:          return s || '—';
+    }
+  }
+
   getDocTypeClass(t: string): string {
     switch (t) {
       case 'PURCHASE_REQUISITION': return 'badge-pr';

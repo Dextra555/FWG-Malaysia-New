@@ -22,71 +22,108 @@
         <div class="col-12"><h6 class="wlt-c-section-label"><strong>Return Information</strong></h6><hr class="mt-0"></div>
       </div>
 
-      <div class="row">
-        <div class="col-12 col-md-3">
-          <mat-form-field appearance="outline">
-            <mat-label>Return No</mat-label>
-            <input matInput formControlName="ReturnNo" readonly placeholder="AUTO">
-            <mat-hint>Auto-generated</mat-hint>
-          </mat-form-field>
+      <!-- ── VIEW MODE ── -->
+      <div *ngIf="isViewMode" class="row mb-3">
+        <div class="col-6 col-md-3">
+          <div class="wlt-view-field">
+            <span class="wlt-view-label">Return No</span>
+            <span class="wlt-view-value">{{frm.get('ReturnNo')?.value || '—'}}</span>
+          </div>
         </div>
-        <div class="col-12 col-md-3">
-          <mat-form-field appearance="outline">
-            <mat-label>Return Date <span style="color:red">*</span></mat-label>
-            <input matInput [matDatepicker]="picker" formControlName="ReturnDate" autocomplete="off">
-            <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
-            <mat-datepicker #picker></mat-datepicker>
-            <mat-error *ngIf="frm.get('ReturnDate')?.hasError('required')">Please enter the return date.</mat-error>
-          </mat-form-field>
+        <div class="col-6 col-md-3">
+          <div class="wlt-view-field">
+            <span class="wlt-view-label">Return Date</span>
+            <span class="wlt-view-value">{{frm.get('ReturnDate')?.value | date:'dd/MM/yyyy'}}</span>
+          </div>
         </div>
-        <div class="col-12 col-md-6">
-          <mat-form-field appearance="outline">
-            <mat-label>Original Issue <span style="color:red">*</span></mat-label>
-            <mat-select formControlName="OriginalIssueDocID" (selectionChange)="onIssueDocChange($event.value)" (openedChange)="onIssueDocOpen($event)">
-              <mat-option disabled style="position:sticky;top:0;background:#fff;z-index:1;padding:0">
-                <div style="padding:4px 10px">
-                  <input type="text" placeholder="Search issue no or recipient…" [value]="issueDocSearch"
-                    (input)="onIssueDocSearch($any($event.target).value)"
-                    (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()"
-                    style="width:100%;border:1px solid #ccc;border-radius:4px;padding:6px 8px;font-size:13px;outline:none">
-                </div>
-              </mat-option>
-              <mat-option [value]="0">-- Select Issue Document --</mat-option>
-              <mat-option *ngFor="let doc of filteredIssueDocs" [value]="doc.ID">
-                {{doc.IssueNo}} — {{doc.IssueDate | date:'dd MMM yyyy'}} — {{doc.IssueToName || doc.IssueToType}}
-              </mat-option>
-              <mat-option disabled *ngIf="filteredIssueDocs.length === 0 && issueDocSearch.length > 0">No results found.</mat-option>
-            </mat-select>
-            <mat-error *ngIf="frm.get('OriginalIssueDocID')?.hasError('mustSelect')">Please select the original issue.</mat-error>
-          </mat-form-field>
+        <div class="col-6 col-md-4">
+          <div class="wlt-view-field">
+            <span class="wlt-view-label">Original Issue</span>
+            <span class="wlt-view-value">{{viewIssueDocLabel}}</span>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="wlt-view-field">
+            <span class="wlt-view-label">Return to Warehouse</span>
+            <span class="wlt-view-value">{{viewWarehouseName}}</span>
+          </div>
+        </div>
+        <div class="col-6 col-md-3" *ngIf="frm.get('Remarks')?.value">
+          <div class="wlt-view-field">
+            <span class="wlt-view-label">Remarks</span>
+            <span class="wlt-view-value">{{frm.get('Remarks')?.value}}</span>
+          </div>
         </div>
       </div>
 
-      <div class="row">
-        <div class="col-12 col-md-6">
-          <mat-form-field appearance="outline">
-            <mat-label>Return to Warehouse <span style="color:red">*</span></mat-label>
-            <mat-select formControlName="WarehouseID" (openedChange)="onWarehouseOpen($event)">
-              <mat-option disabled style="position:sticky;top:0;background:#fff;z-index:1;padding:0">
-                <div style="padding:4px 10px">
-                  <input type="text" placeholder="Search warehouse…" [value]="warehouseSearch"
-                    (input)="onWarehouseSearch($any($event.target).value)"
-                    (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()"
-                    style="width:100%;border:1px solid #ccc;border-radius:4px;padding:6px 8px;font-size:13px;outline:none">
-                </div>
-              </mat-option>
-              <mat-option [value]="0">-- Select Warehouse --</mat-option>
-              <mat-option *ngFor="let w of filteredWarehouses" [value]="w.ID">{{w.Name}}</mat-option>
-              <mat-option disabled *ngIf="filteredWarehouses.length === 0 && warehouseSearch.length > 0">No results found.</mat-option>
-            </mat-select>
-            <mat-error *ngIf="frm.get('WarehouseID')?.hasError('mustSelect')">Please select a warehouse.</mat-error>
-          </mat-form-field>
+      <!-- ── EDIT MODE ── -->
+      <div *ngIf="!isViewMode">
+        <div class="row">
+          <div class="col-12 col-md-3">
+            <mat-form-field appearance="outline">
+              <mat-label>Return No</mat-label>
+              <input matInput formControlName="ReturnNo" readonly placeholder="AUTO">
+              <mat-hint>Auto-generated</mat-hint>
+            </mat-form-field>
+          </div>
+          <div class="col-12 col-md-3">
+            <mat-form-field appearance="outline">
+              <mat-label>Return Date <span style="color:red">*</span></mat-label>
+              <input matInput [matDatepicker]="picker" formControlName="ReturnDate" autocomplete="off">
+              <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+              <mat-datepicker #picker></mat-datepicker>
+              <mat-error *ngIf="frm.get('ReturnDate')?.hasError('required')">Please enter the return date.</mat-error>
+            </mat-form-field>
+          </div>
+          <div class="col-12 col-md-6">
+            <mat-form-field appearance="outline">
+              <mat-label>Original Issue <span style="color:red">*</span></mat-label>
+              <mat-select formControlName="OriginalIssueDocID" (selectionChange)="onIssueDocChange($event.value)" (openedChange)="onIssueDocOpen($event)">
+                <mat-option disabled style="position:sticky;top:0;background:#fff;z-index:1;padding:0">
+                  <div style="padding:4px 10px">
+                    <input type="text" placeholder="Search issue no or recipient…" [value]="issueDocSearch"
+                      (input)="onIssueDocSearch($any($event.target).value)"
+                      (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()"
+                      style="width:100%;border:1px solid #ccc;border-radius:4px;padding:6px 8px;font-size:13px;outline:none">
+                  </div>
+                </mat-option>
+                <mat-option [value]="0">-- Select Issue Document --</mat-option>
+                <mat-option *ngFor="let doc of filteredIssueDocs" [value]="doc.ID">
+                  {{doc.IssueNo}} — {{doc.IssueDate | date:'dd MMM yyyy'}} — {{doc.IssueToName || doc.IssueToType}}
+                </mat-option>
+                <mat-option disabled *ngIf="filteredIssueDocs.length === 0 && issueDocSearch.length > 0">No results found.</mat-option>
+              </mat-select>
+              <mat-error *ngIf="frm.get('OriginalIssueDocID')?.hasError('mustSelect')">Please select the original issue.</mat-error>
+            </mat-form-field>
+          </div>
         </div>
-        <div class="col-12 col-md-6">
-          <mat-form-field appearance="outline">
-            <mat-label>Remarks</mat-label>
-            <input matInput formControlName="Remarks" placeholder="Optional">
-          </mat-form-field>
+
+        <div class="row">
+          <div class="col-12 col-md-6">
+            <mat-form-field appearance="outline">
+              <mat-label>Return to Warehouse <span style="color:red">*</span></mat-label>
+              <mat-select formControlName="WarehouseID" (openedChange)="onWarehouseOpen($event)">
+                <mat-option disabled style="position:sticky;top:0;background:#fff;z-index:1;padding:0">
+                  <div style="padding:4px 10px">
+                    <input type="text" placeholder="Search warehouse…" [value]="warehouseSearch"
+                      (input)="onWarehouseSearch($any($event.target).value)"
+                      (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()"
+                      style="width:100%;border:1px solid #ccc;border-radius:4px;padding:6px 8px;font-size:13px;outline:none">
+                  </div>
+                </mat-option>
+                <mat-option [value]="0">-- Select Warehouse --</mat-option>
+                <mat-option *ngFor="let w of filteredWarehouses" [value]="w.ID">{{w.Name}}</mat-option>
+                <mat-option disabled *ngIf="filteredWarehouses.length === 0 && warehouseSearch.length > 0">No results found.</mat-option>
+              </mat-select>
+              <mat-error *ngIf="frm.get('WarehouseID')?.hasError('mustSelect')">Please select a warehouse.</mat-error>
+            </mat-form-field>
+          </div>
+          <div class="col-12 col-md-6">
+            <mat-form-field appearance="outline">
+              <mat-label>Remarks</mat-label>
+              <input matInput formControlName="Remarks" placeholder="Optional">
+            </mat-form-field>
+          </div>
         </div>
       </div>
 

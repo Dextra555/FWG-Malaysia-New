@@ -1,6 +1,8 @@
 .badge-pr        { background-color: #1976d2; color: #fff; padding: 3px 8px; border-radius: 4px; font-size: 11px; }
 .badge-po        { background-color: #7b1fa2; color: #fff; padding: 3px 8px; border-radius: 4px; font-size: 11px; }
 .badge-bsr       { background-color: #00695c; color: #fff; padding: 3px 8px; border-radius: 4px; font-size: 11px; }
+.badge-sa        { background-color: #e65100; color: #fff; padding: 3px 8px; border-radius: 4px; font-size: 11px; }
+.badge-disposal  { background-color: #4e342e; color: #fff; padding: 3px 8px; border-radius: 4px; font-size: 11px; }
 .badge-submitted { background-color: #ff9800; color: #fff; padding: 3px 8px; border-radius: 4px; font-size: 11px; }
 .badge-approved  { background-color: #388e3c; color: #fff; padding: 3px 8px; border-radius: 4px; font-size: 11px; }
 .badge-rejected  { background-color: #d32f2f; color: #fff; padding: 3px 8px; border-radius: 4px; font-size: 11px; }

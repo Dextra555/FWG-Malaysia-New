@@ -238,6 +238,7 @@ import { ReceiptVoucherReportComponent } from './finance/receipts/receipt-vouche
 import { EmployeeHistoryComponent } from './master/employee-history/employee-history.component';
 import { SearchEmployeeLoanComponent } from './payroll/employee-loan/search-employee-loan/search-employee-loan.component';
 import { SearchEmployeeUniformLoanComponent } from './payroll/employee-uniform-loan/search-employee-uniform-loan/search-employee-uniform-loan.component';
+import { UniformLoanStockLinkComponent } from './payroll/employee-uniform-loan/uniform-loan-stock-link/uniform-loan-stock-link.component';
 import { MatSelectScrollDirective } from '../shared/mat-select-scroll.directive';
 import { CreditNoteComponent } from './finance/credit-note/credit-note.component';
 import { DebitNoteComponent } from './finance/debit-note/debit-note.component';
@@ -246,10 +247,10 @@ import { DebitNoteReportComponent } from './report/finance/debit-note-report/deb
 import { EmployeeExpiryReminderComponent } from './report/master/employee-expiry-reminder/employee-expiry-reminder.component';
 import { EmployeeVisaPassportListComponent } from './report/master/employee-visa-passport-list/employee-visa-passport-list.component';
 // Part 7: Approval Workflow + Notifications
-import { PendingApprovalsComponent } from './inventory/pending-approvals/pending-approvals.component';
-import { ApprovalHistoryComponent } from './inventory/approval-history/approval-history.component';
-import { ApprovalHistoryDialogComponent } from './inventory/approval-history-dialog/approval-history-dialog.component';
-import { NotificationListComponent } from './inventory/notification-list/notification-list.component';
+import { PendingApprovalsComponent } from './administration/pending-approvals/pending-approvals.component';
+import { ApprovalHistoryComponent } from './administration/approval-history/approval-history.component';
+import { ApprovalHistoryDialogComponent } from './administration/approval-history-dialog/approval-history-dialog.component';
+import { NotificationListComponent } from './administration/notification-list/notification-list.component';
 
 // Part 9: Branch Stock Request
 import { BranchStockRequestComponent } from './inventory/branch-stock-request/branch-stock-request.component';
@@ -461,6 +462,7 @@ import { NewBSRComponent } from './inventory/branch-stock-request/new-bsr/new-bs
     EmployeeHistoryComponent,    
     SearchEmployeeLoanComponent, 
     SearchEmployeeUniformLoanComponent,
+    UniformLoanStockLinkComponent,
     MatSelectScrollDirective,
     CreditNoteComponent,
     DebitNoteComponent,

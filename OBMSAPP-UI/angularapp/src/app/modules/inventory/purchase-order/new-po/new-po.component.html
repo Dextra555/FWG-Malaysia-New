@@ -116,7 +116,48 @@
         </div>
       </div>
 
-      <div class="row">
+      <!-- ── VIEW MODE ── -->
+      <div *ngIf="isEdit && !canEdit()" class="row mb-3">
+        <div class="col-6 col-md-2">
+          <div class="wlt-view-field">
+            <span class="wlt-view-label">PO Number</span>
+            <span class="wlt-view-value">{{frm.get('PONumber')?.value || '—'}}</span>
+          </div>
+        </div>
+        <div class="col-6 col-md-4">
+          <div class="wlt-view-field">
+            <span class="wlt-view-label">Supplier</span>
+            <span class="wlt-view-value">{{viewSupplierName}}</span>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="wlt-view-field">
+            <span class="wlt-view-label">Warehouse</span>
+            <span class="wlt-view-value">{{viewWarehouseName}}</span>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="wlt-view-field">
+            <span class="wlt-view-label">PO Date</span>
+            <span class="wlt-view-value">{{frm.get('PODate')?.value | date:'dd/MM/yyyy'}}</span>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="wlt-view-field">
+            <span class="wlt-view-label">Expected Delivery Date</span>
+            <span class="wlt-view-value">{{frm.get('ExpectedDate')?.value | date:'dd/MM/yyyy'}}</span>
+          </div>
+        </div>
+        <div class="col-12 col-md-6" *ngIf="frm.get('Remarks')?.value">
+          <div class="wlt-view-field">
+            <span class="wlt-view-label">Remarks</span>
+            <span class="wlt-view-value">{{frm.get('Remarks')?.value}}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── EDIT MODE ── -->
+      <div *ngIf="!isEdit || canEdit()" class="row">
         <div class="col-12 col-md-2">
           <mat-form-field appearance="outline">
             <mat-label>PO Number</mat-label>

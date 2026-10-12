@@ -131,7 +131,37 @@
       <div class="row mt-2">
         <div class="col-12"><h6 class="wlt-c-section-label"><strong>Requisition Details</strong></h6><hr class="mt-0"></div>
       </div>
-      <div class="row">
+
+      <!-- ── VIEW MODE (Posted / Approved / Submitted / Rejected) ── -->
+      <div *ngIf="isEdit && !canEdit()" class="row mb-3">
+        <div class="col-6 col-md-3">
+          <div class="wlt-view-field">
+            <span class="wlt-view-label">Reference No</span>
+            <span class="wlt-view-value">{{frm.get('PRNumber')?.value || '—'}}</span>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="wlt-view-field">
+            <span class="wlt-view-label">Requisition Date</span>
+            <span class="wlt-view-value">{{frm.get('PRDate')?.value | date:'dd/MM/yyyy'}}</span>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="wlt-view-field">
+            <span class="wlt-view-label">Required By Date</span>
+            <span class="wlt-view-value">{{frm.get('RequiredByDate')?.value | date:'dd/MM/yyyy'}}</span>
+          </div>
+        </div>
+        <div class="col-12 col-md-6" *ngIf="frm.get('Remarks')?.value">
+          <div class="wlt-view-field">
+            <span class="wlt-view-label">Remarks</span>
+            <span class="wlt-view-value">{{frm.get('Remarks')?.value}}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── EDIT MODE (New / Draft) ── -->
+      <div *ngIf="!isEdit || canEdit()" class="row">
         <div class="col-12 col-md-3">
           <mat-form-field appearance="outline">
             <mat-label>Reference No</mat-label>

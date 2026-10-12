@@ -232,6 +232,16 @@ export class NewStockAdjustmentComponent implements OnInit {
     return !this.isEdit || this.currentStatus === 'Draft';
   }
 
+  get viewWarehouseName(): string {
+    const id = this.frm.get('WarehouseID')?.value;
+    return this.warehouses.find((w: any) => w.ID === id)?.Name || '—';
+  }
+  get viewItemName(): string {
+    const id = this.frm.get('ItemID')?.value;
+    const item = this.items.find((i: any) => i.ID === id);
+    return item ? `${item.Code} — ${item.Name}` : '—';
+  }
+
   canSubmit(): boolean {
     // Submit visible on new form (not yet saved) OR on an existing Draft
     return !this.isEdit || this.currentStatus === 'Draft';

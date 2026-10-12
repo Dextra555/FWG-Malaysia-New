@@ -72,6 +72,8 @@ export class NewEmployeeUniformLoanComponent implements OnInit {
   selectedStockIssueNo: string = '';
   /** Item rows pre-filled from the selected Stock Issue */
   stockIssueItemRows: any[] = [];
+  /** StockIssueDocID passed via query param from "Link to Loan" button — auto-select on load */
+  pendingStockIssueDocIDFromRoute: number = 0;
   
   employeeSearchSubject = new Subject<string>();
   branchSearchSubject = new Subject<string>();
@@ -198,7 +200,18 @@ export class NewEmployeeUniformLoanComponent implements OnInit {
         this.isEdit = false;
         this.advanceID = 0;
         this.btnPrint = false;
-        this.isEdit = false
+        this.isEdit = false;
+
+        // ── Auto-fill from "Link to Loan" button on Uniform Loan Stock Issues page ──
+        const preDocID  = +params['stockIssueDocID'];
+        const preEmpID  = +params['employeeID'];
+        if (preDocID > 0 && preEmpID > 0) {
+          this.pendingStockIssueDocIDFromRoute = preDocID;
+          // Set today as default AdvanceTakenDate so employee list loads
+          const today = this.formatDate(new Date());
+          this.employeeUniformLoanForm.patchValue({ AdvanceTakenDate: today });
+          this.getBranchCodeByEmployeeIdAndAutoSelect(String(preEmpID));
+        }
       }
     });
   }
@@ -562,14 +575,20 @@ export class NewEmployeeUniformLoanComponent implements OnInit {
 
         // ✅ ADD MODE – auto select first
         if (!this.isEdit && this.employeeListModel.length > 0) {
-          const firstEmpId = this.employeeListModel[0].EMP_ID;
+          // If navigated from "Link to Loan", find that specific employee; else pick first
+          const targetEmpId = this.pendingStockIssueDocIDFromRoute > 0
+            ? (this.employeeListModel.find(e => e.EMP_ID === this.EmployeeID)?.EMP_ID
+               ?? this.employeeListModel[0].EMP_ID)
+            : this.employeeListModel[0].EMP_ID;
 
-          this.employeeUniformLoanForm.patchValue({
-            EmployeeID: firstEmpId
-          });
+          this.employeeUniformLoanForm.patchValue({ EmployeeID: targetEmpId });
+          this.EmployeeID = targetEmpId;
+          this.selectedId = targetEmpId;
+        }
 
-          this.EmployeeID = firstEmpId;
-          this.selectedId = firstEmpId;
+        // ── Auto-select stock issue when navigated from "Link to Loan" ──────
+        if (!this.isEdit && this.pendingStockIssueDocIDFromRoute > 0) {
+          this.autoSelectStockIssue(this.pendingStockIssueDocIDFromRoute);
         }
 
         this.hideSpinner();
@@ -618,6 +637,67 @@ export class NewEmployeeUniformLoanComponent implements OnInit {
       }
     });
   }
+
+  /**
+   * Same as getBranchCodeByEmployeeId but also auto-selects the employee and
+   * triggers stock issue auto-fill when pendingStockIssueDocIDFromRoute is set.
+   * Called from ngOnInit when navigated via "Link to Loan" button.
+   */
+  getBranchCodeByEmployeeIdAndAutoSelect(empId: string): void {
+    this.employeeService.getEmployeeById(empId).subscribe({
+      next: (response: any) => {
+        const employee = response?.Result?.employee;
+        if (!employee) return;
+
+        this.employeeListModel    = [employee];
+        this.filteredEmployeeList = [employee];
+
+        const branchCode = employee.EMP_BRANCH_CODE || '';
+        this.employeeUniformLoanForm.patchValue({ BranchCode: branchCode });
+
+        if (branchCode) {
+          this.onBranchSelectionChange({ value: branchCode });
+        }
+
+        // EmployeeID is stored in pendingStockIssueDocIDFromRoute flow —
+        // the actual auto-select happens in getEmployeeListByEmployeeType after
+        // the employee list loads. Just ensure EmployeeID is pre-set here.
+        const empIDNum = employee.EMP_ID ?? +empId;
+        this.EmployeeID = empIDNum;
+        this.selectedId = empIDNum;
+      },
+      error: (err) => {
+        console.error('[getBranchCodeByEmployeeIdAndAutoSelect] Error:', err);
+      }
+    });
+  }
+
+  /**
+   * Loads pending stock issues for the current employee and auto-selects
+   * the one matching stockIssueDocID — called after navigating from "Link to Loan".
+   */
+  private autoSelectStockIssue(stockIssueDocID: number): void {
+    if (!this.EmployeeID || this.EmployeeID <= 0) return;
+
+    this._inventoryService.getPendingStockIssuesForEmployee(this.EmployeeID).subscribe({
+      next: (list: any[]) => {
+        this.pendingStockIssues = list || [];
+        const issue = this.pendingStockIssues.find(i => i.IssueDocID === stockIssueDocID);
+        if (issue) {
+          this.showStockIssuePanel = true;
+          this.onSelectStockIssue(issue);
+        } else {
+          // Issue may already be linked — just open the panel and show list
+          this.showStockIssuePanel = true;
+        }
+        this.pendingStockIssueDocIDFromRoute = 0; // clear so it doesn't re-trigger
+      },
+      error: () => {
+        console.error('[autoSelectStockIssue] Failed to load pending issues.');
+      }
+    });
+  }
+
   // ── Stock Issue Link feature ──────────────────────────────────────────────
 
   /**

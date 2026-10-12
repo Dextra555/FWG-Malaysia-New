@@ -262,6 +262,15 @@ export class NewStockTransferComponent implements OnInit {
     return (val ?? 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
+  get viewSrcWarehouseName(): string {
+    const id = this.frm.get('SourceWarehouseID')?.value;
+    return this.warehouses.find((w: any) => w.ID === id)?.Name || '—';
+  }
+  get viewDestWarehouseName(): string {
+    const id = this.frm.get('DestWarehouseID')?.value;
+    return this.warehouses.find((w: any) => w.ID === id)?.Name || '—';
+  }
+
   onSubmit(): void {
     if (this.isViewMode) { this.route.navigate(['/inventory/stock-transfer']); return; }
     if (this.frm.invalid) { this.frm.markAllAsTouched(); return; }

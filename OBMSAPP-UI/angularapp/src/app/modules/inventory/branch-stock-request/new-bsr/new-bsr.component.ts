@@ -111,10 +111,17 @@ export class NewBSRComponent implements OnInit {
     const rawRole = sessionStorage.getItem('userrole') ?? '0';
     this.userRole = rawRole === '2' ? 'superadmin' : rawRole === '1' ? 'admin' : 'user';
     if (!this.currentUser || this.currentUser === 'null') {
-      this._dataService.getUsername().subscribe(u => { this.currentUser = u; });
+      this._dataService.getUsername().subscribe(u => {
+        this.currentUser = u;
+        // Load branches only after currentUser is resolved so the user-branch
+        // access filter is applied correctly
+        this.getUserAccessRights(this.currentUser, 'Branch Stock Request');
+        this.loadBranches();
+      });
+    } else {
+      this.getUserAccessRights(this.currentUser, 'Branch Stock Request');
+      this.loadBranches();
     }
-    this.getUserAccessRights(this.currentUser, 'Branch Stock Request');
-    this.loadBranches();
     this.loadWarehouses();
     this.loadItems();
 
@@ -433,6 +440,15 @@ export class NewBSRComponent implements OnInit {
     }
     // Existing record: only show for Draft status
     return this.currentStatus === 'Draft' && this.details.length > 0;
+  }
+
+  get viewBranchName(): string {
+    const id = this.frm.get('RequestingBranchID')?.value;
+    return this.branches.find((b: any) => b.ID === id)?.Name || '—';
+  }
+  get viewWarehouseName(): string {
+    const id = this.frm.get('SourceWarehouseID')?.value;
+    return this.warehouses.find((w: any) => w.ID === id)?.Name || '—';
   }
 
   /** Save Draft button visible: not in view mode */

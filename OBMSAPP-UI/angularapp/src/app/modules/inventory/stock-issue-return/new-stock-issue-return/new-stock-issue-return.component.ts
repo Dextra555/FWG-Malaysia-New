@@ -194,6 +194,17 @@ export class NewStockIssueReturnComponent implements OnInit {
     return (val ?? 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
+  get viewWarehouseName(): string {
+    const id = this.frm.get('WarehouseID')?.value;
+    return this.warehouses.find((w: any) => w.ID === id)?.Name || '—';
+  }
+  get viewIssueDocLabel(): string {
+    const id = this.frm.get('OriginalIssueDocID')?.value;
+    const doc = this.issueDocs.find((d: any) => d.ID === id);
+    if (!doc) return '—';
+    return `${doc.IssueNo} — ${doc.IssueToName || doc.IssueToType}`;
+  }
+
   onSubmit(): void {
     if (this.isViewMode) { this.route.navigate(['/inventory/stock-issue-return']); return; }
     if (this.frm.invalid) { this.frm.markAllAsTouched(); return; }

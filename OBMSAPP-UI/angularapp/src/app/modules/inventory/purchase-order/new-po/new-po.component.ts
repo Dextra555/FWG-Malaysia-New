@@ -422,6 +422,15 @@ export class NewPOComponent implements OnInit {
   // New form (isEdit=false): always editable, no PR lock yet.
   // Existing form (isEdit=true): driven by canEditPO from backend.
   canEdit():   boolean { return !this.isEdit || this.canEditPO; }
+
+  get viewSupplierName(): string {
+    const id = this.frm.get('SupplierID')?.value;
+    return this.suppliers.find((s: any) => s.Id === id)?.Name || '—';
+  }
+  get viewWarehouseName(): string {
+    const id = this.frm.get('WarehouseID')?.value;
+    return this.warehouses.find((w: any) => w.ID === id)?.Name || '—';
+  }
   // Submit is available on a new (unsaved) form with at least one line,
   // OR on an existing Draft (or Approved-GRN-deleted, which will be reset to Draft on save).
   canSubmit(): boolean {

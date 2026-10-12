@@ -190,6 +190,16 @@ export class NewStockDamageLossComponent implements OnInit {
     return (val ?? 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
+  get viewWarehouseName(): string {
+    const id = this.frm.get('WarehouseID')?.value;
+    return this.warehouses.find((w: any) => w.ID === id)?.Name || '—';
+  }
+  get viewItemName(): string {
+    const id = this.frm.get('ItemID')?.value;
+    const item = this.items.find((i: any) => i.ID === id);
+    return item ? `${item.Code} — ${item.Name}` : '—';
+  }
+
   onSubmit(): void {
     if (this.isViewMode) { this.route.navigate(['/inventory/stock-damage-loss']); return; }
     if (this.frm.invalid) { this.frm.markAllAsTouched(); return; }

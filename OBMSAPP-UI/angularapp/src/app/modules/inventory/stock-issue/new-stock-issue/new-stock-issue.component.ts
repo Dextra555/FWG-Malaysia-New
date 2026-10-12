@@ -369,6 +369,10 @@ export class NewStockIssueComponent implements OnInit {
 
   get issueToType(): string  { return this.frm.get('IssueToType')?.value || ''; }
   get issueToName(): string  { return this.frm.get('IssueToName')?.value || ''; }
+  get viewWarehouseName(): string {
+    const id = this.frm.get('WarehouseID')?.value;
+    return this.warehouses.find((w: any) => w.ID === id)?.Name || '—';
+  }
   get showRecipientDropdown(): boolean {
     return ['Staff', 'Guard', 'Branch'].includes(this.issueToType);
   }

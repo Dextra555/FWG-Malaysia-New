@@ -66,8 +66,9 @@ export class NotificationService {
 
   // ── Low-stock alerts ───────────────────────────────────────────────────────
 
-  getLowStockAlerts(): Observable<any[]> {
-    return this.http.get<any[]>(this.apiUrl + 'Notification/GetLowStockAlerts')
+  getLowStockAlerts(username: string): Observable<any[]> {
+    const params = new HttpParams().set('username', username);
+    return this.http.get<any[]>(this.apiUrl + 'Notification/GetLowStockAlerts', { params })
       .pipe(catchError(this.errorHandle));
   }
 

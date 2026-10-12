@@ -93,8 +93,9 @@ export class NotificationListComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   loadLowStockAlerts(): void {
+    if (!this.currentUser) return;
     this.lowStockLoading = true;
-    this.notifService.getLowStockAlerts().subscribe({
+    this.notifService.getLowStockAlerts(this.currentUser).subscribe({
       next: (d: any[]) => { this.lowStockAlerts = d || []; this.lowStockLoading = false; },
       error: () => { this.lowStockLoading = false; }
     });
