@@ -3908,13 +3908,35 @@ namespace OBMS.WebAPI.Controllers
         }
 
         /// <summary>
+        /// Returns active employees for a branch code, filtered by issueToType (Guard/Staff/all).
+        /// Used by the Uniform Loan Stock Issues page.
+        /// </summary>
+        [HttpGet("GetEmployeesByBranch")]
+        public async Task<IActionResult> GetEmployeesByBranch(
+            [FromQuery] string branchCode,
+            [FromQuery] string issueToType = "")
+        {
+            if (string.IsNullOrWhiteSpace(branchCode))
+                return BadRequest(new { success = false, message = "Please provide a valid branch code." });
+            try
+            {
+                var list = await _inventoryRepository.GetEmployeesByBranch(branchCode, issueToType);
+                return Ok(list);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[GetEmployeesByBranch] {ex}");
+                return StatusCode(500, new { success = false, message = "Unable to load the employee list right now. Please try again." });
+            }
+        }
+
+        /// <summary>
         /// Returns all Stock Issue documents issued to the given employee
         /// that are NOT already linked to an active Uniform Loan.
         /// </summary>
         [HttpGet("GetPendingStockIssuesForEmployee")]
         public async Task<IActionResult> GetPendingStockIssuesForEmployee(
-            [FromQuery] int employeeID)
-        {
+            [FromQuery] int employeeID)        {
             if (employeeID <= 0)
                 return BadRequest(new { success = false, message = "Please provide a valid employee ID." });
             try
@@ -3925,6 +3947,25 @@ namespace OBMS.WebAPI.Controllers
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"[GetPendingStockIssuesForEmployee] {ex}");
+                return StatusCode(500, new { success = false, message = "Unable to load pending stock issues right now. Please try again." });
+            }
+        }
+
+        /// <summary>
+        /// Returns ALL pending (unlinked) stock issues across all employees.
+        /// Used by the payroll "Uniform Loan Stock Issues" master list page.
+        /// </summary>
+        [HttpGet("GetAllPendingStockIssues")]
+        public async Task<IActionResult> GetAllPendingStockIssues()
+        {
+            try
+            {
+                var list = await _inventoryRepository.GetAllPendingStockIssues();
+                return Ok(list);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[GetAllPendingStockIssues] {ex}");
                 return StatusCode(500, new { success = false, message = "Unable to load pending stock issues right now. Please try again." });
             }
         }

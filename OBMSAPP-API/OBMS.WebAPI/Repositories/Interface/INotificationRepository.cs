@@ -71,7 +71,10 @@ namespace OBMS.WebAPI.Repositories.Interface
         /// </summary>
         Task CheckAndNotifyLowStock(int warehouseID, int itemID, string triggeredBy);
 
-        /// <summary>Run a full low-stock sweep across all warehouses and items with ReorderLevel set.</summary>
-        Task<List<LowStockAlertDto>> GetCurrentLowStockAlerts();
+        /// <summary>
+        /// Run a full low-stock sweep across all warehouses and items with ReorderLevel set.
+        /// Returns an empty list for users who are not in the Purchase department and are not admins.
+        /// </summary>
+        Task<List<LowStockAlertDto>> GetCurrentLowStockAlerts(string username);
     }
 }

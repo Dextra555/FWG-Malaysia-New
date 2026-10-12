@@ -12,6 +12,9 @@ namespace OBMS.WebAPI.Models.DTO
         public DateTime IssueDate { get; set; }
         public string WarehouseName { get; set; } = string.Empty;
         public decimal TotalValue { get; set; }
+        public int EmployeeID { get; set; }
+        public string EmployeeName { get; set; } = string.Empty;
+        public string EmployeeBranchCode { get; set; } = string.Empty;
         public List<PendingStockIssueLineDto> Lines { get; set; } = new();
     }
 

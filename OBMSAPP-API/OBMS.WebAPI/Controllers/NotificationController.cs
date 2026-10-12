@@ -129,13 +129,16 @@ namespace OBMS.WebAPI.Controllers
         /// <summary>
         /// Returns all items currently below their reorder level across all warehouses.
         /// Uses StockLedger as the authoritative stock source — never ItemMaster.Quantity.
+        /// Only Purchase-department users and admins receive results; all others get an empty list.
         /// </summary>
         [HttpGet("GetLowStockAlerts")]
         public async Task<IActionResult> GetLowStockAlerts()
         {
             try
             {
-                var alerts = await _notif.GetCurrentLowStockAlerts();
+                // Use JWT identity as the caller — never trust a client-supplied value
+                var username = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? string.Empty;
+                var alerts = await _notif.GetCurrentLowStockAlerts(username);
                 return Ok(alerts);
             }
             catch (Exception ex)

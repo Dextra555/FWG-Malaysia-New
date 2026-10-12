@@ -6690,6 +6690,52 @@ namespace OBMS.WebAPI.Repositories.Implementation
         }
 
         /// <summary>
+        /// Returns active employees for a given branch code, filtered by issueToType.
+        /// Used by the "Uniform Loan Stock Issues" page (Branch-based filter, no warehouse needed).
+        /// </summary>
+        public async Task<List<EmployeeForIssueDto>> GetEmployeesByBranch(
+            string branchCode, string issueToType)
+        {
+            if (string.IsNullOrWhiteSpace(branchCode))
+                return new List<EmployeeForIssueDto>();
+
+            IQueryable<Employee> query = _oBMSDbContext.Employees
+                .Where(e => e.EMP_BRANCH_CODE == branchCode && !e.HasTransfered);
+
+            if (issueToType.Equals("Guard", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(e =>
+                    e.EMP_ROLE == "Guard" ||
+                    e.EMP_ROLE == "FGuard" ||
+                    e.EMP_ROLE == "Foreign Guard");
+            }
+            else if (issueToType.Equals("Staff", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(e => e.EMP_ROLE == "Staff");
+            }
+
+            var today = DateTime.Today;
+            var result = await (
+                from emp in query
+                join ed in _oBMSDbContext.EmploymentDetails
+                    on emp.EMP_CODE equals ed.EMPPAY_CODE
+                where ed.EMPPAY_DATE_RESIGNED == null ||
+                      ed.EMPPAY_DATE_RESIGNED >= today
+                orderby emp.EMP_NAME
+                select new EmployeeForIssueDto
+                {
+                    EMP_ID          = emp.EMP_ID,
+                    EMP_CODE        = emp.EMP_CODE,
+                    EMP_NAME        = emp.EMP_NAME,
+                    EMP_ROLE        = emp.EMP_ROLE,
+                    EMP_BRANCH_CODE = emp.EMP_BRANCH_CODE
+                }
+            ).ToListAsync();
+
+            return result;
+        }
+
+        /// <summary>
         /// Returns all StockIssueDocs issued to the given employee (IssueToID = employeeID,
         /// IssueToType IN ('Guard','Staff')) that are NOT already linked to an active
         /// Uniform Loan (StockIssueUniformLoanLink.IsActive = true).
@@ -6739,6 +6785,13 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 .Where(w => warehouseIDs.Contains(w.ID))
                 .ToDictionaryAsync(w => w.ID, w => w.Name);
 
+            // Fetch employee branch codes
+            var employeeIDs = docs.Where(d => d.IssueToID.HasValue)
+                .Select(d => d.IssueToID!.Value).Distinct().ToList();
+            var empBranchCodes = await _oBMSDbContext.Employees
+                .Where(e => employeeIDs.Contains(e.EMP_ID))
+                .ToDictionaryAsync(e => e.EMP_ID, e => e.EMP_BRANCH_CODE ?? "");
+
             var result = docs.Select(doc =>
             {
                 var lines = details
@@ -6756,16 +6809,103 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
                 return new PendingStockIssueDto
                 {
-                    IssueDocID    = doc.ID,
-                    IssueNo       = doc.IssueNo,
-                    IssueDate     = doc.IssueDate,
-                    WarehouseName = warehouses.TryGetValue(doc.WarehouseID, out var wn) ? wn : "",
-                    TotalValue    = lines.Sum(l => l.TotalCost),
-                    Lines         = lines
+                    IssueDocID          = doc.ID,
+                    IssueNo             = doc.IssueNo,
+                    IssueDate           = doc.IssueDate,
+                    WarehouseName       = warehouses.TryGetValue(doc.WarehouseID, out var wn) ? wn : "",
+                    TotalValue          = lines.Sum(l => l.TotalCost),
+                    EmployeeID          = doc.IssueToID ?? 0,
+                    EmployeeName        = doc.IssueToName ?? "",
+                    EmployeeBranchCode  = doc.IssueToID.HasValue
+                                          ? empBranchCodes.GetValueOrDefault(doc.IssueToID.Value, "")
+                                          : "",
+                    Lines               = lines
                 };
             }).ToList();
 
             return result;
+        }
+
+        /// <summary>
+        /// Returns ALL pending (unlinked) stock issues across all employees — no employee filter.
+        /// Used by the "Uniform Loan Stock Issues" payroll page to show a master list.
+        /// </summary>
+        public async Task<List<PendingStockIssueDto>> GetAllPendingStockIssues()
+        {
+            var linkedIDs = await _oBMSDbContext.StockIssueUniformLoanLinks
+                .Where(l => l.IsActive)
+                .Select(l => l.StockIssueDocID)
+                .ToListAsync();
+
+            var docs = await _oBMSDbContext.StockIssueDocs
+                .Where(d => d.IsActive
+                    && (d.IssueToType == "Guard" || d.IssueToType == "Staff")
+                    && !linkedIDs.Contains(d.ID))
+                .OrderByDescending(d => d.IssueDate)
+                .ToListAsync();
+
+            if (!docs.Any()) return new List<PendingStockIssueDto>();
+
+            var docIDs = docs.Select(d => d.ID).ToList();
+
+            var details = await (
+                from det in _oBMSDbContext.StockIssueDocDetails
+                join item in _oBMSDbContext.ItemMasters on det.ItemID equals item.ID
+                where docIDs.Contains(det.IssueDocID)
+                select new
+                {
+                    det.IssueDocID,
+                    det.ID,
+                    det.ItemID,
+                    ItemName = item.Name,
+                    ItemCode = item.Code,
+                    det.IssueQty,
+                    det.UnitCost
+                }
+            ).ToListAsync();
+
+            var warehouseIDs = docs.Select(d => d.WarehouseID).Distinct().ToList();
+            var warehouses = await _oBMSDbContext.WarehouseMasters
+                .Where(w => warehouseIDs.Contains(w.ID))
+                .ToDictionaryAsync(w => w.ID, w => w.Name);
+
+            // Fetch employee branch codes for branch-based filtering in Angular
+            var employeeIDs2 = docs.Where(d => d.IssueToID.HasValue)
+                .Select(d => d.IssueToID!.Value).Distinct().ToList();
+            var empBranchCodes2 = await _oBMSDbContext.Employees
+                .Where(e => employeeIDs2.Contains(e.EMP_ID))
+                .ToDictionaryAsync(e => e.EMP_ID, e => e.EMP_BRANCH_CODE ?? "");
+
+            return docs.Select(doc =>
+            {
+                var lines = details
+                    .Where(d => d.IssueDocID == doc.ID)
+                    .Select(d => new PendingStockIssueLineDto
+                    {
+                        IssueDetailID = d.ID,
+                        ItemID        = d.ItemID,
+                        ItemName      = d.ItemName,
+                        ItemCode      = d.ItemCode,
+                        IssueQty      = d.IssueQty,
+                        UnitCost      = d.UnitCost,
+                        TotalCost     = d.IssueQty * d.UnitCost
+                    }).ToList();
+
+                return new PendingStockIssueDto
+                {
+                    IssueDocID         = doc.ID,
+                    IssueNo            = doc.IssueNo,
+                    IssueDate          = doc.IssueDate,
+                    WarehouseName      = warehouses.TryGetValue(doc.WarehouseID, out var wn) ? wn : "",
+                    TotalValue         = lines.Sum(l => l.TotalCost),
+                    EmployeeID         = doc.IssueToID ?? 0,
+                    EmployeeName       = doc.IssueToName ?? "",
+                    EmployeeBranchCode = doc.IssueToID.HasValue
+                                         ? empBranchCodes2.GetValueOrDefault(doc.IssueToID.Value, "")
+                                         : "",
+                    Lines              = lines
+                };
+            }).ToList();
         }
 
         /// <summary>

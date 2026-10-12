@@ -389,23 +389,23 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
                 string notifType = isOutOfStock ? "OUT_OF_STOCK" : "LOW_STOCK";
 
-                // ── Deduplication: no duplicate for same item+warehouse+type today ──
-                var today = DateTime.Today;
-                bool alreadySent = await _db.AppNotifications
-                    .AnyAsync(n =>
-                        n.NotificationType == notifType &&
-                        n.ReferenceType    == "ITEM" &&
-                        n.ReferenceID      == itemID &&
-                        n.IsActive &&
-                        n.CreatedDate >= today);
-
-                if (alreadySent) return;
-
-                // Build recipients — notify all active non-deleted users
+                // ── Eligible recipients: Purchase department users + SuperAdmin ──────
+                // IsAdmin is stored as a nullable string; any non-null, non-empty value
+                // indicates an admin (value "2" = SuperAdmin, but we include all admins
+                // so no Purchase-dept user is silently skipped due to IsAdmin mismatch).
                 var recipients = await _db.Obmsusers
-                    .Where(u => !u.IsDeleted)
+                    .Where(u => !u.IsDeleted
+                             && (u.Department == "Purchase"
+                                 || (u.IsAdmin != null && u.IsAdmin != "")))
                     .Select(u => u.Name)
                     .ToListAsync();
+
+                if (recipients.Count == 0) return;
+
+                // ── Deduplication: per-recipient, per-item+warehouse+type, today ────
+                // Check is done inside the loop (per user) so that notifying user A
+                // does not block user B from receiving the same alert.
+                var today = DateTime.Today;
 
                 string title, message;
                 if (isOutOfStock)
@@ -425,6 +425,19 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
                 foreach (var user in recipients)
                 {
+                    // Per-recipient deduplication: skip if this user already has
+                    // an active notification for this item+warehouse+type today.
+                    bool alreadySent = await _db.AppNotifications
+                        .AnyAsync(n =>
+                            n.NotificationType == notifType &&
+                            n.ReferenceType    == "ITEM" &&
+                            n.ReferenceID      == itemID &&
+                            n.RecipientUser    == user &&
+                            n.IsActive &&
+                            n.CreatedDate      >= today);
+
+                    if (alreadySent) continue;
+
                     await CreateNotification(
                         notifType, title, message, user,
                         "ITEM", itemID, item.Code ?? item.Name, triggeredBy);
@@ -437,8 +450,24 @@ namespace OBMS.WebAPI.Repositories.Implementation
             }
         }
 
-        public async Task<List<LowStockAlertDto>> GetCurrentLowStockAlerts()
+        public async Task<List<LowStockAlertDto>> GetCurrentLowStockAlerts(string username)
         {
+            // Gate: only Purchase-department users and admins (any non-null IsAdmin)
+            // may view the Low Stock Alerts tab. Everyone else gets an empty list.
+            if (!string.IsNullOrWhiteSpace(username))
+            {
+                var caller = await _db.Obmsusers
+                    .Where(u => !u.IsDeleted && u.Name == username)
+                    .Select(u => new { u.Department, u.IsAdmin })
+                    .FirstOrDefaultAsync();
+
+                bool isEligible = caller != null &&
+                                  (caller.Department == "Purchase" ||
+                                   (!string.IsNullOrEmpty(caller.IsAdmin)));
+
+                if (!isEligible) return new List<LowStockAlertDto>();
+            }
+
             // All items that have a ReorderLevel configured
             var items = await _db.ItemMasters
                 .Where(i => i.ReorderLevel.HasValue && i.ReorderLevel.Value > 0)

@@ -376,12 +376,14 @@ namespace OBMS.WebAPI.Repositories.Interface
     /// filtered by issueToType ("Guard" → Guard/FGuard, "Staff" → Staff).
     /// </summary>
     Task<List<EmployeeForIssueDto>> GetEmployeesByWarehouse(int warehouseID, string issueToType);
+    Task<List<EmployeeForIssueDto>> GetEmployeesByBranch(string branchCode, string issueToType);
 
     /// <summary>
     /// Returns all StockIssueDocs issued to the given employee (by EMP_ID)
     /// that are NOT already linked to an active Uniform Loan (SalaryAdvance TransType=4).
     /// </summary>
     Task<List<PendingStockIssueDto>> GetPendingStockIssuesForEmployee(int employeeID);
+    Task<List<PendingStockIssueDto>> GetAllPendingStockIssues();
 
     /// <summary>
     /// Creates a StockIssueUniformLoanLink row to mark a Stock Issue as linked to a Uniform Loan.
