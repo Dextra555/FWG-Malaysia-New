@@ -2008,10 +2008,72 @@ namespace OBMS.WebAPI.Controllers
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"[GetApprovedPRsForPO] {ex}");
-                return StatusCode(500, new { success = false, message = "Unable to load approved requisitions right now. Please try again." });
+                return StatusCode(500, new { success = false, message = "Unable to load approved requisitions right now. Please try again." });            }
+        }
+
+        // ── PR Processing Tasks (Purchase department claim / inbox) ──────────────
+
+        /// <summary>
+        /// Returns all active (Pending / Claimed) PR processing tasks.
+        /// Used by the Purchase department inbox to see the work queue.
+        /// </summary>
+        [HttpGet("GetPRProcessingTasks")]
+        public async Task<IActionResult> GetPRProcessingTasks()
+        {
+            try { return Ok(await _inventoryRepository.GetPRProcessingTasks()); }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[GetPRProcessingTasks] {ex}");
+                return StatusCode(500, new { success = false, message = "Unable to load the processing task list right now. Please try again." });
             }
         }
 
+        /// <summary>
+        /// Returns the processing task for a single PR by its PRID.
+        /// Called by the PR form on load to display claim state (claimed/unclaimed/completed).
+        /// Returns 404 when no task exists (PR not yet approved).
+        /// </summary>
+        [HttpGet("GetPRProcessingTaskByPR")]
+        public async Task<IActionResult> GetPRProcessingTaskByPR([FromQuery] int prid)
+        {
+            if (prid <= 0)
+                return BadRequest(new { success = false, message = "Please provide a valid PR ID." });
+            try
+            {
+                var task = await _inventoryRepository.GetPRProcessingTaskByPR(prid);
+                if (task == null) return NotFound(new { success = false, message = "No processing task found for this PR." });
+                return Ok(task);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[GetPRProcessingTaskByPR] {ex}");
+                return StatusCode(500, new { success = false, message = "Unable to load the processing task right now. Please try again." });
+            }
+        }
+
+        /// <summary>
+        /// Atomically claims an unclaimed PR processing task for the authenticated user.
+        /// Only the first concurrent caller succeeds — a conditional UPDATE enforces this.
+        /// Returns 409 Conflict when the task has already been claimed by someone else.
+        /// </summary>
+        [HttpPost("ClaimPR/{prid}")]
+        public async Task<IActionResult> ClaimPR(int prid)
+        {
+            var jwtUser = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
+            if (string.IsNullOrWhiteSpace(jwtUser))
+                return Unauthorized(new { success = false, message = "Unable to identify the current user. Please log in again." });
+            try
+            {
+                var (success, message) = await _inventoryRepository.ClaimPR(prid, jwtUser);
+                if (!success) return Conflict(new { success = false, message });
+                return Ok(new { success = true, message });
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[ClaimPR] {ex}");
+                return StatusCode(500, new { success = false, message = "Unable to claim the purchase requisition right now. Please try again." });
+            }
+        }
 
         // ════════════════════════════════════════════════════════════════════════
         // PART 3 — PURCHASE ORDER ENDPOINTS

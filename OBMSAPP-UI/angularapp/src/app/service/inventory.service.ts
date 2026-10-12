@@ -486,6 +486,19 @@ export class InventoryService {
       .pipe(catchError(this.errorHandle));
   }
 
+  /** Returns the processing task for a single PR (claim state). Returns 404 if not found. */
+  getPRProcessingTaskByPR(prid: number): Observable<any> {
+    return this.httpClient.get<any>(this.apiUrl + 'Inventory/GetPRProcessingTaskByPR',
+      { params: new HttpParams().set('prid', prid) })
+      .pipe(catchError(this.errorHandle));
+  }
+
+  /** Atomically claims an unclaimed PR processing task for the current user. */
+  claimPR(prid: number): Observable<any> {
+    return this.httpClient.post<any>(`${this.apiUrl}Inventory/ClaimPR/${prid}`, null)
+      .pipe(catchError(this.errorHandle));
+  }
+
   getApprovedPRsForPO(): Observable<any[]> {
     return this.httpClient.get<any[]>(this.apiUrl + 'Inventory/GetApprovedPRsForPO')
       .pipe(catchError(this.errorHandle));

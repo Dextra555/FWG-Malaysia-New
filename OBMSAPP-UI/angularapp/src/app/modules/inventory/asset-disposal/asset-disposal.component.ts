@@ -13,6 +13,7 @@ import { MastermoduleService } from '../../../service/mastermodule.service';
 import { DatasharingService } from '../../../service/datasharing.service';
 import { DialogConfirmationComponent } from '../../../components/dialog-confirmation/dialog-confirmation.component';
 import { UserAccessModel } from '../../../model/userAccesModel';
+import { environment } from '../../../../environments/environment';
 
 function mustSelect(): ValidatorFn {
   return (c: AbstractControl) => (+c.value === 0 || !c.value) ? { mustSelect: true } : null;
@@ -150,6 +151,14 @@ export class AssetDisposalComponent implements OnInit, AfterViewInit {
   }
 
   cancelForm(): void { this.showForm = false; this.showDetail = false; this.selectedRecord = null; }
+
+  /** Open Asset Disposal PDF in a new tab. Only callable when a record is in the detail panel. Read-only. */
+  onPrintPDF(): void {
+    if (!this.selectedRecord?.ID) return;
+    window.open(environment.baseReportUrl + 'Inventory/AssetDisposalReport.aspx'
+      + '?LoginID=' + encodeURIComponent(this.currentUser)
+      + '&DisposalID=' + encodeURIComponent(this.selectedRecord.ID), '_blank');
+  }
 
   onSave(): void {
     if (this.frm.invalid) { this.frm.markAllAsTouched(); return; }

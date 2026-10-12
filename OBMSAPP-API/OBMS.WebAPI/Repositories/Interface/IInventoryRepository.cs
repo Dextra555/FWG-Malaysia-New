@@ -133,6 +133,27 @@ namespace OBMS.WebAPI.Repositories.Interface
         Task<(bool Success, string Message)> RejectPR(int id, PRApprovalDto dto);
         Task<(bool Success, string Message)> DeletePR(int id, string currentUser);
 
+        // ── Part 3: PR Processing Tasks (Purchase department claim/inbox) ─────────
+
+        /// <summary>
+        /// Returns all active processing tasks (Pending or Claimed).
+        /// Used for the Purchase department inbox view.
+        /// </summary>
+        Task<List<PRProcessingTask>> GetPRProcessingTasks();
+
+        /// <summary>
+        /// Returns the processing task for a single PR, or null if none exists.
+        /// Called by the PR form to display claim state.
+        /// </summary>
+        Task<PRProcessingTask?> GetPRProcessingTaskByPR(int prid);
+
+        /// <summary>
+        /// Atomically claims an unclaimed (Pending) task for <paramref name="claimedBy"/>.
+        /// Uses a conditional UPDATE — only the first concurrent caller wins.
+        /// Returns (false, reason) if already claimed or not in Pending state.
+        /// </summary>
+        Task<(bool Success, string Message)> ClaimPR(int prid, string claimedBy);
+
         // ── Part 3: Purchase Order ────────────────────────────────────────────────
 
         Task<List<POListDto>> GetPOList();

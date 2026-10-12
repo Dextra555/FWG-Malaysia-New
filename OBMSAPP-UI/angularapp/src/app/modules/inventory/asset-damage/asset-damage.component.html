@@ -117,7 +117,7 @@
         <ng-container matColumnDef="ReportedBy"><th mat-header-cell *matHeaderCellDef>Reported By</th><td mat-cell *matCellDef="let r">{{r.ReportedBy || '—'}}</td></ng-container>
         <ng-container matColumnDef="EstimatedRepairCost"><th mat-header-cell *matHeaderCellDef style="text-align:right">Est. Cost (RM)</th><td mat-cell *matCellDef="let r" style="text-align:right">{{formatNumber(r.EstimatedRepairCost)}}</td></ng-container>
         <ng-container matColumnDef="action" stickyEnd><th mat-header-cell *matHeaderCellDef style="text-align:center;width:70px">History</th>
-          <td mat-cell *matCellDef="let r" style="text-align:center"><a style="cursor:pointer" class="wlt-c-furg-text-primary" matTooltip="View History" [routerLink]="['/inventory/asset-movement-history', r.AssetID]"><mat-icon>history</mat-icon></a></td>
+          <td mat-cell *matCellDef="let r" style="text-align:center"><a style="cursor:pointer" class="wlt-c-furg-text-gray mr-2" matTooltip="Print PDF" (click)="onPrintPDF(r)"><mat-icon>print</mat-icon></a><a style="cursor:pointer" class="wlt-c-furg-text-primary" matTooltip="View History" [routerLink]="['/inventory/asset-movement-history', r.AssetID]"><mat-icon>history</mat-icon></a></td>
         </ng-container>
         <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
         <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>

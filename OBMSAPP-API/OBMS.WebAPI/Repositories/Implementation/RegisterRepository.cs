@@ -46,6 +46,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 existingUser.IsAdmin = obmsuser.IsAdmin;
                 existingUser.Email = obmsuser.Email;
                 existingUser.ContactNo = obmsuser.ContactNo;
+                existingUser.Department = obmsuser.Department;
                 _dbContext.Obmsusers.Update(existingUser);
                 await _dbContext.SaveChangesAsync();
                 return existingUser;

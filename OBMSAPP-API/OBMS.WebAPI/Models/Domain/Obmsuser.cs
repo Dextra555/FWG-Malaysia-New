@@ -55,4 +55,12 @@ public partial class Obmsuser
     [StringLength(100)]
     [Unicode(false)]
     public string? ContactNo { get; set; }
+
+    /// <summary>
+    /// Organisational department for notification routing.
+    /// Allowed values: Purchase | Finance | HR | Operations | Other
+    /// Null = not assigned to any department.
+    /// </summary>
+    [StringLength(100)]
+    public string? Department { get; set; }
 }

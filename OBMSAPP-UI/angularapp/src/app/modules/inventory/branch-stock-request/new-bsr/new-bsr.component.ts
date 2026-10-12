@@ -12,6 +12,7 @@ import { MastermoduleService } from '../../../../service/mastermodule.service';
 import { DatasharingService } from '../../../../service/datasharing.service';
 import { UserAccessModel } from '../../../../model/userAccesModel';
 import { DialogConfirmationComponent } from '../../../../components/dialog-confirmation/dialog-confirmation.component';
+import { environment } from '../../../../../environments/environment';
 
 // â”€â”€ Custom validators (same pattern as new-stock-transfer) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function mustSelect(): ValidatorFn {
@@ -652,6 +653,16 @@ export class NewBSRComponent implements OnInit {
 
   onCancel(): void {
     this.route.navigate(['/inventory/branch-stock-request']);
+  }
+
+  onPrintPDF(): void {
+    const docID = this.ID || this.frm.get('ID')?.value;
+    if (!docID || +docID === 0) return;
+    const url = environment.baseReportUrl
+      + 'Inventory/BSRReport.aspx'
+      + '?LoginID=' + encodeURIComponent(this.currentUser)
+      + '&BSRID=' + encodeURIComponent(docID);
+    window.open(url, '_blank');
   }
 
   // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

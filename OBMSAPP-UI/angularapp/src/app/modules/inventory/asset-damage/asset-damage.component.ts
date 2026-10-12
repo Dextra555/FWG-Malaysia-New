@@ -9,6 +9,7 @@ import { InventoryService } from '../../../service/inventory.service';
 import { MastermoduleService } from '../../../service/mastermodule.service';
 import { DatasharingService } from '../../../service/datasharing.service';
 import { UserAccessModel } from '../../../model/userAccesModel';
+import { environment } from '../../../../environments/environment';
 
 function mustSelect(): ValidatorFn { return (c: AbstractControl) => (+c.value === 0 || !c.value) ? { mustSelect: true } : null; }
 
@@ -80,6 +81,13 @@ export class AssetDamageComponent implements OnInit, AfterViewInit {
   }
 
   cancelForm(): void { this.showForm = false; }
+
+  /** Open Asset Damage PDF for the given row. Read-only. */
+  onPrintPDF(row: any): void {
+    window.open(environment.baseReportUrl + 'Inventory/AssetDamageReport.aspx'
+      + '?LoginID=' + encodeURIComponent(this.currentUser)
+      + '&DamageID=' + encodeURIComponent(row.ID), '_blank');
+  }
   applyFilter(e: Event): void { this.filterValue = (e.target as HTMLInputElement).value; this.dataSource.filter = this.filterValue.trim().toLowerCase(); }
   announceSortChange(s: Sort): void { this._liveAnnouncer.announce(s.direction ? `Sorted ${s.direction}ending` : 'Sorting cleared'); }
 

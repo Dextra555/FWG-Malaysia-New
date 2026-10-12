@@ -9,6 +9,7 @@ import { MastermoduleService } from '../../../../service/mastermodule.service';
 import { DatasharingService } from '../../../../service/datasharing.service';
 import { DialogConfirmationComponent } from '../../../../components/dialog-confirmation/dialog-confirmation.component';
 import { UserAccessModel } from '../../../../model/userAccesModel';
+import { environment } from '../../../../../environments/environment';
 
 function mustSelect(): ValidatorFn {
   return (c: AbstractControl) => (!c.value || +c.value === 0) ? { mustSelect: true } : null;
@@ -54,6 +55,10 @@ export class NewPRComponent implements OnInit {
 
   // ── Linked PO (set after loadExisting when status = Approved) ─────────────
   linkedPO: any = null;   // holds PO info if a PO has already been created for this PR
+
+  // ── PR Processing Task (Purchase dept claim state) ───────────────────────
+  processingTask: any = null;    // null = no task yet (PR not approved / task not loaded)
+  claimLoading   = false;        // prevents double-click on Claim button
 
   userAccessModel!: UserAccessModel;
   currentUser      = '';
@@ -185,6 +190,9 @@ export class NewPRComponent implements OnInit {
             next: (po: any) => { this.linkedPO = (po && po.ID) ? po : null; },
             error: () => { this.linkedPO = null; }
           });
+
+          // Load the processing task (claim state) for this PR
+          this.loadProcessingTask(+this.ID);
         }
       },
       error: () => {
@@ -486,7 +494,70 @@ export class NewPRComponent implements OnInit {
     }
   }
 
+  // ── PR Processing Task helpers ───────────────────────────────────────────
+
+  /** Loads the claim/processing state for this PR. Called when status is Approved. */
+  private loadProcessingTask(prid: number): void {
+    this.service.getPRProcessingTaskByPR(prid).subscribe({
+      next:  (task: any) => { this.processingTask = task ?? null; },
+      // 404 = no task yet (PR approved but task not created — treat as Pending-like)
+      error: ()          => { this.processingTask = null; }
+    });
+  }
+
+  /**
+   * Sends a ClaimPR request to the backend.
+   * The backend enforces atomic ownership — only one user can claim per PR.
+   * On success: processingTask is refreshed from the server response.
+   * On conflict (409): a clear message is shown; processingTask is reloaded.
+   */
+  onClaimPR(): void {
+    if (this.claimLoading) return;
+    this.claimLoading = true;
+
+    this.service.claimPR(+this.ID).subscribe({
+      next: (res: any) => {
+        this.claimLoading = false;
+        this.showMsg(res?.message || 'PR claimed. You are now responsible for creating the Purchase Order.', 'success', 'Success Message');
+        // Reload from server so ClaimedBy is accurate
+        this.loadProcessingTask(+this.ID);
+      },
+      error: (err: any) => {
+        this.claimLoading = false;
+        // 409 Conflict = someone else already claimed it — reload task to show who
+        this.loadProcessingTask(+this.ID);
+        this.showMsg(this.extractMsg(err, 'Unable to claim this PR right now. Please try again.'), 'error', 'Error Message');
+      }
+    });
+  }
+
+  /** Returns true when the current user has already claimed this task. */
+  get isTaskClaimedByMe(): boolean {
+    return this.processingTask?.Status === 'Claimed' &&
+           this.processingTask?.ClaimedBy?.toLowerCase() === this.currentUser?.toLowerCase();
+  }
+
+  /** Returns true when the task is claimed by a different user. */
+  get isTaskClaimedByOther(): boolean {
+    return this.processingTask?.Status === 'Claimed' &&
+           this.processingTask?.ClaimedBy?.toLowerCase() !== this.currentUser?.toLowerCase();
+  }
+
+  /** Returns true when the task is still unclaimed. */
+  get isTaskPending(): boolean {
+    return this.processingTask?.Status === 'Pending';
+  }
+
   onCancel(): void { this.route.navigate(['/inventory/purchase-requisition']); }
+
+  onPrintPDF(): void {
+    if (!this.isEdit || !this.ID) return;
+    const url = environment.baseReportUrl
+      + 'Inventory/PRReport.aspx'
+      + '?LoginID=' + encodeURIComponent(this.currentUser)
+      + '&PRID=' + encodeURIComponent(this.ID);
+    window.open(url, '_blank');
+  }
 
   // ── Helpers ──────────────────────────────────────────────────────────────
   private extractMsg(err: any, fallback: string): string {

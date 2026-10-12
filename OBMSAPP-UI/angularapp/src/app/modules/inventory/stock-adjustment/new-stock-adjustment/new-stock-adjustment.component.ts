@@ -9,6 +9,7 @@ import { MastermoduleService } from '../../../../service/mastermodule.service';
 import { DatasharingService } from '../../../../service/datasharing.service';
 import { DialogConfirmationComponent } from '../../../../components/dialog-confirmation/dialog-confirmation.component';
 import { UserAccessModel } from '../../../../model/userAccesModel';
+import { environment } from '../../../../../environments/environment';
 
 function mustSelect(): ValidatorFn {
   return (c: AbstractControl) => (+c.value === 0 ? { mustSelect: true } : null);
@@ -377,6 +378,19 @@ export class NewStockAdjustmentComponent implements OnInit {
   }
 
   onCancelClick(): void { this.route.navigate(['/inventory/stock-adjustment']); }
+
+  /** Open the Stock Adjustment PDF in a new browser tab for printing or downloading.
+   *  Only callable when isEdit=true (existing saved document). Read-only — does not
+   *  modify any record, stock ledger, ADJ_PLUS/ADJ_MINUS entries, or balances. */
+  onPrintPDF(): void {
+    const docID = this.ID || this.frm.get('ID')?.value;
+    if (!docID || +docID === 0) return;
+    const url = environment.baseReportUrl
+      + 'Inventory/StockAdjustmentReport.aspx'
+      + '?LoginID='      + encodeURIComponent(this.currentUser)
+      + '&AdjustmentID=' + encodeURIComponent(docID);
+    window.open(url, '_blank');
+  }
 
   // ── Helpers ──────────────────────────────────────────────────────────────
   private buildPayload(raw: any) {

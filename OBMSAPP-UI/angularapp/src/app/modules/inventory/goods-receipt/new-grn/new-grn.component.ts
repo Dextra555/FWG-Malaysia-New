@@ -7,6 +7,7 @@ import { InventoryService } from '../../../../service/inventory.service';
 import { MastermoduleService } from '../../../../service/mastermodule.service';
 import { DatasharingService } from '../../../../service/datasharing.service';
 import { UserAccessModel } from '../../../../model/userAccesModel';
+import { environment } from '../../../../../environments/environment';
 
 @Component({ selector: 'app-new-grn', templateUrl: './new-grn.component.html', styleUrls: ['./new-grn.component.css'] })
 export class NewGRNComponent implements OnInit {
@@ -190,6 +191,15 @@ export class NewGRNComponent implements OnInit {
   }
 
   onCancel(): void { this.route.navigate(['/inventory/goods-receipt']); }
+
+  onPrintPDF(): void {
+    if (!this.isView || !this.ID) return;
+    const url = environment.baseReportUrl
+      + 'Inventory/GRNReport.aspx'
+      + '?LoginID=' + encodeURIComponent(this.currentUser)
+      + '&GRNID=' + encodeURIComponent(this.ID);
+    window.open(url, '_blank');
+  }
 
   formatDate(d: any): string { if (!d) return ''; return new Date(d).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' }); }
 

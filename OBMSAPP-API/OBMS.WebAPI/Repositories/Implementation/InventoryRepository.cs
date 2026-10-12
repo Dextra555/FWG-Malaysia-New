@@ -1576,6 +1576,19 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     "APPROVED", "PURCHASE_REQUISITION", pr.PRNumber, pr.ID,
                     pr.SubmittedBy, dto.ApprovedBy, dto.ApprovalRemarks);
 
+            // Notify all active Purchase-department users about this approval.
+            // The PR submitter (already notified above) is excluded to prevent
+            // a duplicate notification if they also belong to the Purchase department.
+            if (_notif != null)
+                await _notif.SendApprovalNotificationToDepartment(
+                    "APPROVED", "PURCHASE_REQUISITION", pr.PRNumber, pr.ID,
+                    "Purchase", dto.ApprovedBy, dto.ApprovalRemarks,
+                    excludeUsers: new[] { pr.SubmittedBy ?? string.Empty });
+
+            // Create a Pending processing task so Purchase dept users can claim and action this PR.
+            // Non-throwing — failure here must never roll back the approval.
+            await CreatePRProcessingTask(pr.ID, pr.PRNumber, dto.ApprovedBy);
+
             return (true, $"Purchase Requisition {pr.PRNumber} has been approved. You can now create a Purchase Order.");
         }
 
@@ -1654,6 +1667,138 @@ namespace OBMS.WebAPI.Repositories.Implementation
             return (true, "Purchase requisition removed successfully.");
         }
 
+        // ════════════════════════════════════════════════════════════════════════
+        // PART 3 — PR PROCESSING TASKS (Purchase department claim / inbox)
+        // ════════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Returns all active processing tasks (Pending or Claimed), newest first.
+        /// Used by the Purchase department inbox to show the work queue.
+        /// </summary>
+        public async Task<List<PRProcessingTask>> GetPRProcessingTasks()
+        {
+            return await _oBMSDbContext.PRProcessingTasks
+                .Where(t => t.Status == "Pending" || t.Status == "Claimed")
+                .OrderByDescending(t => t.CreatedDate)
+                .ToListAsync();
+        }
+
+        /// <summary>
+        /// Returns the processing task for a single PR, or null if none exists.
+        /// Called by the PR form on load to display claim state.
+        /// </summary>
+        public async Task<PRProcessingTask?> GetPRProcessingTaskByPR(int prid)
+        {
+            return await _oBMSDbContext.PRProcessingTasks
+                .FirstOrDefaultAsync(t => t.PRID == prid);
+        }
+
+        /// <summary>
+        /// Atomically claims an unclaimed (Pending) task for the given user.
+        ///
+        /// Uses a conditional UPDATE WHERE Status='Pending' so that two concurrent
+        /// callers can never both succeed — the second UPDATE lands 0 rows and returns
+        /// an error explaining who claimed it first.
+        /// </summary>
+        public async Task<(bool Success, string Message)> ClaimPR(int prid, string claimedBy)
+        {
+            if (string.IsNullOrWhiteSpace(claimedBy))
+                return (false, "Unable to identify the current user. Please log in again.");
+
+            // Conditional UPDATE — only succeeds if the task is still Pending
+            int rowsUpdated = await _oBMSDbContext.PRProcessingTasks
+                .Where(t => t.PRID == prid && t.Status == "Pending")
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(t => t.Status,        "Claimed")
+                    .SetProperty(t => t.ClaimedBy,     claimedBy)
+                    .SetProperty(t => t.ClaimedDate,   DateTime.Now)
+                    .SetProperty(t => t.LASTUPDATE,    DateTime.Now)
+                    .SetProperty(t => t.LastUpdatedBy, claimedBy));
+
+            if (rowsUpdated > 0)
+                return (true, "PR claimed successfully. You are now responsible for creating the Purchase Order.");
+
+            // Update landed 0 rows — check why so we can return a useful message
+            var task = await _oBMSDbContext.PRProcessingTasks
+                .FirstOrDefaultAsync(t => t.PRID == prid);
+
+            if (task == null)
+                return (false, "No processing task found for this purchase requisition. It may not have been approved yet.");
+
+            return task.Status switch
+            {
+                "Claimed"   => (false, $"This PR has already been claimed by {task.ClaimedBy}."),
+                "Completed" => (false, "This PR has already been processed and a Purchase Order has been created."),
+                _           => (false, "This PR cannot be claimed in its current state.")
+            };
+        }
+
+        /// <summary>
+        /// Creates a Pending processing task when a PR is approved.
+        /// Non-throwing — a failure here must never roll back the approval transaction.
+        /// Idempotent: if a task already exists for this PRID, the method exits silently.
+        /// </summary>
+        private async Task CreatePRProcessingTask(int prid, string prNumber, string createdBy)
+        {
+            try
+            {
+                // Idempotency guard: don't create a second task if one already exists
+                bool exists = await _oBMSDbContext.PRProcessingTasks
+                    .AnyAsync(t => t.PRID == prid);
+                if (exists) return;
+
+                _oBMSDbContext.PRProcessingTasks.Add(new PRProcessingTask
+                {
+                    PRID        = prid,
+                    PRNumber    = prNumber,
+                    Status      = "Pending",
+                    CreatedDate = DateTime.Now,
+                    CreatedBy   = createdBy,
+                    LASTUPDATE  = DateTime.Now,
+                    LastUpdatedBy = createdBy
+                });
+                await _oBMSDbContext.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(
+                    $"[CreatePRProcessingTask] PR {prNumber} (PRID={prid}) — " +
+                    $"The approval was successful; the task row should be recreated manually " +
+                    $"or will appear on the next retry. Error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Marks a processing task Completed when a PO is successfully created.
+        /// Non-throwing — a failure here must never roll back the PO save transaction.
+        /// </summary>
+        private async Task CompletePRProcessingTask(int prid, string completedBy, string poNumber)
+        {
+            try
+            {
+                int rows = await _oBMSDbContext.PRProcessingTasks
+                    .Where(t => t.PRID == prid && t.Status != "Completed")
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(t => t.Status,        "Completed")
+                        .SetProperty(t => t.CompletedBy,   completedBy)
+                        .SetProperty(t => t.CompletedDate, DateTime.Now)
+                        .SetProperty(t => t.PONumber,      poNumber)
+                        .SetProperty(t => t.LASTUPDATE,    DateTime.Now)
+                        .SetProperty(t => t.LastUpdatedBy, completedBy));
+
+                if (rows == 0)
+                    Console.Error.WriteLine(
+                        $"[CompletePRProcessingTask] No Pending/Claimed task found for " +
+                        $"PRID={prid} (PO={poNumber}). The task may not exist or was already Completed.");
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(
+                    $"[CompletePRProcessingTask] PRID={prid} PO={poNumber} — " +
+                    $"The PO was saved successfully; the task can be marked complete manually. " +
+                    $"Error: {ex.Message}");
+            }
+        }
 
         // ════════════════════════════════════════════════════════════════════════
         // PART 3 — PURCHASE ORDER
@@ -1944,6 +2089,12 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 catch { await tx.RollbackAsync(); throw; }
             });
 
+            // When a new PO is created for an existing PR, mark the processing task Completed.
+            // Runs after the transaction commits so savedRecord is guaranteed populated.
+            // Non-throwing — a failure here must never undo the PO save.
+            if (dto.ID == 0 && dto.PRID.HasValue && dto.PRID > 0 && savedRecord != null)
+                await CompletePRProcessingTask(dto.PRID.Value, dto.LastUpdatedBy ?? "", poNumber);
+
             return (true, dto.ID == 0 ? $"Purchase Order {poNumber} saved successfully." : "Purchase order updated successfully.", savedRecord);
         }
 
@@ -1996,6 +2147,13 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 await _notif.SendApprovalNotification(
                     "APPROVED", "PURCHASE_ORDER", po.PONumber, po.ID,
                     po.SubmittedBy, dto.ApprovedBy, null);
+
+            // Notify Purchase department — approved PO enables GRN; Purchase team should be aware
+            if (_notif != null)
+                await _notif.SendApprovalNotificationToDepartment(
+                    "APPROVED", "PURCHASE_ORDER", po.PONumber, po.ID,
+                    "Purchase", dto.ApprovedBy, null,
+                    excludeUsers: new[] { po.SubmittedBy ?? string.Empty });
 
             return (true, $"Purchase Order {po.PONumber} has been approved. Goods can now be received against this order.");
         }
@@ -2368,6 +2526,36 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     _oBMSDbContext.PurchaseOrders.Update(po);
                     await _oBMSDbContext.SaveChangesAsync();
 
+                    // ── Create CreditorInvoice row so this GRN appears in vwPaymentDue ──
+                    // Get branch code via Warehouse → BranchMaster
+                    var warehouse = await _oBMSDbContext.WarehouseMasters
+                        .Include(w => w.Branch)
+                        .FirstOrDefaultAsync(w => w.ID == dto.WarehouseID);
+                    string branchCode = warehouse?.Branch?.Code ?? "";
+
+                    // GRN total = sum of (ReceivedQty × UnitCost) across all received lines
+                    decimal grnTotal = linesWithQty.Sum(l => l.ReceivedQty * l.UnitCost);
+
+                    // Payment due date: use SupplierInvoiceNo as InvoiceNo; due date = GRNDate
+                    _oBMSDbContext.CreditorInvoices.Add(new CreditorInvoice
+                    {
+                        Branch        = branchCode,
+                        Supplier      = po.SupplierID,
+                        RecID         = grn.ID,                         // link back to GRN
+                        InvoiceNo     = string.IsNullOrWhiteSpace(dto.SupplierInvoiceNo)
+                                            ? grnNumber
+                                            : dto.SupplierInvoiceNo,
+                        InvoiceType   = "G",                            // G = GRN (already handled by view)
+                        InvoiceDate   = dto.GRNDate,
+                        Total         = grnTotal,
+                        PaymentDate   = dto.GRNDate,                    // due date = GRN date
+                        LASTUPDATE    = DateTime.Now,
+                        LastUpdatedBy = dto.LastUpdatedBy ?? "",
+                        ItemCategory  = null,
+                        IsDeleted     = false
+                    });
+                    await _oBMSDbContext.SaveChangesAsync();
+
                     await tx.CommitAsync();
                     savedRecord = grn;
 
@@ -2513,7 +2701,21 @@ namespace OBMS.WebAPI.Repositories.Implementation
                         _oBMSDbContext.PurchaseOrders.Update(po);
                     }
 
-                    // 4. Soft-delete GRN
+                    // 4. Soft-delete linked CreditorInvoice row (InvoiceType='G', RecID=GRN.ID)
+                    //    so it disappears from vwPaymentDue
+                    var linkedCI = await _oBMSDbContext.CreditorInvoices
+                        .FirstOrDefaultAsync(ci => ci.InvoiceType == "G"
+                                                && ci.RecID       == id
+                                                && ci.IsDeleted   == false);
+                    if (linkedCI != null)
+                    {
+                        linkedCI.IsDeleted     = true;
+                        linkedCI.LASTUPDATE    = DateTime.Now;
+                        linkedCI.LastUpdatedBy = currentUser;
+                        _oBMSDbContext.CreditorInvoices.Update(linkedCI);
+                    }
+
+                    // 5. Soft-delete GRN
                     grn.IsActive      = false;
                     grn.LASTUPDATE    = DateTime.Now;
                     grn.LastUpdatedBy = currentUser;
@@ -3878,6 +4080,13 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 await _notif.SendApprovalNotification(
                     "APPROVED", "STOCK_ADJUSTMENT", adj.AdjustmentNo, adj.ID,
                     adj.SubmittedBy, dto.ApprovedBy, dto.ApprovalRemarks);
+
+            // Notify Purchase department — stock level has changed, Purchase team should be aware
+            if (_notif != null)
+                await _notif.SendApprovalNotificationToDepartment(
+                    "APPROVED", "STOCK_ADJUSTMENT", adj.AdjustmentNo, adj.ID,
+                    "Purchase", dto.ApprovedBy, dto.ApprovalRemarks,
+                    excludeUsers: new[] { adj.SubmittedBy ?? string.Empty });
 
             return (true, $"Stock Adjustment {adj.AdjustmentNo} has been approved. Stock has been updated.");
         }
@@ -5710,6 +5919,13 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     "APPROVED", "ASSET_DISPOSAL", disp.DisposalNo, disp.ID,
                     disp.SubmittedBy, dto.ApprovedBy, dto.ApprovalRemarks);
 
+            // Notify Purchase department — asset has been disposed and inventory records should be reconciled
+            if (_notif != null)
+                await _notif.SendApprovalNotificationToDepartment(
+                    "APPROVED", "ASSET_DISPOSAL", disp.DisposalNo, disp.ID,
+                    "Purchase", dto.ApprovedBy, dto.ApprovalRemarks,
+                    excludeUsers: new[] { disp.SubmittedBy ?? string.Empty });
+
             var asset = await _oBMSDbContext.AssetMasters.FindAsync(disp.AssetID);
             return (true, $"Asset disposal {disp.DisposalNo} approved. Asset {asset?.AssetCode} has been disposed.");
         }
@@ -6297,6 +6513,13 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 await _notif.SendApprovalNotification(
                     "APPROVED", "BRANCH_STOCK_REQUEST", sr.RequestNo, sr.ID,
                     sr.SubmittedBy, dto.ApprovedBy, dto.ApprovalRemarks);
+
+            // Notify Purchase department — they need to prepare and dispatch the stock transfer
+            if (_notif != null)
+                await _notif.SendApprovalNotificationToDepartment(
+                    "APPROVED", "BRANCH_STOCK_REQUEST", sr.RequestNo, sr.ID,
+                    "Purchase", dto.ApprovedBy, dto.ApprovalRemarks,
+                    excludeUsers: new[] { sr.SubmittedBy ?? string.Empty });
 
             return (true,
                 $"Stock Request {sr.RequestNo} has been approved. " +

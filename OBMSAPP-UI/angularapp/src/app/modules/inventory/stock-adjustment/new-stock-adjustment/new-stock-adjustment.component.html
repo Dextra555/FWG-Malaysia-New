@@ -212,6 +212,15 @@
               {{isEdit ? 'Back' : 'Cancel'}}
             </button>
 
+            <!-- Print PDF — only for an existing saved Stock Adjustment -->
+            <button *ngIf="isEdit"
+              type="button" class="btn btn-secondary mr-2"
+              matTooltip="Open PDF in a new tab — print or download from there"
+              (click)="onPrintPDF()">
+              <mat-icon style="vertical-align:middle;font-size:18px">print</mat-icon>
+              Print PDF
+            </button>
+
             <!-- Save Draft — new form or existing Draft -->
             <button *ngIf="canEdit() && (userAccessModel.createAccess || userAccessModel.updateAccess || userRole === 'superadmin')"
               type="button" class="btn wlt-c-furg-btn-primary mr-2"

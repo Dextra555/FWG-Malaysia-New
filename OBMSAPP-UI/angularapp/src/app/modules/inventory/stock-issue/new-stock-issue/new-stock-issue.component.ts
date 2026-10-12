@@ -8,6 +8,7 @@ import { InventoryService } from '../../../../service/inventory.service';
 import { DatasharingService } from '../../../../service/datasharing.service';
 import { MastermoduleService } from '../../../../service/mastermodule.service';
 import { UserAccessModel } from '../../../../model/userAccesModel';
+import { environment } from '../../../../../environments/environment';
 
 /** Validator: value must be > 0 */
 function greaterThanZero(): ValidatorFn {
@@ -431,6 +432,21 @@ export class NewStockIssueComponent implements OnInit {
   }
 
   onCancelClick(): void { this.route.navigate(['/inventory/stock-issue']); }
+
+  /** Open the Stock Issue PDF in a new browser tab for printing or downloading.
+   *  Only callable in view mode (existing saved document). Read-only — does not
+   *  modify any record, stock ledger, or salary deduction. */
+  onPrintPDF(): void {
+    // Guard: this.ID is the route param; frm.get('ID') holds the DB id after patchValue.
+    // Both are the same value when isViewMode is true — use this.ID as primary.
+    const docID = this.ID || this.frm.get('ID')?.value;
+    if (!docID || +docID === 0) return;
+    const url = environment.baseReportUrl
+      + 'Inventory/StockIssueReport.aspx'
+      + '?LoginID='    + encodeURIComponent(this.currentUser)
+      + '&IssueDocID=' + encodeURIComponent(docID);
+    window.open(url, '_blank');
+  }
 
   private extractErrorMessage(err: any, fallback: string): string {
     if (err && typeof err === 'string') return err;

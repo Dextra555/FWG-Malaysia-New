@@ -1124,31 +1124,18 @@ namespace OBMS.WebAPI.Controllers
                 var grnIDs = grnTotals.Select(g => g.ID).ToList();
 
                 // 2. Compute already-paid amounts per GRN (across ALL non-deleted payments)
-                //    Exclude the current payment from "already paid" so the user sees the
-                //    correct remaining balance for the payment being edited.
+                //    Include the current payment so PaidAmount reflects the true total paid so far.
                 var paidPerGRN = await _oBMSDbContext.BranchPaymentDetails
                     .Where(d => d.GRNID != null
                              && grnIDs.Contains(d.GRNID.Value)
-                             && d.IsDeleted == false
-                             && (paymentId == 0 || d.PaymentID != paymentId))
+                             && d.IsDeleted == false)
                     .GroupBy(d => d.GRNID!.Value)
                     .Select(g => new { GRNID = g.Key, Paid = g.Sum(d => d.Amount) })
                     .ToListAsync();
 
                 var paidLookup = paidPerGRN.ToDictionary(x => x.GRNID, x => x.Paid);
 
-                // 3. Amount already entered for THIS payment (used in edit mode)
-                var thisPaymentAmounts = paymentId > 0
-                    ? await _oBMSDbContext.BranchPaymentDetails
-                          .Where(d => d.GRNID != null
-                                   && grnIDs.Contains(d.GRNID.Value)
-                                   && d.PaymentID == paymentId
-                                   && d.IsDeleted == false)
-                          .Select(g => new { g.ID, g.GRNID, g.Amount })
-                          .ToListAsync()
-                    : new List<dynamic>().Cast<dynamic>().Select(x => new { ID = 0, GRNID = (int?)0, Amount = 0m }).ToList();
-
-                // rewrite above without dynamic — use a concrete anon type list
+                // 3. Amount already entered for THIS payment (used in edit mode to populate Amount field)
                 var thisPaymentLookup = paymentId > 0
                     ? (await _oBMSDbContext.BranchPaymentDetails
                           .Where(d => d.GRNID != null
@@ -1169,8 +1156,10 @@ namespace OBMS.WebAPI.Controllers
 
                     bool linkedToThisPayment = paymentId > 0 && thisPaymentLookup.ContainsKey(g.ID);
 
-                    // Skip fully-paid GRNs that are not part of the current payment (edit mode)
-                    if (balance <= 0 && !linkedToThisPayment) continue;
+                    // Edit mode  (paymentId > 0): show ONLY GRNs saved under this payment.
+                    // New mode   (paymentId = 0): show all GRNs that still have a balance.
+                    if (paymentId > 0 && !linkedToThisPayment) continue;
+                    if (paymentId == 0 && balance <= 0) continue;
 
                     var thisDetail = linkedToThisPayment ? thisPaymentLookup[g.ID] : new { ID = 0, Amount = 0m };
 
@@ -1238,6 +1227,7 @@ namespace OBMS.WebAPI.Controllers
                         ) P ON P.InvoiceID = CI.ID
                         WHERE OB.Name = @UserID
                             AND CI.IsDeleted = 0
+                            AND ISNULL(CI.InvoiceType, '') <> 'G'
                           AND (
                                 @PaymentID <> 0
                                 OR CI.Total - ISNULL(P.PaidAmount,0) > 0
@@ -1296,6 +1286,7 @@ namespace OBMS.WebAPI.Controllers
                     WHERE OB.Name = @UserID             
                       AND CI.IsDeleted = 0
                       AND CI.Supplier = @Supplier
+                      AND ISNULL(CI.InvoiceType, '') <> 'G'
                       AND (
                             @PaymentID <> 0               
                             OR CI.Total - ISNULL(P.PaidAmount,0) > 0 
@@ -2413,6 +2404,24 @@ namespace OBMS.WebAPI.Controllers
                 detail.LastUpdatedBy = request.CurrentUser;
 
                 _oBMSDbContext.BranchPaymentDetails.Update(detail);
+
+                // If this payment line was against a GRN, restore the linked
+                // CreditorInvoice row so it reappears in vwPaymentDue
+                if (detail.GRNID != null && detail.GRNID > 0)
+                {
+                    var linkedCI = await _oBMSDbContext.CreditorInvoices
+                        .FirstOrDefaultAsync(ci => ci.InvoiceType == "G"
+                                                && ci.RecID       == detail.GRNID
+                                                && ci.IsDeleted   == true);
+                    if (linkedCI != null)
+                    {
+                        linkedCI.IsDeleted     = false;
+                        linkedCI.LASTUPDATE    = DateTime.Now;
+                        linkedCI.LastUpdatedBy = request.CurrentUser;
+                        _oBMSDbContext.CreditorInvoices.Update(linkedCI);
+                    }
+                }
+
                 await _oBMSDbContext.SaveChangesAsync();
 
                 return Ok(new { message = "Payment line deleted successfully." });

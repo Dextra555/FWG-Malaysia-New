@@ -256,6 +256,15 @@
           <button type="button" class="btn wlt-c-furg-btn-gray mr-2" (click)="onCancel()">
             {{ isView ? 'Back' : 'Cancel' }}
           </button>
+
+          <!-- Print PDF — only for a saved GRN (view mode) -->
+          <button *ngIf="isView"
+            type="button" class="btn btn-secondary mr-2"
+            matTooltip="Open PDF in a new tab — then print or download"
+            (click)="onPrintPDF()">
+            <mat-icon style="vertical-align:middle;font-size:18px">print</mat-icon>
+            Print PDF
+          </button>
           <button *ngIf="!isView && (userAccessModel.createAccess || currentUser === 'superadmin')"
             type="button"
             class="btn wlt-c-furg-btn-primary"

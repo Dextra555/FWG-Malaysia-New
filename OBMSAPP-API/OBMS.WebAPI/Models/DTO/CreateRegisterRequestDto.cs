@@ -33,5 +33,8 @@ namespace OBMS.WebAPI.Models.DTO
         public string? Email { get; set; }
        
         public string? ContactNo { get; set; }
+
+        /// <summary>Organisational department (Purchase | Finance | HR | Operations | Other).</summary>
+        public string? Department { get; set; }
     }
 }

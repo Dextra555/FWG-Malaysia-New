@@ -340,6 +340,15 @@
               {{isViewMode ? 'Back' : 'Cancel'}}
             </button>
 
+            <!-- Print PDF — only for a saved document (any status) -->
+            <button *ngIf="isViewMode || isEditMode"
+              type="button" class="btn btn-secondary mr-2"
+              matTooltip="Open PDF in a new tab — then print or download"
+              (click)="onPrintPDF()">
+              <mat-icon style="font-size:18px; vertical-align:middle">print</mat-icon>
+              Print PDF
+            </button>
+
             <!-- New / Draft: Save Draft -->
             <button type="button"
               *ngIf="canSave() && (userAccessModel.createAccess || userAccessModel.updateAccess || userRole === 'superadmin')"

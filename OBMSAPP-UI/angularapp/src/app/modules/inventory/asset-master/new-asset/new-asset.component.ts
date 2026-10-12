@@ -8,6 +8,7 @@ import { InventoryService } from '../../../../service/inventory.service';
 import { MastermoduleService } from '../../../../service/mastermodule.service';
 import { DatasharingService } from '../../../../service/datasharing.service';
 import { UserAccessModel } from '../../../../model/userAccesModel';
+import { environment } from '../../../../../environments/environment';
 
 @Component({
   selector: 'app-new-asset',
@@ -164,6 +165,17 @@ export class NewAssetComponent implements OnInit {
   }
 
   onCancelClick(): void { this.route.navigate(['/inventory/asset-master']); }
+
+  /** Open the Asset Master PDF in a new tab. Read-only — does not modify any record. */
+  onPrintPDF(): void {
+    const docID = this.ID || this.frm.get('ID')?.value;
+    if (!docID || +docID === 0) return;
+    window.open(
+      environment.baseReportUrl + 'Inventory/AssetMasterReport.aspx'
+      + '?LoginID=' + encodeURIComponent(this.currentUser)
+      + '&AssetID=' + encodeURIComponent(docID),
+      '_blank');
+  }
 
   private extractErrorMessage(err: any, fallback: string): string {
     if (err && typeof err === 'string') return err;

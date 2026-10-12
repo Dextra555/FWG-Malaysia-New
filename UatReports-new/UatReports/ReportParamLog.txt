@@ -40,3 +40,6 @@
 [2026-10-07 20:57:20] ERROR in BuildPdf: Could not load file or assembly 'BouncyCastle.Crypto, Version=1.8.9.0, Culture=neutral, PublicKeyToken=0e99375e54769942' or one of its dependencies. The system cannot find the file specified.
 [2026-10-07 20:59:14] ERROR in BuildPdf: Could not load file or assembly 'BouncyCastle.Crypto, Version=1.8.9.0, Culture=neutral, PublicKeyToken=0e99375e54769942' or one of its dependencies. The system cannot find the file specified.
 [2026-10-07 20:59:35] ERROR in BuildPdf: Could not load file or assembly 'BouncyCastle.Crypto, Version=1.8.9.0, Culture=neutral, PublicKeyToken=0e99375e54769942' or one of its dependencies. The system cannot find the file specified.
+[2026-10-10 08:58:51] ERROR in sp_Report_StockIssue: Could not find stored procedure 'sp_Report_StockIssue'.
+[2026-10-10 09:37:03] ERROR in sp_Report_StockIssueReturn: Could not find stored procedure 'sp_Report_StockIssueReturn'.
+[2026-10-10 09:52:31] ERROR in sp_Report_StockTransfer: Could not find stored procedure 'sp_Report_StockTransfer'.

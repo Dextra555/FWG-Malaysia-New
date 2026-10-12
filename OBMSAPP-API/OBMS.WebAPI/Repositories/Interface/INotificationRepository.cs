@@ -43,6 +43,24 @@ namespace OBMS.WebAPI.Repositories.Interface
             string? actionBy = null,
             string? comments = null);
 
+        /// <summary>
+        /// Send an approval-event notification to every active user who belongs to
+        /// <paramref name="departmentName"/>, skipping any username listed in
+        /// <paramref name="excludeUsers"/> (e.g. the PR submitter who already received
+        /// a direct notification) and deduplicating so the same user never receives
+        /// the same notification twice for the same document.
+        /// Non-throwing — a failure never rolls back the caller's transaction.
+        /// </summary>
+        Task SendApprovalNotificationToDepartment(
+            string   notificationType,
+            string   documentType,
+            string   documentNumber,
+            int      documentID,
+            string   departmentName,
+            string?  actionBy     = null,
+            string?  comments     = null,
+            string[]? excludeUsers = null);
+
         // ── Low-stock check ──────────────────────────────────────────────────
 
         /// <summary>

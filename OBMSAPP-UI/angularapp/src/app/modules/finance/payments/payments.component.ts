@@ -324,7 +324,9 @@ export class PaymentsComponent implements AfterViewInit {
   addGRNPaymentRow(g: IGRNPaymentRow): void {
     const total   = Number(g.TotalAmount.toFixed(2));
     const paid    = Number(g.PaidAmount.toFixed(2));
-    const balance = Number(g.Balance.toFixed(2));
+    // Recalculate balance the same way Expenses does: Total - PaidAmount
+    // (same formula as addSupplierInvoiceAmount)
+    const balance = Number((total - paid).toFixed(2));
     const amount  = this.paymentID === 0 ? null : Number(g.Amount.toFixed(2));
 
     const row = this.fb.group({
@@ -596,8 +598,13 @@ export class PaymentsComponent implements AfterViewInit {
     });
 
     // Category Type = Purchase (P) → switch to GRN mode automatically
-    // Category Type = Expenses (U) → switch back to Invoice mode
+    //   AND force CreditorType = Suppliers so the GRN table section becomes visible.
+    // Category Type = Expenses (U) → switch back to Invoice mode (leave CreditorType as-is).
     if (value === 'P') {
+      // Automatically switch to "Suppliers" creditor type so the supplier dropdown
+      // and GRN table are shown (isSupplierEnable = true).
+      this.frm.get('CreditorType')?.setValue('1');
+      this.creditorChange('1');
       this.refTypeChange('G');
     } else {
       this.refTypeChange('I');
@@ -789,7 +796,8 @@ export class PaymentsComponent implements AfterViewInit {
       this._financeService.getGRNsForPayment(value, paymentId).subscribe((grns: IGRNPaymentRow[]) => {
         this.showDataSourceTable = grns?.length > 0;
         (grns || []).forEach(g => this.addGRNPaymentRow(g));
-        this.showAddInvoiceBtn = false;   // GRN list is always the complete set
+        // Edit mode: show "Add More GRNs" button so user can add unpaid GRNs not yet in this payment
+        this.showAddInvoiceBtn = paymentId > 0;
         const sel = this.supplierList.find((x: any) => x.Id == value);
         if (sel) {
           this.frm.get("PaymentTo")?.setValue(sel.Name);
@@ -860,6 +868,40 @@ export class PaymentsComponent implements AfterViewInit {
     const supplierValue = this.frm.get('Supplier')?.value;
     if (!supplierValue) return;
 
+    // ── GRN mode: load all pending GRNs and merge new ones ────────────────
+    if (this.paymentRefType === 'G') {
+      // Collect GRNID values already shown in the table
+      const existingGrnIds = new Set<number>(
+        this.supplierRows.controls
+          .map((ctrl) => ctrl.get('GRNID')?.value)
+          .filter((id) => !!id)
+      );
+
+      // paymentId=0 → API returns all pending (balance>0) GRNs for this supplier
+      this._financeService.getGRNsForPayment(supplierValue, 0).subscribe((grns: IGRNPaymentRow[]) => {
+        let addedCount = 0;
+        (grns || []).forEach((g: IGRNPaymentRow) => {
+          if (!existingGrnIds.has(g.GRNID)) {
+            // New row — amount starts at null so user must enter it
+            g.Amount = 0;
+            g.PaymentDetailID = 0;
+            g.PaymentID = 0;
+            this.addGRNPaymentRow(g);
+            existingGrnIds.add(g.GRNID);
+            addedCount++;
+          }
+        });
+
+        if (addedCount > 0) {
+          this.showDataSourceTable = true;
+        } else {
+          this.showMessage('No additional outstanding GRNs found for this supplier.', 'info', 'Warning Message');
+        }
+      });
+      return;
+    }
+
+    // ── Invoice mode (Expenses): original logic unchanged ─────────────────
     // Collect invoice IDs already in the table
     const existingInvoiceIds = new Set<string>(
       this.supplierRows.controls.map((ctrl) => ctrl.get('InvoiceID')?.value?.toString())
@@ -894,10 +936,11 @@ export class PaymentsComponent implements AfterViewInit {
   removeInvoiceLine(index: number): void {
     const row = this.supplierRows.at(index);
     const lineId = row?.get('ID')?.value;
-    const invoiceNo = row?.get('InvoiceNo')?.value || 'this invoice line';
+    const invoiceNo = row?.get('InvoiceNo')?.value || 'this line';
+    const isGRN = this.paymentRefType === 'G';
 
     Swal.fire({
-      title: 'Remove Invoice Line?',
+      title: isGRN ? 'Remove GRN Line?' : 'Remove Invoice Line?',
       text: `Are you sure you want to remove ${invoiceNo}?`,
       icon: 'warning',
       showCancelButton: true,

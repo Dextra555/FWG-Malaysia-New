@@ -9,6 +9,7 @@ import { MastermoduleService } from '../../../../service/mastermodule.service';
 import { DatasharingService } from '../../../../service/datasharing.service';
 import { DialogConfirmationComponent } from '../../../../components/dialog-confirmation/dialog-confirmation.component';
 import { UserAccessModel } from '../../../../model/userAccesModel';
+import { environment } from '../../../../../environments/environment';
 
 function mustSelect(): ValidatorFn {
   return (c: AbstractControl) => (!c.value || +c.value === 0) ? { mustSelect: true } : null;
@@ -660,6 +661,15 @@ export class NewPOComponent implements OnInit {
   }
 
   onCancel(): void { this.route.navigate(['/inventory/purchase-order']); }
+
+  onPrintPDF(): void {
+    if (!this.isEdit || !this.ID) return;
+    const url = environment.baseReportUrl
+      + 'Inventory/POReport.aspx'
+      + '?LoginID=' + encodeURIComponent(this.currentUser)
+      + '&POID=' + encodeURIComponent(this.ID);
+    window.open(url, '_blank');
+  }
 
   formatAmount(v: number): string {
     return (v || 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });

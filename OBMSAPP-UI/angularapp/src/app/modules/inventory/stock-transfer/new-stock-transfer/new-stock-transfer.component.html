@@ -161,6 +161,16 @@
         <div class="col-12">
           <div class="text-right">
             <button type="button" class="btn wlt-c-furg-btn-gray mr-3" (click)="onCancelClick()">{{isViewMode ? 'Back' : 'Cancel'}}</button>
+
+            <!-- Print PDF — only for an existing saved Stock Transfer (view mode) -->
+            <button *ngIf="isViewMode"
+              type="button" class="btn btn-secondary mr-3"
+              matTooltip="Open PDF in a new tab — print or download from there"
+              (click)="onPrintPDF()">
+              <mat-icon style="vertical-align:middle; font-size:18px;">print</mat-icon>
+              Print PDF
+            </button>
+
             <button *ngIf="!isViewMode && (userAccessModel.createAccess || currentUser === 'superadmin')"
               type="submit" class="btn wlt-c-furg-btn-primary" [disabled]="showLoadingSpinner">Save Transfer</button>
           </div>

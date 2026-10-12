@@ -172,6 +172,9 @@
         </ng-container>
         <ng-container matColumnDef="action" stickyEnd><th mat-header-cell *matHeaderCellDef style="text-align:center;width:90px">Action</th>
           <td mat-cell *matCellDef="let r" style="text-align:center">
+            <a style="cursor:pointer" class="wlt-c-furg-text-gray mr-2" matTooltip="Print PDF" (click)="onPrintPDF(r)">
+              <mat-icon>print</mat-icon>
+            </a>
             <a *ngIf="r.IsActive && (userAccessModel.deleteAccess || currentUser === 'superadmin')"
                style="cursor:pointer" class="wlt-c-furg-text-warning" matTooltip="Cancel Allocation" (click)="cancelAllocation(r)">
               <mat-icon>cancel</mat-icon>

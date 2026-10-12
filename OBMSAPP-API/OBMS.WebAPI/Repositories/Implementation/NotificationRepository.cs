@@ -263,6 +263,105 @@ namespace OBMS.WebAPI.Repositories.Implementation
         }
 
         // ════════════════════════════════════════════════════════════════════
+        // DEPARTMENT APPROVAL NOTIFICATIONS
+        // ════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Notifies every active, non-deleted user whose Department matches
+        /// <paramref name="departmentName"/> about an approval event.
+        ///
+        /// Deduplication: a notification is skipped for a given user if an active
+        /// AppNotification already exists for the same NotificationType +
+        /// ReferenceType + ReferenceID + RecipientUser combination.
+        /// This means re-running (e.g. from a retry) never creates duplicates.
+        ///
+        /// Exclusion: any username present in <paramref name="excludeUsers"/> is
+        /// silently skipped — typically the PR submitter who already received a
+        /// direct "APPROVED" notification via SendApprovalNotification.
+        ///
+        /// Non-throwing: all exceptions are caught and logged so the caller's
+        /// database transaction is never affected.
+        /// </summary>
+        public async Task SendApprovalNotificationToDepartment(
+            string    notificationType,
+            string    documentType,
+            string    documentNumber,
+            int       documentID,
+            string    departmentName,
+            string?   actionBy     = null,
+            string?   comments     = null,
+            string[]? excludeUsers = null)
+        {
+            try
+            {
+                // Resolve recipients: active users in the target department
+                var recipients = await _db.Obmsusers
+                    .Where(u => !u.IsDeleted
+                             && u.Department != null
+                             && u.Department == departmentName)
+                    .Select(u => u.Name)
+                    .ToListAsync();
+
+                if (recipients.Count == 0) return;
+
+                // Normalise exclusion list for case-insensitive comparison
+                var excluded = excludeUsers?
+                    .Where(e => !string.IsNullOrWhiteSpace(e))
+                    .Select(e => e.Trim())
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase)
+                    ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                // Build title/message once — same text for all recipients
+                string docDisplay = FriendlyDocType(documentType);
+                string title;
+                string message;
+
+                switch (notificationType)
+                {
+                    case "APPROVED":
+                        title   = $"{docDisplay} Approved";
+                        message = $"{docDisplay} {documentNumber} has been approved."
+                                + (actionBy != null ? $" Approved by: {actionBy}." : "")
+                                + (!string.IsNullOrEmpty(comments) ? $" Remarks: {comments}" : "");
+                        break;
+
+                    default:
+                        title   = $"{docDisplay} Status Update";
+                        message = $"{docDisplay} {documentNumber} status changed.";
+                        break;
+                }
+
+                foreach (var username in recipients)
+                {
+                    // Skip explicitly excluded users (e.g. the PR submitter)
+                    if (excluded.Contains(username)) continue;
+
+                    // Deduplication: skip if an active notification for this
+                    // exact document + type + recipient already exists
+                    bool alreadySent = await _db.AppNotifications
+                        .AnyAsync(n =>
+                            n.NotificationType == notificationType &&
+                            n.ReferenceType    == documentType &&
+                            n.ReferenceID      == documentID &&
+                            n.RecipientUser    == username &&
+                            n.IsActive);
+
+                    if (alreadySent) continue;
+
+                    await CreateNotification(
+                        notificationType, title, message, username,
+                        documentType, documentID, documentNumber, actionBy);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "SendApprovalNotificationToDepartment failed for {Doc} department={Dept}.",
+                    documentNumber, departmentName);
+            }
+        }
+
+        // ════════════════════════════════════════════════════════════════════
         // LOW STOCK CHECK — uses StockLedger as authoritative source
         // ════════════════════════════════════════════════════════════════════
 

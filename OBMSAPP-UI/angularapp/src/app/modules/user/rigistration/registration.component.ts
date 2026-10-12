@@ -89,6 +89,7 @@ export class RegistrationComponent implements OnInit {
       CreatedBy: '',
       CreatedDate: new Date(),
       LastUpdatedDate: new Date(),
+      Department: '',
     };
   }
   initializeRegisterFormModel() {
@@ -107,7 +108,8 @@ export class RegistrationComponent implements OnInit {
       LastUpdatedDate: [new Date],
       Designation: [''],
       Description: [''],
-      LastUpdatedBy: ['']
+      LastUpdatedBy: [''],
+      Department: ['']
     }, {
       validator: this.passwordMatchValidator
     });
@@ -146,6 +148,7 @@ export class RegistrationComponent implements OnInit {
         CreatedBy: users.CreatedBy,
         LastUpdatedDate: this.formatDate(users.LastUpdatedDate),
         LastUpdatedBy: users.LastUpdatedBy,
+        Department: users.Department ?? '',
       });
       this.showLoadingSpinner = false;
     });

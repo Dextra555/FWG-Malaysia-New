@@ -42,6 +42,7 @@
     <div *ngSwitchCase="'Approved'" class="alert alert-success mb-0" style="border-left:4px solid #2e7d32">
       <mat-icon style="vertical-align:middle">check_circle</mat-icon>
       <strong> Approved</strong> — Approved by {{approvedBy}}. You can now create a Purchase Order from this requisition.
+
       <!-- PO already posted notice -->
       <div *ngIf="linkedPO" class="mt-2 p-2 rounded"
         style="background:#e8f5e9;border:1px solid #a5d6a7;display:inline-flex;align-items:center;gap:8px">
@@ -54,6 +55,64 @@
             (click)="openLinkedPO()">Open {{linkedPO.PONumber}}</a>
         </span>
       </div>
+
+      <!-- ── Purchase Department Claim Panel ──────────────────────────── -->
+      <!-- Shown only when a processing task exists (created at approval time) -->
+      <div *ngIf="processingTask" class="mt-2">
+
+        <!-- Task completed — PO already raised -->
+        <div *ngIf="processingTask.Status === 'Completed'"
+          class="p-2 rounded d-inline-flex align-items-center gap-2"
+          style="background:#f1f8e9;border:1px solid #aed581">
+          <mat-icon style="color:#558b2f;font-size:18px;vertical-align:middle">task_alt</mat-icon>
+          <span style="font-size:0.88rem">
+            <strong>Purchase task completed</strong> by <strong>{{processingTask.CompletedBy}}</strong>
+            <span *ngIf="processingTask.PONumber"> — PO: <strong>{{processingTask.PONumber}}</strong></span>
+          </span>
+        </div>
+
+        <!-- Task claimed by the current user -->
+        <div *ngIf="isTaskClaimedByMe"
+          class="p-2 rounded d-inline-flex align-items-center gap-2"
+          style="background:#e3f2fd;border:1px solid #90caf9">
+          <mat-icon style="color:#1565c0;font-size:18px;vertical-align:middle">person_pin</mat-icon>
+          <span style="font-size:0.88rem">
+            <strong>You have claimed this PR.</strong> Please create the Purchase Order.
+          </span>
+        </div>
+
+        <!-- Task claimed by someone else -->
+        <div *ngIf="isTaskClaimedByOther"
+          class="p-2 rounded d-inline-flex align-items-center gap-2"
+          style="background:#fff3e0;border:1px solid #ffcc80">
+          <mat-icon style="color:#e65100;font-size:18px;vertical-align:middle">person_outline</mat-icon>
+          <span style="font-size:0.88rem">
+            Being processed by <strong>{{processingTask.ClaimedBy}}</strong>.
+            <small class="text-muted ms-1">Claimed on {{processingTask.ClaimedDate | date:'dd MMM yyyy, HH:mm'}}</small>
+          </span>
+        </div>
+
+        <!-- Task unclaimed — show Claim button -->
+        <div *ngIf="isTaskPending"
+          class="p-2 rounded d-inline-flex align-items-center gap-2"
+          style="background:#fafafa;border:1px solid #e0e0e0">
+          <mat-icon style="color:#757575;font-size:18px;vertical-align:middle">inbox</mat-icon>
+          <span style="font-size:0.88rem" class="me-2">
+            <strong>Unclaimed</strong> — no Purchase user has taken ownership yet.
+          </span>
+          <button type="button"
+            class="btn btn-sm btn-primary"
+            [disabled]="claimLoading"
+            (click)="onClaimPR()"
+            matTooltip="Take ownership of this PR so other Purchase users know you are processing it">
+            <mat-icon style="font-size:16px;vertical-align:middle">how_to_reg</mat-icon>
+            {{ claimLoading ? 'Claiming…' : 'Claim PR' }}
+          </button>
+        </div>
+
+      </div>
+      <!-- ── end claim panel ────────────────────────────────────────── -->
+
     </div>
     <div *ngSwitchCase="'Rejected'" class="alert alert-danger mb-0" style="border-left:4px solid #c62828">
       <mat-icon style="vertical-align:middle">cancel</mat-icon>
@@ -214,6 +273,15 @@
       <div class="col-12">
         <div class="text-right">
           <button type="button" class="btn wlt-c-furg-btn-gray mr-2" (click)="onCancel()">Cancel</button>
+
+          <!-- Print PDF — only for a saved document -->
+          <button *ngIf="isEdit"
+            type="button" class="btn btn-secondary mr-2"
+            matTooltip="Open PDF in a new tab — then print or download"
+            (click)="onPrintPDF()">
+            <mat-icon style="vertical-align:middle;font-size:18px">print</mat-icon>
+            Print PDF
+          </button>
 
           <!-- Save Draft (new form or existing Draft) -->
           <button *ngIf="canEdit() && (userAccessModel.createAccess || userAccessModel.updateAccess || userRole === 'superadmin')"

@@ -566,6 +566,13 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     "APPROVED", "PURCHASE_ORDER", poNumberApprove, poIDApprove,
                     submittedByApprove, authenticatedUser, comments);
 
+            // Notify Purchase department — approved PO enables GRN; Purchase team should be aware
+            if (okA)
+                await _notif.SendApprovalNotificationToDepartment(
+                    "APPROVED", "PURCHASE_ORDER", poNumberApprove, poIDApprove,
+                    "Purchase", authenticatedUser, comments,
+                    excludeUsers: new[] { submittedByApprove ?? string.Empty });
+
             return (okA, msgA);
         }
 

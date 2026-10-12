@@ -81,7 +81,22 @@
         <ng-container matColumnDef="action" stickyEnd>
           <th mat-header-cell *matHeaderCellDef style="text-align:center; width:110px">Action</th>
           <td mat-cell *matCellDef="let row" style="text-align:center">
-            <a *ngIf="userAccessModel.readAccess || userRole === 'superadmin'"
+            <!-- Edit (Draft only, requires update permission) -->
+            <a *ngIf="(userAccessModel.updateAccess || userRole === 'superadmin') && row.Status === 'Draft'"
+               style="cursor:pointer" class="wlt-c-furg-text-primary mr-2"
+               matTooltip="Edit Adjustment"
+               [routerLink]="['/inventory/stock-adjustment/new-stock-adjustment', row.ID]">
+              <mat-icon>edit</mat-icon>
+            </a>
+            <!-- View (non-Draft records, or users without update access) -->
+            <a *ngIf="(userAccessModel.readAccess || userRole === 'superadmin') && row.Status !== 'Draft'"
+               style="cursor:pointer" class="wlt-c-furg-text-primary mr-2"
+               matTooltip="View Adjustment"
+               [routerLink]="['/inventory/stock-adjustment/new-stock-adjustment', row.ID]">
+              <mat-icon>visibility</mat-icon>
+            </a>
+            <!-- View (Draft records for read-only users who lack update access) -->
+            <a *ngIf="userAccessModel.readAccess && !userAccessModel.updateAccess && userRole !== 'superadmin' && row.Status === 'Draft'"
                style="cursor:pointer" class="wlt-c-furg-text-primary mr-2"
                matTooltip="View Adjustment"
                [routerLink]="['/inventory/stock-adjustment/new-stock-adjustment', row.ID]">

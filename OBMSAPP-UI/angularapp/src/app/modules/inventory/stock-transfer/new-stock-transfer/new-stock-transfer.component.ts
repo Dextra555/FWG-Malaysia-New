@@ -8,6 +8,7 @@ import { InventoryService } from '../../../../service/inventory.service';
 import { MastermoduleService } from '../../../../service/mastermodule.service';
 import { DatasharingService } from '../../../../service/datasharing.service';
 import { UserAccessModel } from '../../../../model/userAccesModel';
+import { environment } from '../../../../../environments/environment';
 
 function mustSelect(): ValidatorFn {
   return (c: AbstractControl) => (+c.value === 0 ? { mustSelect: true } : null);
@@ -336,6 +337,19 @@ export class NewStockTransferComponent implements OnInit {
   }
 
   onCancelClick(): void { this.route.navigate(['/inventory/stock-transfer']); }
+
+  /** Open the Stock Transfer PDF in a new browser tab for printing or downloading.
+   *  Only callable in view mode (existing saved document). Read-only — does not
+   *  modify any record, stock ledger, TRANSFER_OUT/IN entries, or balances. */
+  onPrintPDF(): void {
+    const docID = this.ID || this.frm.get('ID')?.value;
+    if (!docID || +docID === 0) return;
+    const url = environment.baseReportUrl
+      + 'Inventory/StockTransferReport.aspx'
+      + '?LoginID='    + encodeURIComponent(this.currentUser)
+      + '&TransferID=' + encodeURIComponent(docID);
+    window.open(url, '_blank');
+  }
 
   private extractErrorMessage(err: any, fallback: string): string {
     if (err && typeof err === 'string') return err;

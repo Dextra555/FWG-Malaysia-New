@@ -101,6 +101,7 @@ public partial class OBMSDbContext : DbContext
     // Part 3: Purchase Flow
     public DbSet<PurchaseRequisition> PurchaseRequisitions { get; set; }
     public DbSet<PurchaseRequisitionDetail> PurchaseRequisitionDetails { get; set; }
+    public DbSet<PRProcessingTask> PRProcessingTasks { get; set; }
     public DbSet<PurchaseOrder> PurchaseOrders { get; set; }
     public DbSet<PurchaseOrderDetail> PurchaseOrderDetails { get; set; }
     public DbSet<GoodsReceiptNote> GoodsReceiptNotes { get; set; }

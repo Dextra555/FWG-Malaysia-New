@@ -52,7 +52,8 @@ namespace OBMS.WebAPI.Controllers
                     IsView = requestDto.IsView,
                     LastUpdatedBy = requestDto?.LastUpdatedBy,
                     LastUpdatedDate = DateTime.Now,
-                    Password = requestDto.Password
+                    Password = requestDto.Password,
+                    Department = requestDto.Department
                 };
                 await _registerRepository.RegisterAsync(userRegister);
 

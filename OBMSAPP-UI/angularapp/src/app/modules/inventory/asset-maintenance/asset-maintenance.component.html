@@ -149,6 +149,7 @@
                style="cursor:pointer" class="wlt-c-furg-text-success mr-2" matTooltip="Mark as Completed" (click)="openCompleteForm(r)">
               <mat-icon>check_circle</mat-icon>
             </a>
+            <a style="cursor:pointer" class="wlt-c-furg-text-gray mr-2" matTooltip="Print PDF" (click)="onPrintPDF(r)"><mat-icon>print</mat-icon></a>
             <a style="cursor:pointer" class="wlt-c-furg-text-primary" matTooltip="View History" [routerLink]="['/inventory/asset-movement-history', r.AssetID]"><mat-icon>history</mat-icon></a>
           </td>
         </ng-container>
