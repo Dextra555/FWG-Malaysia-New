@@ -605,11 +605,11 @@
 
     private class FooterEvent : PdfPageEventHelper
     {
-        private readonly string    _user;
-        private readonly Font      _font;
-        private readonly BaseColor _navy;
+        private readonly string                _user;
+        private readonly iTextSharp.text.Font  _font;
+        private readonly BaseColor             _navy;
 
-        public FooterEvent(string user, Font font, BaseColor navy)
+        public FooterEvent(string user, iTextSharp.text.Font font, BaseColor navy)
         { _user = user; _font = font; _navy = navy; }
 
         public override void OnEndPage(PdfWriter writer, Document doc)
