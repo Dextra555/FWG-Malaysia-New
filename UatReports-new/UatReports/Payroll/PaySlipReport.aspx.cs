@@ -46,8 +46,9 @@ public partial class PayRoll_PaySlipReport : System.Web.UI.Page
                 periodDate = DateTime.Now;
             SetParameter("Period", periodDate);
 
-            string connStr = ConfigurationManager.ConnectionStrings["obms"]?.ConnectionString
-                ?? string.Format("Server={0};Database={1};User Id={2};Password={3};",
+            string connStr = ConfigurationManager.ConnectionStrings["obms"] != null
+                ? ConfigurationManager.ConnectionStrings["obms"].ConnectionString
+                : string.Format("Server={0};Database={1};User Id={2};Password={3};",
                     ConfigurationManager.AppSettings["Server"],
                     ConfigurationManager.AppSettings["Database"],
                     ConfigurationManager.AppSettings["UserID"],
@@ -87,37 +88,15 @@ public partial class PayRoll_PaySlipReport : System.Web.UI.Page
                 formula = BuildFormula(formula, "{vwPaySheet.EMP_CODE} = '" + empParam.Replace("'", "''") + "'");
             }
 
-            // --- ClientCode filter: get EMP_CODEs for this client in this branch ---
+            // --- ClientCode filter: directly use vwPaySheet.EMP_CLIENT ---
+            // vwPaySheet already has EMP_CLIENT from the correct period — no extra query needed.
+            // Also exclude NULL EMP_CLIENT rows when a client is selected.
             string clientCode  = (Request.QueryString["ClientCode"] ?? "").Trim();
-            string branchParam = (Request.QueryString["Branch"]     ?? "").Trim();
 
             if (!string.IsNullOrEmpty(clientCode))
             {
-                var empCodes = new System.Collections.Generic.List<string>();
-                using (var clientConn = new System.Data.SqlClient.SqlConnection(connStr))
-                {
-                    clientConn.Open();
-
-                    // Filter by client AND branch so only employees of this branch+client appear
-                    string sql = string.IsNullOrEmpty(branchParam)
-                        ? "SELECT EMP_CODE FROM Employee WHERE EMP_CLIENT = @client"
-                        : "SELECT EMP_CODE FROM Employee WHERE EMP_CLIENT = @client AND EMP_BRANCH_CODE = @branch";
-
-                    var clientCmd = new System.Data.SqlClient.SqlCommand(sql, clientConn);
-                    clientCmd.Parameters.AddWithValue("@client", clientCode);
-                    if (!string.IsNullOrEmpty(branchParam))
-                        clientCmd.Parameters.AddWithValue("@branch", branchParam);
-
-                    using (var clientReader = clientCmd.ExecuteReader())
-                        while (clientReader.Read())
-                            empCodes.Add("'" + clientReader.GetString(0).Replace("'", "''") + "'");
-                }
-
-                string clientCondition = empCodes.Count > 0
-                    ? "{vwPaySheet.EMP_CODE} IN (" + string.Join(",", empCodes) + ")"
-                    : "{vwPaySheet.EMP_CODE} = '__NO_MATCH__'";
-
-                formula = BuildFormula(formula, clientCondition);
+                formula = BuildFormula(formula, 
+                    "NOT ISNULL({vwPaySheet.EMP_CLIENT}) AND {vwPaySheet.EMP_CLIENT} = '" + clientCode.Replace("'", "''") + "'");
             }
 
             // Apply final formula

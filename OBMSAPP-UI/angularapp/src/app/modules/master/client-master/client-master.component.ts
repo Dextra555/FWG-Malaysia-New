@@ -29,7 +29,7 @@ export class ClientMasterComponent implements OnInit {
   clientModel!: ClientModel[];
   showLoadingSpinner: boolean = false;
   clientCode: string = 'null';
-  displayedColumns: string[] = ['client_code', 'branch_code', 'ubs_code', 'client_name', 'address', 'person_incharge', 'Status', 'action'];
+  displayedColumns: string[] = ['client_code', 'branch_code', 'ubs_code', 'client_name', 'address', 'person_incharge', 'is_patrol', 'Status', 'action'];
   dataSource: any;
   errorMessage: string = '';
   currentUser: string = '';

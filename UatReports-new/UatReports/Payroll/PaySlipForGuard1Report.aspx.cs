@@ -73,12 +73,7 @@ public partial class PayRoll_PaySlipForGuard1Report : System.Web.UI.Page
             // Pass ClientCode to rpt parameter only if parameter exists in .rpt (avoids popup)
             TrySetParameter("ClientCode", Request.QueryString["ClientCode"] ?? "");
 
-            string connStr = System.Configuration.ConfigurationManager.ConnectionStrings["obms"]?.ConnectionString
-                ?? string.Format("Server={0};Database={1};User Id={2};Password={3};",
-                    ConfigurationManager.AppSettings["Server"],
-                    ConfigurationManager.AppSettings["Database"],
-                    ConfigurationManager.AppSettings["UserID"],
-                    ConfigurationManager.AppSettings["Password"]);
+            string connStr = System.Configuration.ConfigurationManager.ConnectionStrings["obms"] != null ? ConfigurationManager.ConnectionStrings["obms"].ConnectionString : string.Format("Server={0};Database={1};User Id={2};Password={3};", ConfigurationManager.AppSettings["Server"], ConfigurationManager.AppSettings["Database"], ConfigurationManager.AppSettings["UserID"], ConfigurationManager.AppSettings["Password"]);
 
             // Build record selection formula
             string formula = crptPaySlip.ReportDocument.RecordSelectionFormula ?? "";
@@ -119,24 +114,13 @@ public partial class PayRoll_PaySlipForGuard1Report : System.Web.UI.Page
                 formula = BuildFormula(formula, "{vwPaySheet.EMP_CODE} = '" + employeeCode.Replace("'", "''") + "'");
             }
 
-            // Filter by ClientCode
-            string clientCode = Request.QueryString["ClientCode"] ?? "";
+            // Filter by ClientCode — directly use vwPaySheet.EMP_CLIENT
+            // Exclude NULL EMP_CLIENT rows when a client is selected.
+            string clientCode  = (Request.QueryString["ClientCode"] ?? "").Trim();
             if (!string.IsNullOrEmpty(clientCode))
             {
-                var empCodes = new System.Collections.Generic.List<string>();
-                using (var clientConn = new System.Data.SqlClient.SqlConnection(connStr))
-                {
-                    clientConn.Open();
-                    var clientCmd = new System.Data.SqlClient.SqlCommand(
-                        "SELECT EMP_CODE FROM Employee WHERE EMP_CLIENT = @client", clientConn);
-                    clientCmd.Parameters.AddWithValue("@client", clientCode);
-                    using (var clientReader = clientCmd.ExecuteReader())
-                        while (clientReader.Read()) empCodes.Add("'" + clientReader.GetString(0).Replace("'", "''") + "'");
-                }
-                string clientCondition = empCodes.Count > 0
-                    ? "{vwPaySheet.EMP_CODE} IN (" + string.Join(",", empCodes) + ")"
-                    : "{vwPaySheet.EMP_CODE} = '__NO_MATCH__'";
-                formula = BuildFormula(formula, clientCondition);
+                formula = BuildFormula(formula,
+                    "NOT ISNULL({vwPaySheet.EMP_CLIENT}) AND {vwPaySheet.EMP_CLIENT} = '" + clientCode.Replace("'", "''") + "'");
             }
 
             if (!string.IsNullOrWhiteSpace(formula))

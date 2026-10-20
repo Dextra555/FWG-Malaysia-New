@@ -106,12 +106,7 @@ public partial class PayRoll_PaySheetReportNoEPF : System.Web.UI.Page
                 ParameterDiscreteValue paramGuardOverride = new ParameterDiscreteValue();
                 paramGuardOverride.Value = "Guard";
                 CrystalReportViewerView.ParameterFieldInfo["EmployeeType"].CurrentValues.Add(paramGuardOverride);
-string connStr = System.Configuration.ConfigurationManager.ConnectionStrings["obms"]?.ConnectionString
-                    ?? string.Format("Server={0};Database={1};User Id={2};Password={3};",
-                        ConfigurationManager.AppSettings["Server"],
-                        ConfigurationManager.AppSettings["Database"],
-                        ConfigurationManager.AppSettings["UserID"],
-                        ConfigurationManager.AppSettings["Password"]);
+string connStr = System.Configuration.ConfigurationManager.ConnectionStrings["obms"] != null ? ConfigurationManager.ConnectionStrings["obms"].ConnectionString : string.Format("Server={0};Database={1};User Id={2};Password={3};", ConfigurationManager.AppSettings["Server"], ConfigurationManager.AppSettings["Database"], ConfigurationManager.AppSettings["UserID"], ConfigurationManager.AppSettings["Password"]);
 
                 var empIds = new System.Collections.Generic.List<string>();
                 using (var conn = new System.Data.SqlClient.SqlConnection(connStr))

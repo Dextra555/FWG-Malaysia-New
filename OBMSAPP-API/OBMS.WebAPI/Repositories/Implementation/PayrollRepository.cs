@@ -1790,13 +1790,15 @@ namespace OBMS.WebAPI.Repositories.Implementation
             DateTime firstDayOfMonth = hasPeriod ? resignedDate.Date : DateTime.MinValue;
             DateTime lastDayOfMonth  = hasPeriod ? joinDate.Date    : DateTime.MaxValue;
 
-            // Base query with history-aware branch join
+            // Base query with history-aware branch AND client join (using EmployeeHistory)
             var baseQuery = from e in _oBMSDbContext.Employees
-                            join ed  in _oBMSDbContext.EmploymentDetails          on e.EMP_CODE equals ed.EMPPAY_CODE
-                            join esd in _oBMSDbContext.EmployeeSalaryDetails       on e.EMP_CODE equals esd.EMPFL_CODE
-                            join edh in _oBMSDbContext.EmploymentDetailsHistories
-                                on e.EMP_ID equals edh.EMP_ID into edhGroup
-                            from edh in edhGroup
+                            join ed  in _oBMSDbContext.EmploymentDetails    on e.EMP_CODE equals ed.EMPPAY_CODE
+                            join esd in _oBMSDbContext.EmployeeSalaryDetails on e.EMP_CODE equals esd.EMPFL_CODE
+                            // EmployeeHistory — snapshot of Employee at each branch transfer period
+                            // Contains EMP_CLIENT + EMP_BRANCH_CODE at the time of transfer
+                            join eh in _oBMSDbContext.EmployeeHistories
+                                on e.EMP_ID equals eh.EMP_ID into ehGroup
+                            from eh in ehGroup
                                 .Where(h => h.Emp_StartDate <= lastDayOfMonth &&
                                             (h.Emp_EndDate == null || h.Emp_EndDate >= firstDayOfMonth))
                                 .DefaultIfEmpty()
@@ -1804,7 +1806,10 @@ namespace OBMS.WebAPI.Repositories.Implementation
                             {
                                 Employee         = e,
                                 EmploymentDetail = ed,
-                                EffectiveBranch  = edh != null ? edh.EMPPAY_BRANCHCODE : e.EMP_BRANCH_CODE
+                                // Branch: use history snapshot if available, else current Employee master
+                                EffectiveBranch  = eh != null ? eh.EMP_BRANCH_CODE : e.EMP_BRANCH_CODE,
+                                // Client: use history snapshot if available, else current Employee master
+                                EffectiveClient  = eh != null ? eh.EMP_CLIENT      : e.EMP_CLIENT
                             };
 
             // Status filter
@@ -1851,11 +1856,11 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     baseQuery = baseQuery.Where(q => q.Employee.EMP_ROLE == employeeType);
             }
 
-            // Client filter
+            // Client filter — use EffectiveClient from EmployeeHistory snapshot (period-aware)
             if (!string.IsNullOrEmpty(empClient))
-                baseQuery = baseQuery.Where(q => q.Employee.EMP_CLIENT == empClient);
+                baseQuery = baseQuery.Where(q => q.EffectiveClient == empClient);
 
-            // Branch filter — use effective (history-aware) branch
+            // Branch filter — use EffectiveBranch from EmployeeHistory snapshot (period-aware)
             if (!string.IsNullOrEmpty(branch))
                 baseQuery = baseQuery.Where(q => q.EffectiveBranch == branch);
 

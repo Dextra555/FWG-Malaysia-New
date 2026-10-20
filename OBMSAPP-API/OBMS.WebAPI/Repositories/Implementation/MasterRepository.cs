@@ -302,6 +302,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 existingClientDetails.AgreementStart = clientMaster.AgreementStart;
                 existingClientDetails.AgreementEnd = clientMaster.AgreementEnd == targetDate ? null : clientMaster.AgreementEnd;
                 existingClientDetails.IsClientHeadQuarters = clientMaster.IsClientHeadQuarters;
+                existingClientDetails.IsPatrol = clientMaster.IsPatrol;
                 existingClientDetails.SpecialOTHours = clientMaster.SpecialOTHours;
                 existingClientDetails.KPIHours = clientMaster.KPIHours;
                 _oBMSDbContext.Update(existingClientDetails);

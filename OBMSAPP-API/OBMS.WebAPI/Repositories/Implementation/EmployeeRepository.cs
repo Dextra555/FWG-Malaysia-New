@@ -596,6 +596,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 KPI                                 = employment.KPI,
                 LASTUPDATE                          = employee.LASTUPDATE,
                 LastUpdatedBy                       = employee.LastUpdatedBy ?? "",
+                EMP_CLIENT                          = employee.EMP_CLIENT,  // ← client at time of transfer
                 Emp_StartDate                       = empStartDate,
                 Emp_EndDate                         = empEndDate
             };
