@@ -237,9 +237,9 @@ export class EmployeeMasterComponent implements OnInit {
     if (value != '' && value != undefined) {
       this.service.getEmployeesByBranchId(value).subscribe((d: any) => {
         this.employees = this.filterStaffEmployees(d);
-        this.dataSource = new MatTableDataSource(d);
+        this.dataSource = new MatTableDataSource(this.employees);
         this.pageSizeOptions = [];
-        const totalRows = d.length;
+        const totalRows = this.employees.length;
         for (let i = 10; i <= totalRows && i <= 1000; i += 10) {
           this.pageSizeOptions.push(i);
         }

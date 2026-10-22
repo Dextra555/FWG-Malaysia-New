@@ -39,7 +39,7 @@
                         <mat-radio-group aria-label="Select a Type" formControlName="EmployeeType"
                             (change)="radioButtonTypeSelectionChange($event)">
                             <mat-radio-button value="Guard">Guard</mat-radio-button>
-                            <mat-radio-button value="Staff">Staff</mat-radio-button>
+                            <mat-radio-button value="Staff" *ngIf="userRole === 'superadmin' || staffAdminAccessModel?.readAccess">Staff</mat-radio-button>
                             <mat-radio-button value="Others">Other Guards</mat-radio-button>
                         </mat-radio-group>
                     </div>

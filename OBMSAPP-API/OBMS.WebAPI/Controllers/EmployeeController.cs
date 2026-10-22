@@ -242,6 +242,7 @@ namespace OBMS.WebAPI.Controllers
                     emp.EMP_ID,
                     emp.EMP_CODE,
                     emp.EMP_BRANCH_CODE,
+                    emp.EMP_ROLE,
                     emp.EMP_NAME,
                     emp.EMP_SEX,
                     emp.EMP_IC_NEW,
