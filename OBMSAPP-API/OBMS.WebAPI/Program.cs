@@ -120,6 +120,7 @@ app.UseCors(policy =>
     policy.WithOrigins(
             "http://localhost:4200",           // Angular local dev (default)
             "http://localhost:4300",           // Angular local dev (alternate)
+            "http://localhost:58557",          // Angular local dev (this session)
             "http://localhost:65015",          // Angular local dev (this session)
             "http://localhost:5002",           // API self / Swagger
             "http://124.217.236.37",           // Live server (bare port 80)
