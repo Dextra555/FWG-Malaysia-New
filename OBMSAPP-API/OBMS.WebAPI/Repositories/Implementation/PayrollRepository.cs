@@ -22,6 +22,20 @@ namespace OBMS.WebAPI.Repositories.Implementation
             _oBMSDbContext = oBMSDbContext;
         }
 
+        /// <summary>
+        /// Returns true if the given username is a SuperAdmin.
+        /// Checks BOTH the legacy reserved username "superadmin" AND the IsAdmin == "2" flag
+        /// so that any existing user promoted to SuperAdmin via IsAdmin='2' receives full access.
+        /// </summary>
+        private bool IsSuperAdmin(string userName)
+        {
+            if (string.IsNullOrEmpty(userName)) return false;
+            if (userName.Equals("superadmin", StringComparison.OrdinalIgnoreCase)) return true;
+            var user = _oBMSDbContext.Obmsusers
+                .FirstOrDefault(u => u.Name == userName && !u.IsDeleted);
+            return user != null && user.IsAdmin == "2";
+        }
+
         #region Monthly Salary Advance
         public async Task<List<SalaryAdvance>> GetSalaryAdvanceById(int employeeId,int id)
         {
@@ -126,7 +140,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
         public async Task<List<SalaryAdvanceDto>> GetEmployeeListBySalaryAdvance(int TransType, string currentUser)
         {
-            bool isSuperAdmin = currentUser.Equals("superadmin", StringComparison.OrdinalIgnoreCase);
+            bool isSuperAdmin = IsSuperAdmin(currentUser);
 
             var query = from salaryAdvance in _oBMSDbContext.SalaryAdvances
                         join employee in _oBMSDbContext.Employees
@@ -432,7 +446,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
         #region MiscTransaction Region
         public async Task<IEnumerable<MiscTrans>> GetMiscTrans(string currentUser)
         {
-            bool isSuperAdmin = currentUser.Equals("superadmin", StringComparison.OrdinalIgnoreCase);
+            bool isSuperAdmin = IsSuperAdmin(currentUser);
 
             var query = from m in _oBMSDbContext.MiscTrans
                         join e in _oBMSDbContext.Employees on m.EmployeeID equals e.EMP_ID
@@ -529,17 +543,20 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 List<EmployeeDailyAdvanceRow> employeeDailyAdvanceRowList = new List<EmployeeDailyAdvanceRow>();
                 int startDay = 1;
 
-                var employee = _oBMSDbContext.Employees.Where(e => e.EMP_ID == employeeID).SingleOrDefault().EMP_CODE;
+                var employee = _oBMSDbContext.Employees.Where(e => e.EMP_ID == employeeID).SingleOrDefault()?.EMP_CODE;
 
                 if (employee != null)
                 {
                     var employment = Get(employee);
+
+                    if (employment == null)
+                        return new List<EmployeeDailyAdvanceRow>();
+
                     if (employment.EMPPAY_DATE_RESIGNED?.Year != 1)
                     {
                         if (advanceDate > employment.EMPPAY_DATE_RESIGNED)
                         {
                             startDay = 0;
-                            //noOfDays = 0;
                         }
                         else if ((advanceDate.Month == employment.EMPPAY_DATE_RESIGNED?.Month) && (advanceDate.Year == employment.EMPPAY_DATE_RESIGNED?.Year))
                         {
@@ -567,20 +584,30 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
                     foreach (var salaryAdvance in salaryAdvances)
                     {
-                        int dayIndex = salaryAdvance.AdvanceDate.Day - 1; // Subtract 1 to convert day number to zero-based index
-                        employeeDailyAdvanceRowList[dayIndex].ID = salaryAdvance.ID;
-                        employeeDailyAdvanceRowList[dayIndex].Day = salaryAdvance.AdvanceDate.Day;
-                        employeeDailyAdvanceRowList[dayIndex].Amount = salaryAdvance.Amount;
-                        employeeDailyAdvanceRowList[dayIndex].EmployeeID = salaryAdvance.EmployeeID;
-                        employeeDailyAdvanceRowList[dayIndex].TransType = salaryAdvance.TransType;
-                        employeeDailyAdvanceRowList[dayIndex].Particulars = salaryAdvance.Particulars;
-                        employeeDailyAdvanceRowList[dayIndex].IsDeleted = salaryAdvance.IsDeleted;
-                        employeeDailyAdvanceRowList[dayIndex].LastUpdatedBy = salaryAdvance.LastUpdatedBy;
-                        employeeDailyAdvanceRowList[dayIndex].VoucherNo = salaryAdvance.VoucherNo;
-                        employeeDailyAdvanceRowList[dayIndex].PaymentType = salaryAdvance.PaymentType;
-                        employeeDailyAdvanceRowList[dayIndex].NoOfInstallments = salaryAdvance.NoOfInstallments;
-                        employeeDailyAdvanceRowList[dayIndex].AdvanceDate = salaryAdvance.AdvanceDate;
-                        employeeDailyAdvanceRowList[dayIndex].AdvanceTakenDate = salaryAdvance.AdvanceTakenDate;
+                        int day = salaryAdvance.AdvanceDate.Day;
+
+                        // ✅ Fix: use list-relative index instead of global day-1 index.
+                        // When startDay > 1 (e.g. employee joined on 14th), the list starts
+                        // at day 14, so list index = day - startDay (not day - 1).
+                        // Using day - 1 caused IndexOutOfRangeException → HTTP 500.
+                        int listIndex = day - startDay;
+
+                        if (listIndex >= 0 && listIndex < employeeDailyAdvanceRowList.Count)
+                        {
+                            employeeDailyAdvanceRowList[listIndex].ID = salaryAdvance.ID;
+                            employeeDailyAdvanceRowList[listIndex].Day = salaryAdvance.AdvanceDate.Day;
+                            employeeDailyAdvanceRowList[listIndex].Amount = salaryAdvance.Amount;
+                            employeeDailyAdvanceRowList[listIndex].EmployeeID = salaryAdvance.EmployeeID;
+                            employeeDailyAdvanceRowList[listIndex].TransType = salaryAdvance.TransType;
+                            employeeDailyAdvanceRowList[listIndex].Particulars = salaryAdvance.Particulars;
+                            employeeDailyAdvanceRowList[listIndex].IsDeleted = salaryAdvance.IsDeleted;
+                            employeeDailyAdvanceRowList[listIndex].LastUpdatedBy = salaryAdvance.LastUpdatedBy;
+                            employeeDailyAdvanceRowList[listIndex].VoucherNo = salaryAdvance.VoucherNo;
+                            employeeDailyAdvanceRowList[listIndex].PaymentType = salaryAdvance.PaymentType;
+                            employeeDailyAdvanceRowList[listIndex].NoOfInstallments = salaryAdvance.NoOfInstallments;
+                            employeeDailyAdvanceRowList[listIndex].AdvanceDate = salaryAdvance.AdvanceDate;
+                            employeeDailyAdvanceRowList[listIndex].AdvanceTakenDate = salaryAdvance.AdvanceTakenDate;
+                        }
                     }
                     return employeeDailyAdvanceRowList;
                 }
@@ -1676,9 +1703,11 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 baseQuery = baseQuery.Where(q => q.EmploymentDetail.EMPPAY_DATE_JOINED <= joinDate);
 
             // Project and deduplicate (a transferred employee can have multiple history rows
-            // but should appear only once in the list)
+            // but should appear only once in the list).
+            // NOTE: OrderBy is applied AFTER Distinct (in memory) because SQL Server does
+            // not guarantee ORDER BY is preserved through a DISTINCT subquery — this was
+            // the cause of unsorted names on the live server while local worked correctly.
             result = baseQuery
-                .OrderBy(q => q.Employee.EMP_NAME)
                 .Select(q => new EmployeeDto
                 {
                     EMP_ID           = q.Employee.EMP_ID,
@@ -1731,6 +1760,18 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 .Distinct()
                 .ToList();
 
+            // Sort in memory after dedup so the order is consistent on all servers
+            // regardless of database collation or query plan differences.
+            // GroupBy EMP_ID ensures: (1) duplicate rows from multiple history records
+            // are collapsed, AND (2) two employees with the SAME NAME but DIFFERENT
+            // EMP_ID / EMP_CODE both appear — Distinct() on a reference type cannot
+            // guarantee either of these.
+            result = result
+                .GroupBy(r => r.EMP_ID)
+                .Select(g => g.First())
+                .OrderBy(r => r.EMP_NAME, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
             return result;
         }
 
@@ -1748,13 +1789,15 @@ namespace OBMS.WebAPI.Repositories.Implementation
             DateTime firstDayOfMonth = hasPeriod ? resignedDate.Date : DateTime.MinValue;
             DateTime lastDayOfMonth  = hasPeriod ? joinDate.Date    : DateTime.MaxValue;
 
-            // Base query with history-aware branch join
+            // Base query with history-aware branch AND client join (using EmployeeHistory)
             var baseQuery = from e in _oBMSDbContext.Employees
-                            join ed  in _oBMSDbContext.EmploymentDetails          on e.EMP_CODE equals ed.EMPPAY_CODE
-                            join esd in _oBMSDbContext.EmployeeSalaryDetails       on e.EMP_CODE equals esd.EMPFL_CODE
-                            join edh in _oBMSDbContext.EmploymentDetailsHistories
-                                on e.EMP_ID equals edh.EMP_ID into edhGroup
-                            from edh in edhGroup
+                            join ed  in _oBMSDbContext.EmploymentDetails    on e.EMP_CODE equals ed.EMPPAY_CODE
+                            join esd in _oBMSDbContext.EmployeeSalaryDetails on e.EMP_CODE equals esd.EMPFL_CODE
+                            // EmployeeHistory — snapshot of Employee at each branch transfer period
+                            // Contains EMP_CLIENT + EMP_BRANCH_CODE at the time of transfer
+                            join eh in _oBMSDbContext.EmployeeHistories
+                                on e.EMP_ID equals eh.EMP_ID into ehGroup
+                            from eh in ehGroup
                                 .Where(h => h.Emp_StartDate <= lastDayOfMonth &&
                                             (h.Emp_EndDate == null || h.Emp_EndDate >= firstDayOfMonth))
                                 .DefaultIfEmpty()
@@ -1762,7 +1805,10 @@ namespace OBMS.WebAPI.Repositories.Implementation
                             {
                                 Employee         = e,
                                 EmploymentDetail = ed,
-                                EffectiveBranch  = edh != null ? edh.EMPPAY_BRANCHCODE : e.EMP_BRANCH_CODE
+                                // Branch: use history snapshot if available, else current Employee master
+                                EffectiveBranch  = eh != null ? eh.EMP_BRANCH_CODE : e.EMP_BRANCH_CODE,
+                                // Client: use history snapshot if available, else current Employee master
+                                EffectiveClient  = eh != null ? eh.EMP_CLIENT      : e.EMP_CLIENT
                             };
 
             // Status filter
@@ -1809,11 +1855,11 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     baseQuery = baseQuery.Where(q => q.Employee.EMP_ROLE == employeeType);
             }
 
-            // Client filter
+            // Client filter — use EffectiveClient from EmployeeHistory snapshot (period-aware)
             if (!string.IsNullOrEmpty(empClient))
-                baseQuery = baseQuery.Where(q => q.Employee.EMP_CLIENT == empClient);
+                baseQuery = baseQuery.Where(q => q.EffectiveClient == empClient);
 
-            // Branch filter â€” use effective (history-aware) branch
+            // Branch filter — use EffectiveBranch from EmployeeHistory snapshot (period-aware)
             if (!string.IsNullOrEmpty(branch))
                 baseQuery = baseQuery.Where(q => q.EffectiveBranch == branch);
 
@@ -1826,8 +1872,8 @@ namespace OBMS.WebAPI.Repositories.Implementation
             if (joinDate.Year != 1)
                 baseQuery = baseQuery.Where(q => q.EmploymentDetail.EMPPAY_DATE_JOINED <= joinDate);
 
+            // NOTE: OrderBy is applied AFTER Distinct (in memory) — same fix as getListByEmployee.
             result = baseQuery
-                .OrderBy(q => q.Employee.EMP_NAME)
                 .Select(q => new EmployeeDto
                 {
                     EMP_ID           = q.Employee.EMP_ID,
@@ -1878,6 +1924,18 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 .Distinct()
                 .ToList();
 
+            // Sort in memory after dedup so the order is consistent on all servers
+            // regardless of database collation or query plan differences.
+            // GroupBy EMP_ID ensures: (1) duplicate rows from multiple history records
+            // are collapsed, AND (2) two employees with the SAME NAME but DIFFERENT
+            // EMP_ID / EMP_CODE both appear — Distinct() on a reference type cannot
+            // guarantee either of these.
+            result = result
+                .GroupBy(r => r.EMP_ID)
+                .Select(g => g.First())
+                .OrderBy(r => r.EMP_NAME, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
             return result;
         }
 
@@ -1892,7 +1950,8 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
             var query = from employee in _oBMSDbContext.Employees
                          join salaryDetails in _oBMSDbContext.EmployeeSalaryDetails
-                             on employee.EMP_CODE equals salaryDetails.EMPFL_CODE
+                             on employee.EMP_CODE equals salaryDetails.EMPFL_CODE into salaryDetailsGroup
+                         from salaryDetails in salaryDetailsGroup.DefaultIfEmpty()
                          join employmentDetails in _oBMSDbContext.EmploymentDetails
                              on employee.EMP_CODE equals employmentDetails.EMPPAY_CODE
                          join salaryAdvanceTemp in _oBMSDbContext.SalaryAdvances
@@ -1903,7 +1962,6 @@ namespace OBMS.WebAPI.Repositories.Implementation
                              on employee.EMP_ID equals salaryAdvanceTemp.EmployeeID into salaryAdvanceGroup
                          from salaryAdvance in salaryAdvanceGroup.DefaultIfEmpty()
                          where employee.EMP_BRANCH_CODE == branch
-                              && employee.HasTransfered == false
                          //&& !salaryAdvance.IsDeleted
                           && race.Contains(employee.EMP_RACE)
 
@@ -1948,13 +2006,17 @@ namespace OBMS.WebAPI.Repositories.Implementation
                  EMP_IC_NEW = x.employee.EMP_IC_NEW ?? "",
                  EMP_IC_OLD = x.employee.EMP_IC_OLD ?? "",
                  EMP_PASSPORT_NO = x.employee.EMP_PASSPORT_NO ?? "",
-                 EMPFL_BANK = x.salaryDetails.EMPFL_BANK ?? "",
-                 EMPFL_BK_ACCNO = x.salaryDetails.EMPFL_BK_ACCNO ?? "",
-                 PAYMODE = x.salaryDetails.PAYMODE ?? "",
+                 EMPFL_BANK = x.salaryDetails?.EMPFL_BANK ?? "",
+                 EMPFL_BK_ACCNO = x.salaryDetails?.EMPFL_BK_ACCNO ?? "",
+                 PAYMODE = x.salaryDetails?.PAYMODE ?? "",
                  Amount = x.salaryAdvance?.Amount ?? 0,
                  Particulars = x.salaryAdvance?.Particulars ?? ""
              })
-             .Distinct()
+             // Deduplicate by EMP_ID — two employees with the same name but different
+             // EMP_ID / EMP_CODE must both appear; Distinct() on a reference type
+             // cannot guarantee this.
+             .GroupBy(x => x.EMP_ID)
+             .Select(g => g.First())
              .ToList();        
 
 
@@ -1977,7 +2039,8 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
             var query = from employee in _oBMSDbContext.Employees
                          join salaryDetails in _oBMSDbContext.EmployeeSalaryDetails
-                             on employee.EMP_CODE equals salaryDetails.EMPFL_CODE
+                             on employee.EMP_CODE equals salaryDetails.EMPFL_CODE into salaryDetailsGroup
+                         from salaryDetails in salaryDetailsGroup.DefaultIfEmpty()
                          join employmentDetails in _oBMSDbContext.EmploymentDetails
                              on employee.EMP_CODE equals employmentDetails.EMPPAY_CODE
                          join salaryAdvanceTemp in _oBMSDbContext.SalaryAdvances
@@ -1988,7 +2051,6 @@ namespace OBMS.WebAPI.Repositories.Implementation
                              on employee.EMP_ID equals salaryAdvanceTemp.EmployeeID into salaryAdvanceGroup
                          from salaryAdvance in salaryAdvanceGroup.DefaultIfEmpty()
                          where employee.EMP_BRANCH_CODE == branch
-                               && employee.HasTransfered == false
                                && employee.EMP_CLIENT == client
                                && (raceList == null || raceList.Contains(employee.EMP_RACE))
                          orderby employee.EMP_NAME
@@ -2031,13 +2093,15 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     EMP_IC_NEW = x.employee.EMP_IC_NEW ?? "",
                     EMP_IC_OLD = x.employee.EMP_IC_OLD ?? "",
                     EMP_PASSPORT_NO = x.employee.EMP_PASSPORT_NO ?? "",
-                    EMPFL_BANK = x.salaryDetails.EMPFL_BANK ?? "",
-                    EMPFL_BK_ACCNO = x.salaryDetails.EMPFL_BK_ACCNO ?? "",
-                    PAYMODE = x.salaryDetails.PAYMODE ?? "",
+                    EMPFL_BANK = x.salaryDetails?.EMPFL_BANK ?? "",
+                    EMPFL_BK_ACCNO = x.salaryDetails?.EMPFL_BK_ACCNO ?? "",
+                    PAYMODE = x.salaryDetails?.PAYMODE ?? "",
                     Amount = x.salaryAdvance?.Amount ?? advanceAmount,
                     Particulars = x.salaryAdvance?.Particulars ?? ""
                 })
-                .Distinct()
+                // Deduplicate by EMP_ID — same name different EMP_ID must both appear
+                .GroupBy(x => x.EMP_ID)
+                .Select(g => g.First())
                 .ToList();
 
             return data;

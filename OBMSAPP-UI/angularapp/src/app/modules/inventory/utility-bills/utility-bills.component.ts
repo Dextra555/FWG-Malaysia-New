@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ViewChild } from '@angular/core';
+﻿import { AfterViewInit, Component, ViewChild } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { MatTableDataSource } from '@angular/material/table';
@@ -61,6 +61,7 @@ export class UtilityBillsComponent implements AfterViewInit {
   returnResult: any;
   userAccessModel!: UserAccessModel;
   currentUser: string = '';
+  userRole: string = '';
   warningMessage: string = '';
   errorMessage: string = '';
   showLoadingSpinner: boolean = false;
@@ -79,6 +80,10 @@ export class UtilityBillsComponent implements AfterViewInit {
     this.user = commonService.getLocalUser();
 
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == 'null' || this.currentUser == undefined) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;
@@ -176,7 +181,7 @@ export class UtilityBillsComponent implements AfterViewInit {
           this.userAccessModel.updateAccess = data.Update;
           this.userAccessModel.createAccess = data.Create;
 
-          if (this.userAccessModel.readAccess === true || this.currentUser == 'superadmin') {
+          if (this.userAccessModel.readAccess === true || this.userRole == 'superadmin') {
             this.warningMessage = '';
             this.service.getUtilityMaster("U", "", this.currentUser).subscribe((d: any) => {
               this.branchList = d['branchList'];

@@ -29,6 +29,7 @@ export class AssetMasterComponent implements OnInit, AfterViewInit {
 
   userAccessModel!: UserAccessModel;
   currentUser:    string  = '';
+  userRole:       string  = '';
   warningMessage: string  = '';
   errorMessage:   string  = '';
   showLoadingSpinner: boolean = false;
@@ -54,6 +55,10 @@ export class AssetMasterComponent implements OnInit, AfterViewInit {
 
   ngOnInit(): void {
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (!this.currentUser || this.currentUser === 'null') {
       this._dataService.getUsername().subscribe(u => { this.currentUser = u; });
     }
@@ -69,7 +74,7 @@ export class AssetMasterComponent implements OnInit, AfterViewInit {
           this.userAccessModel.deleteAccess = data.Delete;
           this.userAccessModel.updateAccess = data.Update;
           this.userAccessModel.createAccess = data.Create;
-          if (this.userAccessModel.readAccess || this.currentUser === 'superadmin') {
+          if (this.userAccessModel.readAccess || this.userRole == 'superadmin') {
             this.loadList();
           } else {
             this.warningMessage = `Dear <b>${this.currentUser}</b>,<br>

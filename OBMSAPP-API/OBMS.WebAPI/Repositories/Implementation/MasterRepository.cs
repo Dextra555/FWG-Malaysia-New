@@ -25,6 +25,20 @@ namespace OBMS.WebAPI.Repositories.Implementation
             _registerRepository = registerRepository;
         }
 
+        /// <summary>
+        /// Returns true if the given username is a SuperAdmin.
+        /// Checks BOTH the legacy reserved username "superadmin" AND the IsAdmin == "2" flag
+        /// so that any existing user promoted to SuperAdmin via IsAdmin='2' receives full access.
+        /// </summary>
+        private bool IsSuperAdmin(string userName)
+        {
+            if (string.IsNullOrEmpty(userName)) return false;
+            if (userName.Equals("superadmin", StringComparison.OrdinalIgnoreCase)) return true;
+            var user = _oBMSDbContext.Obmsusers
+                .FirstOrDefault(u => u.Name == userName && !u.IsDeleted);
+            return user != null && user.IsAdmin == "2";
+        }
+
 
         //Branch Master Module logic methods
         #region Branch Master Module
@@ -38,7 +52,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
         public async Task<List<BranchMaster>> GetBranchListByUserName(string userName)
         {
             // Case-insensitive check for superadmin
-            bool isSuperAdmin = string.Equals(userName.Trim(),"superadmin",StringComparison.OrdinalIgnoreCase);
+            bool isSuperAdmin = IsSuperAdmin(userName);
 
             List<BranchMaster> result;
 
@@ -226,7 +240,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
         #region Client Master Module
         public async Task<List<ClientMaster>> GetClientMsterList(string clientCode,string status,string currentUser)
         {
-            bool isSuperAdmin = currentUser.Equals("superadmin", StringComparison.OrdinalIgnoreCase);
+            bool isSuperAdmin = IsSuperAdmin(currentUser);
 
             var query = from c in _oBMSDbContext.ClientMasters
                         join ob in _oBMSDbContext.OBMSBranches
@@ -288,6 +302,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 existingClientDetails.AgreementStart = clientMaster.AgreementStart;
                 existingClientDetails.AgreementEnd = clientMaster.AgreementEnd == targetDate ? null : clientMaster.AgreementEnd;
                 existingClientDetails.IsClientHeadQuarters = clientMaster.IsClientHeadQuarters;
+                existingClientDetails.IsPatrol = clientMaster.IsPatrol;
                 existingClientDetails.SpecialOTHours = clientMaster.SpecialOTHours;
                 existingClientDetails.KPIHours = clientMaster.KPIHours;
                 _oBMSDbContext.Update(existingClientDetails);

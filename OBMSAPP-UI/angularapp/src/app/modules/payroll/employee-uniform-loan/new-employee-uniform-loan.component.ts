@@ -1,4 +1,4 @@
-import { LiveAnnouncer } from '@angular/cdk/a11y';
+﻿import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { Component, OnInit } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDatepickerInputEvent } from '@angular/material/datepicker';
@@ -42,8 +42,10 @@ export class NewEmployeeUniformLoanComponent implements OnInit {
   branchModel!: BranchModel[];
   errorMessage: string = '';
   currentUser: string = '';
+  userRole: string = '';
   warningMessage: string = '';
   userAccessModel!: UserAccessModel;
+  staffAdminAccessModel!: UserAccessModel;
   employeeListModel!: EmployeeAdvanceListModel[];
   year!: number;
   month!: number;
@@ -183,6 +185,10 @@ export class NewEmployeeUniformLoanComponent implements OnInit {
       this.branchModel = [...this.filteredBranchList];
     });
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == null) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;
@@ -217,32 +223,43 @@ export class NewEmployeeUniformLoanComponent implements OnInit {
   }
   getUserAccessRights(userName: string, screenName: string) {
     this.showLoadingSpinner = true;
-    this._masterService.getUserAccessRights(userName, screenName).subscribe(
-      (data) => {
-        if (data != null) {
-          this.userAccessModel.readAccess = data.Read
-          this.userAccessModel.deleteAccess = data.Delete;
-          this.userAccessModel.updateAccess = data.Update;
-          this.userAccessModel.createAccess = data.Create;
-
-          if (this.userAccessModel.readAccess === true || this.currentUser == 'superadmin') {
-            this.warningMessage = '';
-            this.getBranchMasterListByUser(this.currentUser);
-            this.getInventoryList();
-          } else {
-            this.warningMessage = `Dear <B>${this.currentUser}</B>, <br>
+    forkJoin({
+      mainAccess: this._masterService.getUserAccessRights(userName, screenName),
+      staffAdminAccess: this._masterService.getUserAccessRights(userName, 'Payroll Staff Admin')
+    }).subscribe({
+      next: (res: any) => {
+        if (res.mainAccess) {
+          this.userAccessModel = {
+            readAccess: res.mainAccess.Read,
+            updateAccess: res.mainAccess.Update,
+            deleteAccess: res.mainAccess.Delete,
+            createAccess: res.mainAccess.Create
+          };
+        }
+        if (res.staffAdminAccess) {
+          this.staffAdminAccessModel = {
+            readAccess: res.staffAdminAccess.Read,
+            updateAccess: res.staffAdminAccess.Update,
+            deleteAccess: res.staffAdminAccess.Delete,
+            createAccess: res.staffAdminAccess.Create
+          };
+        }
+        if (this.userAccessModel.readAccess === true || this.userRole == 'superadmin') {
+          this.warningMessage = '';
+          this.getBranchMasterListByUser(this.currentUser);
+          this.getInventoryList();
+        } else {
+          this.warningMessage = `Dear <B>${this.currentUser}</B>, <br>
                       You do not have permissions to view this page. <br>
                       If you feel you should have access to this page, Please contact administrator. <br>
                       Thank you`;
-            this.hideSpinner();
-          }
+          this.hideSpinner();
         }
-
       },
-      (error) => {
+      error: (error) => {
         this.handleErrors(error);
       }
-    );
+    });
   }
   getEmployeeUniformList(loanId: number): void {
     forkJoin({

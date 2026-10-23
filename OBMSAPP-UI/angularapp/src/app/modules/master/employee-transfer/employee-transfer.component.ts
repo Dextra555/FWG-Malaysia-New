@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { SearchEmployeeComponent } from '../employee-master/search-employee/search-employee.component';
@@ -24,6 +24,7 @@ export class EmployeeTransferComponent implements OnInit {
   branchTOList: any;
   EMP_ID: any;
   currentUser: string = '';
+  userRole: string = '';
   showLoadingSpinner: boolean = false;
   warningMessage: string = '';
   userAccessModel!: UserAccessModel;
@@ -70,6 +71,10 @@ export class EmployeeTransferComponent implements OnInit {
       this.branchList = [...this.filteredBranchList];
     });
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == null) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;
@@ -85,7 +90,7 @@ export class EmployeeTransferComponent implements OnInit {
           this.userAccessModel.deleteAccess = data.Delete;
           this.userAccessModel.updateAccess = data.Update;
           this.userAccessModel.createAccess = data.Create;
-          if (this.currentUser == 'superadmin') {
+          if (this.userRole == 'superadmin') {
             this.employeeService.getEmployeeMaster(this.currentUser).subscribe((data: any) => {
               this.branchList = data['branchList'];
               this.branchTOList = data['branchList'];

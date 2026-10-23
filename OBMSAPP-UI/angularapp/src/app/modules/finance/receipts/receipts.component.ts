@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ViewChild } from '@angular/core';
+﻿import { AfterViewInit, Component, ViewChild } from '@angular/core';
 import { FormBuilder, FormGroup } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import {MatPaginator} from '@angular/material/paginator';
@@ -34,6 +34,7 @@ export class ReceiptsComponent implements AfterViewInit {
   frm!: FormGroup
   userAccessModel!: UserAccessModel;
   currentUser: string = '';
+  userRole: string = '';
   warningMessage: string = '';
   errorMessage: string = '';
   showLoadingSpinner: boolean = false;
@@ -53,6 +54,10 @@ export class ReceiptsComponent implements AfterViewInit {
       createAccess:false,
     }
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == 'null' || this.currentUser == undefined) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;
@@ -91,7 +96,7 @@ export class ReceiptsComponent implements AfterViewInit {
           this.userAccessModel.updateAccess = data.Update;
           this.userAccessModel.createAccess = data.Create;
 
-          if (this.userAccessModel.readAccess === true || this.currentUser == 'superadmin') {
+          if (this.userAccessModel.readAccess === true || this.userRole == 'superadmin') {
             this.warningMessage = '';            
             this.showLoadingSpinner = false;
           } else {

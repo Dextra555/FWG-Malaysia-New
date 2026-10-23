@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+﻿import { DatePipe } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDatepickerInputEvent } from '@angular/material/datepicker';
@@ -36,8 +36,10 @@ export class NewEmployeeMonthlyAdvanceComponent implements OnInit {
   year!: number;
   month!: number;
   currentUser: string = '';
+  userRole: string = '';
   errorMessage: string = '';
   userAccessModel!: UserAccessModel;
+  staffAdminAccessModel!: UserAccessModel;
   empId: number = 0;
   dtAdvanceDate!: string;
   clientList: any;
@@ -119,6 +121,10 @@ export class NewEmployeeMonthlyAdvanceComponent implements OnInit {
     });
 
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == null || this.currentUser == undefined) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;
@@ -159,19 +165,32 @@ export class NewEmployeeMonthlyAdvanceComponent implements OnInit {
   }
   getUserAccessRights(userName: string, screenName: string) {
     this.showLoadingSpinner = true;
-    this._masterService.getUserAccessRights(userName, screenName).subscribe(
-      (data) => {
-        if (data != null) {
-          this.userAccessModel.readAccess = data.Read
-          this.userAccessModel.deleteAccess = data.Delete;
-          this.userAccessModel.updateAccess = data.Update;
-          this.userAccessModel.createAccess = data.Create;
+    forkJoin({
+      mainAccess: this._masterService.getUserAccessRights(userName, screenName),
+      staffAdminAccess: this._masterService.getUserAccessRights(userName, 'Payroll Staff Admin')
+    }).subscribe({
+      next: (res: any) => {
+        if (res.mainAccess) {
+          this.userAccessModel = {
+            readAccess: res.mainAccess.Read,
+            updateAccess: res.mainAccess.Update,
+            deleteAccess: res.mainAccess.Delete,
+            createAccess: res.mainAccess.Create
+          };
+        }
+        if (res.staffAdminAccess) {
+          this.staffAdminAccessModel = {
+            readAccess: res.staffAdminAccess.Read,
+            updateAccess: res.staffAdminAccess.Update,
+            deleteAccess: res.staffAdminAccess.Delete,
+            createAccess: res.staffAdminAccess.Create
+          };
         }
       },
-      (error) => {
+      error: (error) => {
         this.handleErrors(error);
       }
-    );
+    });
   }
   addFormFieldsdata(data: any) {
     const formArray = this.dynamicForm.get('formArray') as FormArray;

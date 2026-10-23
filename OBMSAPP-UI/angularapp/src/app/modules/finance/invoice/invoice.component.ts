@@ -1,4 +1,4 @@
-import { Component, AfterViewInit, ViewChild } from '@angular/core';
+﻿import { Component, AfterViewInit, ViewChild } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { MatPaginator } from '@angular/material/paginator';
@@ -46,6 +46,7 @@ export class InvoiceComponent implements AfterViewInit {
   NoOfHours: any = 0;
   Total: any = 0;
   currentUser: string = '';
+  userRole: string = '';
   details: any = [];
   userAccessModel!: UserAccessModel;
   warningMessage: string = '';
@@ -67,6 +68,10 @@ export class InvoiceComponent implements AfterViewInit {
       createAccess: false,
     }
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == 'null' || this.currentUser == undefined) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;
@@ -116,7 +121,7 @@ export class InvoiceComponent implements AfterViewInit {
           this.userAccessModel.updateAccess = data.Update;
           this.userAccessModel.createAccess = data.Create;
 
-          if (this.userAccessModel.readAccess === true || this.currentUser == 'superadmin') {
+          if (this.userAccessModel.readAccess === true || this.userRole == 'superadmin') {
             this.warningMessage = '';
             this.service.getInvoiceMaster(this.currentUser).subscribe((d: any) => {
               this.branchList = d['branchList'];

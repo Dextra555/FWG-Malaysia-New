@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ViewChild } from '@angular/core';
+﻿import { AfterViewInit, Component, ViewChild } from '@angular/core';
 import { FormBuilder, FormGroup } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { MatTableDataSource } from '@angular/material/table';
@@ -37,6 +37,7 @@ export class MaterialIssueComponent implements AfterViewInit {
   dataSource = new MatTableDataSource<IItemDetails>();
   frm!: FormGroup
   currentUser: string = '';
+  userRole: string = '';
   branchList: any = [];
   categoryList: any = [];
   errorDescription: string = "";
@@ -58,6 +59,10 @@ export class MaterialIssueComponent implements AfterViewInit {
       createAccess: false,
     }
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == 'null' || this.currentUser == undefined) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;
@@ -107,7 +112,7 @@ export class MaterialIssueComponent implements AfterViewInit {
           this.userAccessModel.updateAccess = data.Update;
           this.userAccessModel.createAccess = data.Create;
 
-          if (this.userAccessModel.readAccess === true || this.currentUser == 'superadmin') {
+          if (this.userAccessModel.readAccess === true || this.userRole == 'superadmin') {
             this.warningMessage = '';
             this.service.GetMaterialMasterList(this.currentUser).subscribe((d: any) => {
               this.branchList = d['branchList'];

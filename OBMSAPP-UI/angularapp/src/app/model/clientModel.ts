@@ -17,7 +17,8 @@ export class ClientModel {
     Shortname: string;
     Status: string;
     SuperClientCode: string;
-    IsClientHeadQuarters: boolean;   
+    IsClientHeadQuarters: boolean;
+    IsPatrol: boolean;   
     LastUpdatedDate: Date | null = null;
     AgreementStart: Date | null = null;
     AgreementEnd: Date | null = null;
@@ -41,6 +42,7 @@ export class ClientModel {
         this.Status = data.Status || '';
         this.SuperClientCode = data.SuperClientCode || '';
         this.IsClientHeadQuarters = data.IsClientHeadQuarters || false;
+        this.IsPatrol = data.IsPatrol || false;
         this.LastUpdatedDate = data.LastUpdatedDate || null;
         this.AgreementStart = data.AgreementStart || null;
         this.AgreementEnd = data.AgreementEnd || null;

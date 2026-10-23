@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { AbstractControl, FormArray, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { SearchReceiptsComponent } from '../search-receipts/search-receipts.component';
@@ -33,6 +33,7 @@ export interface IInvoiceAmount {
 export class NewReceiptComponent implements OnInit {
   frm!: FormGroup
   currentUser: string = '';
+  userRole: string = '';
   branchList: any = [];
   bankList: any = [];
   bankInList: any = [];
@@ -126,6 +127,10 @@ export class NewReceiptComponent implements OnInit {
 
   ngOnInit(): void {
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == 'null' || this.currentUser == undefined) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;
@@ -577,6 +582,12 @@ export class NewReceiptComponent implements OnInit {
       }
     }
 
+    // Ensure the existing receipt ID is always sent when editing — the form control
+    // value can be lost if the form is reset or the component is reused without
+    // re-running ngOnInit.  receiptID is set in getReceiptData() and never reset
+    // until an explicit cancel/new action, so it is the authoritative source.
+    data['ID'] = this.receiptID > 0 ? this.receiptID : (data['ID'] || 0);
+
     data['ReceiptDate'] = this.returnDate(this.frm.get('ReceiptDate')?.value);
     data['ChequeNo'] = this.frm.get('ChequeNo')?.value ? this.frm.get('ChequeNo')?.value : this.frm.get('ibgNo')?.value ? this.frm.get('ibgNo')?.value : '';
     const isInvoiceAdjustment = this.frm.get("IsInvoiceAdjustment")?.value;
@@ -597,13 +608,10 @@ export class NewReceiptComponent implements OnInit {
       if (this.rowCheckedState[i]) {
         if (balance >= Number(this.invoiceList[i]['Balance'])) {
           if (Number(this.invoiceList[i]['Balance']) == 0) {
-            var dAmount = 0;
-            this.service.GetReceiptDetailRowAmount(this.invoiceList[i]['ID'], this.invoiceList[i]['ReceiptID'], this.invoiceList[i]['InvoiceID']).subscribe((d: any) => {
-
-              if (d.length > 0) {
-                dAmount = d[0]['Amount'];
-              }
-            })
+            // Balance == 0 means this invoice is fully paid under this receipt.
+            // Use InvoiceAmount directly — the previous async call was racing and
+            // always resolved AFTER details.push(), saving Amount = 0 to the DB.
+            const dAmount = Number(this.invoiceList[i]['InvoiceAmount']) || 0;
             if (this.frm.get("balance_status")?.value == "1") {
               details.push({
                 ID: this.invoiceList[i]['ID'],

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { AgreementService } from "../../agreement.service";
@@ -27,6 +27,7 @@ export class NewAgreementTerminationComponent implements OnInit {
   errorMessage: string = '';
   showLoadingSpinner: boolean = false;
   currentUser: string = '';
+  userRole: string = '';
   userAccessModel!: UserAccessModel;
 
   constructor(private fb: FormBuilder, public dialog: MatDialog, private activatedRoute: ActivatedRoute, public service: AgreementService,
@@ -50,6 +51,10 @@ export class NewAgreementTerminationComponent implements OnInit {
 
   ngOnInit(): void {
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == 'null' || this.currentUser == undefined) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;

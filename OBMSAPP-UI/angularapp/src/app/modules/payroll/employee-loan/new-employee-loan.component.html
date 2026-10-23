@@ -1,4 +1,4 @@
-<div class="wlt-c-furg-content-header">
+﻿<div class="wlt-c-furg-content-header">
     <div class="container-fluid">
         <div class="row mb-2">
             <div class="col-12 col-sm-12 col-md-4 col-lg-4">
@@ -49,7 +49,7 @@
                         <br />
                         <mat-radio-group aria-label="Select a Type" formControlName="EmployeeType">
                             <mat-radio-button value="Guard" class="mr-3">Guard</mat-radio-button>
-                            <mat-radio-button value="Staff">Staff</mat-radio-button>
+                            <mat-radio-button value="Staff" *ngIf="userRole === 'superadmin' || staffAdminAccessModel?.readAccess">Staff</mat-radio-button>
                         </mat-radio-group>
                     </div>
                 </div>
@@ -152,14 +152,14 @@
                             (click)="clearEmployeeLoanDetails()"> Cancel</button>
                         <button class="mr-3" [ngClass]="btnPrint ? 'wlt-c-furg-btn-primary' : 'wlt-c-furg-btn-gray'"
                             [disabled]="!btnPrint"
-                            *ngIf="this.userAccessModel.deleteAccess == true || currentUser == 'superadmin'"
+                            *ngIf="this.userAccessModel.deleteAccess == true || userRole == 'superadmin'"
                             (click)="OnPrintClick()"> Print</button>
                         <button class="mr-3" [ngClass]="btnPrint ? 'wlt-c-furg-btn-primary' : 'wlt-c-furg-btn-gray'"
                             [disabled]="!btnDelete"
-                            *ngIf="this.userAccessModel.deleteAccess == true || currentUser == 'superadmin'"
+                            *ngIf="this.userAccessModel.deleteAccess == true || userRole == 'superadmin'"
                             (click)="onDeleteClick()"> Delete</button>
                         <button
-                            *ngIf="(this.userAccessModel.updateAccess == true || this.userAccessModel.createAccess == true || currentUser == 'superadmin')"
+                            *ngIf="(this.userAccessModel.updateAccess == true || this.userAccessModel.createAccess == true || userRole == 'superadmin')"
                             class="btn wlt-c-furg-btn-primary" [disabled]="employeeLoanForm.invalid"
                             (click)="savebuttonClick()"> {{salaryAdvanceID == 0 ? 'Save':
                             'Update'}}</button>

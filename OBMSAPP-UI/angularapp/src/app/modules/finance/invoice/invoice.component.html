@@ -1,4 +1,4 @@
-<div class="wlt-c-furg-content-header">
+﻿<div class="wlt-c-furg-content-header">
   <div class="container-fluid">
     <div class="row mb-2">
       <div class="col-12 col-sm-12 col-md-4 col-lg-4">
@@ -133,18 +133,18 @@
         <div class="col-12">
           <div class="text-right">
             <a class="btn wlt-c-furg-btn-gray mr-3"> Cancel</a>
-            <a *ngIf="userAccessModel.readAccess || currentUser === 'superadmin'"
+            <a *ngIf="userAccessModel.readAccess || userRole == 'superadmin'"
               class="btn wlt-c-furg-btn-secondary mr-3" [class.disabled]="invoiceId === 0" (click)="onPrint()">Print</a>
 
-            <a *ngIf="userAccessModel.deleteAccess || currentUser === 'superadmin'"
+            <a *ngIf="userAccessModel.deleteAccess || userRole == 'superadmin'"
               class="btn wlt-c-furg-btn-secondary mr-3" [class.disabled]="invoiceId === 0"
               (click)="deleteInvoice()">Delete</a>
 
-            <a *ngIf="this.userAccessModel.updateAccess == true || currentUser == 'superadmin'"
+            <a *ngIf="this.userAccessModel.updateAccess == true || userRole == 'superadmin'"
               class="btn wlt-c-furg-btn-secondary mr-3" (click)="editInvoice()" [class.disabled]="btnEditDisabled">
               Edit</a>
             <button
-              *ngIf="this.userAccessModel.createAccess == true ||this.userAccessModel.updateAccess == true || currentUser == 'superadmin'"
+              *ngIf="this.userAccessModel.createAccess == true ||this.userAccessModel.updateAccess == true || userRole == 'superadmin'"
               class="btn wlt-c-furg-btn-primary" type="submit" [class.disabled]="btnSaveDisabled">
               {{ invoiceId > 0 ? 'Update' : 'Save' }}
             </button>

@@ -222,7 +222,7 @@
           <div class="text-right">
             <button type="button" class="btn wlt-c-furg-btn-gray mr-3" (click)="onCancelClick()">Cancel</button>
             <button
-              *ngIf="userAccessModel.createAccess == true || userAccessModel.updateAccess == true || currentUser == 'superadmin'"
+              *ngIf="userAccessModel.createAccess == true || userAccessModel.updateAccess == true || userRole == 'superadmin'"
               type="submit"
               class="btn wlt-c-furg-btn-primary"
               [disabled]="showLoadingSpinner">

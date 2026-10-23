@@ -23,6 +23,20 @@ namespace OBMS.WebAPI.Repositories.Implementation
             _oBMSDbContext = oBMSDbContext;
             _registerRepository = registerRepository;
         }
+
+        /// <summary>
+        /// Returns true if the given username is a SuperAdmin.
+        /// Checks BOTH the legacy reserved username "superadmin" AND the IsAdmin == "2" flag
+        /// so that any existing user promoted to SuperAdmin via IsAdmin='2' receives full access.
+        /// </summary>
+        private bool IsSuperAdmin(string userName)
+        {
+            if (string.IsNullOrEmpty(userName)) return false;
+            if (userName.Equals("superadmin", StringComparison.OrdinalIgnoreCase)) return true;
+            var user = _oBMSDbContext.Obmsusers
+                .FirstOrDefault(u => u.Name == userName && !u.IsDeleted);
+            return user != null && user.IsAdmin == "2";
+        }
         public async Task<Dictionary<string, Object>> GetInvoiceMaster(string userID)
         {
             var results = new Dictionary<string, Object>();
@@ -68,7 +82,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
         }
         public async Task<Dictionary<string, Object>> GetPaymentMaster(string userID)
         {
-            bool isSuperAdmin = userID.Equals("superadmin", StringComparison.OrdinalIgnoreCase);
+            bool isSuperAdmin = IsSuperAdmin(userID);
             var results = new Dictionary<string, Object>();
 
             var suppliers = await _oBMSDbContext.Suppliers.Where(s => s.Status == "A").OrderBy(s => s.Name).ToListAsync();
@@ -198,7 +212,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                                     on creditorInvoice.ID equals paymentDetails.InvoiceID into paymentDetailsGroup
                               from pd in paymentDetailsGroup.Where(pd => pd.PaymentID == paymentID).DefaultIfEmpty()
                               join payments in (from pd2 in _oBMSDbContext.BranchPaymentDetails
-                                                where pd2.InvoiceID != 0 && pd2.IsDeleted == false
+                                                where pd2.InvoiceID != 0 && pd2.IsDeleted != true
                                                 group pd2 by pd2.InvoiceID into g
                                                 select new { InvoiceID = g.Key, PaidAmount = g.Sum(pd2 => pd2.Amount) })
                                   on (decimal?)creditorInvoice.ID equals payments.InvoiceID into paymentsGroup
@@ -284,7 +298,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
         }
         public async Task<Dictionary<string, object>> GetReceiptMaster(string userID)
         {
-            bool isSuperAdmin = userID.Equals("superadmin", StringComparison.OrdinalIgnoreCase);
+            bool isSuperAdmin = IsSuperAdmin(userID);
 
             var results = new Dictionary<string, object>();
 
@@ -523,8 +537,10 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 payment.LastUpdatedBy = currentUser;
 
                 // Update related details
+                // Use != true to also catch rows where IsDeleted is NULL (never explicitly set),
+                // ensuring all active detail lines are soft-deleted so vwPaymentDue recalculates correctly.
                 var details = await _oBMSDbContext.BranchPaymentDetails
-                    .Where(d => d.PaymentID == id && d.IsDeleted == false)
+                    .Where(d => d.PaymentID == id && d.IsDeleted != true)
                     .ToListAsync();
 
                 foreach (var detail in details)

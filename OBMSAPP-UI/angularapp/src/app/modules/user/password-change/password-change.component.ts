@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { AbstractControl, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { CommonService } from 'src/app/service/common.service';
@@ -22,6 +22,7 @@ export class PasswordChangeComponent implements OnInit {
   warningMessage: string = '';
   errorMessage!: string;
   currentUser: string = '';
+  userRole: string = '';
   passwordRequest!: ChangePasswordRequest;
 
   constructor(private fb: FormBuilder, private commonService: CommonService, private _router: Router,
@@ -42,6 +43,10 @@ export class PasswordChangeComponent implements OnInit {
   }
   ngOnInit(): void {
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == null) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;

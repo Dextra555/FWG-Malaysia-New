@@ -63,6 +63,10 @@ namespace OBMS.WebAPI.Models.Domain
         // Transfer / history period columns
         // ----------------------------------------------------------
 
+        /// <summary>Client code the employee was assigned to during this period.</summary>
+        [StringLength(20)]
+        public string? EMP_CLIENT { get; set; }
+
         /// <summary>Effective start date of this employment record at this branch.</summary>
         public DateTime? Emp_StartDate { get; set; }
 

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { SafeResourceUrl, DomSanitizer } from '@angular/platform-browser';
 import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
 import { DatasharingService } from 'src/app/service/datasharing.service';
@@ -13,6 +13,7 @@ export class DailyAdvanceVoucherReportComponent implements OnInit {
   url: string = environment.baseReportUrl;
   urlSafe: SafeResourceUrl | undefined;
   currentUser: string = "";
+  userRole: string = '';
   ID!: number;
   currentUrl: string = "PayRoll/AdvanceVoucherReport.aspx?"
 
@@ -28,6 +29,10 @@ export class DailyAdvanceVoucherReportComponent implements OnInit {
     });
     let localURL = "";
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == null || this.currentUser == undefined) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;

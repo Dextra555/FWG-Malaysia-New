@@ -664,6 +664,33 @@ namespace OBMS.WebAPI.Controllers
         }
 
         [HttpGet]
+        [Route("GetAttendanceWorkTypeList")]
+        public IActionResult GetAttendanceWorkTypeList()
+        {
+            var workTypes = new[]
+            {
+                new { ID = 1,  Name = "General Working"       },
+                new { ID = 2,  Name = "Off Day"               },
+                new { ID = 3,  Name = "Off Day Working"       },
+                new { ID = 4,  Name = "Holiday"               },
+                new { ID = 5,  Name = "Holiday Working"       },
+                new { ID = 6,  Name = "Unpaid Leave"          },
+                new { ID = 7,  Name = "Absent"                },
+                new { ID = 8,  Name = "Annual Leave"          },
+                new { ID = 9,  Name = "Medical Leave"         },
+                new { ID = 10, Name = "Maternity Leave"       },
+                new { ID = 11, Name = "Paternity Leave"       },
+                new { ID = 12, Name = "Hospitalization Leave" },
+                new { ID = 13, Name = "Paid By Socso"         },
+                new { ID = 14, Name = "Non Schedule Day"      },
+                new { ID = 15, Name = "Replacement Leave"     },
+                new { ID = 16, Name = "Compensate Leave"      },
+                new { ID = 17, Name = "Marriage Leave"        },
+            };
+            return Ok(workTypes);
+        }
+
+        [HttpGet]
         [Route("AttendanceDetailsByID")]
         public async Task<ActionResult<List<AttendanceDetailsDto>>> AttendanceDetailsByID(int Id)
         {

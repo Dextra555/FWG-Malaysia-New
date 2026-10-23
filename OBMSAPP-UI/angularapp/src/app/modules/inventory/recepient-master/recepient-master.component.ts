@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ViewChild } from '@angular/core';
+﻿import { AfterViewInit, Component, ViewChild } from '@angular/core';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
 import { MatSort, Sort } from '@angular/material/sort';
@@ -42,6 +42,7 @@ export class RecepientMasterComponent implements AfterViewInit {
   sort!: MatSort;
   userAccessModel!: UserAccessModel;
   currentUser: string = '';
+  userRole: string = '';
   warningMessage: string = '';
   errorMessage: string = '';
   showLoadingSpinner: boolean = false;
@@ -63,6 +64,10 @@ export class RecepientMasterComponent implements AfterViewInit {
   }
   ngOnInit(): void {
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == 'null' || this.currentUser == undefined) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;
@@ -80,7 +85,7 @@ export class RecepientMasterComponent implements AfterViewInit {
           this.userAccessModel.updateAccess = data.Update;
           this.userAccessModel.createAccess = data.Create;
 
-          if (this.userAccessModel.readAccess === true || this.currentUser == 'superadmin') {
+          if (this.userAccessModel.readAccess === true || this.userRole == 'superadmin') {
             this.warningMessage = '';
             this.service.getRecipients().subscribe((d: any) => {
               if (d.length > 0) {

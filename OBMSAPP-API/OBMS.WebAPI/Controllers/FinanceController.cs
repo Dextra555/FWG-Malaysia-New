@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OBMS.WebAPI.BusinessObjects;
 using OBMS.WebAPI.Models;
@@ -1217,12 +1217,12 @@ namespace OBMS.WebAPI.Controllers
                         LEFT JOIN BranchPaymentDetails BPD
                             ON BPD.InvoiceID = CI.ID
                            AND BPD.PaymentID = @PaymentID
-                           AND BPD.IsDeleted = 0
+                           AND ISNULL(BPD.IsDeleted, 0) = 0
                         LEFT JOIN
                         (
                             SELECT InvoiceID, SUM(Amount) AS PaidAmount
                             FROM BranchPaymentDetails
-                            WHERE InvoiceID <> 0 AND IsDeleted = 0
+                            WHERE InvoiceID <> 0 AND ISNULL(IsDeleted, 0) = 0
                             GROUP BY InvoiceID
                         ) P ON P.InvoiceID = CI.ID
                         WHERE OB.Name = @UserID
@@ -1275,11 +1275,11 @@ namespace OBMS.WebAPI.Controllers
                     LEFT JOIN BranchPaymentDetails BPD 
                         ON BPD.InvoiceID = CI.ID 
                        AND BPD.PaymentID = @PaymentID
-                       AND BPD.IsDeleted = 0
+                       AND ISNULL(BPD.IsDeleted, 0) = 0
                     LEFT JOIN (
                         SELECT InvoiceID, SUM(Amount) AS PaidAmount
                         FROM BranchPaymentDetails
-                        WHERE InvoiceID <> 0 AND IsDeleted = 0
+                        WHERE InvoiceID <> 0 AND ISNULL(IsDeleted, 0) = 0
                         GROUP BY InvoiceID
                     ) P 
                         ON P.InvoiceID = CI.ID
@@ -1331,7 +1331,7 @@ namespace OBMS.WebAPI.Controllers
                         LEFT JOIN BranchPaymentDetails BPD
                             ON BPD.Branch = BM.Code
                            AND BPD.PaymentID = @PaymentID
-                           AND BPD.IsDeleted = 0
+                           AND ISNULL(BPD.IsDeleted, 0) = 0
                         WHERE OB.Name = @UserID
                         ORDER BY BM.Code";
 
@@ -1763,110 +1763,6 @@ namespace OBMS.WebAPI.Controllers
 
         [HttpPost]
         [Route("SaveAndUpdateReceipt")]
-        //public async Task<ActionResult<HttpResponseMessage>> SaveAndUpdateReceipt(ReceiptsRequestDto receiptsRequestDto)
-        //{
-        //    try
-        //    {
-        //        var sInvoiceNo = "";
-        //        foreach (ReceiptDetailRequestDto detail in receiptsRequestDto.details)
-        //        {
-        //            if (detail.InvoiceID > 0)
-        //            {
-        //                var clientInvoice = await _oBMSDbContext.ClientInvoices.Where(x => x.ID == detail.InvoiceID).FirstAsync();
-        //                sInvoiceNo = sInvoiceNo + clientInvoice.InvoiceNo + ",";
-        //            }
-        //        }
-
-        //        var receipt = new Receipts();
-        //        receipt.ID = receiptsRequestDto.ID;
-        //        var existingReceipt = _oBMSDbContext.Receipts.Where(x => x.ID == receiptsRequestDto.ID && x.IsDeleted == false).FirstOrDefault();
-        //        if (receipt.ID == 0)
-        //        {
-        //            receipt.VoucherNo = UtilityMain.NewReceiptVoucherNoByYear(receiptsRequestDto.BankID, receiptsRequestDto.ReceiptDate.Year);
-        //        }
-        //        else
-        //        {
-        //            if (existingReceipt != null)
-        //            {
-        //                receipt.VoucherNo = existingReceipt.VoucherNo;
-        //            }
-        //        }
-        //        receipt.ReceiptDate = receiptsRequestDto.ReceiptDate;
-        //        receipt.Branch = receiptsRequestDto.Branch;
-        //        receipt.PaymentFrom = receiptsRequestDto.PaymentFrom;
-        //        receipt.Particulars = receiptsRequestDto.Particulars;
-        //        receipt.ReceiptType = receiptsRequestDto.ReceiptType;
-        //        receipt.IsInvoiceAdjustment = receiptsRequestDto.IsInvoiceAdjustment;
-        //        receipt.BankCode = receiptsRequestDto.BankCode;
-        //        receipt.BankBranch = receiptsRequestDto.BankBranch;
-        //        receipt.ChequeNo = receiptsRequestDto.ChequeNo;
-        //        receipt.InvoiceNumbers = sInvoiceNo;
-        //        receipt.ReceiptAmount = receiptsRequestDto.ReceiptAmount;
-        //        receipt.TaxPercentage = receiptsRequestDto.TaxPercentage;
-        //        receipt.TaxAmount = receiptsRequestDto.TaxAmount;
-        //        receipt.HQPercentage = receiptsRequestDto.HQPercentage;
-        //        receipt.HQAmount = receiptsRequestDto.HQAmount;
-        //        receipt.BranchCollection = receiptsRequestDto.BranchCollection;
-        //        receipt.CreditNoteAmount = receiptsRequestDto.CreditNoteAmount;
-        //        receipt.DebitNoteAmount = receiptsRequestDto.DebitNoteAmount;
-        //        receipt.SuspendAmount = receiptsRequestDto.SuspendAmount;
-        //        receipt.BankID = receiptsRequestDto.BankID;
-        //        receipt.ChequeStatus = receiptsRequestDto.ChequeStatus;
-        //        receipt.IsDeleted = false;
-        //        receipt.LastUpdate = DateTime.Now;
-        //        receipt.LastUpdatedBy = receiptsRequestDto.LastUpdatedBy;
-
-        //        if (receiptsRequestDto.ID == 0)
-        //        {
-        //            _oBMSDbContext.Receipts.Add(receipt);
-        //        }
-        //        else
-        //        {
-        //            _oBMSDbContext.Receipts.Update(receipt);
-        //        }
-
-        //        await _oBMSDbContext.SaveChangesAsync();
-        //        var savedReceiptId = receipt.ID;
-
-        //        foreach (ReceiptDetailRequestDto detail in receiptsRequestDto.details)
-        //        {
-        //            var receiptDetail = new ReceiptDetail();
-        //            receiptDetail.ID = detail.ID;
-        //            receiptDetail.ReceiptID = receipt.ID;
-        //            receiptDetail.InvoiceID = detail.InvoiceID;
-        //            receiptDetail.Amount = detail.Amount;
-        //            receiptDetail.BalanceStatus = detail.BalanceStatus;
-        //            receiptDetail.BalanceAmount = detail.BalanceAmount;
-        //            receiptDetail.LastUpdate = DateTime.Now;
-
-        //            if (receiptDetail.ID == 0)
-        //            {
-        //                _oBMSDbContext.ReceiptDetails.Add(receiptDetail);
-        //            }
-        //            else
-        //            {
-        //                _oBMSDbContext.ReceiptDetails.Update(receiptDetail);
-        //            }
-
-        //            await _oBMSDbContext.SaveChangesAsync();
-
-        //        }
-        //        Dictionary<string, object> dictResult = new Dictionary<string, object>();
-        //        dictResult.Add("Success", "Success");
-        //        dictResult.Add("ReceiptID", savedReceiptId);
-
-        //        response.Headers.Add("Success", "Successfully save & update  details.");
-
-        //        return Ok(dictResult);
-
-        //    }
-        //    catch (Exception ex)
-        //    {
-
-        //        throw;
-        //    }
-        //}
-
         public async Task<ActionResult<HttpResponseMessage>> SaveAndUpdateReceipt(ReceiptsRequestDto receiptsRequestDto)
         {
             try
@@ -2097,12 +1993,9 @@ namespace OBMS.WebAPI.Controllers
                                 FROM ReceiptDetails RD1
                                 INNER JOIN Receipts R 
                                     ON RD1.ReceiptId = R.ID AND R.IsDeleted = 0
-                                WHERE RD1.InvoiceID NOT IN
-                                (
-                                    SELECT InvoiceID 
-                                    FROM ReceiptDetails 
-                                    WHERE ReceiptID = @ReceiptID
-                                )
+                                -- Include ALL receipts (including the current one being edited)
+                                -- so that already-paid invoices show a correct zero balance
+                                -- and are excluded by the > 0 filter below
                             ) AS ClientPayments
                             GROUP BY InvoiceID
                         ) AS InvoicePayments 
@@ -2399,6 +2292,7 @@ namespace OBMS.WebAPI.Controllers
                 if (detail == null)
                     return NotFound(new { message = "Payment line not found." });
 
+                // Soft-delete the detail line
                 detail.IsDeleted = true;
                 detail.LastUpdate = DateTime.Now;
                 detail.LastUpdatedBy = request.CurrentUser;
@@ -2420,6 +2314,27 @@ namespace OBMS.WebAPI.Controllers
                         linkedCI.LastUpdatedBy = request.CurrentUser;
                         _oBMSDbContext.CreditorInvoices.Update(linkedCI);
                     }
+                }
+
+                // Recalculate BranchPayments header Amount from remaining active lines,
+                // and stamp LastUpdate / LastUpdatedBy on the parent header
+                var header = await _oBMSDbContext.BranchPayments
+                    .FirstOrDefaultAsync(x => x.ID == (int)detail.PaymentID);
+
+                if (header != null)
+                {
+                    // Sum all non-deleted lines for this payment (excluding the one just soft-deleted)
+                    var newTotal = await _oBMSDbContext.BranchPaymentDetails
+                        .Where(x => x.PaymentID == detail.PaymentID
+                                    && x.ID != detail.ID
+                                    && (x.IsDeleted == null || x.IsDeleted == false))
+                        .SumAsync(x => (decimal?)x.Amount) ?? 0m;
+
+                    header.Amount = newTotal;
+                    header.LastUpdate = DateTime.Now;
+                    header.LastUpdatedBy = request.CurrentUser;
+
+                    _oBMSDbContext.BranchPayments.Update(header);
                 }
 
                 await _oBMSDbContext.SaveChangesAsync();

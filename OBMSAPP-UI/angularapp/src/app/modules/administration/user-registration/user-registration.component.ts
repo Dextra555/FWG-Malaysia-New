@@ -24,6 +24,7 @@ export class UserRegistrationComponent implements OnInit {
   displayedColumns: string[] = ['Name', 'Designation', 'IsAdmin', 'action'];
   dataSource: any;
   currentUser: string = '';
+  userRole: string = '';
   userAccessModel!: UserAccessModel;
   warningMessage: string = '';
   errorMessage: string = '';
@@ -65,17 +66,16 @@ export class UserRegistrationComponent implements OnInit {
   ngOnInit(): void {
     this.showLoadingSpinner = true;
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == null) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;
       });
     }
     this.getUserAccessRights(this.currentUser, 'User Administration');
-    if (this.currentUser == 'admin' || this.currentUser == 'superadmin') {
-      this.getUserRegisterList();
-    } else {
-      this.getUserRegisterbyName(this.currentUser);
-    }
   }
   getUserAccessRights(userName: string, screenName: string) {
     this.showLoadingSpinner = true;
@@ -87,7 +87,7 @@ export class UserRegistrationComponent implements OnInit {
           this.userAccessModel.updateAccess = data.Update;
           this.userAccessModel.createAccess = data.Create;
 
-          if (this.currentUser == 'superadmin') {
+          if (this.isAdminOrSuperAdmin()) {
             this.getUserRegisterList();
           } else {
             if (this.userAccessModel.readAccess === true) {
@@ -107,6 +107,11 @@ export class UserRegistrationComponent implements OnInit {
         this.handleErrors(error);
       }
     );
+  }
+  isAdminOrSuperAdmin(): boolean {
+    const userRole = sessionStorage.getItem('userrole');
+    return userRole === '1' || userRole === '2'
+      || this.currentUser?.toLowerCase() === 'superadmin';
   }
   getUserRegisterList(): void {
     this._commonService.getUsers().subscribe(users => {

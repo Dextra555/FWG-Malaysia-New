@@ -16,6 +16,20 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
         }
 
+        /// <summary>
+        /// Returns true if the given username is a SuperAdmin.
+        /// Checks BOTH the legacy reserved username "superadmin" AND the IsAdmin == "2" flag
+        /// so that any existing user promoted to SuperAdmin via IsAdmin='2' receives full access.
+        /// </summary>
+        private bool IsSuperAdmin(string userName)
+        {
+            if (string.IsNullOrEmpty(userName)) return false;
+            if (userName.Equals("superadmin", StringComparison.OrdinalIgnoreCase)) return true;
+            var user = _oBMSDbContext.Obmsusers
+                .FirstOrDefault(u => u.Name == userName && !u.IsDeleted);
+            return user != null && user.IsAdmin == "2";
+        }
+
         public async Task<Dictionary<string, Object>> GetAgreementMasterList(string userID)
         {
 
@@ -126,7 +140,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
         public async Task<List<Object>> GetAgreements(string branchId, string userID)
         {
-            bool isSuperAdmin = userID.Equals("superadmin", StringComparison.OrdinalIgnoreCase);
+            bool isSuperAdmin = IsSuperAdmin(userID);
 
             if (branchId == "0")
             {

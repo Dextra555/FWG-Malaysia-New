@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -19,6 +19,7 @@ export class LeaveSlabComponent implements OnInit {
   leaveModel!: LeaveSystem;
   showLoadingSpinner: boolean = false;
   currentUser: string = '';
+  userRole: string = '';
   warningMessage: string = '';
   userAccessModel!: UserAccessModel;
 
@@ -50,6 +51,10 @@ export class LeaveSlabComponent implements OnInit {
 
   ngOnInit(): void {
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == null) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;
@@ -65,7 +70,7 @@ export class LeaveSlabComponent implements OnInit {
           this.userAccessModel.deleteAccess = data.Delete;
           this.userAccessModel.updateAccess = data.Update;
           this.userAccessModel.createAccess = data.Create;
-          if (this.currentUser == 'admin' || this.currentUser == 'superadmin') {
+          if (this.currentUser == 'admin' || this.userRole == 'superadmin') {
           } else {
             if (this.userAccessModel.readAccess === true) {
               this.warningMessage = '';

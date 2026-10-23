@@ -1,4 +1,4 @@
-import { Component, AfterViewInit, ViewChild } from '@angular/core';
+﻿import { Component, AfterViewInit, ViewChild } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
@@ -33,6 +33,7 @@ export class CreditNoteComponent implements AfterViewInit {
   clientList: any[] = [];
 
   currentUser: string = '';
+  userRole: string = '';
   userAccessModel!: UserAccessModel;
   warningMessage: string = '';
   showLoadingSpinner: boolean = false;
@@ -48,6 +49,10 @@ export class CreditNoteComponent implements AfterViewInit {
   ) {
     this.userAccessModel = { readAccess: false, updateAccess: false, deleteAccess: false, createAccess: false };
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (!this.currentUser || this.currentUser === 'null') {
       this._dataService.getUsername().subscribe(u => this.currentUser = u);
     }

@@ -29,6 +29,7 @@ export class UserBankAccessComponent implements OnInit {
   dataSource: any;
   errorMessage: string = '';
   currentUser: string = '';
+  userRole: string = '';
   warningMessage: string = '';
   userAccessModel!: UserAccessModel;
   pageSizeOptions: number[] = [];
@@ -68,6 +69,10 @@ export class UserBankAccessComponent implements OnInit {
   ngOnInit(): void {
     this.showLoadingSpinner = true;
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == null) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;
@@ -75,6 +80,12 @@ export class UserBankAccessComponent implements OnInit {
     }
     this.getUserAccessRights(this.currentUser, 'User Bank Access');
   }
+  isAdminOrSuperAdmin(): boolean {
+    const userRole = sessionStorage.getItem('userrole');
+    return userRole === '1' || userRole === '2'
+      || this.currentUser?.toLowerCase() === 'superadmin';
+  }
+
   getUserRegisterList(): void {
     this.showLoadingSpinner = true;
     this._commonService.getUsers().subscribe(users => {
@@ -116,7 +127,7 @@ export class UserBankAccessComponent implements OnInit {
           this.userAccessModel.deleteAccess = data.Delete;
           this.userAccessModel.updateAccess = data.Update;
           this.userAccessModel.createAccess = data.Create;
-          if (this.currentUser == 'superadmin') {
+          if (this.isAdminOrSuperAdmin()) {
             this.getUserRegisterList();
           } else {
             if (this.userAccessModel.readAccess === true) {

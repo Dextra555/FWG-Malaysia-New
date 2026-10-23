@@ -238,6 +238,7 @@ namespace OBMS.WebAPI.Controllers
                     Email = clientMasterRequestDto.Email,
                     Fax = clientMasterRequestDto.Fax,
                     IsClientHeadQuarters = clientMasterRequestDto.IsClientHeadQuarters,
+                    IsPatrol = clientMasterRequestDto.IsPatrol,
                     PersonIncharge = clientMasterRequestDto.PersonIncharge,
                     Shortname = clientMasterRequestDto.Shortname,
                     //CreatedDate = clientMasterRequestDto.CreatedDate,

@@ -181,7 +181,7 @@
               (click)="onPrintPDF()">
               <mat-icon style="vertical-align:middle;font-size:18px">print</mat-icon> Print PDF
             </button>
-            <button *ngIf="userAccessModel.createAccess || userAccessModel.updateAccess || currentUser === 'superadmin'"
+            <button *ngIf="userAccessModel.createAccess || userAccessModel.updateAccess || userRole == 'superadmin'"
               type="submit" class="btn wlt-c-furg-btn-primary" [disabled]="showLoadingSpinner">
               {{isEdit ? 'Update Asset' : 'Save Asset'}}
             </button>

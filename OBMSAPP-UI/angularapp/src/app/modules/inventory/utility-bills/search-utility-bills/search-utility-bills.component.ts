@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ViewChild } from '@angular/core';
+﻿import { AfterViewInit, Component, ViewChild } from '@angular/core';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
 import { MatSort, Sort } from '@angular/material/sort';
@@ -33,6 +33,7 @@ export class SearchUtilityBillsComponent implements AfterViewInit {
   branchList: any = [];
   supplierList: any = [];
   currentUser: string = '';
+  userRole: string = '';
   searchOption: string = 'Invoice No';
   pageSizeOptions: number[] = [];
 
@@ -53,6 +54,10 @@ export class SearchUtilityBillsComponent implements AfterViewInit {
     private service: InventoryService,
     private _dataService: DatasharingService, private router: Router) {
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == 'null' || this.currentUser == undefined) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;

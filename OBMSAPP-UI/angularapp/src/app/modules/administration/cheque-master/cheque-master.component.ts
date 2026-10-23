@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+﻿import { Component, OnInit, ViewChild } from '@angular/core';
 import { BankMasterModel } from 'src/app/model/bankMasterModel';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { MatDialog } from '@angular/material/dialog';
@@ -30,6 +30,7 @@ export class ChequeMasterComponent implements OnInit {
   dataSource: any;
   errorMessage: string = '';
   currentUser: string = '';
+  userRole: string = '';
   warningMessage: string = '';
   userAccessModel!: UserAccessModel;
   pageSizeOptions: number[] = [];
@@ -69,6 +70,10 @@ export class ChequeMasterComponent implements OnInit {
   ngOnInit(): void {
     this.showLoadingSpinner = true;
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == null) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;
@@ -85,7 +90,7 @@ export class ChequeMasterComponent implements OnInit {
           this.userAccessModel.deleteAccess = data.Delete;
           this.userAccessModel.updateAccess = data.Update;
           this.userAccessModel.createAccess = data.Create;
-          if (this.currentUser == 'superadmin') {
+          if (this.userRole == 'superadmin') {
             this.getChequeMasterList();
           } else {
             if (this.userAccessModel.readAccess === true) {

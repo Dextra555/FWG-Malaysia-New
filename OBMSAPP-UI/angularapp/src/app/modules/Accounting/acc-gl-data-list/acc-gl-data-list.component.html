@@ -1,4 +1,4 @@
-<div class="wlt-c-furg-content-header">
+﻿<div class="wlt-c-furg-content-header">
     <div class="container-fluid">
         <div class="row mb-2">
             <div class="col-12 col-sm-12 col-md-4 col-lg-4">
@@ -71,11 +71,11 @@
                         <button class="btn wlt-c-furg-btn-gray mr-3" mat-dialog-close (click)="clearClickButton()">
                             Cancel</button>
                         <button
-                            *ngIf="(this.userAccessModel.updateAccess == true || this.userAccessModel.createAccess == true || currentUser == 'superadmin')"
+                            *ngIf="(this.userAccessModel.updateAccess == true || this.userAccessModel.createAccess == true || userRole == 'superadmin')"
                             class="btn wlt-c-furg-btn-danger mr-3" (click)="deleteClickButton()"
                             [disabled]="frm.invalid"> Delete</button>
                         <button
-                            *ngIf="(this.userAccessModel.updateAccess == true || this.userAccessModel.createAccess == true || currentUser == 'superadmin')"
+                            *ngIf="(this.userAccessModel.updateAccess == true || this.userAccessModel.createAccess == true || userRole == 'superadmin')"
                             class="btn wlt-c-furg-btn-primary"
                             [disabled]="frm.invalid || frm.controls['Branchcode'].value === 0 || frm.controls['Branchcode'].value === undefined"
                             (click)="btnSaveandUpdateClick()">

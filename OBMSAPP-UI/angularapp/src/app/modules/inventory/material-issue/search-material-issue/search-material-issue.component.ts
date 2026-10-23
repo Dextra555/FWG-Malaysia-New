@@ -1,4 +1,4 @@
-import {AfterViewInit, Component, OnInit, ViewChild} from '@angular/core';
+﻿import {AfterViewInit, Component, OnInit, ViewChild} from '@angular/core';
 import {FormBuilder, FormGroup, Validators} from "@angular/forms";
 import {MatTableDataSource} from "@angular/material/table";
 import {LiveAnnouncer} from "@angular/cdk/a11y";
@@ -30,11 +30,16 @@ export class SearchMaterialIssueComponent implements AfterViewInit {
   //dataSource = new MatTableDataSource<PeriodicElement>(ELEMENT_DATA);
   dataSource = new MatTableDataSource();
   currentUser: string = '';
+  userRole: string = '';
   branchList: any = [];
 
   constructor(public fb: FormBuilder, private _liveAnnouncer: LiveAnnouncer, public dialog: MatDialog, private service: InventoryService, public dialogRef: MatDialogRef<SearchMaterialIssueComponent>, private _dataService: DatasharingService) {
 
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == 'null' || this.currentUser == undefined) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;

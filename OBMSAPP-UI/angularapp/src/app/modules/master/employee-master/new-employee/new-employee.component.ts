@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormControl, FormGroup, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { EmployeeService } from "../../../../service/employee.service";
@@ -32,6 +32,7 @@ export class NewEmployeeComponent implements OnInit {
   currentUser: string = '';
   empId: any;
   isEdit: boolean = false;
+  loadedEmpRole: string = '';   // stores EMP_ROLE after getEmployeeById resolves
   empCodeData: any | undefined;
   check: any = 1;
   checkList: any = [
@@ -85,6 +86,10 @@ export class NewEmployeeComponent implements OnInit {
 
     this.empId = this.activatedRoute.snapshot.params['EMP_ID'];
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == 'null' || this.currentUser == undefined) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;
@@ -229,6 +234,15 @@ export class NewEmployeeComponent implements OnInit {
         this.frm.get('EMP_ROLE')?.setValue(employee['EMP_ROLE'].toString());
         this.frm.get('EMP_CLIENT')?.setValue(employee['EMP_CLIENT'].toString());
         this.frm.get('EMP_CITIZEN')?.setValue(employee['EMP_CITIZEN'].toString());
+
+        // Store loaded role — used for Staff access guard
+        this.loadedEmpRole = employee['EMP_ROLE'].toString();
+
+        // Guard: if user has no Staff Admin access and this is a Staff employee, redirect
+        if (this.loadedEmpRole === 'Staff' && this.userRole !== 'superadmin' && !this.staffAdminAccessModel?.readAccess) {
+          this.route.navigate(['/master/employee-master']);
+          return;
+        }
         this.frm.get('SALARYLAB')?.setValue(employment['SALARYLAB'].toString() ?? 0);
         this.frm.get('EMP_SP_WORK')?.setValue(employee['EMP_SP_WORK'] == true ? "1" : "0");
         this.frm.get('TMPGUARD')?.setValue(salaryDetail['TMPGUARD'] == false ? "0" : "1");
@@ -321,6 +335,10 @@ export class NewEmployeeComponent implements OnInit {
       this.bankList = [...this.filteredBankList];
     });
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == null) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;
@@ -403,7 +421,7 @@ export class NewEmployeeComponent implements OnInit {
   //         this.userAccessModel.deleteAccess = data.Delete;
   //         this.userAccessModel.updateAccess = data.Update;
   //         this.userAccessModel.createAccess = data.Create;
-  //         if (this.currentUser == 'admin' || this.currentUser == 'superadmin') {
+  //         if (this.currentUser == 'admin' || this.userRole == 'superadmin') {
   //         } else {
   //           if (this.userAccessModel.readAccess === true) {
   //             this.warningMessage = '';
@@ -451,6 +469,15 @@ export class NewEmployeeComponent implements OnInit {
 
         if (this.userRole === 'superadmin' || this.userAccessModel.readAccess) {
           this.warningMessage = '';
+
+          // If editing a Staff employee, check Staff Admin access
+          if (this.isEdit && this.userRole !== 'superadmin' && !this.staffAdminAccessModel?.readAccess) {
+            const empRole = this.loadedEmpRole || this.frm.get('EMP_ROLE')?.value;
+            if (empRole === 'Staff') {
+              this.route.navigate(['/master/employee-master']);
+              return;
+            }
+          }
         } else {
           this.warningMessage = `Dear <B>${this.currentUser}</B>, <br>
           You do not have permissions to view this page. <br>
@@ -515,9 +542,14 @@ export class NewEmployeeComponent implements OnInit {
 
   typeChange() {
     if (this.frm.get('EMP_ROLE')?.value == 'None') {
-      this.frm.get('EMP_CODE')?.setValue('');
+      // Only clear EMP_CODE for new employees — never overwrite an existing record's code
+      if (!this.isEdit) {
+        this.frm.get('EMP_CODE')?.setValue('');
+      }
     }
-    if (this.empCodeData != undefined) {
+    // Only auto-generate EMP_CODE for new employees — in edit mode the code loaded
+    // from the database must be preserved as-is
+    if (this.empCodeData != undefined && !this.isEdit) {
       this.setEmpCode();
     }
 
@@ -611,6 +643,14 @@ export class NewEmployeeComponent implements OnInit {
       return; // block only for truly invalid required fields
     }
     if (this.frm.get('EMP_ROLE')?.value == 'None') {
+      this.showMessage('Please select Employee Type (Guard / Staff / Other Guards) before saving.', 'warning', 'Warning Message');
+      return;
+    }
+
+    // ✅ Fix: Block save if EMP_CODE is empty — prevents null Employee No records in DB
+    const empCode = this.frm.get('EMP_CODE')?.value;
+    if (!empCode || empCode.trim() === '') {
+      this.showMessage('Employee No is missing. Please select a Branch and Employee Type to generate it.', 'warning', 'Warning Message');
       return;
     }
     // if (this.frm.invalid) {
@@ -695,7 +735,13 @@ export class NewEmployeeComponent implements OnInit {
         this.route.navigate(['/master/employee-master']);
       } else {
         if (d.Success == 'Warning') {
-          this.showMessage(d.Message, 'warning', 'Warning Message');
+          // Duplicate EMP_CODE race-condition: auto-update the form with the next free code
+          if (d.DuplicateEmpCode && d.SuggestedEmpCode) {
+            this.frm.get('EMP_CODE')?.setValue(d.SuggestedEmpCode);
+            this.showMessage(d.Message, 'warning', 'Warning Message');
+          } else {
+            this.showMessage(d.Message, 'warning', 'Warning Message');
+          }
         }
       }
     })

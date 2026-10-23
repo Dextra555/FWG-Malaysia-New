@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ViewChild } from '@angular/core';
+﻿import { AfterViewInit, Component, ViewChild } from '@angular/core';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
 import { MatSort, Sort } from '@angular/material/sort';
@@ -31,6 +31,7 @@ export class BranchMasterComponent implements AfterViewInit {
   displayedColumns: string[] = ['code', 'ubsCode', 'name', 'address1', 'personIncharge', 'action'];
   dataSource: any;
   currentUser: string = '';
+  userRole: string = '';
   warningMessage: string = '';
   userAccessModel!: UserAccessModel;
   pageSizeOptions: number[] = [];
@@ -72,6 +73,10 @@ export class BranchMasterComponent implements AfterViewInit {
   }
   ngOnInit() {
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == null) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;
@@ -111,7 +116,7 @@ export class BranchMasterComponent implements AfterViewInit {
           this.userAccessModel.updateAccess = data.Update;
           this.userAccessModel.createAccess = data.Create;
 
-          if (this.currentUser == 'superadmin') {
+          if (this.userRole == 'superadmin') {
             this.getBranchMasterList();
           } else {
             if (this.userAccessModel.readAccess === true) {

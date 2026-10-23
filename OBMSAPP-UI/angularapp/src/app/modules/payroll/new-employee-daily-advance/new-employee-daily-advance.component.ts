@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDatepickerInputEvent } from '@angular/material/datepicker';
 import { MatDialog } from '@angular/material/dialog';
@@ -137,6 +137,10 @@ export class NewEmployeeDailyAdvanceComponent implements OnInit {
 	  this.branchModel = [...this.filteredBranchList];
 	});
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == null || this.currentUser == undefined) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;
@@ -172,7 +176,7 @@ export class NewEmployeeDailyAdvanceComponent implements OnInit {
           this.userAccessModel.updateAccess = data.Update;
           this.userAccessModel.createAccess = data.Create;
 
-          if (this.userAccessModel.readAccess === true || this.currentUser == 'superadmin') {
+          if (this.userAccessModel.readAccess === true || this.userRole == 'superadmin') {
             this.warningMessage = '';
             this.getBranchMasterListByUser(this.currentUser);
           } else {
@@ -306,6 +310,13 @@ export class NewEmployeeDailyAdvanceComponent implements OnInit {
             }
           }
 
+          // ✅ Fix: Build formArray first using startDay from API data,
+          // then patch amounts. Without this, processDailyAdvanceData
+          // returns early because formArray is still empty.
+          const startDay = dailyAdvanceData[0]?.Day ?? 1;
+          const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+          this.addFormFields(daysInMonth, startDay);
+
           // Process the form array with daily advance data
           this.processDailyAdvanceData(dailyAdvanceData);
 
@@ -422,16 +433,16 @@ export class NewEmployeeDailyAdvanceComponent implements OnInit {
   addFormFields(count: number, startDay: number = 1): void {
     const formArray = this.dynamicForm.get('formArray') as FormArray;
     formArray.clear();
+    const advanceDate = new Date(this.employeeDailyForm.value.AdvanceDate);
     for (let i = startDay - 1; i < count; i++) {
-      const currentDate = new Date();
-      currentDate.setDate(startDay + i);
-
+      const day = i + 1;
       formArray.push(this.fb.group({
-        dayField: [i + 1],
+        dayField: [day],
         ID: [0],
-        EmployeeID: ['', [Validators.required]],
-        AdvanceTakenDate: [''],
-        AdvanceDate: ['', [Validators.required]],
+        // ✅ Fix: use actual EmployeeID — was empty string which caused "undefined" on save
+        EmployeeID: [this.EmployeeID || 0, [Validators.required]],
+        AdvanceTakenDate: [this.formatDate(new Date(advanceDate.getFullYear(), advanceDate.getMonth(), day))],
+        AdvanceDate: [this.formatDate(new Date(advanceDate.getFullYear(), advanceDate.getMonth(), day)), [Validators.required]],
         VoucherNo: [''],
         Amount: ['', [twoDecimalPlacesValidator()]],
         NoOfInstallments: ['1'],
@@ -452,24 +463,27 @@ export class NewEmployeeDailyAdvanceComponent implements OnInit {
     formArray.clear();
 
     for (let i = iStartDay - 1; i < iNoOfDays; i++) {
-      const currentDate = new Date();
-      currentDate.setDate(i + 1);
+      // ✅ Fix: data[] is 0-based starting from iStartDay, so map loop index i
+      // to the correct data array position. Without this, when iStartDay=14,
+      // i starts at 13 and data[13] is read for day 14 instead of data[0],
+      // causing saved records on early days to never appear in the UI.
+      const dataIndex = i - (iStartDay - 1);
 
       formArray.push(this.fb.group({
         dayField: [i + 1],
-        ID: [data[i]?.ID || 0],
+        ID: [data[dataIndex]?.ID || 0],
         EmployeeID: [this.EmployeeID || 0],
         AdvanceDate: [this.formatDate(new Date(advanceDate.getFullYear(), advanceDate.getMonth(), i + 1)),],
         AdvanceTakenDate: [this.formatDate(new Date(advanceDate.getFullYear(), advanceDate.getMonth(), i + 1)),],
-        VoucherNo: [data[i]?.VoucherNo || ''],
-        Amount: [data[i]?.Amount || ''],
-        NoOfInstallments: [data[i]?.NoOfInstallments || ''],
-        PaymentType: [data[i]?.PaymentType || ''],
-        Particulars: [data[i]?.Particulars || ''],
-        TransType: [data[i]?.TransType || ''],
-        IsDeleted: [data[i]?.IsDeleted || false],
-        LastUpdate: [this.formatDate(new Date(data[i]?.LastUpdate)) || ''],
-        LastUpdatedBy: [data[i]?.LastUpdatedBy || this.currentUser],
+        VoucherNo: [data[dataIndex]?.VoucherNo || ''],
+        Amount: [data[dataIndex]?.Amount || ''],
+        NoOfInstallments: [data[dataIndex]?.NoOfInstallments || ''],
+        PaymentType: [data[dataIndex]?.PaymentType || ''],
+        Particulars: [data[dataIndex]?.Particulars || ''],
+        TransType: [data[dataIndex]?.TransType || ''],
+        IsDeleted: [data[dataIndex]?.IsDeleted || false],
+        LastUpdate: [this.formatDate(new Date(data[dataIndex]?.LastUpdate)) || ''],
+        LastUpdatedBy: [data[dataIndex]?.LastUpdatedBy || this.currentUser],
       }));
     }
     setTimeout(() => {
@@ -803,16 +817,16 @@ export class NewEmployeeDailyAdvanceComponent implements OnInit {
       const salaryAdvance = new SalaryMonthlyAdvance();
 
       salaryAdvance.ID = formValue.ID;
-      salaryAdvance.EmployeeID = formValue.EmployeeID;
+      salaryAdvance.EmployeeID = parseInt(formValue.EmployeeID) || 0;
       salaryAdvance.AdvanceTakenDate = new Date(this.formatDate(formValue.AdvanceTakenDate));
       salaryAdvance.AdvanceDate = new Date(this.formatDate(formValue.AdvanceDate));
       salaryAdvance.VoucherNo = formValue.VoucherNo;
       salaryAdvance.Amount = parseFloat(formValue.Amount);
-      salaryAdvance.NoOfInstallments = formValue.NoOfInstallments;
+      salaryAdvance.NoOfInstallments = parseInt(formValue.NoOfInstallments) || 1;
       salaryAdvance.PaymentType = formValue.PaymentType;
       salaryAdvance.Particulars = formValue.Particulars;
-      salaryAdvance.TransType = formValue.TransType;
-      salaryAdvance.IsDeleted = formValue.IsDeleted;
+      salaryAdvance.TransType = parseInt(formValue.TransType) || 2;
+      salaryAdvance.IsDeleted = formValue.IsDeleted === true || formValue.IsDeleted === 'true' ? true : false;
       salaryAdvance.LastUpdate = new Date();
       salaryAdvance.LastUpdatedBy = this.currentUser;
 
@@ -862,6 +876,30 @@ export class NewEmployeeDailyAdvanceComponent implements OnInit {
         this.hideSpinner();
         return;
       }
+
+      // ✅ Fix: Block saving if advance month is before the employee's join month
+      const joinDateStr = this.employeeDailyForm.value.JoinDate;
+      if (joinDateStr) {
+        // Parse as local date to avoid UTC timezone off-by-one bug
+        const [jYear, jMonth, jDay] = joinDateStr.split('-').map(Number);
+        const joinDate = new Date(jYear, jMonth - 1, jDay);
+        const advanceDateObj = new Date(advanceDate);
+
+        // Compare year+month only — day-level is already handled by iStartDay in bindAdvanceDetails
+        const advanceYM  = advanceDateObj.getFullYear() * 100 + advanceDateObj.getMonth();
+        const joinYM     = joinDate.getFullYear()       * 100 + joinDate.getMonth();
+
+        if (advanceYM < joinYM) {
+          this.showMessage(
+            `Advance Date cannot be before the employee's Join Date (${this.formatDisplayDate(joinDateStr)}). Please choose a valid month.`,
+            'warning',
+            'Warning Message'
+          );
+          this.hideSpinner();
+          return;
+        }
+      }
+
       this.saveAdvanceData();
     });
 
@@ -1092,8 +1130,16 @@ export class NewEmployeeDailyAdvanceComponent implements OnInit {
     }
 
     // Check if the AdvanceDate is in the employee's joining month and year
-    if (this.dtAttendanceDate.getMonth() === joinDate.getMonth() && this.dtAttendanceDate.getFullYear() === joinDate.getFullYear()) {
-      iStartDay = joinDate.getDate();
+    // ✅ Fix: Parse join date as local date (not UTC) to avoid timezone off-by-one-day bug.
+    // new Date("2026-09-14") parses as UTC midnight → getMonth() can return August in UTC+8.
+    // Splitting manually ensures correct local date interpretation.
+    if (this.employeeDailyForm.value.JoinDate) {
+      const [jYear, jMonth, jDay] = this.employeeDailyForm.value.JoinDate.split('-').map(Number);
+      const localJoinDate = new Date(jYear, jMonth - 1, jDay); // local midnight, no UTC shift
+      if (this.dtAttendanceDate.getMonth() === localJoinDate.getMonth()
+          && this.dtAttendanceDate.getFullYear() === localJoinDate.getFullYear()) {
+        iStartDay = localJoinDate.getDate(); // e.g. 14 → days start from 14th
+      }
     }
 
     // Get the number of days in the current month
@@ -1213,6 +1259,58 @@ export class NewEmployeeDailyAdvanceComponent implements OnInit {
                   (error) => this.handleErrors(error)
                 );
               }
+            });
+        } else {
+          this.hideSpinner();
+        }
+      });
+  }
+
+  // Delete a single advance row by its ID - superadmin only
+  onDeleteRowClick(id: number, rowIndex: number): void {
+    if (this.userRole?.toLowerCase() !== 'superadmin') {
+      this.showMessage(`You do not have permission to delete individual rows.`, 'warning', 'Warning Message');
+      return;
+    }
+
+    if (!id || id <= 0) {
+      this.showMessage(`This row has not been saved yet and cannot be deleted.`, 'warning', 'Warning Message');
+      return;
+    }
+
+    this.showLoadingSpinner = true;
+
+    this.dialog
+      .open(DialogConfirmationComponent, {
+        data: { message: `Are you sure you want to delete this advance entry (Day ${rowIndex + 1})?`, showRemarks: false }
+      })
+      .afterClosed()
+      .subscribe((result) => {
+        if (result && result.confirmDialog === true) {
+          this._payrollService
+            .deleteSalaryAdvance(id, this.currentUser)
+            .pipe(catchError(() => of({ success: false })))
+            .subscribe((res: any) => {
+              if (res?.success === true) {
+                this.showMessage(`Advance entry deleted successfully.`, 'success', 'Success Message');
+                // Reset the row in the formArray (clear amount + ID)
+                const formArray = this.dynamicForm.get('formArray') as FormArray;
+                const control = formArray.at(rowIndex) as FormGroup;
+                if (control) {
+                  control.get('ID')?.setValue(0, { emitEvent: false });
+                  control.get('Amount')?.setValue('', { emitEvent: false });
+                  control.get('VoucherNo')?.setValue('', { emitEvent: false });
+                  control.get('Particulars')?.setValue('', { emitEvent: false });
+                  control.get('IsDeleted')?.setValue(false, { emitEvent: false });
+                }
+                // Update delete button visibility: hide main Delete if no IDs remain
+                const hasAnyId = (this.dynamicForm.get('formArray') as FormArray).controls
+                  .some(c => (c.get('ID')?.value ?? 0) > 0);
+                this.btnDelete = hasAnyId;
+              } else {
+                this.showMessage(`Failed to delete the advance entry. Please try again.`, 'error', 'Error Message');
+              }
+              this.hideSpinner();
             });
         } else {
           this.hideSpinner();

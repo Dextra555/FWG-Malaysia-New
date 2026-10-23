@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ViewChild } from '@angular/core';
+﻿import { AfterViewInit, Component, ViewChild } from '@angular/core';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
 import { MatSort, Sort } from '@angular/material/sort';
@@ -28,6 +28,7 @@ export class EpfSlabComponent implements AfterViewInit {
   dataSource: any;
   errorMessage: string = '';
   currentUser: string = '';
+  userRole: string = '';
   warningMessage: string = '';
   userAccessModel!: UserAccessModel;
   pageSizeOptions: number[] = [];
@@ -68,12 +69,16 @@ export class EpfSlabComponent implements AfterViewInit {
   }
   ngOnInit(): void {
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == null) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;
       });
     }
-    if (this.currentUser == 'admin' || this.currentUser == 'superadmin') {
+    if (this.currentUser == 'admin' || this.userRole == 'superadmin') {
       this.getEPFMasterList(0);
     } else {
       this.getUserAccessRights(this.currentUser, 'EPF Slab');
@@ -90,7 +95,7 @@ export class EpfSlabComponent implements AfterViewInit {
           this.userAccessModel.updateAccess = data.Update;
           this.userAccessModel.createAccess = data.Create;
 
-          if (this.currentUser == 'superadmin') {
+          if (this.userRole == 'superadmin') {
             this.getEPFMasterList(0);
           } else {
             if (this.userAccessModel.readAccess === true) {

@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+﻿import { Component, OnInit, ViewChild } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatSort, Sort } from '@angular/material/sort';
@@ -33,6 +33,7 @@ export class KKDNComponent implements OnInit {
   frm!: FormGroup;
   branchList: any = [];
   currentUser: string = "";
+  userRole: string = '';
   kKDNExcelListView!: KKDNExcelListView[];
   dtDateJoinFrom: string = this.formatDate(new Date(1900, 0, 1)); // Months are 0-based in JavaScript
   dtDateJoinTo: string = this.formatDate(new Date(1900, 0, 1));
@@ -60,6 +61,10 @@ export class KKDNComponent implements OnInit {
   constructor(private _liveAnnouncer: LiveAnnouncer, public sanitizer: DomSanitizer, private _masterService: MastermoduleService,
     private fb: FormBuilder, private _dataService: DatasharingService) {
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     //this.url += this.currentUrl;
     //this.url += "LoginID="+this.currentUser;  
 
@@ -106,6 +111,10 @@ export class KKDNComponent implements OnInit {
     //   this.dataSource = new MatTableDataSource<KKDNExcelListView>(data);
     // });
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == null || this.currentUser == undefined) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;
@@ -122,7 +131,7 @@ export class KKDNComponent implements OnInit {
           this.userAccessModel.deleteAccess = data.Delete;
           this.userAccessModel.updateAccess = data.Update;
           this.userAccessModel.createAccess = data.Create;
-          if (this.userAccessModel.readAccess === true || this.currentUser == 'superadmin') {
+          if (this.userAccessModel.readAccess === true || this.userRole == 'superadmin') {
             this.warningMessage = '';
             this._masterService.GetBranchListByUserName(this.currentUser).subscribe((d: any) => {
               this.branchList = d;

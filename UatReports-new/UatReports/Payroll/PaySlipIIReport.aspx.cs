@@ -66,12 +66,7 @@ public partial class PayRoll_PaySlipIIReport : System.Web.UI.Page
             // Pass ClientCode to rpt parameter only if parameter exists in .rpt (avoids popup)
             TrySetParameter("ClientCode", Request.QueryString["ClientCode"] ?? "");
 
-            string connStr = System.Configuration.ConfigurationManager.ConnectionStrings["obms"]?.ConnectionString
-                ?? string.Format("Server={0};Database={1};User Id={2};Password={3};",
-                    ConfigurationManager.AppSettings["Server"],
-                    ConfigurationManager.AppSettings["Database"],
-                    ConfigurationManager.AppSettings["UserID"],
-                    ConfigurationManager.AppSettings["Password"]);
+            string connStr = System.Configuration.ConfigurationManager.ConnectionStrings["obms"] != null ? ConfigurationManager.ConnectionStrings["obms"].ConnectionString : string.Format("Server={0};Database={1};User Id={2};Password={3};", ConfigurationManager.AppSettings["Server"], ConfigurationManager.AppSettings["Database"], ConfigurationManager.AppSettings["UserID"], ConfigurationManager.AppSettings["Password"]);
 
             // Build record selection formula
             string formula = crptPaySlip.ReportDocument.RecordSelectionFormula ?? "";

@@ -1,4 +1,4 @@
-<%@ page language="C#" autoeventwireup="true" codefile="PaySlipReport.aspx.cs" inherits="PayRoll_PaySlipReport" title="e-Security Management System" %>
+<%@ page language="C#" autoeventwireup="true" CodeFile="PaySlipReport.aspx.cs" Inherits="PayRoll_PaySlipReport" title="e-Security Management System" %>
 
 <%@ Register TagPrefix="CR" Namespace="CrystalDecisions.Web" Assembly="CrystalDecisions.Web, Version=13.0.4000.0, Culture=neutral, PublicKeyToken=692fbea5521e1304" %>
 
@@ -11,13 +11,7 @@
     <form id="form1" runat="server">
         <div>
             <CR:CrystalReportViewer ID="crptPaySlipList" runat="server" AutoDataBind="True"
-<<<<<<< Updated upstream
-                Height="1039px" Width="901px" ReportSourceID="crptPaySlip"
-                ToolPanelView="None" EnableParameterPrompt="False" />
-=======
-                Height="1039px" Width="901px" ReportSourceID="crptPaySlip" ToolPanelView="None"
-                EnableParameterPrompt="False" />
->>>>>>> Stashed changes
+                Height="1039px" Width="901px" ReportSourceID="crptPaySlip" ToolPanelView="None" />
             <CR:CrystalReportSource ID="crptPaySlip" runat="server">
                 <Report FileName="..\Payroll\PaySlip.rpt">
                     <DataSources>

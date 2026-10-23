@@ -1,4 +1,4 @@
-import { LiveAnnouncer } from '@angular/cdk/a11y';
+﻿import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { Component, Inject, OnInit, ViewChild } from '@angular/core';
 import { FormGroup, FormBuilder } from '@angular/forms';
 import { MatDialog, MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
@@ -30,6 +30,7 @@ export class EmployeeHistoryComponent implements OnInit {
   displayedColumns: string[] = ['EMP_CODE', 'EMP_NAME', 'HasTransfered', 'TransferDate', 'EMP_ROLE', 'EMP_BRANCH_CODE', 'OldBranch'];
   branchList: any = [];
   currentUser: string = '';
+  userRole: string = '';
   showLoadingSpinner: boolean = false;
   warningMessage: string = '';
   errorMessage: string = '';
@@ -63,6 +64,10 @@ export class EmployeeHistoryComponent implements OnInit {
       this.branchList = [...this.filteredBranchList];
     });
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == null) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;
@@ -79,7 +84,7 @@ export class EmployeeHistoryComponent implements OnInit {
           this.userAccessModel.deleteAccess = data.Delete;
           this.userAccessModel.updateAccess = data.Update;
           this.userAccessModel.createAccess = data.Create;
-          if (this.userAccessModel.readAccess === true || this.currentUser == 'superadmin') {
+          if (this.userAccessModel.readAccess === true || this.userRole == 'superadmin') {
             this.showLoadingSpinner = true;
             forkJoin({
               branchResult: this.service.getEmployees(this.currentUser)

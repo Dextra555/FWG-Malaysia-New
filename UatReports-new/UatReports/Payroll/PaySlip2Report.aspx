@@ -1,4 +1,4 @@
-<%@ page language="C#" autoeventwireup="true" inherits="PayRoll_PaySlip2Report, App_Web_402qaw3v" title="e-Security Management System" %>
+<%@ page language="C#" autoeventwireup="true" CodeFile="PaySlip2Report.aspx.cs" Inherits="PayRoll_PaySlip2Report" title="e-Security Management System" %>
 
 <%@ Register TagPrefix="CR" Namespace="CrystalDecisions.Web" Assembly="CrystalDecisions.Web, Version=13.0.4000.0, Culture=neutral, PublicKeyToken=692fbea5521e1304" %>
 

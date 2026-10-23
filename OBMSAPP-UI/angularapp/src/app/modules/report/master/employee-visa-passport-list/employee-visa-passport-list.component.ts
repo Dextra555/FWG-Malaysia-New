@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, AfterViewInit } from '@angular/core';
+﻿import { Component, OnInit, ViewChild, AfterViewInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatSort, Sort } from '@angular/material/sort';
@@ -35,6 +35,7 @@ export class EmployeeVisaPassportListComponent implements OnInit, AfterViewInit 
   dynamicPageSizeOptions: number[] = [];
 
   currentUser: string = '';
+  userRole: string = '';
   errorMessage: string = '';
   warningMessage: string = '';
   showLoadingSpinner: boolean = false;
@@ -74,6 +75,10 @@ export class EmployeeVisaPassportListComponent implements OnInit, AfterViewInit 
     });
 
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (!this.currentUser || this.currentUser === 'null') {
       this._dataService.getUsername().subscribe(u => {
         this.currentUser = u;

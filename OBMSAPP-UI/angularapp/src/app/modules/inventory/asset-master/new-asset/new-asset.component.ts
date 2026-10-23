@@ -32,6 +32,7 @@ export class NewAssetComponent implements OnInit {
 
   userAccessModel!: UserAccessModel;
   currentUser:    string  = '';
+  userRole:       string  = '';
   warningMessage: string  = '';
   errorMessage:   string  = '';
   showLoadingSpinner: boolean = false;
@@ -69,6 +70,10 @@ export class NewAssetComponent implements OnInit {
   ngOnInit(): void {
     this.ID = this.activatedRoute.snapshot.params['ID'];
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (!this.currentUser || this.currentUser === 'null') {
       this._dataService.getUsername().subscribe(u => { this.currentUser = u; });
     }

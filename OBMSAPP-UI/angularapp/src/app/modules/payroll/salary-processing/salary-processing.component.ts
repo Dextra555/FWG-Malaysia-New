@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDatepickerInputEvent } from '@angular/material/datepicker';
 import { BranchModel } from 'src/app/model/branchModel';
@@ -21,6 +21,7 @@ export class SalaryProcessingComponent implements OnInit {
   salaryProcessingForm!: FormGroup;
   errorMessage: string = '';
   currentUser: string = '';
+  userRole: string = '';
   showLoadingSpinner: boolean = false;
   branchModel!: BranchModel[];
   bValue: boolean = false;
@@ -76,6 +77,10 @@ export class SalaryProcessingComponent implements OnInit {
       this.branchModel = [...this.filteredBranchList];
     });
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == null || this.currentUser == undefined) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;

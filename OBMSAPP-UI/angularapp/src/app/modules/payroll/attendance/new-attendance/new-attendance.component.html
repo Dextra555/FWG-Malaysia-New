@@ -659,12 +659,12 @@
                             Clear</button>
                         <!-- Delete Button -->
                         <button
-                            *ngIf="currentUser === 'superadmin' && attendanceID > 0 ||  (this.userAccessModel.deleteAccess == true && userRole == 'admin')"
+                            *ngIf="(userRole == 'superadmin' && attendanceID > 0) || (this.userAccessModel.deleteAccess == true && (userRole == 'admin' || userRole == 'superadmin'))"
                             style="cursor:pointer;" class="btn wlt-c-furg-text-danger" (click)="onDeleteClick()">
                             Delete
                         </button>
                         <button *ngIf="(this.userAccessModel.updateAccess == true || this.userAccessModel.createAccess == true 
-                        || currentUser == 'superadmin') && dynamicEditable == 'set'" class="btn wlt-c-furg-btn-primary"
+                        || userRole == 'superadmin') && dynamicEditable == 'set'" class="btn wlt-c-furg-btn-primary"
                             [disabled]="attendanceForm.invalid" (click)="saveAttendance()">{{attendanceForm.value.ID ==
                             0 ? 'Save':'Update'}} </button>
                     </div>

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import {environment} from "../../../../../environments/environment";
 import {DomSanitizer, SafeResourceUrl} from "@angular/platform-browser";
 import {FormBuilder, FormGroup, Validators} from "@angular/forms";
@@ -23,6 +23,7 @@ export class BranchCollectionsComponent implements OnInit {
   branchList: any = [];
   itemList: any = [];
   currentUser: string = "";
+  userRole: string = '';
   errorMessage: string = '';
   warningMessage: string = '';
   showLoadingSpinner: boolean = false;
@@ -52,6 +53,10 @@ export class BranchCollectionsComponent implements OnInit {
       }
     });
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == null || this.currentUser == undefined) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;
@@ -69,7 +74,7 @@ export class BranchCollectionsComponent implements OnInit {
           this.userAccessModel.deleteAccess = data.Delete;
           this.userAccessModel.updateAccess = data.Update;
           this.userAccessModel.createAccess = data.Create;
-          if (this.userAccessModel.readAccess === true || this.currentUser == 'superadmin') {
+          if (this.userAccessModel.readAccess === true || this.userRole == 'superadmin') {
             this.warningMessage = '';
             this. _masterService.GetBranchListByUserName(this.currentUser).subscribe((d: any) => {
               this.branchList = d;

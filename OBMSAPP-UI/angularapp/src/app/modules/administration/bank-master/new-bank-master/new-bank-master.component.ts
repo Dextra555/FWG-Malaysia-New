@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -22,6 +22,7 @@ export class NewBankMasterComponent implements OnInit {
   bankMasterTitle: string = 'new';
   bankMaster: BankMasterModel = new BankMasterModel();
   currentUser: string = '';
+  userRole: string = '';
   userAccessModel!: UserAccessModel;
 
   private formatDate(date: any) {
@@ -67,6 +68,10 @@ export class NewBankMasterComponent implements OnInit {
 
   ngOnInit(): void {
     this.currentUser = sessionStorage.getItem('username')!;
+    const rawRole = sessionStorage.getItem('userrole');
+    if (rawRole == '1') { this.userRole = 'admin'; }
+    else if (rawRole == '2') { this.userRole = 'superadmin'; }
+    else { this.userRole = 'user'; }
     if (this.currentUser == null) {
       this._dataService.getUsername().subscribe((username) => {
         this.currentUser = username;

@@ -1,4 +1,4 @@
-<div class="wlt-c-furg-content-header">
+﻿<div class="wlt-c-furg-content-header">
     <div class="container-fluid">
         <div class="row mb-2">
             <div class="col-12 col-sm-12 col-md-4 col-lg-4">
@@ -20,7 +20,7 @@
                 <div class="col-12 col-sm-12 col-md-12 col-lg-12 order-1 order-md-2">
                     <div class="text-right pt-2">
                         <button
-                            *ngIf=" this.userAccessModel.createAccess == true || (currentUser == 'admin' || currentUser== 'superadmin')"
+                            *ngIf=" this.userAccessModel.createAccess == true || (currentUser == 'admin' || userRole == 'superadmin')"
                             class="btn wlt-c-furg-btn-primary"
                             [routerLink]="['/finance/payments']"><mat-icon>add</mat-icon><span>Payment</span></button>
                     </div>
@@ -120,7 +120,7 @@
                                     Action
                                 </th>
                                 <td mat-cell *matCellDef="let row" style="text-align:center;">
-                                    <a *ngIf="(this.userAccessModel.readAccess == true)|| (currentUser == 'superadmin')"
+                                    <a *ngIf="(this.userAccessModel.readAccess == true)|| (userRole == 'superadmin')"
                                         style="cursor:pointer;" class="wlt-c-furg-text-primary mr-2"
                                         matTooltip="View"><mat-icon aria-hidden="false" aria-label="edit icon"
                                             (click)="onEditClick(row)">edit</mat-icon></a>
@@ -129,7 +129,7 @@
                                             print
                                         </mat-icon>
                                     </a>
-                                    <a *ngIf="(this.userAccessModel.deleteAccess == true ) || (currentUser == 'superadmin')"
+                                    <a *ngIf="(this.userAccessModel.deleteAccess == true ) || (userRole == 'superadmin')"
                                         style="cursor:pointer;" class="wlt-c-furg-text-danger" matTooltip="Delete">
                                         <mat-icon aria-hidden="false" aria-label="trash icon"
                                             (click)="deleteClickButton(row)">delete_outline</mat-icon>

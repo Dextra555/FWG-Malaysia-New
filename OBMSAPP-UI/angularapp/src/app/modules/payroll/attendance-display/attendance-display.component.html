@@ -1,4 +1,4 @@
-<div class="wlt-c-furg-content-header">
+﻿<div class="wlt-c-furg-content-header">
   <div class="container-fluid">
     <div class="row mb-2">
       <div class="col-12 col-sm-12 col-md-4 col-lg-4">
@@ -160,7 +160,7 @@
                   <mat-icon>visibility</mat-icon>
                 </button>
                 <button mat-icon-button color="warn" title="Delete"
-                  *ngIf="currentUser === 'superadmin' || userAccessModel.deleteAccess"
+                  *ngIf="userRole == 'superadmin' || userAccessModel.deleteAccess"
                   (click)="onDelete(row)">
                   <mat-icon>delete</mat-icon>
                 </button>
