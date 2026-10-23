@@ -18,6 +18,19 @@ namespace OBMS.WebAPI.Models.Domain
 
         public decimal? BuyingPrice { get; set; }   // Auto-filled from ItemMaster.Price; editable by user
 
+        /// <summary>
+        /// Estimated SST rate for this PR line (e.g. 0, 6, 8).
+        /// Informational only — carried to PurchaseOrderDetail.SSTPercent when a PO is raised from this PR.
+        /// </summary>
+        public decimal SSTPercent { get; set; } = 0;
+
+        /// <summary>
+        /// Estimated SST amount for this PR line.
+        /// Formula: RequiredQty × BuyingPrice × SSTPercent / 100.
+        /// Calculated by API on save; BuyingPrice is not changed.
+        /// </summary>
+        public decimal SSTAmount { get; set; } = 0;
+
         public int? UOMID { get; set; }
 
         public string? Remarks { get; set; }

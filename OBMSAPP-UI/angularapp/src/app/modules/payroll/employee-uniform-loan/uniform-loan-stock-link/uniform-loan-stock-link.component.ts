@@ -65,7 +65,7 @@ export class UniformLoanStockLinkComponent implements OnInit, AfterViewInit {
     if (!this.currentUser || this.currentUser === 'null') {
       this._dataService.getUsername().subscribe(u => this.currentUser = u);
     }
-    this.getUserAccessRights(this.currentUser, 'Monthly Salary Advance');
+    this.getUserAccessRights(this.currentUser, 'Uniform Loan Stock Issues');
   }
 
   ngAfterViewInit(): void {

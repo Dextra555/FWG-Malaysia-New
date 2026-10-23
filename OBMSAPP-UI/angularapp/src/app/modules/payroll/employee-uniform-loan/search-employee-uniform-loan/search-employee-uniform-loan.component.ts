@@ -81,7 +81,7 @@ export class SearchEmployeeUniformLoanComponent implements OnInit {
         this.currentUser = username;
       });
     }
-    this.getUserAccessRights(this.currentUser, 'Monthly Salary Advance');
+    this.getUserAccessRights(this.currentUser, 'Employee Uniform');
   }
   getUserAccessRights(userName: string, screenName: string) {
     this.showLoadingSpinner = true;

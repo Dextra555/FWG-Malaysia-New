@@ -1833,6 +1833,29 @@ namespace OBMS.WebAPI.Controllers
             }
         }
 
+        /// <summary>
+        /// Returns the total pending Branch Stock Request (BSR) quantity for a
+        /// given item — summed across all Submitted and Approved BSRs that have
+        /// not yet been fulfilled.  Used by the New PR page to show demand context.
+        /// </summary>
+        [HttpGet("GetPendingBSRQtyByItem")]
+        public async Task<IActionResult> GetPendingBSRQtyByItem(int itemID)
+        {
+            if (itemID <= 0)
+                return BadRequest(new { success = false, message = "Please provide a valid item ID." });
+
+            try
+            {
+                var qty = await _inventoryRepository.GetPendingBSRQtyByItem(itemID);
+                return Ok(new { success = true, itemID, pendingBSRQty = qty });
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[GetPendingBSRQtyByItem] {ex}");
+                return StatusCode(500, new { success = false, message = "Unable to retrieve pending BSR quantity." });
+            }
+        }
+
         // ════════════════════════════════════════════════════════════════════════
         // PART 3 — PURCHASE REQUISITION ENDPOINTS
         // ════════════════════════════════════════════════════════════════════════

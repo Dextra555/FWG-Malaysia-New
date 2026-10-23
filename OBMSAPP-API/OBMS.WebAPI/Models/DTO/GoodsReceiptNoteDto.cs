@@ -25,6 +25,11 @@ namespace OBMS.WebAPI.Models.DTO
         public int? UOMID { get; set; }
         public decimal ReceivedQty { get; set; }
         public decimal UnitCost { get; set; }
+        /// <summary>
+        /// Carried automatically from PurchaseOrderDetail.SSTPercent.
+        /// Not entered by the user on the GRN form.
+        /// </summary>
+        public decimal SSTPercent { get; set; } = 0;
         public string? LastUpdatedBy { get; set; }
     }
 
@@ -43,6 +48,10 @@ namespace OBMS.WebAPI.Models.DTO
         public string? DeliveryNoteRef { get; set; }
         public string? SupplierInvoiceNo { get; set; }
         public string? Remarks { get; set; }
+        /// <summary>Sum of all GRN line SSTAmount values.</summary>
+        public decimal SSTTotal { get; set; }
+        /// <summary>Σ(ReceivedQty × UnitCost) + SSTTotal. Written to CreditorInvoice.Total.</summary>
+        public decimal GrandTotal { get; set; }
         public DateTime LASTUPDATE { get; set; }
         public string? LastUpdatedBy { get; set; }
         public List<GRNDetailListDto> Details { get; set; } = new();
@@ -61,6 +70,10 @@ namespace OBMS.WebAPI.Models.DTO
         public string UOMName { get; set; } = string.Empty;
         public decimal ReceivedQty { get; set; }
         public decimal UnitCost { get; set; }
+        /// <summary>SST rate carried from the PO line.</summary>
+        public decimal SSTPercent { get; set; }
+        /// <summary>Stored SST amount = ReceivedQty × UnitCost × SSTPercent / 100.</summary>
+        public decimal SSTAmount { get; set; }
     }
 
     /// <summary>
@@ -80,5 +93,7 @@ namespace OBMS.WebAPI.Models.DTO
         public decimal ReceivedQty { get; set; }
         public decimal PendingQty { get; set; }   // OrderedQty - ReceivedQty
         public decimal UnitCost { get; set; }      // from PO UnitPrice
+        /// <summary>SST rate from the PO line — displayed read-only on GRN form.</summary>
+        public decimal SSTPercent { get; set; }
     }
 }

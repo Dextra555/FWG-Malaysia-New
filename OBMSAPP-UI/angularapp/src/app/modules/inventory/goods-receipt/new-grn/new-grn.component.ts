@@ -22,6 +22,9 @@ export class NewGRNComponent implements OnInit {
 
   grnNumber = '';
   poInfo: any = null;
+  /** SST total and grand total for the saved GRN (view mode) */
+  viewSSTTotalAmt  = 0;
+  viewGrandTotalAmt = 0;
   // Search filter state
   poSearch = ''; filteredPOs: any[] = [];
 
@@ -128,6 +131,9 @@ export class NewGRNComponent implements OnInit {
         this.grnNumber = d.GRNNumber;
         this.frm.patchValue({ POID: d.POID, WarehouseID: d.WarehouseID, GRNDate: new Date(d.GRNDate), DeliveryNoteRef: d.DeliveryNoteRef, SupplierInvoiceNo: d.SupplierInvoiceNo, Remarks: d.Remarks });
         this.existingDetails = d.Details || [];
+        // Store SST totals from the GRN header for the footer display
+        this.viewSSTTotalAmt   = d.SSTTotal   || 0;
+        this.viewGrandTotalAmt = d.GrandTotal  || 0;
 
         // Populate poInfo for the view-mode PO summary panel.
         // Try the already-loaded approvedPOs list first; fall back to a direct API call.
@@ -166,9 +172,56 @@ export class NewGRNComponent implements OnInit {
     return this.existingDetails.reduce((sum: number, d: any) => sum + (parseFloat(d.ReceivedQty) || 0), 0);
   }
 
-  /** Total received value (qty × unit cost) across all lines in view mode */
+  /** Sub-total received value (ex-SST) across all lines in view mode */
   get viewTotalValue(): number {
     return this.existingDetails.reduce((sum: number, d: any) => sum + ((parseFloat(d.ReceivedQty) || 0) * (parseFloat(d.UnitCost) || 0)), 0);
+  }
+
+  /** SST total across all lines in view mode */
+  get viewSSTTotal(): number {
+    // Prefer the stored header value; fall back to summing lines
+    if (this.viewSSTTotalAmt > 0) return this.viewSSTTotalAmt;
+    return this.existingDetails.reduce((sum: number, d: any) => sum + (parseFloat(d.SSTAmount) || 0), 0);
+  }
+
+  /** Grand total in view mode: sub-total + SST */
+  get viewGrandTotal(): number {
+    if (this.viewGrandTotalAmt > 0) return this.viewGrandTotalAmt;
+    return this.viewTotalValue + this.viewSSTTotal;
+  }
+
+  /** True when at least one received line has a non-zero SST rate */
+  get hasSSTLines(): boolean {
+    return this.existingDetails.some((d: any) => (parseFloat(d.SSTPercent) || 0) > 0);
+  }
+
+  /** True when any pending receiving line has a non-zero SST rate (new-mode) */
+  get newModeHasSST(): boolean {
+    return this.lines.some((l: any) => (parseFloat(l.SSTPercent) || 0) > 0);
+  }
+
+  /** Computed new-mode SST total across lines × receivedInput */
+  get newModeSSTTotal(): number {
+    return this.lines.reduce((sum: number, l: any) => {
+      const qty  = parseFloat(l.receivedInput) || 0;
+      const cost = parseFloat(l.UnitCost)      || 0;
+      const sst  = parseFloat(l.SSTPercent)    || 0;
+      return sum + qty * cost * sst / 100;
+    }, 0);
+  }
+
+  /** Computed new-mode sub-total (ex-SST) */
+  get newModeSubTotal(): number {
+    return this.lines.reduce((sum: number, l: any) => {
+      const qty  = parseFloat(l.receivedInput) || 0;
+      const cost = parseFloat(l.UnitCost)      || 0;
+      return sum + qty * cost;
+    }, 0);
+  }
+
+  /** Computed new-mode grand total (sub-total + SST) */
+  get newModeGrandTotal(): number {
+    return this.newModeSubTotal + this.newModeSSTTotal;
   }
 
   onSave(): void {
@@ -176,11 +229,28 @@ export class NewGRNComponent implements OnInit {
     if (!this.hasAnyQty()) { this.showMsg('Please enter the received quantity for at least one item.', 'warning', 'Warning Message'); return; }
     if (this.hasErrors()) { this.showMsg('Please correct the quantity errors before saving.', 'warning', 'Warning Message'); return; }
 
+    // Block GRN save if any receiving line has UnitCost = 0
+    // (0 cost means the GRN total = 0 and it will never appear in Finance Payments)
+    const zeroCost = this.lines.find(l => parseFloat(l.receivedInput) > 0 && (!l.UnitCost || +l.UnitCost <= 0));
+    if (zeroCost) {
+      this.showMsg(`Unit Cost is 0 for "${zeroCost.ItemName}". Please update the Unit Price in the Purchase Order before receiving.`, 'warning', 'Warning Message');
+      return;
+    }
+
     this.showLoadingSpinner = true;
     const raw = this.frm.getRawValue();
     const details = this.lines
       .filter(l => parseFloat(l.receivedInput) > 0)
-      .map(l => ({ ID: 0, PODetailID: l.PODetailID, ItemID: l.ItemID, UOMID: l.UOMID || null, ReceivedQty: parseFloat(l.receivedInput), UnitCost: l.UnitCost, LastUpdatedBy: this.currentUser }));
+      .map(l => ({
+        ID:          0,
+        PODetailID:  l.PODetailID,
+        ItemID:      l.ItemID,
+        UOMID:       l.UOMID || null,
+        ReceivedQty: parseFloat(l.receivedInput),
+        UnitCost:    l.UnitCost,
+        SSTPercent:  parseFloat(l.SSTPercent) || 0,
+        LastUpdatedBy: this.currentUser
+      }));
 
     const payload = { ID: 0, GRNNumber: this.grnNumber, POID: +raw.POID, WarehouseID: +raw.WarehouseID, GRNDate: raw.GRNDate, DeliveryNoteRef: raw.DeliveryNoteRef, SupplierInvoiceNo: raw.SupplierInvoiceNo, Remarks: raw.Remarks, LastUpdatedBy: this.currentUser, Details: details };
 

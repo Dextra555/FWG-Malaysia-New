@@ -123,6 +123,13 @@ namespace OBMS.WebAPI.Repositories.Interface
         /// <summary>Returns current stock balance for a given item in a warehouse.</summary>
         Task<decimal> GetCurrentStock(int warehouseID, int itemID);
 
+        /// <summary>
+        /// Returns the total pending BSR quantity for a given item across all
+        /// active Branch Stock Requests that are in Submitted or Approved status
+        /// (i.e. requested but not yet fulfilled).
+        /// </summary>
+        Task<decimal> GetPendingBSRQtyByItem(int itemID);
+
         // ── Part 3: Purchase Requisition ─────────────────────────────────────────
 
         Task<List<PRListDto>> GetPRList();

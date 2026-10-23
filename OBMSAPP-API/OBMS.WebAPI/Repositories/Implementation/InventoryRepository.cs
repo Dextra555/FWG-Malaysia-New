@@ -1220,6 +1220,24 @@ namespace OBMS.WebAPI.Repositories.Implementation
             return balance ?? 0;
         }
 
+        /// <summary>
+        /// Sums RequestedQty from all active Branch Stock Request lines whose
+        /// header is in Submitted or Approved status (i.e. demand that has not
+        /// yet been fulfilled by an issued stock transfer).
+        /// </summary>
+        public async Task<decimal> GetPendingBSRQtyByItem(int itemID)
+        {
+            var total = await (
+                from srd in _oBMSDbContext.StockRequestDetails
+                join sr  in _oBMSDbContext.StockRequests on srd.RequestID equals sr.ID
+                where srd.ItemID  == itemID
+                   && sr.IsActive == true
+                   && (sr.Status == "Submitted" || sr.Status == "Approved")
+                select (decimal?)srd.RequestedQty
+            ).SumAsync();
+            return total ?? 0;
+        }
+
         // ── Private helpers ──────────────────────────────────────────────────────
 
         private async Task<string> GenerateStockLedgerNo()
@@ -1332,6 +1350,8 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     CategoryName = ic != null ? ic.Name : "",
                     RequiredQty  = d.RequiredQty,
                     BuyingPrice  = d.BuyingPrice,
+                    SSTPercent   = d.SSTPercent,
+                    SSTAmount    = d.SSTAmount,
                     UOMID        = d.UOMID,
                     UOMName      = um != null ? um.Name : "",
                     Remarks      = d.Remarks
@@ -1420,12 +1440,16 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
                     foreach (var d in dto.Details)
                     {
+                        decimal buyingPrice = d.BuyingPrice ?? 0m;
+                        decimal lineSSTAmount = d.RequiredQty * buyingPrice * (d.SSTPercent / 100m);
                         _oBMSDbContext.PurchaseRequisitionDetails.Add(new PurchaseRequisitionDetail
                         {
                             PRID          = pr.ID,
                             ItemID        = d.ItemID,
                             RequiredQty   = d.RequiredQty,
                             BuyingPrice   = d.BuyingPrice,
+                            SSTPercent    = d.SSTPercent,
+                            SSTAmount     = lineSSTAmount,
                             UOMID         = d.UOMID == 0 ? null : d.UOMID,
                             Remarks       = d.Remarks,
                             LASTUPDATE    = DateTime.Now,
@@ -1826,6 +1850,8 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 ExpectedDate  = po.ExpectedDate,
                 Status        = po.Status,
                 TotalAmount   = po.TotalAmount,
+                SSTTotal      = po.SSTTotal,
+                GrandTotal    = po.GrandTotal,
                 Remarks       = po.Remarks,
                 ApprovedBy    = po.ApprovedBy,
                 ApprovedDate  = po.ApprovedDate,
@@ -1892,6 +1918,8 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     PendingQty   = d.OrderedQty - d.ReceivedQty,
                     UnitPrice    = d.UnitPrice,
                     TotalPrice   = d.TotalPrice,
+                    SSTPercent   = d.SSTPercent,
+                    SSTAmount    = d.SSTAmount,
                     Remarks      = d.Remarks
                 }
             ).ToListAsync();
@@ -2013,6 +2041,8 @@ namespace OBMS.WebAPI.Repositories.Implementation
             }
 
             decimal totalAmount = dto.Details.Sum(d => d.OrderedQty * d.UnitPrice);
+            decimal sstTotal    = dto.Details.Sum(d => d.OrderedQty * d.UnitPrice * (d.SSTPercent / 100m));
+            decimal grandTotal  = totalAmount + sstTotal;
 
             var strategy = _oBMSDbContext.Database.CreateExecutionStrategy();
             PurchaseOrder? savedRecord = null;
@@ -2035,6 +2065,8 @@ namespace OBMS.WebAPI.Repositories.Implementation
                             ExpectedDate  = dto.ExpectedDate,
                             Status        = "Draft",
                             TotalAmount   = totalAmount,
+                            SSTTotal      = sstTotal,
+                            GrandTotal    = grandTotal,
                             Remarks       = dto.Remarks,
                             IsActive      = true,
                             LASTUPDATE    = DateTime.Now,
@@ -2055,6 +2087,8 @@ namespace OBMS.WebAPI.Repositories.Implementation
                         po.PODate        = dto.PODate;
                         po.ExpectedDate  = dto.ExpectedDate;
                         po.TotalAmount   = totalAmount;
+                        po.SSTTotal      = sstTotal;
+                        po.GrandTotal    = grandTotal;
                         po.Remarks       = dto.Remarks;
                         po.LASTUPDATE    = DateTime.Now;
                         po.LastUpdatedBy = dto.LastUpdatedBy;
@@ -2068,6 +2102,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
                     foreach (var d in dto.Details)
                     {
+                        decimal lineSSTAmount = d.OrderedQty * d.UnitPrice * (d.SSTPercent / 100m);
                         _oBMSDbContext.PurchaseOrderDetails.Add(new PurchaseOrderDetail
                         {
                             POID          = po.ID,
@@ -2077,6 +2112,8 @@ namespace OBMS.WebAPI.Repositories.Implementation
                             ReceivedQty   = 0,
                             UnitPrice     = d.UnitPrice,
                             TotalPrice    = d.OrderedQty * d.UnitPrice,
+                            SSTPercent    = d.SSTPercent,
+                            SSTAmount     = lineSSTAmount,
                             Remarks       = d.Remarks,
                             LASTUPDATE    = DateTime.Now,
                             LastUpdatedBy = d.LastUpdatedBy ?? dto.LastUpdatedBy
@@ -2296,6 +2333,8 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     DeliveryNoteRef   = g.DeliveryNoteRef,
                     SupplierInvoiceNo = g.SupplierInvoiceNo,
                     Remarks           = g.Remarks,
+                    SSTTotal          = g.SSTTotal,
+                    GrandTotal        = g.GrandTotal,
                     LASTUPDATE        = g.LASTUPDATE,
                     LastUpdatedBy     = g.LastUpdatedBy
                 }
@@ -2332,6 +2371,8 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     DeliveryNoteRef   = g.DeliveryNoteRef,
                     SupplierInvoiceNo = g.SupplierInvoiceNo,
                     Remarks           = g.Remarks,
+                    SSTTotal          = g.SSTTotal,
+                    GrandTotal        = g.GrandTotal,
                     LASTUPDATE        = g.LASTUPDATE,
                     LastUpdatedBy     = g.LastUpdatedBy
                 }
@@ -2364,7 +2405,9 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     UOMID        = d.UOMID,
                     UOMName      = um != null ? um.Name : "",
                     ReceivedQty  = d.ReceivedQty,
-                    UnitCost     = d.UnitCost
+                    UnitCost     = d.UnitCost,
+                    SSTPercent   = d.SSTPercent,
+                    SSTAmount    = d.SSTAmount
                 }
             ).ToListAsync();
         }
@@ -2399,7 +2442,8 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     OrderedQty   = d.OrderedQty,
                     ReceivedQty  = d.ReceivedQty,
                     PendingQty   = d.OrderedQty - d.ReceivedQty,
-                    UnitCost     = d.UnitPrice
+                    UnitCost     = d.UnitPrice,
+                    SSTPercent   = d.SSTPercent
                 }
             ).ToListAsync();
         }
@@ -2471,8 +2515,18 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     await _oBMSDbContext.SaveChangesAsync();
 
                     // Save GRN detail lines + update PO received qty + create StockLedger entries
+                    decimal grnSubTotal = 0m;
+                    decimal grnSSTTotal = 0m;
                     foreach (var line in linesWithQty)
                     {
+                        // Carry SSTPercent from the PO detail line
+                        var poDetailForSST = await _oBMSDbContext.PurchaseOrderDetails.FindAsync(line.PODetailID);
+                        decimal lineSSTPercent = poDetailForSST?.SSTPercent ?? line.SSTPercent;
+                        decimal lineSSTAmount  = line.ReceivedQty * line.UnitCost * (lineSSTPercent / 100m);
+
+                        grnSubTotal += line.ReceivedQty * line.UnitCost;
+                        grnSSTTotal += lineSSTAmount;
+
                         _oBMSDbContext.GoodsReceiptNoteDetails.Add(new GoodsReceiptNoteDetail
                         {
                             GRNID         = grn.ID,
@@ -2481,6 +2535,8 @@ namespace OBMS.WebAPI.Repositories.Implementation
                             UOMID         = line.UOMID == 0 ? null : line.UOMID,
                             ReceivedQty   = line.ReceivedQty,
                             UnitCost      = line.UnitCost,
+                            SSTPercent    = lineSSTPercent,
+                            SSTAmount     = lineSSTAmount,
                             LASTUPDATE    = DateTime.Now,
                             LastUpdatedBy = line.LastUpdatedBy ?? dto.LastUpdatedBy
                         });
@@ -2524,6 +2580,13 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     po.LASTUPDATE    = DateTime.Now;
                     po.LastUpdatedBy = dto.LastUpdatedBy;
                     _oBMSDbContext.PurchaseOrders.Update(po);
+
+                    // Stamp SST totals on the GRN header now that all lines are accumulated
+                    decimal grnGrandTotal = grnSubTotal + grnSSTTotal;
+                    grn.SSTTotal   = grnSSTTotal;
+                    grn.GrandTotal = grnGrandTotal;
+                    _oBMSDbContext.GoodsReceiptNotes.Update(grn);
+
                     await _oBMSDbContext.SaveChangesAsync();
 
                     // ── Create CreditorInvoice row so this GRN appears in vwPaymentDue ──
@@ -2533,22 +2596,22 @@ namespace OBMS.WebAPI.Repositories.Implementation
                         .FirstOrDefaultAsync(w => w.ID == dto.WarehouseID);
                     string branchCode = warehouse?.Branch?.Code ?? "";
 
-                    // GRN total = sum of (ReceivedQty × UnitCost) across all received lines
-                    decimal grnTotal = linesWithQty.Sum(l => l.ReceivedQty * l.UnitCost);
-
-                    // Payment due date: use SupplierInvoiceNo as InvoiceNo; due date = GRNDate
+                    // GRN total = subtotal + SST (GrandTotal).
+                    // Finance sees the full amount including SST as the payable.
+                    // CreditorInvoice is a Finance-owned table; only the Total field is
+                    // written here — no other Finance table or logic is changed.
                     _oBMSDbContext.CreditorInvoices.Add(new CreditorInvoice
                     {
                         Branch        = branchCode,
                         Supplier      = po.SupplierID,
-                        RecID         = grn.ID,                         // link back to GRN
+                        RecID         = grn.ID,
                         InvoiceNo     = string.IsNullOrWhiteSpace(dto.SupplierInvoiceNo)
                                             ? grnNumber
                                             : dto.SupplierInvoiceNo,
-                        InvoiceType   = "G",                            // G = GRN (already handled by view)
+                        InvoiceType   = "G",
                         InvoiceDate   = dto.GRNDate,
-                        Total         = grnTotal,
-                        PaymentDate   = dto.GRNDate,                    // due date = GRN date
+                        Total         = grnGrandTotal,           // subtotal + SST
+                        PaymentDate   = dto.GRNDate,
                         LASTUPDATE    = DateTime.Now,
                         LastUpdatedBy = dto.LastUpdatedBy ?? "",
                         ItemCategory  = null,

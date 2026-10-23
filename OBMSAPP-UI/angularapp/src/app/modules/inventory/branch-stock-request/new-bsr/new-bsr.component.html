@@ -253,7 +253,8 @@
                 <th style="width:18%">Client Name</th>
                 <th style="width:12%; text-align:right" *ngIf="userRole === 'superadmin'">Buying Price (RM)</th>
                 <th style="width:12%; text-align:right">Requested Qty <span style="color:red">*</span></th>
-                <th style="width:20%">Remarks</th>
+                <th style="width:10%; text-align:right" *ngIf="userRole === 'superadmin'">Line Total (RM)</th>
+                <th style="width:15%">Remarks</th>
                 <th style="width:10%; text-align:center" *ngIf="!isViewMode">Remove</th>
               </tr>
             </thead>
@@ -343,6 +344,16 @@
                     *ngIf="line.get('RequestedQty')?.hasError('greaterThanZero')">
                     Must be &gt; 0
                   </div>
+                </td>
+
+                <!-- Line Total (superadmin only — needs BuyingPrice) -->
+                <td style="text-align:right; vertical-align:middle" *ngIf="userRole === 'superadmin'">
+                  <span style="font-size:13px">
+                    <ng-container *ngIf="line.get('RequestedQty')?.value && line.get('BuyingPrice')?.value != null; else ltDash">
+                      {{line.get('RequestedQty')?.value * line.get('BuyingPrice')?.value | number:'1.2-2'}}
+                    </ng-container>
+                    <ng-template #ltDash>—</ng-template>
+                  </span>
                 </td>
 
                 <!-- Remarks -->

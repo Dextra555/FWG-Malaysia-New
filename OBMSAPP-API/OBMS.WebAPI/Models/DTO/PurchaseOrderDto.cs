@@ -24,6 +24,11 @@ namespace OBMS.WebAPI.Models.DTO
         public int? UOMID { get; set; }
         public decimal OrderedQty { get; set; }
         public decimal UnitPrice { get; set; }
+        /// <summary>
+        /// SST rate for this line (0, 6, or 8 — or any ad-hoc rate).
+        /// Defaults to 0 (not taxable). User sets per line on the PO form.
+        /// </summary>
+        public decimal SSTPercent { get; set; } = 0;
         public string? Remarks { get; set; }
         public string? LastUpdatedBy { get; set; }
     }
@@ -56,6 +61,10 @@ namespace OBMS.WebAPI.Models.DTO
         public DateTime ExpectedDate { get; set; }
         public string Status { get; set; } = string.Empty;
         public decimal TotalAmount { get; set; }
+        /// <summary>Sum of all line SSTAmount values.</summary>
+        public decimal SSTTotal { get; set; }
+        /// <summary>TotalAmount + SSTTotal.</summary>
+        public decimal GrandTotal { get; set; }
         public string? Remarks { get; set; }
         public string? ApprovedBy { get; set; }
         public DateTime? ApprovedDate { get; set; }
@@ -82,6 +91,10 @@ namespace OBMS.WebAPI.Models.DTO
         public decimal PendingQty { get; set; }  // OrderedQty - ReceivedQty
         public decimal UnitPrice { get; set; }
         public decimal TotalPrice { get; set; }
+        /// <summary>SST rate applied to this line (0, 6, or 8).</summary>
+        public decimal SSTPercent { get; set; }
+        /// <summary>Stored SST amount = OrderedQty × UnitPrice × SSTPercent / 100.</summary>
+        public decimal SSTAmount { get; set; }
         public string? Remarks { get; set; }
     }
 

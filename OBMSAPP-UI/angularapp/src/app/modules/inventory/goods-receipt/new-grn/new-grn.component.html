@@ -216,6 +216,7 @@
               <th class="mat-header-cell" style="text-align:right">Ordered Qty</th>
               <th class="mat-header-cell" style="text-align:right">Prev. Received</th>
               <th class="mat-header-cell" style="text-align:right">Pending Qty</th>
+              <th class="mat-header-cell" style="text-align:right">SST %</th>
               <th class="mat-header-cell" style="text-align:right;width:140px">Receiving Qty <span style="color:#ff8a80">*</span></th>
             </tr>
           </thead>
@@ -228,6 +229,12 @@
               <td class="mat-cell" style="text-align:right">{{ l.ReceivedQty }}</td>
               <td class="mat-cell" style="text-align:right">
                 <strong style="color:#e65100">{{ l.PendingQty }}</strong>
+              </td>
+              <td class="mat-cell" style="text-align:right">
+                <span *ngIf="(l.SSTPercent || 0) > 0"
+                  style="color:#e65100;font-weight:600"
+                  matTooltip="SST carried from Purchase Order">{{ l.SSTPercent | number:'1.0-2' }}%</span>
+                <span *ngIf="!(l.SSTPercent > 0)" class="text-muted">—</span>
               </td>
               <td class="mat-cell" style="text-align:right">
                 <input type="number"
@@ -269,7 +276,9 @@
               <th class="mat-header-cell">UOM</th>
               <th class="mat-header-cell" style="text-align:right">Received Qty</th>
               <th class="mat-header-cell" style="text-align:right">Unit Cost (RM)</th>
-              <th class="mat-header-cell" style="text-align:right">Line Total (RM)</th>
+              <th class="mat-header-cell" style="text-align:right">Sub-Total (RM)</th>
+              <th class="mat-header-cell" style="text-align:right">SST %</th>
+              <th class="mat-header-cell" style="text-align:right">SST (RM)</th>
             </tr>
           </thead>
           <tbody>
@@ -283,11 +292,23 @@
               <td class="mat-cell" style="text-align:right">
                 <strong>{{ (d.ReceivedQty * d.UnitCost) | number:'1.2-2' }}</strong>
               </td>
+              <td class="mat-cell" style="text-align:right">
+                <span *ngIf="(d.SSTPercent || 0) > 0" style="color:#e65100;font-weight:600">
+                  {{ d.SSTPercent | number:'1.0-2' }}%
+                </span>
+                <span *ngIf="!(d.SSTPercent > 0)" class="text-muted">—</span>
+              </td>
+              <td class="mat-cell" style="text-align:right">
+                <span *ngIf="(d.SSTAmount || 0) > 0" style="color:#e65100">
+                  {{ d.SSTAmount | number:'1.2-2' }}
+                </span>
+                <span *ngIf="!(d.SSTAmount > 0)" class="text-muted">—</span>
+              </td>
             </tr>
-            <!-- Totals row -->
+            <!-- Sub-Total row -->
             <tr class="mat-row">
               <td class="mat-cell" colspan="4" style="text-align:right;border-top:2px solid #dee2e6">
-                <strong>Total Received Value (RM)</strong>
+                <strong>Sub-Total (RM)</strong>
               </td>
               <td class="mat-cell" style="text-align:right;border-top:2px solid #dee2e6">
                 <strong>{{ viewTotalQty }}</strong>
@@ -295,6 +316,27 @@
               <td class="mat-cell" style="border-top:2px solid #dee2e6"></td>
               <td class="mat-cell" style="text-align:right;border-top:2px solid #dee2e6">
                 <strong style="color:var(--primary-color)">{{ viewTotalValue | number:'1.2-2' }}</strong>
+              </td>
+              <td class="mat-cell" colspan="2" style="border-top:2px solid #dee2e6"></td>
+            </tr>
+            <!-- SST Total row — only when at least one line has SST -->
+            <tr class="mat-row" *ngIf="hasSSTLines">
+              <td class="mat-cell" colspan="6" style="text-align:right">
+                <strong>SST (RM)</strong>
+              </td>
+              <td class="mat-cell" colspan="3" style="text-align:right">
+                <strong style="color:#e65100">{{ viewSSTTotal | number:'1.2-2' }}</strong>
+              </td>
+            </tr>
+            <!-- Grand Total row — always shown -->
+            <tr class="mat-row">
+              <td class="mat-cell" colspan="6"
+                style="text-align:right;border-top:2px solid #1976d2;background:#e3f2fd">
+                <strong>Grand Total (RM)</strong>
+              </td>
+              <td class="mat-cell" colspan="3"
+                style="text-align:right;border-top:2px solid #1976d2;background:#e3f2fd">
+                <strong style="color:#1565c0;font-size:1.05em">{{ viewGrandTotal | number:'1.2-2' }}</strong>
               </td>
             </tr>
           </tbody>
@@ -305,6 +347,15 @@
     <!-- ── ACTION BUTTONS ──────────────────────────────────────────────── -->
     <div class="row mt-3">
       <div class="col-12">
+        <!-- SST summary notice (new mode) — only when at least one line carries SST -->
+        <div *ngIf="!isView && newModeHasSST" class="alert mb-3"
+          style="background:#fff8e1;border-left:4px solid #e65100">
+          <mat-icon style="vertical-align:middle;color:#e65100">receipt</mat-icon>
+          <strong> SST Summary (estimated)</strong>
+          <span class="ml-2">Sub-Total: <strong>RM {{ newModeSubTotal | number:'1.2-2' }}</strong></span>
+          <span class="ml-3">SST: <strong style="color:#e65100">RM {{ newModeSSTTotal | number:'1.2-2' }}</strong></span>
+          <span class="ml-3">Grand Total: <strong style="color:#1565c0">RM {{ newModeGrandTotal | number:'1.2-2' }}</strong></span>
+        </div>
         <div class="text-right">
           <button type="button" class="btn wlt-c-furg-btn-gray mr-2" (click)="onCancel()">
             {{ isView ? 'Back' : 'Cancel' }}

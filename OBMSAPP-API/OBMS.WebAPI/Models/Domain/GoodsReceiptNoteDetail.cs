@@ -22,6 +22,18 @@ namespace OBMS.WebAPI.Models.Domain
 
         public decimal UnitCost { get; set; }
 
+        /// <summary>
+        /// SST rate for this GRN line, carried from PurchaseOrderDetail.SSTPercent.
+        /// Not re-entered by the user — inherited from the approved PO.
+        /// </summary>
+        public decimal SSTPercent { get; set; } = 0;
+
+        /// <summary>
+        /// Stored SST amount for this GRN line.
+        /// Formula: ReceivedQty × UnitCost × SSTPercent / 100.
+        /// </summary>
+        public decimal SSTAmount { get; set; } = 0;
+
         public DateTime LASTUPDATE { get; set; }
 
         public string? LastUpdatedBy { get; set; }

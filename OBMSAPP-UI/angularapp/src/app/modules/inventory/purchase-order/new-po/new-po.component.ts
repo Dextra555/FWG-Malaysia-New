@@ -56,6 +56,8 @@ export class NewPOComponent implements OnInit {
   submittedBy   = '';
   rejectReason  = '';
   totalAmount   = 0;
+  sstTotal      = 0;
+  grandTotal    = 0;
 
   // ── Approver visibility flag ─────────────────────────────────────────────
   isApprover        = false;
@@ -106,17 +108,19 @@ export class NewPOComponent implements OnInit {
     });
 
     this.lineForm = this.fb.group({
-      ItemID:    [0,  [Validators.required, mustSelect()]],
-      UOMID:     [0],
-      OrderedQty:['',[Validators.required, greaterThanZero()]],
-      UnitPrice: ['',[Validators.required, nonNegative()]],
+      ItemID:     [0,   [Validators.required, mustSelect()]],
+      UOMID:      [0],
+      OrderedQty: ['',  [Validators.required, greaterThanZero()]],
+      UnitPrice:  ['',  [Validators.required, nonNegative()]],
+      SSTPercent: [0,   [nonNegative()]],
       LineTotal:  [{ value: '0.00', disabled: true }],
-      Remarks:   [''],
-      _index:    [-1]
+      Remarks:    [''],
+      _index:     [-1]
     });
 
     this.lineForm.get('OrderedQty')?.valueChanges.subscribe(() => this.calcLineTotal());
-    this.lineForm.get('UnitPrice')?.valueChanges.subscribe(() => this.calcLineTotal());
+    this.lineForm.get('UnitPrice')?.valueChanges.subscribe(()  => this.calcLineTotal());
+    this.lineForm.get('SSTPercent')?.valueChanges.subscribe(() => this.calcLineTotal());
   }
 
   ngOnInit(): void {
@@ -220,6 +224,7 @@ export class NewPOComponent implements OnInit {
         if (d?.Details) {
           this.lines = d.Details.map((l: any) => {
             const item = this.items.find(i => i.ID === l.ItemID);
+            const unitPrice = l.BuyingPrice || item?.Price || 0;
             return {
               ItemID:       l.ItemID,
               ItemCode:     l.ItemCode  || item?.Code         || '',
@@ -228,8 +233,10 @@ export class NewPOComponent implements OnInit {
               UOMID:        l.UOMID     || 0,
               UOMName:      l.UOMName   || item?.UOMName      || '',
               OrderedQty:   l.RequiredQty,
-              UnitPrice:    0,
-              LineTotal:    0,
+              UnitPrice:    unitPrice,
+              SSTPercent:   l.SSTPercent || 0,   // carry SST rate from PR line to PO line
+              SSTAmount:    l.RequiredQty * unitPrice * (l.SSTPercent || 0) / 100,
+              LineTotal:    l.RequiredQty * unitPrice,
               Remarks:      l.Remarks   || ''
             };
           });
@@ -262,7 +269,11 @@ export class NewPOComponent implements OnInit {
         });
         this.warningMessage = '';   // clear any stale default-warehouse warning
         this.lines = (d.Details || []).map((l: any) => ({
-          ...l, LineTotal: l.TotalPrice, _index: -1
+          ...l,
+          LineTotal:  l.TotalPrice,
+          SSTPercent: l.SSTPercent || 0,
+          SSTAmount:  l.SSTAmount  || 0,
+          _index: -1
         }));
         this.calcTotal();
 
@@ -368,8 +379,10 @@ export class NewPOComponent implements OnInit {
   }
 
   calcLineTotal(): void {
-    const qty   = parseFloat(this.lineForm.get('OrderedQty')?.value) || 0;
-    const price = parseFloat(this.lineForm.get('UnitPrice')?.value)  || 0;
+    const qty   = parseFloat(this.lineForm.get('OrderedQty')?.value)  || 0;
+    const price = parseFloat(this.lineForm.get('UnitPrice')?.value)   || 0;
+    const sst   = parseFloat(this.lineForm.get('SSTPercent')?.value)  || 0;
+    // LineTotal shown in the table = ex-SST subtotal (SST shown separately in footer)
     this.lineForm.get('LineTotal')?.setValue((qty * price).toFixed(2), { emitEvent: false });
   }
 
@@ -377,19 +390,22 @@ export class NewPOComponent implements OnInit {
     if (this.lineForm.invalid) { this.lineForm.markAllAsTouched(); return; }
     const raw  = this.lineForm.getRawValue();
     const item = this.items.find(i => i.ID === +raw.ItemID);
+    const sstPct = parseFloat(raw.SSTPercent) || 0;
     const line = {
       ...raw,
       ItemCode:     item?.Code         || '',
       ItemName:     item?.Name         || '',
       CategoryName: item?.CategoryName || '',
       UOMName:      item?.UOMName      || '',
-      LineTotal:    parseFloat(raw.OrderedQty) * parseFloat(raw.UnitPrice)
+      LineTotal:    parseFloat(raw.OrderedQty) * parseFloat(raw.UnitPrice),
+      SSTPercent:   sstPct,
+      SSTAmount:    parseFloat(raw.OrderedQty) * parseFloat(raw.UnitPrice) * sstPct / 100
     };
     if (raw._index >= 0) { this.lines[raw._index] = line; }
     else { this.lines.push(line); }
     this.lineForm.reset({
-      ItemID: 0, UOMID: 0, OrderedQty: '',
-      UnitPrice: '', LineTotal: '0.00', Remarks: '', _index: -1
+      ItemID: 0, UOMID: 0, OrderedQty: '', UnitPrice: '',
+      SSTPercent: 0, LineTotal: '0.00', Remarks: '', _index: -1
     });
     this.editLineIndex = -1;
     this.calcTotal();
@@ -401,6 +417,7 @@ export class NewPOComponent implements OnInit {
     this.lineForm.patchValue({
       ItemID: l.ItemID, UOMID: l.UOMID || 0,
       OrderedQty: l.OrderedQty, UnitPrice: l.UnitPrice,
+      SSTPercent: l.SSTPercent || 0,
       Remarks: l.Remarks, _index: i
     });
     this.calcLineTotal();
@@ -416,6 +433,10 @@ export class NewPOComponent implements OnInit {
     this.totalAmount = this.lines.reduce(
       (s, l) => s + (parseFloat(l.OrderedQty) * parseFloat(l.UnitPrice) || 0), 0
     );
+    this.sstTotal = this.lines.reduce(
+      (s, l) => s + (parseFloat(l.OrderedQty) * parseFloat(l.UnitPrice) * (parseFloat(l.SSTPercent) || 0) / 100 || 0), 0
+    );
+    this.grandTotal = this.totalAmount + this.sstTotal;
   }
 
   // ── State helpers ─────────────────────────────────────────────────────────
@@ -473,6 +494,7 @@ export class NewPOComponent implements OnInit {
         UOMID:      l.UOMID || null,
         OrderedQty: +l.OrderedQty,
         UnitPrice:  +l.UnitPrice,
+        SSTPercent: +l.SSTPercent || 0,
         Remarks:    l.Remarks || '',
         LastUpdatedBy: this.currentUser
       }))
@@ -503,6 +525,12 @@ export class NewPOComponent implements OnInit {
   }
 
   onSubmitForApproval(): void {
+    // Block submit if any line has UnitPrice = 0
+    const zeroPriceApproval = this.lines.find(l => !l.UnitPrice || +l.UnitPrice <= 0);
+    if (zeroPriceApproval) {
+      this.showMsg(`Unit Price is required for "${zeroPriceApproval.ItemName}". Please enter a price greater than zero before submitting for approval.`, 'warning', 'Warning Message');
+      return;
+    }
     this.dialog.open(DialogConfirmationComponent, {
       data: `Send Purchase Order <b>${this.frm.get('PONumber')?.value}</b> for approval?`
     }).afterClosed().subscribe((r: any) => {
@@ -529,6 +557,12 @@ export class NewPOComponent implements OnInit {
     if (this.frm.invalid) { this.frm.markAllAsTouched(); return; }
     if (this.lines.length === 0) {
       this.showMsg('Please add at least one item to the purchase order before submitting.', 'warning', 'Warning Message');
+      return;
+    }
+    // Block submit if any line has UnitPrice = 0
+    const zeroPriceSub = this.lines.find(l => !l.UnitPrice || +l.UnitPrice <= 0);
+    if (zeroPriceSub) {
+      this.showMsg(`Unit Price is required for "${zeroPriceSub.ItemName}". Please enter a price greater than zero before submitting.`, 'warning', 'Warning Message');
       return;
     }
 
@@ -570,6 +604,7 @@ export class NewPOComponent implements OnInit {
             UOMID:      l.UOMID || null,
             OrderedQty: +l.OrderedQty,
             UnitPrice:  +l.UnitPrice,
+            SSTPercent: +l.SSTPercent || 0,
             Remarks:    l.Remarks || '',
             LastUpdatedBy: this.currentUser
           }))

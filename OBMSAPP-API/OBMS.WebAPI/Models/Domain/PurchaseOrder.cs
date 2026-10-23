@@ -35,6 +35,18 @@ namespace OBMS.WebAPI.Models.Domain
 
         public decimal TotalAmount { get; set; }
 
+        /// <summary>
+        /// Sum of SSTAmount across all PO lines.
+        /// Formula: Σ (OrderedQty × UnitPrice × SSTPercent / 100).
+        /// </summary>
+        public decimal SSTTotal { get; set; } = 0;
+
+        /// <summary>
+        /// Grand total payable including SST: TotalAmount + SSTTotal.
+        /// This is the amount used when creating the CreditorInvoice on GRN save.
+        /// </summary>
+        public decimal GrandTotal { get; set; } = 0;
+
         public string? Remarks { get; set; }
 
         public string? SubmittedBy { get; set; }

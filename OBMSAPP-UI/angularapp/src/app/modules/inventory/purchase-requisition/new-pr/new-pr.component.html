@@ -244,15 +244,23 @@
             <mat-hint>Auto-filled · editable</mat-hint>
           </mat-form-field>
         </div>
-        <div class="col-12 col-md-3">
+        <div class="col-12 col-md-2">
+          <mat-form-field appearance="outline">
+            <mat-label>SST %</mat-label>
+            <input matInput type="number" formControlName="SSTPercent" placeholder="0" min="0" max="100"
+              matTooltip="Estimated SST rate (%) — 0 for non-taxable, 6 for 6%, 8 for 8%. Carried to the PO when created.">
+            <mat-hint>0 = not taxable</mat-hint>
+          </mat-form-field>
+        </div>
+        <div class="col-12 col-md-2">
           <mat-form-field appearance="outline">
             <mat-label>Line Remarks</mat-label>
             <input matInput formControlName="Remarks" placeholder="Optional">
           </mat-form-field>
         </div>
-        <div class="col-12 col-md-2 d-flex align-items-center">
+        <div class="col-12 col-md-1 d-flex align-items-center">
           <button type="button" class="btn wlt-c-furg-btn-primary" (click)="addLine()">
-            {{editLineIndex >= 0 ? 'Update Line' : 'Add Item'}}
+            {{editLineIndex >= 0 ? 'Update' : 'Add'}}
           </button>
         </div>
       </div>
@@ -267,8 +275,16 @@
             <th class="mat-header-cell">Item</th>
             <th class="mat-header-cell">Category</th>
             <th class="mat-header-cell">UOM</th>
+            <th class="mat-header-cell">Default Warehouse</th>
             <th class="mat-header-cell" style="text-align:right">Quantity</th>
             <th class="mat-header-cell" style="text-align:right">Buying Price (RM)</th>
+            <th class="mat-header-cell" style="text-align:right"
+                matTooltip="Current stock in the item's default warehouse">Current Stock</th>
+            <th class="mat-header-cell" style="text-align:right"
+                matTooltip="Sum of quantities from Submitted + Approved Branch Stock Requests">BSR Pending Qty</th>
+            <th class="mat-header-cell" style="text-align:right">Sub-Total (RM)</th>
+            <th class="mat-header-cell" style="text-align:right">SST %</th>
+            <th class="mat-header-cell" style="text-align:right">SST (RM)</th>
             <th class="mat-header-cell">Remarks</th>
             <th class="mat-header-cell" *ngIf="canEdit()" style="text-align:center">Action</th>
           </tr>
@@ -279,9 +295,52 @@
             <td class="mat-cell">{{line.ItemCode}} — {{line.ItemName}}</td>
             <td class="mat-cell">{{line.CategoryName}}</td>
             <td class="mat-cell">{{line.UOMName}}</td>
+            <td class="mat-cell">{{line._WarehouseName || '—'}}</td>
             <td class="mat-cell" style="text-align:right">{{line.RequiredQty}}</td>
             <td class="mat-cell" style="text-align:right">
               {{line.BuyingPrice != null && line.BuyingPrice !== '' ? (line.BuyingPrice | number:'1.2-2') : '—'}}
+            </td>
+            <!-- Current Stock -->
+            <td class="mat-cell" style="text-align:right">
+              <ng-container *ngIf="line._CurrentStock != null; else stockLoading">
+                <span [style.color]="line._CurrentStock <= 0 ? '#c62828' : '#2e7d32'">
+                  {{line._CurrentStock | number:'1.2-2'}}
+                </span>
+              </ng-container>
+              <ng-template #stockLoading>
+                <span style="color:#aaa">…</span>
+              </ng-template>
+            </td>
+            <!-- BSR Pending Qty -->
+            <td class="mat-cell" style="text-align:right">
+              <ng-container *ngIf="line._BSRPendingQty != null; else bsrLoading">
+                <span [style.color]="line._BSRPendingQty > 0 ? '#e65100' : 'inherit'">
+                  {{line._BSRPendingQty | number:'1.2-2'}}
+                </span>
+              </ng-container>
+              <ng-template #bsrLoading>
+                <span style="color:#aaa">…</span>
+              </ng-template>
+            </td>
+            <!-- Sub-Total -->
+            <td class="mat-cell" style="text-align:right">
+              {{(line.RequiredQty && line.BuyingPrice != null && line.BuyingPrice !== '')
+                ? (line.RequiredQty * line.BuyingPrice | number:'1.2-2')
+                : '—'}}
+            </td>
+            <!-- SST % -->
+            <td class="mat-cell" style="text-align:right">
+              <span *ngIf="(line.SSTPercent || 0) > 0" style="color:#e65100;font-weight:600">
+                {{line.SSTPercent | number:'1.0-2'}}%
+              </span>
+              <span *ngIf="!(line.SSTPercent > 0)" class="text-muted">—</span>
+            </td>
+            <!-- SST Amount -->
+            <td class="mat-cell" style="text-align:right">
+              <span *ngIf="(line.SSTPercent || 0) > 0 && line.BuyingPrice != null" style="color:#e65100">
+                {{(line.RequiredQty * line.BuyingPrice * (line.SSTPercent || 0) / 100) | number:'1.2-2'}}
+              </span>
+              <span *ngIf="!(line.SSTPercent > 0) || line.BuyingPrice == null" class="text-muted">—</span>
             </td>
             <td class="mat-cell">{{line.Remarks}}</td>
             <td class="mat-cell" *ngIf="canEdit()" style="text-align:center">
@@ -290,9 +349,38 @@
             </td>
           </tr>
           <tr class="mat-row" *ngIf="lines.length === 0">
-            <td [attr.colspan]="canEdit() ? 8 : 7" style="text-align:center;padding:16px;color:#888">
+            <td [attr.colspan]="canEdit() ? 13 : 12" style="text-align:center;padding:16px;color:#888">
               No items added yet. Use the form above to add items.
             </td>
+          </tr>
+          <!-- ── Totals footer ── -->
+          <tr class="mat-row" *ngIf="lines.length > 0">
+            <td [attr.colspan]="canEdit() ? 11 : 10" style="text-align:right;border-top:2px solid #dee2e6">
+              <strong>Sub-Total (RM)</strong>
+            </td>
+            <td style="text-align:right;border-top:2px solid #dee2e6">
+              <strong style="color:#1976d2">{{subTotal | number:'1.2-2'}}</strong>
+            </td>
+            <td *ngIf="canEdit()"></td>
+          </tr>
+          <tr class="mat-row" *ngIf="lines.length > 0 && sstTotal > 0">
+            <td [attr.colspan]="canEdit() ? 11 : 10" style="text-align:right">
+              <strong>SST (RM)</strong>
+            </td>
+            <td style="text-align:right">
+              <strong style="color:#e65100">{{sstTotal | number:'1.2-2'}}</strong>
+            </td>
+            <td *ngIf="canEdit()"></td>
+          </tr>
+          <tr class="mat-row" *ngIf="lines.length > 0">
+            <td [attr.colspan]="canEdit() ? 11 : 10"
+              style="text-align:right;border-top:2px solid #1976d2;background:#e3f2fd">
+              <strong>Grand Total (RM)</strong>
+            </td>
+            <td style="text-align:right;border-top:2px solid #1976d2;background:#e3f2fd">
+              <strong style="color:#1565c0;font-size:1.05em">{{grandTotal | number:'1.2-2'}}</strong>
+            </td>
+            <td *ngIf="canEdit()" style="background:#e3f2fd"></td>
           </tr>
         </tbody>
       </table>

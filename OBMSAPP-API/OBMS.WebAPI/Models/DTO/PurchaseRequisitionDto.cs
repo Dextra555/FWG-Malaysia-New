@@ -20,6 +20,11 @@ namespace OBMS.WebAPI.Models.DTO
         public int ItemID { get; set; }
         public decimal RequiredQty { get; set; }
         public decimal? BuyingPrice { get; set; }   // Auto-filled from ItemMaster; user-editable
+        /// <summary>
+        /// Estimated SST rate for this PR line (0, 6, 8, or any value).
+        /// Carried to PurchaseOrderDetail.SSTPercent when a PO is raised from this PR.
+        /// </summary>
+        public decimal SSTPercent { get; set; } = 0;
         public int? UOMID { get; set; }
         public string? Remarks { get; set; }
         public string? LastUpdatedBy { get; set; }
@@ -84,6 +89,10 @@ namespace OBMS.WebAPI.Models.DTO
         public string CategoryName { get; set; } = string.Empty;
         public decimal RequiredQty { get; set; }
         public decimal? BuyingPrice { get; set; }   // Cost price from ItemMaster; stored per line
+        /// <summary>Estimated SST rate carried from PR line.</summary>
+        public decimal SSTPercent { get; set; }
+        /// <summary>Estimated SST amount = RequiredQty × BuyingPrice × SSTPercent / 100.</summary>
+        public decimal SSTAmount { get; set; }
         public int? UOMID { get; set; }
         public string UOMName { get; set; } = string.Empty;
         public string? Remarks { get; set; }

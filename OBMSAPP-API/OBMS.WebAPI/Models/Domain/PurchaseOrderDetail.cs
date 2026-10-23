@@ -26,6 +26,19 @@ namespace OBMS.WebAPI.Models.Domain
         /// <summary>Stored = OrderedQty × UnitPrice, calculated by API before save.</summary>
         public decimal TotalPrice { get; set; }
 
+        /// <summary>
+        /// SST rate applied to this line (e.g. 0, 6, 8).
+        /// User-configurable per line — not all items are SST-applicable.
+        /// </summary>
+        public decimal SSTPercent { get; set; } = 0;
+
+        /// <summary>
+        /// Stored SST amount for this line.
+        /// Formula: OrderedQty × UnitPrice × SSTPercent / 100.
+        /// Calculated by API on save; TotalPrice remains ex-SST.
+        /// </summary>
+        public decimal SSTAmount { get; set; } = 0;
+
         public string? Remarks { get; set; }
 
         public DateTime LASTUPDATE { get; set; }

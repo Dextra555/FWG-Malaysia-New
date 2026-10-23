@@ -40,6 +40,8 @@ export class NewPRComponent implements OnInit {
   approvalRemarks = '';
   approvedBy      = '';
   submittedBy     = '';   // who submitted — used to check approver routing
+  sstTotal        = 0;
+  grandTotal      = 0;
 
   // ── Approver visibility flag ─────────────────────────────────────────────
   // true  = current user is the configured approver → show Approve / Reject
@@ -89,12 +91,17 @@ export class NewPRComponent implements OnInit {
     });
 
     this.lineForm = this.fb.group({
-      ItemID:      [0, [Validators.required, mustSelect()]],
-      RequiredQty: ['', [Validators.required, greaterThanZero()]],
-      BuyingPrice: [''],   // auto-filled from ItemMaster; user-editable
-      UOMID:       [0],
-      Remarks:     [''],
-      _index:      [-1]
+      ItemID:         [0, [Validators.required, mustSelect()]],
+      RequiredQty:    ['', [Validators.required, greaterThanZero()]],
+      BuyingPrice:    [''],   // auto-filled from ItemMaster; user-editable
+      SSTPercent:     [0],    // estimated SST rate per line (0, 6, 8 or any value)
+      UOMID:          [0],
+      Remarks:        [''],
+      _index:         [-1],
+      _WarehouseID:   [0],    // default warehouse of the selected item
+      _WarehouseName: [''],   // default warehouse name — shown in the table
+      _CurrentStock:  [null], // current stock in that warehouse
+      _BSRPendingQty: [null]  // total pending BSR qty across Submitted + Approved requests
     });
   }
 
@@ -142,7 +149,12 @@ export class NewPRComponent implements OnInit {
 
   loadItems(): void {
     this.service.getItemsForStock().subscribe({
-      next: (d: any[]) => { this.items = d || []; this.filteredItems = [...this.items]; },
+      next: (d: any[]) => {
+        this.items = d || [];
+        this.filteredItems = [...this.items];
+        // If loadExisting() already populated lines before items arrived, fetch stock info now
+        if (this.lines.length > 0) { this.loadStockInfoForLines(); }
+      },
       error: () => { this.errorMessage = 'Unable to load the item list. Please try again.'; }
     });
   }
@@ -171,7 +183,18 @@ export class NewPRComponent implements OnInit {
           RequiredByDate: new Date(d.RequiredByDate),
           Remarks:        d.Remarks
         });
-        this.lines = (d.Details || []).map((l: any) => ({ ...l, _index: -1 }));
+        this.lines = (d.Details || []).map((l: any) => ({
+          ...l, _index: -1,
+          SSTPercent: l.SSTPercent || 0,
+          SSTAmount:  l.SSTAmount  || 0,
+          _WarehouseID:   0,
+          _WarehouseName: '',
+          _CurrentStock:  null,
+          _BSRPendingQty: null
+        }));
+        // Fetch current stock + pending BSR qty for each loaded line
+        this.loadStockInfoForLines();
+        this.calcTotal();
         if (d.Status !== 'Draft') { this.frm.disable(); }
         this.hideSpinner();
 
@@ -251,11 +274,54 @@ export class NewPRComponent implements OnInit {
   canCreatePO(): boolean { return this.isEdit && this.currentStatus === 'Approved'; }
 
   // ── Line management ──────────────────────────────────────────────────────
+
+  /** Fetches CurrentStock + PendingBSRQty for every line in this.lines[].
+   *  Called after loadExisting() populates lines from the saved PR.
+   *  If items haven't loaded yet, loadItems() will call this once they arrive. */
+  private loadStockInfoForLines(): void {
+    if (!this.items.length) return;   // loadItems() will re-call when ready
+    this.lines.forEach((line, i) => {
+      const item = this.items.find(it => it.ID === +line.ItemID);
+      const warehouseID = item?.WarehouseID ?? 0;
+      if (warehouseID > 0) {
+        this.service.getCurrentStock(warehouseID, +line.ItemID).subscribe({
+          next: (res: any) => { this.lines[i]._CurrentStock  = res?.currentStock  ?? 0;
+                                this.lines[i]._WarehouseID   = warehouseID;
+                                this.lines[i]._WarehouseName = item?.WarehouseName ?? ''; },
+          error: ()        => { this.lines[i]._CurrentStock  = 0; }
+        });
+      }
+      this.service.getPendingBSRQtyByItem(+line.ItemID).subscribe({
+        next: (res: any) => { this.lines[i]._BSRPendingQty = res?.pendingBSRQty ?? 0; },
+        error: ()        => { this.lines[i]._BSRPendingQty = 0; }
+      });
+    });
+  }
+
   onItemChange(itemID: number): void {
     const item = this.items.find(i => i.ID === +itemID);
     if (item) {
       if (item.UOMID) this.lineForm.get('UOMID')?.setValue(item.UOMID);
       this.lineForm.get('BuyingPrice')?.setValue(item.Price ?? '');
+      this.lineForm.get('_WarehouseID')?.setValue(item.WarehouseID ?? 0);
+      this.lineForm.get('_WarehouseName')?.setValue(item.WarehouseName ?? '');
+      // Reset stock info until API returns
+      this.lineForm.get('_CurrentStock')?.setValue(null);
+      this.lineForm.get('_BSRPendingQty')?.setValue(null);
+
+      // Fetch current stock for the item's default warehouse
+      if (item.WarehouseID > 0) {
+        this.service.getCurrentStock(item.WarehouseID, +itemID).subscribe({
+          next: (res: any) => this.lineForm.get('_CurrentStock')?.setValue(res?.currentStock ?? 0),
+          error: ()        => this.lineForm.get('_CurrentStock')?.setValue(0)
+        });
+      }
+
+      // Fetch total pending BSR qty for this item
+      this.service.getPendingBSRQtyByItem(+itemID).subscribe({
+        next: (res: any) => this.lineForm.get('_BSRPendingQty')?.setValue(res?.pendingBSRQty ?? 0),
+        error: ()        => this.lineForm.get('_BSRPendingQty')?.setValue(0)
+      });
     }
   }
 
@@ -263,30 +329,68 @@ export class NewPRComponent implements OnInit {
     if (this.lineForm.invalid) { this.lineForm.markAllAsTouched(); return; }
     const raw  = this.lineForm.getRawValue();
     const item = this.items.find(i => i.ID === +raw.ItemID);
+    const sstPct = parseFloat(raw.SSTPercent) || 0;
+    const qty   = parseFloat(raw.RequiredQty) || 0;
+    const price = parseFloat(raw.BuyingPrice) || 0;
     const line = {
       ...raw,
       ItemName:     item?.Name         || '',
       ItemCode:     item?.Code         || '',
       UOMName:      item?.UOMName      || '',
-      CategoryName: item?.CategoryName || ''
+      CategoryName: item?.CategoryName || '',
+      SSTPercent:   sstPct,
+      SSTAmount:    qty * price * sstPct / 100
     };
     if (raw._index >= 0) { this.lines[raw._index] = line; }
     else { this.lines.push(line); }
-    this.lineForm.reset({ ItemID: 0, RequiredQty: '', BuyingPrice: '', UOMID: 0, Remarks: '', _index: -1 });
+    this.lineForm.reset({ ItemID: 0, RequiredQty: '', BuyingPrice: '', SSTPercent: 0, UOMID: 0, Remarks: '', _index: -1, _WarehouseID: 0, _WarehouseName: '', _CurrentStock: null, _BSRPendingQty: null });
     this.editLineIndex = -1;
+    this.calcTotal();
   }
 
   editLine(i: number): void {
     this.editLineIndex = i;
     const l = this.lines[i];
     this.lineForm.patchValue({
-      ItemID: l.ItemID, RequiredQty: l.RequiredQty,
-      BuyingPrice: l.BuyingPrice ?? '',
-      UOMID: l.UOMID || 0, Remarks: l.Remarks, _index: i
+      ItemID:         l.ItemID,
+      RequiredQty:    l.RequiredQty,
+      BuyingPrice:    l.BuyingPrice ?? '',
+      SSTPercent:     l.SSTPercent || 0,
+      UOMID:          l.UOMID || 0,
+      Remarks:        l.Remarks,
+      _index:         i,
+      _WarehouseID:   l._WarehouseID   ?? 0,
+      _WarehouseName: l._WarehouseName ?? '',
+      _CurrentStock:  l._CurrentStock  ?? null,
+      _BSRPendingQty: l._BSRPendingQty ?? null
     });
   }
 
-  removeLine(i: number): void { this.lines.splice(i, 1); this.editLineIndex = -1; }
+  removeLine(i: number): void { this.lines.splice(i, 1); this.editLineIndex = -1; this.calcTotal(); }
+
+  /** Sub-Total / SST Total / Grand Total for the displayed lines */
+  calcTotal(): void {
+    let sub = 0;
+    let sst = 0;
+    this.lines.forEach(l => {
+      const qty   = parseFloat(l.RequiredQty) || 0;
+      const price = parseFloat(l.BuyingPrice)  || 0;
+      const pct   = parseFloat(l.SSTPercent)    || 0;
+      sub += qty * price;
+      sst += qty * price * pct / 100;
+    });
+    this.sstTotal   = sst;
+    this.grandTotal = sub + sst;
+  }
+
+  /** Sub-Total (ex-SST) of all displayed lines — used by template */
+  get subTotal(): number {
+    return this.lines.reduce((s, l) => {
+      const qty = parseFloat(l.RequiredQty) || 0;
+      const price = parseFloat(l.BuyingPrice) || 0;
+      return s + qty * price;
+    }, 0);
+  }
 
   // ── Actions ──────────────────────────────────────────────────────────────
   onSave(): void {
@@ -305,6 +409,7 @@ export class NewPRComponent implements OnInit {
         ID: l.ID || 0, ItemID: l.ItemID,
         RequiredQty: l.RequiredQty,
         BuyingPrice: l.BuyingPrice != null && l.BuyingPrice !== '' ? +l.BuyingPrice : null,
+        SSTPercent: +l.SSTPercent || 0,
         UOMID: l.UOMID || null,
         Remarks: l.Remarks || '',
         LastUpdatedBy: this.currentUser
@@ -358,6 +463,12 @@ export class NewPRComponent implements OnInit {
       this.showMsg('Please add at least one item to the requisition before submitting.', 'warning', 'Warning Message');
       return;
     }
+    // Block submit if any line has BuyingPrice = 0 or empty
+    const zeroPriceSub = this.lines.find(l => !l.BuyingPrice || +l.BuyingPrice <= 0);
+    if (zeroPriceSub) {
+      this.showMsg(`Buying Price is required for "${zeroPriceSub.ItemName}". Please enter a price greater than zero before submitting.`, 'warning', 'Warning Message');
+      return;
+    }
 
     const prLabel = this.isEdit ? this.frm.get('PRNumber')?.value : 'this requisition';
     this.dialog.open(DialogConfirmationComponent, {
@@ -390,6 +501,7 @@ export class NewPRComponent implements OnInit {
             ID: 0, ItemID: l.ItemID,
             RequiredQty: l.RequiredQty,
             BuyingPrice: l.BuyingPrice != null && l.BuyingPrice !== '' ? +l.BuyingPrice : null,
+            SSTPercent: +l.SSTPercent || 0,
             UOMID: l.UOMID || null,
             Remarks: l.Remarks || '',
             LastUpdatedBy: this.currentUser

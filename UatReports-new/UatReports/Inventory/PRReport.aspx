@@ -161,11 +161,12 @@
             // ── Items table ───────────────────────────────────────────────
             P(doc, "Items Required", new Font(Font.FontFamily.HELVETICA, 9f, Font.BOLD, navy), Element.ALIGN_LEFT, 4f);
 
-            var tbl = new PdfPTable(7) { WidthPercentage = 100f, HeaderRows = 1, SpacingAfter = 16f };
-            tbl.SetWidths(new float[] { 0.6f, 2.5f, 4.5f, 2f, 1.5f, 2f, 3f });
+            // 11 cols: #, Code, Name, Category, UOM, Qty, Buying Price, Sub-Total, SST%, SST Amt, Remarks
+            var tbl = new PdfPTable(11) { WidthPercentage = 100f, HeaderRows = 1, SpacingAfter = 8f };
+            tbl.SetWidths(new float[] { 0.4f, 1.5f, 3.0f, 1.8f, 1.0f, 1.2f, 1.5f, 1.5f, 0.8f, 1.4f, 2.5f });
 
-            string[] headers = { "#", "Item Code", "Item Name", "Category", "UOM", "Qty", "Remarks" };
-            bool[]   numCol  = { false, false, false, false, false, true, false };
+            string[] headers = { "#", "Item Code", "Item Name", "Category", "UOM", "Qty", "Buying Price (RM)", "Sub-Total (RM)", "SST %", "SST (RM)", "Remarks" };
+            bool[]   numCol  = { false, false, false, false, false, true, true, true, true, true, false };
             for (int i = 0; i < headers.Length; i++)
             {
                 var c = new PdfPCell(new Phrase(headers[i], fTH))
@@ -178,42 +179,84 @@
             }
 
             int rowNo = 0;
-            decimal totalQty = 0;
+            decimal totalQty    = 0;
+            decimal subTotal    = 0;
+            decimal sstTotalPdf = 0;
             foreach (DataRow dr in dtDetails.Rows)
             {
                 var bg = (rowNo % 2 == 0) ? BaseColor.WHITE : rowAlt;
                 rowNo++;
 
-                AddCell(tbl, rowNo.ToString(),            fTD, Element.ALIGN_CENTER, bg, border);
-                AddCell(tbl, Safe(dr, "ItemCode"),         fTD, Element.ALIGN_LEFT,   bg, border);
-                AddCell(tbl, Safe(dr, "ItemName"),         fTD, Element.ALIGN_LEFT,   bg, border);
-                AddCell(tbl, Safe(dr, "CategoryName"),     fTD, Element.ALIGN_LEFT,   bg, border);
-                AddCell(tbl, Safe(dr, "UOMName"),          fTD, Element.ALIGN_LEFT,   bg, border);
+                decimal qty      = ParseDecimal(dr, "RequiredQty");
+                decimal buyPrice = ParseDecimal(dr, "BuyingPrice");
+                decimal lineSub  = qty * buyPrice;
+                decimal sstPct   = ParseDecimal(dr, "SSTPercent");
+                decimal sstAmt   = ParseDecimal(dr, "SSTAmount");
+                totalQty    += qty;
+                subTotal    += lineSub;
+                sstTotalPdf += sstAmt;
 
-                decimal qty = 0;
-                decimal.TryParse(dr["RequiredQty"].ToString(), out qty);
-                totalQty += qty;
-                AddCell(tbl, qty.ToString("N2"),           fTD, Element.ALIGN_RIGHT,  bg, border);
-                AddCell(tbl, Safe(dr, "Remarks"),          fTD, Element.ALIGN_LEFT,   bg, border);
+                AddCell(tbl, rowNo.ToString(),                             fTD, Element.ALIGN_CENTER, bg, border);
+                AddCell(tbl, Safe(dr, "ItemCode"),                          fTD, Element.ALIGN_LEFT,   bg, border);
+                AddCell(tbl, Safe(dr, "ItemName"),                          fTD, Element.ALIGN_LEFT,   bg, border);
+                AddCell(tbl, Safe(dr, "CategoryName"),                      fTD, Element.ALIGN_LEFT,   bg, border);
+                AddCell(tbl, Safe(dr, "UOMName"),                           fTD, Element.ALIGN_LEFT,   bg, border);
+                AddCell(tbl, qty.ToString("N2"),                             fTD, Element.ALIGN_RIGHT,  bg, border);
+                AddCell(tbl, buyPrice > 0 ? buyPrice.ToString("N2") : "—", fTD, Element.ALIGN_RIGHT,  bg, border);
+                AddCell(tbl, lineSub > 0 ? lineSub.ToString("N2") : "—",   fTD, Element.ALIGN_RIGHT,  bg, border);
+                AddCell(tbl, sstPct > 0 ? sstPct.ToString("N2") + "%" : "—", fTD, Element.ALIGN_RIGHT, bg, border);
+                AddCell(tbl, sstAmt > 0 ? sstAmt.ToString("N2") : "—",       fTD, Element.ALIGN_RIGHT,  bg, border);
+                AddCell(tbl, Safe(dr, "Remarks"),                           fTD, Element.ALIGN_LEFT,   bg, border);
             }
 
             if (dtDetails.Rows.Count == 0)
             {
                 var ec = new PdfPCell(new Phrase("No items found.", fTD))
-                { Colspan = 7, HorizontalAlignment = Element.ALIGN_CENTER, Padding = 8f, Border = Rectangle.BOX, BorderColor = border };
+                { Colspan = 11, HorizontalAlignment = Element.ALIGN_CENTER, Padding = 8f, Border = Rectangle.BOX, BorderColor = border };
                 tbl.AddCell(ec);
             }
             else
             {
-                // Totals row
                 Font fTot = new Font(Font.FontFamily.HELVETICA, 8f, Font.BOLD, navy);
-                AddCell(tbl, "",                           fTot, Element.ALIGN_RIGHT, new BaseColor(0xe8,0xf0,0xfe), border);
-                AddCell(tbl, "",                           fTot, Element.ALIGN_RIGHT, new BaseColor(0xe8,0xf0,0xfe), border);
-                AddCell(tbl, "",                           fTot, Element.ALIGN_RIGHT, new BaseColor(0xe8,0xf0,0xfe), border);
-                AddCell(tbl, "",                           fTot, Element.ALIGN_RIGHT, new BaseColor(0xe8,0xf0,0xfe), border);
-                AddCell(tbl, "Total",                      fTot, Element.ALIGN_RIGHT, new BaseColor(0xe8,0xf0,0xfe), border);
-                AddCell(tbl, totalQty.ToString("N2"),      fTot, Element.ALIGN_RIGHT, new BaseColor(0xe8,0xf0,0xfe), border);
-                AddCell(tbl, "",                           fTot, Element.ALIGN_RIGHT, new BaseColor(0xe8,0xf0,0xfe), border);
+                BaseColor totalBg = new BaseColor(0xe8, 0xf0, 0xfe);
+
+                // ── Sub-Total row ─────────────────────────────────────────
+                tbl.AddCell(new PdfPCell(new Phrase("", fTot)) { BackgroundColor = totalBg, Padding = 5f, Border = Rectangle.BOX, BorderColor = border });
+                tbl.AddCell(new PdfPCell(new Phrase("", fTot)) { BackgroundColor = totalBg, Padding = 5f, Border = Rectangle.BOX, BorderColor = border });
+                tbl.AddCell(new PdfPCell(new Phrase("", fTot)) { BackgroundColor = totalBg, Padding = 5f, Border = Rectangle.BOX, BorderColor = border });
+                tbl.AddCell(new PdfPCell(new Phrase("", fTot)) { BackgroundColor = totalBg, Padding = 5f, Border = Rectangle.BOX, BorderColor = border });
+                tbl.AddCell(new PdfPCell(new Phrase("Sub-Total", fTot))
+                { HorizontalAlignment = Element.ALIGN_RIGHT, BackgroundColor = totalBg, Padding = 5f, Border = Rectangle.BOX, BorderColor = border });
+                tbl.AddCell(new PdfPCell(new Phrase(totalQty.ToString("N2"), fTot))
+                { HorizontalAlignment = Element.ALIGN_RIGHT, BackgroundColor = totalBg, Padding = 5f, Border = Rectangle.BOX, BorderColor = border });
+                tbl.AddCell(new PdfPCell(new Phrase("", fTot)) { BackgroundColor = totalBg, Padding = 5f, Border = Rectangle.BOX, BorderColor = border });
+                tbl.AddCell(new PdfPCell(new Phrase(subTotal.ToString("N2"), fTot))
+                { HorizontalAlignment = Element.ALIGN_RIGHT, BackgroundColor = totalBg, Padding = 5f, Border = Rectangle.BOX, BorderColor = border });
+                tbl.AddCell(new PdfPCell(new Phrase("", fTot)) { BackgroundColor = totalBg, Padding = 5f, Border = Rectangle.BOX, BorderColor = border });
+                tbl.AddCell(new PdfPCell(new Phrase("", fTot)) { BackgroundColor = totalBg, Padding = 5f, Border = Rectangle.BOX, BorderColor = border });
+                tbl.AddCell(new PdfPCell(new Phrase("", fTot)) { BackgroundColor = totalBg, Padding = 5f, Border = Rectangle.BOX, BorderColor = border });
+
+                // ── SST Total row (only when any SST exists) ──────────────
+                if (sstTotalPdf > 0)
+                {
+                    tbl.AddCell(new PdfPCell(new Phrase("", fTot)) { Colspan = 8, BackgroundColor = totalBg, Padding = 5f, Border = Rectangle.BOX, BorderColor = border });
+                    tbl.AddCell(new PdfPCell(new Phrase("SST (RM)", fTot))
+                    { HorizontalAlignment = Element.ALIGN_RIGHT, BackgroundColor = totalBg, Padding = 5f, Border = Rectangle.BOX, BorderColor = border });
+                    tbl.AddCell(new PdfPCell(new Phrase(sstTotalPdf.ToString("N2"), fTot))
+                    { HorizontalAlignment = Element.ALIGN_RIGHT, BackgroundColor = totalBg, Padding = 5f, Border = Rectangle.BOX, BorderColor = border });
+                    tbl.AddCell(new PdfPCell(new Phrase("", fTot)) { BackgroundColor = totalBg, Padding = 5f, Border = Rectangle.BOX, BorderColor = border });
+                }
+
+                // ── Grand Total row ───────────────────────────────────────
+                decimal grandTotalPdf = subTotal + sstTotalPdf;
+                Font fGrand = new Font(Font.FontFamily.HELVETICA, 9f, Font.BOLD, new BaseColor(0x1a, 0x3a, 0x5c));
+                tbl.AddCell(new PdfPCell(new Phrase("", fGrand)) { Colspan = 7, BackgroundColor = totalBg, Padding = 6f, Border = Rectangle.BOX, BorderColor = navy });
+                tbl.AddCell(new PdfPCell(new Phrase("Grand Total (RM)", fGrand))
+                { HorizontalAlignment = Element.ALIGN_RIGHT, BackgroundColor = totalBg, Padding = 6f, Border = Rectangle.BOX, BorderColor = navy });
+                tbl.AddCell(new PdfPCell(new Phrase("", fGrand)) { BackgroundColor = totalBg, Padding = 6f, Border = Rectangle.BOX, BorderColor = navy });
+                tbl.AddCell(new PdfPCell(new Phrase(grandTotalPdf.ToString("N2"), fGrand))
+                { HorizontalAlignment = Element.ALIGN_RIGHT, BackgroundColor = totalBg, Padding = 6f, Border = Rectangle.BOX, BorderColor = navy });
+                tbl.AddCell(new PdfPCell(new Phrase("", fGrand)) { BackgroundColor = totalBg, Padding = 6f, Border = Rectangle.BOX, BorderColor = navy });
             }
             doc.Add(tbl);
 

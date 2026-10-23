@@ -441,6 +441,12 @@ export class InventoryService {
       .pipe(catchError(this.errorHandle));
   }
 
+  getPendingBSRQtyByItem(itemID: number): Observable<any> {
+    return this.httpClient.get<any>(this.apiUrl + 'Inventory/GetPendingBSRQtyByItem',
+      { params: new HttpParams().set('itemID', itemID) })
+      .pipe(catchError(this.errorHandle));
+  }
+
   // ── Part 3: Purchase Requisition ──────────────────────────────────────────
 
   getPRList(): Observable<any[]> {

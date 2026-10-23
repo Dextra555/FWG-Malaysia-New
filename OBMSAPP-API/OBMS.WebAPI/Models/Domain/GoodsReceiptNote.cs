@@ -26,6 +26,17 @@ namespace OBMS.WebAPI.Models.Domain
 
         public string? Remarks { get; set; }
 
+        /// <summary>
+        /// Sum of SSTAmount across all GRN detail lines.
+        /// </summary>
+        public decimal SSTTotal { get; set; } = 0;
+
+        /// <summary>
+        /// Grand total of this GRN: Σ(ReceivedQty × UnitCost) + SSTTotal.
+        /// This value is written to CreditorInvoice.Total on GRN save.
+        /// </summary>
+        public decimal GrandTotal { get; set; } = 0;
+
         public bool IsActive { get; set; } = true;
 
         public DateTime LASTUPDATE { get; set; }
