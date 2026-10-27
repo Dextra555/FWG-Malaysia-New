@@ -212,7 +212,7 @@
 
             // ── Filter summary ─────────────────────────────────────────────
             var ft = new PdfPTable(2) { WidthPercentage = 100f, SpacingAfter = 8f };
-            ft.SetWidths(new float[] { 1f, 1f });
+            ft.SetWidths(new float[] { 1f, 2f });
             ft.DefaultCell.Border = Rectangle.NO_BORDER;
             string[][] filterPairs = new string[][]
             {

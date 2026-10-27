@@ -1,3 +1,62 @@
-/* No component-specific styles needed.
-   All layout is handled by the shared report-card, report-wrapper,
-   fixed-height, and wlt-c-furg-btn-primary classes from global styles. */
+/* ── Stock Ledger Report table ───────────────────────────────── */
+.sl-report-table {
+  font-size: 0.82rem;
+  min-width: 900px;
+}
+
+.sl-report-table thead tr {
+  background-color: #1a3a5c;
+  color: #ffffff;
+}
+
+.sl-report-table thead th {
+  background-color: #1a3a5c;
+  color: #ffffff;
+  font-weight: 600;
+  padding: 7px 8px;
+  white-space: nowrap;
+  border-color: #2d5080;
+}
+
+.sl-report-table tbody tr:nth-child(odd) {
+  background-color: #ffffff;
+}
+
+.sl-report-table tbody tr:nth-child(even) {
+  background-color: #f4f7fb;
+}
+
+.sl-report-table tbody tr:hover {
+  background-color: #e8f0fe;
+}
+
+.sl-report-table tbody td {
+  padding: 5px 8px;
+  vertical-align: middle;
+  border-color: #dee2e6;
+}
+
+/* Totals footer row */
+.sl-total-row {
+  background-color: #e8f0fe !important;
+  border-top: 2px solid #1a3a5c;
+}
+
+.sl-total-row td {
+  padding: 6px 8px;
+  border-color: #1a3a5c;
+}
+
+/* Clickable Ref No link */
+.sl-ref-link {
+  color: #0d6efd;
+  text-decoration: underline;
+  cursor: pointer;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.sl-ref-link:hover {
+  color: #0a58ca;
+  text-decoration: underline;
+}

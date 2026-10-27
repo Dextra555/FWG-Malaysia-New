@@ -9,9 +9,10 @@
 <script runat="server">
 
     // ════════════════════════════════════════════════════════════════════════
-    // OBMS Stock Ledger PDF Report — Part 9
-    // All logic inline (precompiled project — no CodeFile support).
-    // Uses iTextSharp 5.5.13.x from bin/ (add via NuGet in VS then rebuild).
+    // OBMS Inventory Stock Ledger PDF Report
+    // Style: matches CurrentStockReport.aspx (company header, gold line, footer)
+    // Columns: Date | Type | Item Code | Item Name | UOM |
+    //          In Qty | Out Qty | Balance | Unit Cost | Ref No | Remarks
     // ════════════════════════════════════════════════════════════════════════
 
     protected void Page_Load(object sender, EventArgs e)
@@ -23,6 +24,7 @@
         string warehouseIDStr  = (Request.QueryString["WarehouseID"]     ?? "0").Trim();
         string itemIDStr       = (Request.QueryString["ItemID"]          ?? "0").Trim();
         string transactionType = (Request.QueryString["TransactionType"] ?? "ALL").Trim();
+        string format          = (Request.QueryString["format"]          ?? "pdf").ToLower().Trim();
 
         if (string.IsNullOrWhiteSpace(startDateStr) || string.IsNullOrWhiteSpace(endDateStr))
         { SendError("Please select a valid date range."); return; }
@@ -56,20 +58,17 @@
         if (dt == null || dt.Rows.Count == 0)
         { SendError("No stock ledger data found for the selected filters."); return; }
 
-        // ── 3. Resolve display names for filter header ────────────────────
-        string whName    = Lookup("SELECT Name FROM WarehouseMaster WHERE ID=@p", warehouseID.ToString()) ?? warehouseIDStr;
-        string itemName  = itemID > 0
+        // ── 3. Resolve display names ──────────────────────────────────────
+        string whName   = Lookup("SELECT Name FROM WarehouseMaster WHERE ID=@p", warehouseID.ToString()) ?? warehouseIDStr;
+        string itemName = itemID > 0
             ? (Lookup("SELECT Name FROM ItemMaster WHERE ID=@p", itemID.ToString()) ?? itemIDStr)
             : "All Items";
-        string typeLbl   = TypeLabel(transactionType);
-        string period    = startDate.ToString("dd MMM yyyy") + " to " + endDate.ToString("dd MMM yyyy");
+        string typeLbl  = TypeLabel(transactionType);
+        string period   = startDate.ToString("dd MMM yyyy") + " to " + endDate.ToString("dd MMM yyyy");
 
-        // ── 4. Build PDF or Excel based on ?format= ──────────────────────
-        string format = (Request.QueryString["format"] ?? "pdf").ToLower().Trim();
-
+        // ── 4. Excel or PDF ───────────────────────────────────────────────
         if (format == "excel")
         {
-            // ── Excel export ──────────────────────────────────────────────
             byte[] xlsx;
             try   { xlsx = BuildExcel(whName, itemName, typeLbl, period, dt); }
             catch (Exception ex)
@@ -78,7 +77,6 @@
                 SendError("Unable to generate Excel. Please try again.");
                 return;
             }
-
             Response.Clear();
             Response.Buffer      = false;
             Response.ContentType = "application/vnd.ms-excel";
@@ -92,7 +90,6 @@
             return;
         }
 
-        // ── 4b. Build PDF (default) ───────────────────────────────────────
         byte[] pdf;
         try   { pdf = BuildPdf(loginID, whName, itemName, typeLbl, period, dt); }
         catch (Exception ex)
@@ -102,7 +99,6 @@
             return;
         }
 
-        // ── 5. Stream PDF to browser ──────────────────────────────────────
         Response.Clear();
         Response.Buffer      = false;
         Response.ContentType = "application/pdf";
@@ -116,20 +112,21 @@
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    // PDF BUILDER
+    // PDF BUILDER  —  CurrentStockReport.aspx style
     // ════════════════════════════════════════════════════════════════════════
 
     private byte[] BuildPdf(string loginID, string whName, string itemName,
                             string typeLbl, string period, DataTable dt)
     {
-        // Colours
-        BaseColor navy      = new BaseColor(0x1a, 0x3a, 0x5c);
-        BaseColor headerBg  = new BaseColor(0x1a, 0x3a, 0x5c);
-        BaseColor rowAlt    = new BaseColor(0xf4, 0xf7, 0xfb);
-        BaseColor totalBg   = new BaseColor(0xe8, 0xf0, 0xfe);
-        BaseColor border    = new BaseColor(0xcc, 0xcc, 0xcc);
+        // ── Colours (identical to CurrentStockReport) ────────────────────
+        BaseColor navy     = new BaseColor(0x1a, 0x3a, 0x5c);
+        BaseColor headerBg = new BaseColor(0x1a, 0x3a, 0x5c);
+        BaseColor rowAlt   = new BaseColor(0xf4, 0xf7, 0xfb);
+        BaseColor totalBg  = new BaseColor(0xe8, 0xf0, 0xfe);
+        BaseColor border   = new BaseColor(0xcc, 0xcc, 0xcc);
+        BaseColor gold     = new BaseColor(0xD4, 0xA0, 0x17);
 
-        // Fonts
+        // ── Fonts ─────────────────────────────────────────────────────────
         Font fTitle   = new Font(Font.FontFamily.HELVETICA, 11f, Font.BOLD,   navy);
         Font fFilter  = new Font(Font.FontFamily.HELVETICA,  8f, Font.NORMAL, new BaseColor(0x44,0x44,0x44));
         Font fFilterB = new Font(Font.FontFamily.HELVETICA,  8f, Font.BOLD,   new BaseColor(0x44,0x44,0x44));
@@ -143,12 +140,10 @@
         {
             var doc    = new Document(PageSize.A4.Rotate(), 25f, 25f, 30f, 30f);
             var writer = PdfWriter.GetInstance(doc, ms);
-
-            // Page footer event
             writer.PageEvent = new FooterEvent(loginID, fFoot, navy);
             doc.Open();
 
-            // ── Company header (logo left + company details right + gold line) ─
+            // ── Company header ────────────────────────────────────────────
             string coName = AppSettings("CompanyName");
             string addr1  = AppSettings("Address1");
             string addr2  = AppSettings("Address2");
@@ -157,15 +152,13 @@
             string phone  = AppSettings("Phone");
             string reg    = AppSettings("Registration");
 
-            // Logo
             string logoPath = Server.MapPath("~/images/logo-white.png");
 
-            // Header table: 2 columns — logo | company text
             var hdrTable = new PdfPTable(2) { WidthPercentage = 100f, SpacingAfter = 0f };
             hdrTable.SetWidths(new float[] { 1.2f, 8.8f });
             hdrTable.DefaultCell.Border = Rectangle.NO_BORDER;
 
-            // Left cell — logo
+            // Logo cell
             PdfPCell logoCell;
             if (System.IO.File.Exists(logoPath))
             {
@@ -181,38 +174,35 @@
             }
             else
             {
-                // Fallback if logo file missing
                 logoCell = new PdfPCell(new Phrase("")) { Border = Rectangle.NO_BORDER };
             }
             hdrTable.AddCell(logoCell);
 
-            // Right cell — company name + address stacked
-            Font fCoNameHdr = new Font(Font.FontFamily.HELVETICA, 11f, Font.BOLD,   navy);
-            Font fCoRegHdr  = new Font(Font.FontFamily.HELVETICA,  8f, Font.BOLD,   navy);
-            Font fCoSubHdr  = new Font(Font.FontFamily.HELVETICA,  8f, Font.NORMAL, BaseColor.DARK_GRAY);
+            // Company text cell
+            Font fCoName = new Font(Font.FontFamily.HELVETICA, 11f, Font.BOLD,   navy);
+            Font fCoReg  = new Font(Font.FontFamily.HELVETICA,  8f, Font.BOLD,   navy);
+            Font fCoSub  = new Font(Font.FontFamily.HELVETICA,  8f, Font.NORMAL, BaseColor.DARK_GRAY);
 
             var textPhrase = new Phrase();
-            textPhrase.Add(new Chunk(coName + " ", fCoNameHdr));
-            textPhrase.Add(new Chunk(reg + "\n",   fCoRegHdr));
-            textPhrase.Add(new Chunk(addr1 + "\n", fCoSubHdr));
-            textPhrase.Add(new Chunk(addr2 + "\n", fCoSubHdr));
-            textPhrase.Add(new Chunk(addr3 + "\n", fCoSubHdr));
-            textPhrase.Add(new Chunk(state + "\n", fCoSubHdr));
-            textPhrase.Add(new Chunk(phone,         fCoSubHdr));
+            textPhrase.Add(new Chunk(coName + " ", fCoName));
+            textPhrase.Add(new Chunk(reg    + "\n", fCoReg));
+            textPhrase.Add(new Chunk(addr1  + "\n", fCoSub));
+            textPhrase.Add(new Chunk(addr2  + "\n", fCoSub));
+            textPhrase.Add(new Chunk(addr3  + "\n", fCoSub));
+            textPhrase.Add(new Chunk(state  + "\n", fCoSub));
+            textPhrase.Add(new Chunk(phone,          fCoSub));
 
-            var textCell = new PdfPCell(textPhrase)
+            hdrTable.AddCell(new PdfPCell(textPhrase)
             {
                 Border              = Rectangle.NO_BORDER,
                 VerticalAlignment   = Element.ALIGN_MIDDLE,
                 HorizontalAlignment = Element.ALIGN_LEFT,
                 Padding             = 4f,
                 PaddingLeft         = 8f
-            };
-            hdrTable.AddCell(textCell);
+            });
             doc.Add(hdrTable);
 
-            // Gold separator line (matches UI theme)
-            BaseColor gold = new BaseColor(0xD4, 0xA0, 0x17);
+            // ── Gold separator line ───────────────────────────────────────
             var goldSep = new iTextSharp.text.pdf.draw.LineSeparator(2.5f, 100f, gold, Element.ALIGN_CENTER, -2f);
             doc.Add(new Chunk(goldSep));
             doc.Add(Spacer(6f));
@@ -220,7 +210,7 @@
             // ── Report title ──────────────────────────────────────────────
             P(doc, "INVENTORY STOCK LEDGER REPORT", fTitle, Element.ALIGN_CENTER, 6f);
 
-            // ── Filter summary (2-column table) ───────────────────────────
+            // ── Filter summary ────────────────────────────────────────────
             var filters = new string[][]
             {
                 new[]{ "Warehouse:",        whName   },
@@ -229,31 +219,32 @@
                 new[]{ "Period:",           period   }
             };
             var ft = new PdfPTable(4) { WidthPercentage = 100f, SpacingAfter = 8f };
-            ft.SetWidths(new float[] { 1.2f, 2.3f, 1.2f, 2.3f });
+            ft.SetWidths(new float[] { 1.3f, 2.2f, 1.6f, 3.9f });
             ft.DefaultCell.Border = Rectangle.NO_BORDER;
             foreach (var f in filters)
             {
-                var ph = new Phrase(); ph.Add(new Chunk(f[0] + " ", fFilterB)); ph.Add(new Chunk(f[1], fFilter));
-                ft.AddCell(new PdfPCell(ph) { Border = Rectangle.NO_BORDER, Padding = 2f });
+                var ph = new Phrase();
+                ph.Add(new Chunk(f[0] + " ", fFilterB));
+                ph.Add(new Chunk(f[1], fFilter));
+                ft.AddCell(new PdfPCell(ph) { Border = Rectangle.NO_BORDER, Padding = 2f, NoWrap = true });
             }
             doc.Add(ft);
 
             // ── Data table ────────────────────────────────────────────────
-            // Column definitions: header, fieldName, relWidth, isNumeric, isDate
+            // header text | field name | rel width | isNumeric | isDate
             var cols = new object[][]
             {
-                new object[]{ "Date",         "TransactionDate",      2.2f, false, true  },
-                new object[]{ "Txn No",       "TransactionNo",        2.0f, false, false },
-                new object[]{ "Type",         "TransactionTypeLabel", 2.8f, false, false },
-                new object[]{ "Item Code",    "ItemCode",             2.0f, false, false },
-                new object[]{ "Item Name",    "ItemName",             4.5f, false, false },
-                new object[]{ "UOM",          "UOMName",              1.5f, false, false },
-                new object[]{ "In Qty",       "InQty",                1.8f, true,  false },
-                new object[]{ "Out Qty",      "OutQty",               1.8f, true,  false },
-                new object[]{ "Balance",      "RunningBalance",       1.8f, true,  false },
-                new object[]{ "Unit Cost",    "UnitCost",             1.8f, true,  false },
-                new object[]{ "Ref No",       "ReferenceNo",          2.0f, false, false },
-                new object[]{ "Remarks",      "Remarks",              3.0f, false, false },
+                new object[]{ "Date",       "TransactionDate",      2.0f, false, true  },
+                new object[]{ "Type",       "TransactionTypeLabel", 2.6f, false, false },
+                new object[]{ "Item Code",  "ItemCode",             1.8f, false, false },
+                new object[]{ "Item Name",  "ItemName",             4.2f, false, false },
+                new object[]{ "UOM",        "UOMName",              1.3f, false, false },
+                new object[]{ "In Qty",     "InQty",                1.7f, true,  false },
+                new object[]{ "Out Qty",    "OutQty",               1.7f, true,  false },
+                new object[]{ "Balance",    "RunningBalance",       1.7f, true,  false },
+                new object[]{ "Unit Cost",  "UnitCost",             1.7f, true,  false },
+                new object[]{ "Ref No",     "ReferenceNo",          1.9f, false, false },
+                new object[]{ "Remarks",    "Remarks",              3.4f, false, false },
             };
 
             float[] widths = new float[cols.Length];
@@ -266,13 +257,12 @@
             foreach (var c in cols)
             {
                 bool num = (bool)c[3];
-                var cell = new PdfPCell(new Phrase((string)c[0], fTH))
+                tbl.AddCell(new PdfPCell(new Phrase((string)c[0], fTH))
                 {
                     BackgroundColor     = headerBg,
                     HorizontalAlignment = num ? Element.ALIGN_RIGHT : Element.ALIGN_LEFT,
                     Padding = 5f, Border = Rectangle.BOX, BorderColor = border
-                };
-                tbl.AddCell(cell);
+                });
             }
 
             // Data rows
@@ -289,12 +279,10 @@
                     object raw    = dt.Columns.Contains(field) ? dr[field] : null;
                     string txt    = FmtCell(raw, isNum, isDate);
 
-                    // Red for negative numbers
                     Font cf = fTD;
                     if (isNum && raw != null && raw != DBNull.Value)
                     { decimal dv; if (decimal.TryParse(raw.ToString(), out dv) && dv < 0) cf = fTDRed; }
 
-                    // Accumulate totals
                     if (field == "InQty"  && raw != null && raw != DBNull.Value) { decimal v; if (decimal.TryParse(raw.ToString(), out v)) totalIn  += v; }
                     if (field == "OutQty" && raw != null && raw != DBNull.Value) { decimal v; if (decimal.TryParse(raw.ToString(), out v)) totalOut += v; }
 
@@ -307,24 +295,27 @@
                 }
             }
 
-            // Totals row
-            for (int i = 0; i < cols.Length; i++)
+            // Totals row — first 5 cols merged, then In Qty, Out Qty, rest blank
+            tbl.AddCell(new PdfPCell(new Phrase("TOTALS", fTotal))
+            {
+                Colspan             = 5,
+                BackgroundColor     = totalBg,
+                HorizontalAlignment = Element.ALIGN_LEFT,
+                VerticalAlignment   = Element.ALIGN_MIDDLE,
+                Padding = 5f, Border = Rectangle.BOX, BorderColor = navy, BorderWidth = 1.5f,
+                NoWrap  = true
+            });
+            for (int i = 5; i < cols.Length; i++)
             {
                 string field = (string)cols[i][1];
+                string txt   = field == "InQty"  ? totalIn.ToString("N2")
+                             : field == "OutQty" ? totalOut.ToString("N2") : "";
                 bool   isNum = (bool)cols[i][3];
-                string txt   = i == 0 ? "TOTALS"
-                             : field == "InQty"  ? totalIn.ToString("N2")
-                             : field == "OutQty" ? totalOut.ToString("N2")
-                             : "";
-                int align    = (i == 0) ? Element.ALIGN_LEFT
-                             : isNum   ? Element.ALIGN_RIGHT : Element.ALIGN_LEFT;
-
                 tbl.AddCell(new PdfPCell(new Phrase(txt, fTotal))
                 {
                     BackgroundColor     = totalBg,
-                    HorizontalAlignment = align,
-                    Padding = 5f, Border = Rectangle.BOX,
-                    BorderColor = navy, BorderWidth = 1.5f
+                    HorizontalAlignment = isNum ? Element.ALIGN_RIGHT : Element.ALIGN_LEFT,
+                    Padding = 5f, Border = Rectangle.BOX, BorderColor = navy, BorderWidth = 1.5f
                 });
             }
 
@@ -335,12 +326,7 @@
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    // DATA ACCESS
-    // ════════════════════════════════════════════════════════════════════════
     // EXCEL BUILDER
-    // Generates a simple .xlsx using HTML table — no extra library needed.
-    // ASP.NET serves it as Excel via content type override.
-    // Opens directly in Excel / LibreOffice Calc.
     // ════════════════════════════════════════════════════════════════════════
 
     private byte[] BuildExcel(string whName, string itemName,
@@ -348,27 +334,24 @@
     {
         var cols = new string[][]
         {
-            new[]{ "Date",          "TransactionDate"      },
-            new[]{ "Txn No",        "TransactionNo"        },
-            new[]{ "Type",          "TransactionTypeLabel" },
-            new[]{ "Item Code",     "ItemCode"             },
-            new[]{ "Item Name",     "ItemName"             },
-            new[]{ "UOM",           "UOMName"              },
-            new[]{ "In Qty",        "InQty"                },
-            new[]{ "Out Qty",       "OutQty"               },
-            new[]{ "Balance",       "RunningBalance"       },
-            new[]{ "Unit Cost",     "UnitCost"             },
-            new[]{ "Ref No",        "ReferenceNo"          },
-            new[]{ "Remarks",       "Remarks"              },
+            new[]{ "Date",        "TransactionDate"      },
+            new[]{ "Type",        "TransactionTypeLabel" },
+            new[]{ "Item Code",   "ItemCode"             },
+            new[]{ "Item Name",   "ItemName"             },
+            new[]{ "UOM",         "UOMName"              },
+            new[]{ "In Qty",      "InQty"                },
+            new[]{ "Out Qty",     "OutQty"               },
+            new[]{ "Balance",     "RunningBalance"       },
+            new[]{ "Unit Cost",   "UnitCost"             },
+            new[]{ "Ref No",      "ReferenceNo"          },
+            new[]{ "Remarks",     "Remarks"              },
         };
 
-        var numFlds = new System.Collections.Generic.HashSet<string>
-            { "InQty", "OutQty", "RunningBalance", "UnitCost" };
+        var numFlds = new HashSet<string> { "InQty", "OutQty", "RunningBalance", "UnitCost" };
 
         int span = cols.Length;
         var sb   = new System.Text.StringBuilder();
 
-        // ── HTML header — Excel opens HTML tables with no errors ──────────
         sb.AppendLine("<html xmlns:o=\"urn:schemas-microsoft-com:office:office\" " +
                       "xmlns:x=\"urn:schemas-microsoft-com:office:excel\" " +
                       "xmlns=\"http://www.w3.org/TR/REC-html40\">");
@@ -395,7 +378,7 @@
         sb.AppendLine("</style></head><body>");
         sb.AppendLine("<table style=\"width:100%;border-collapse:collapse;\">");
 
-        // ── Company header ────────────────────────────────────────────────
+        // Company header
         sb.AppendFormat("<tr><td colspan=\"{0}\" class=\"co\">{1} <span style=\"font-size:9pt\">{2}</span></td></tr>\n",
             span, H(AppSettings("CompanyName")), H(AppSettings("Registration")));
         sb.AppendFormat("<tr><td colspan=\"{0}\" class=\"sub\">{1} {2}</td></tr>\n",
@@ -407,11 +390,11 @@
         sb.AppendFormat("<tr><td colspan=\"{0}\" class=\"gold\" style=\"padding:2px;\"></td></tr>\n", span);
         sb.AppendFormat("<tr><td colspan=\"{0}\" style=\"padding:3px;\"></td></tr>\n", span);
 
-        // ── Title ─────────────────────────────────────────────────────────
+        // Title
         sb.AppendFormat("<tr><td colspan=\"{0}\" class=\"ttl\">INVENTORY STOCK LEDGER REPORT</td></tr>\n", span);
         sb.AppendFormat("<tr><td colspan=\"{0}\" style=\"padding:2px;\"></td></tr>\n", span);
 
-        // ── Filters ───────────────────────────────────────────────────────
+        // Filters
         sb.AppendFormat("<tr><td colspan=\"{0}\">", span);
         sb.AppendFormat("<span class=\"fl\">Warehouse: </span><span class=\"fv\">{0}</span>&nbsp;&nbsp;&nbsp;", H(whName));
         sb.AppendFormat("<span class=\"fl\">Item: </span><span class=\"fv\">{0}</span>&nbsp;&nbsp;&nbsp;", H(itemName));
@@ -420,18 +403,25 @@
         sb.AppendLine("</td></tr>");
         sb.AppendFormat("<tr><td colspan=\"{0}\" style=\"padding:3px;\"></td></tr>\n", span);
 
-        // ── Column headers ────────────────────────────────────────────────
+        // Column headers
         sb.AppendLine("<tr>");
         foreach (var c in cols)
             sb.AppendFormat("<td class=\"th\">{0}</td>", H(c[0]));
         sb.AppendLine("</tr>");
 
-        // ── Data rows ─────────────────────────────────────────────────────
+        // Data rows
         decimal totalIn = 0, totalOut = 0;
         int ri = 0;
+        string xlsBaseUrl = (AppSettings("AppBaseUrl") ?? "").TrimEnd('/');
         foreach (DataRow dr in dt.Rows)
         {
             string alt = (ri++ % 2 == 1) ? " alt" : "";
+            string rowTxType = dt.Columns.Contains("TransactionType")
+                ? (dr["TransactionType"] == DBNull.Value ? "" : dr["TransactionType"].ToString().ToUpper())
+                : "";
+            object rowRefIdRaw = dt.Columns.Contains("ReferenceID") ? dr["ReferenceID"] : null;
+            string rowRefId    = (rowRefIdRaw != null && rowRefIdRaw != DBNull.Value) ? rowRefIdRaw.ToString() : "";
+
             sb.AppendLine("<tr>");
             foreach (var c in cols)
             {
@@ -447,46 +437,57 @@
                 if (fld == "InQty")  { decimal v; if (decimal.TryParse(txt, out v)) totalIn  += v; }
                 if (fld == "OutQty") { decimal v; if (decimal.TryParse(txt, out v)) totalOut += v; }
 
+                // Ref No → hyperlink in Excel
+                if (fld == "ReferenceNo" && !string.IsNullOrEmpty(txt) && !string.IsNullOrEmpty(xlsBaseUrl))
+                {
+                    string navUrl = BuildNavUrl(xlsBaseUrl, rowTxType, rowRefId);
+                    if (!string.IsNullOrEmpty(navUrl))
+                    {
+                        sb.AppendFormat("<td class=\"td{0}\"><a href=\"{1}\" style=\"color:#0d6efd;text-decoration:underline;\">{2}</a></td>",
+                            alt, H(navUrl), H(txt));
+                        continue;
+                    }
+                }
+
                 if (numFlds.Contains(fld))
                 {
                     decimal num; bool ok = decimal.TryParse(txt, out num);
                     string cls = ok && num < 0 ? "tnr" + alt : "tn" + alt;
                     sb.AppendFormat("<td class=\"{0}\">{1}</td>", cls, ok ? num.ToString("N2") : "&mdash;");
                 }
-                else sb.AppendFormat("<td class=\"td{0}\">{1}</td>", alt, H(txt));
+                else
+                {
+                    sb.AppendFormat("<td class=\"td{0}\">{1}</td>", alt, H(txt));
+                }
             }
             sb.AppendLine("</tr>");
         }
 
-        // ── Totals row ────────────────────────────────────────────────────
+        // Totals row
         sb.AppendLine("<tr>");
-        foreach (var c in cols)
+        sb.AppendFormat("<td class=\"tot td\" colspan=\"5\">TOTALS</td>");
+        for (int i = 5; i < cols.Length; i++)
         {
-            string fld   = c[1];
+            string fld   = cols[i][1];
             bool   isNum = numFlds.Contains(fld);
-            string val   = fld == "TransactionDate" ? "TOTALS"
-                         : fld == "InQty"           ? totalIn.ToString("N2")
-                         : fld == "OutQty"          ? totalOut.ToString("N2") : "";
+            string val   = fld == "InQty"  ? totalIn.ToString("N2")
+                         : fld == "OutQty" ? totalOut.ToString("N2") : "";
             string align = isNum ? " style=\"text-align:right;\"" : "";
             sb.AppendFormat("<td class=\"tot td\"{0}>{1}</td>", align, H(val));
         }
         sb.AppendLine("</tr>");
 
-        // ── Footer ────────────────────────────────────────────────────────
+        // Footer
         sb.AppendFormat("<tr><td colspan=\"{0}\" style=\"padding:4px;\"></td></tr>\n", span);
         sb.AppendFormat("<tr><td colspan=\"{0}\" class=\"ftr\">Generated: {1}</td></tr>\n",
             span, DateTime.Now.ToString("dd MMM yyyy hh:mm tt"));
-
         sb.AppendLine("</table></body></html>");
+
         return System.Text.Encoding.UTF8.GetBytes(sb.ToString());
     }
 
-    private static string H(string s)
-    {
-        if (string.IsNullOrEmpty(s)) return "";
-        return s.Replace("&","&amp;").Replace("<","&lt;").Replace(">","&gt;").Replace("\"","&quot;");
-    }
-
+    // ════════════════════════════════════════════════════════════════════════
+    // DATA ACCESS
     // ════════════════════════════════════════════════════════════════════════
 
     private DataTable RunSP(int whID, int itemID, string txType, DateTime from, DateTime to)
@@ -550,6 +551,12 @@
         return val.ToString();
     }
 
+    private static string H(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return "";
+        return s.Replace("&","&amp;").Replace("<","&lt;").Replace(">","&gt;").Replace("\"","&quot;");
+    }
+
     private static string TypeLabel(string code)
     {
         switch ((code ?? "ALL").ToUpper())
@@ -566,6 +573,29 @@
             case "DAMAGE_LOSS":  return "Damage / Loss";
             default:             return "All Types";
         }
+    }
+
+    // Navigation URL: TransactionType → Angular route
+    private static string BuildNavUrl(string baseUrl, string txType, string refId)
+    {
+        string seg = null;
+        switch ((txType ?? "").ToUpper())
+        {
+            case "OPENING":      seg = "inventory/opening-stock/new-opening-stock";           break;
+            case "STOCK_IN":     seg = "inventory/goods-receipt/new-grn";                     break;
+            case "ISSUE":        seg = "inventory/stock-issue/new-stock-issue";               break;
+            case "ISSUE_RETURN": seg = "inventory/stock-issue-return/new-stock-issue-return"; break;
+            case "TRANSFER_IN":
+            case "TRANSFER_OUT": seg = "inventory/stock-transfer/new-stock-transfer";         break;
+            case "ADJ_PLUS":
+            case "ADJ_MINUS":    seg = "inventory/stock-adjustment/new-stock-adjustment";     break;
+            case "PURCHASE_RTN": seg = "inventory/purchase-return/new-return";                break;
+            case "DAMAGE_LOSS":  seg = "inventory/stock-damage-loss/new-stock-damage-loss";   break;
+        }
+        if (seg == null) return "";
+        if (!string.IsNullOrEmpty(refId)) return baseUrl + "/" + seg + "/" + refId;
+        string listSeg = seg.Contains("/") ? seg.Substring(0, seg.LastIndexOf('/')) : seg;
+        return baseUrl + "/" + listSeg;
     }
 
     private void SendError(string msg)
@@ -589,7 +619,6 @@
         catch { }
     }
 
-    // iTextSharp paragraph shortcut
     private static void P(Document doc, string text, Font font, int align, float spacingAfter)
     {
         doc.Add(new Paragraph(text, font) { Alignment = align, SpacingAfter = spacingAfter });
@@ -601,38 +630,50 @@
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    // PAGE FOOTER EVENT (page number + generated-by)
+    // PAGE FOOTER EVENT  —  identical to CurrentStockReport
     // ════════════════════════════════════════════════════════════════════════
 
     private class FooterEvent : PdfPageEventHelper
     {
-        private readonly string                _user;
-        private readonly iTextSharp.text.Font  _font;
-        private readonly BaseColor             _navy;
+        private readonly string    _user;
+        private readonly Font      _font;
+        private readonly BaseColor _navy;
 
-        public FooterEvent(string user, iTextSharp.text.Font font, BaseColor navy)
-        { _user = user; _font = font; _navy = navy; }
+        public FooterEvent(string user, Font font, BaseColor navy)
+        {
+            _user = user;
+            _font = font;
+            _navy = navy;
+        }
 
         public override void OnEndPage(PdfWriter writer, Document doc)
         {
-            var cb  = writer.DirectContent;
-            var pg  = doc.PageSize;
+            var cb = writer.DirectContent;
+            var pg = doc.PageSize;
 
+            // Footer separator line
             cb.SetLineWidth(0.5f);
             cb.SetColorStroke(new BaseColor(0xcc, 0xcc, 0xcc));
             cb.MoveTo(doc.LeftMargin, doc.BottomMargin - 5f);
             cb.LineTo(pg.Width - doc.RightMargin, doc.BottomMargin - 5f);
             cb.Stroke();
 
+            // Left: generated by + date-time
             string left = "Generated by: " + _user + "   |   " +
                           DateTime.Now.ToString("dd MMM yyyy hh:mm tt");
             ColumnText.ShowTextAligned(cb, Element.ALIGN_LEFT,
                 new Phrase(left, _font), doc.LeftMargin, doc.BottomMargin - 15f, 0);
 
+            // Right: page number
+            string right = "Page " + writer.PageNumber;
             ColumnText.ShowTextAligned(cb, Element.ALIGN_RIGHT,
-                new Phrase("Page " + writer.PageNumber, _font),
-                pg.Width - doc.RightMargin, doc.BottomMargin - 15f, 0);
+                new Phrase(right, _font), pg.Width - doc.RightMargin, doc.BottomMargin - 15f, 0);
         }
     }
 
 </script>
+<!DOCTYPE html>
+<html>
+<head><title>Stock Ledger Report</title></head>
+<body></body>
+</html>

@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { environment } from '../../../../../environments/environment';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
 import { MastermoduleService } from '../../../../service/mastermodule.service';
 import { InventoryService } from '../../../../service/inventory.service';
 import { UserAccessModel } from 'src/app/model/userAccesModel';
@@ -27,6 +28,10 @@ export class StockLedgerReportComponent implements OnInit {
   showLoadingSpinner: boolean = false;
   userAccessModel!: UserAccessModel;
 
+  // Table data
+  ledgerRows: any[]    = [];
+  showTable: boolean   = false;
+
   transactionTypeOptions = [
     { value: 'ALL',          label: 'All Transaction Types' },
     { value: 'OPENING',      label: 'Opening Stock'         },
@@ -46,7 +51,8 @@ export class StockLedgerReportComponent implements OnInit {
     private _masterService: MastermoduleService,
     private service: InventoryService,
     private fb: FormBuilder,
-    private _dataService: DatasharingService
+    private _dataService: DatasharingService,
+    private router: Router
   ) {
     this.currentUser = sessionStorage.getItem('username')!;
     this.url += this.currentUrl;
@@ -124,6 +130,32 @@ export class StockLedgerReportComponent implements OnInit {
       return;
     }
 
+    this.showLoadingSpinner = true;
+    this.showTable          = false;
+    this.ledgerRows         = [];
+
+    this.service.getStockLedger(
+      raw.WarehouseID || 0,
+      raw.ItemID || 0,
+      this.returnDate(raw.StartDate),
+      this.returnDate(raw.EndDate),
+      raw.TransactionType || 'ALL'
+    ).subscribe({
+      next: (data: any[]) => {
+        this.ledgerRows         = data || [];
+        this.showTable          = true;
+        this.showLoadingSpinner = false;
+        if (this.ledgerRows.length === 0) {
+          this.errorMessage = 'No stock ledger data found for the selected filters.';
+        }
+      },
+      error: () => {
+        this.showLoadingSpinner = false;
+        this.errorMessage = 'Unable to retrieve stock ledger data. Please try again.';
+      }
+    });
+
+    // Also build PDF URL for Export Excel
     let localURL = '';
     localURL += '&StartDate='       + this.returnDate(raw.StartDate);
     localURL += '&EndDate='         + this.returnDate(raw.EndDate);
@@ -132,6 +164,39 @@ export class StockLedgerReportComponent implements OnInit {
     localURL += '&TransactionType=' + (raw.TransactionType || 'ALL');
 
     this.urlSafe = this.sanitizer.bypassSecurityTrustResourceUrl(this.url + localURL);
+  }
+
+  // Map TransactionType → Angular route segment
+  getNavRoute(txType: string, refId: any): string | null {
+    const id = refId ? String(refId) : null;
+    const routes: { [key: string]: string } = {
+      'OPENING':      'inventory/opening-stock/new-opening-stock',
+      'STOCK_IN':     'inventory/goods-receipt/new-grn',
+      'ISSUE':        'inventory/stock-issue/new-stock-issue',
+      'ISSUE_RETURN': 'inventory/stock-issue-return/new-stock-issue-return',
+      'TRANSFER_IN':  'inventory/stock-transfer/new-stock-transfer',
+      'TRANSFER_OUT': 'inventory/stock-transfer/new-stock-transfer',
+      'ADJ_PLUS':     'inventory/stock-adjustment/new-stock-adjustment',
+      'ADJ_MINUS':    'inventory/stock-adjustment/new-stock-adjustment',
+      'PURCHASE_RTN': 'inventory/purchase-return/new-return',
+      'DAMAGE_LOSS':  'inventory/stock-damage-loss/new-stock-damage-loss',
+    };
+    const seg = routes[(txType || '').toUpperCase()];
+    if (!seg) return null;
+    return id ? `/${seg}/${id}` : `/${seg.substring(0, seg.lastIndexOf('/'))}`;
+  }
+
+  navigateTo(txType: string, refId: any): void {
+    const route = this.getNavRoute(txType, refId);
+    if (route) this.router.navigate([route]);
+  }
+
+  getTotalIn(): number {
+    return this.ledgerRows.reduce((sum, r) => sum + (parseFloat(r.InQty) || 0), 0);
+  }
+
+  getTotalOut(): number {
+    return this.ledgerRows.reduce((sum, r) => sum + (parseFloat(r.OutQty) || 0), 0);
   }
 
   onExportExcel(): void {
@@ -175,6 +240,8 @@ export class StockLedgerReportComponent implements OnInit {
     });
     this.urlSafe      = undefined;
     this.errorMessage = '';
+    this.ledgerRows   = [];
+    this.showTable    = false;
   }
 
   returnDate(date?: any): string {

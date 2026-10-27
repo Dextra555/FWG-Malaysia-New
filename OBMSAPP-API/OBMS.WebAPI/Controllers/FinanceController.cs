@@ -2638,7 +2638,7 @@ namespace OBMS.WebAPI.Controllers
                 Dictionary<string, object> result = new Dictionary<string, object>();
                 result.Add("Success", "Success");
 
-                Response.Headers.Add("Success", "Successfully saved or updated legal demand action.");
+                Response.Headers["Success"] = "Successfully saved or updated legal demand action.";
                 return Ok(result);
             }
             catch (Exception ex)

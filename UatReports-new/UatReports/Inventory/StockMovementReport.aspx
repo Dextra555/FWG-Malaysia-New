@@ -67,7 +67,7 @@
         string itemName = itemID > 0
             ? (Lookup("SELECT Name FROM ItemMaster WHERE ID=@p", itemID.ToString()) ?? itemIDStr)
             : "All Items";
-        string period   = startDate.ToString("dd MMM yyyy") + " \u2013 " + endDate.ToString("dd MMM yyyy");
+        string period   = startDate.ToString("dd MMM yyyy") + " to "+ endDate.ToString("dd MMM yyyy");
 
         // ── 5. Build PDF or Excel ─────────────────────────────────────────
         if (format == "excel")
@@ -218,6 +218,7 @@
 
             // ── Filter summary (3 pairs → 6 cells) ───────────────────────
             var ft = new PdfPTable(6) { WidthPercentage = 100f, SpacingAfter = 8f };
+            ft.SetWidths(new float[] { 1f, 2f, 1f, 2f, 1f, 2f });
             ft.DefaultCell.Border = Rectangle.NO_BORDER;
             string[][] filters = new string[][]
             {
@@ -239,7 +240,7 @@
             // header, fieldName, relWidth, isNumeric
             var cols = new object[][]
             {
-                new object[]{ "No",               "#",               0.6f, true  },
+                new object[]{ "S.NO.",               "#",               1.0f, true  },
                 new object[]{ "Warehouse",        "WarehouseName",   2.5f, false },
                 new object[]{ "Item Code",        "ItemCode",        1.8f, false },
                 new object[]{ "Item Name",        "ItemName",        4.0f, false },
@@ -386,7 +387,7 @@
     {
         var cols = new string[][]
         {
-            new[]{ "No",            "#"               },
+            new[]{ "S.NO.",            "#"               },
             new[]{ "Warehouse",     "WarehouseName"   },
             new[]{ "Item Code",     "ItemCode"        },
             new[]{ "Item Name",     "ItemName"        },
