@@ -26,6 +26,7 @@ body {
 body {
   margin: 0;
   font-family: 'Poppins', sans-serif;
+  font-size: 15px;
   background: var(--body-bg);
 }
 
@@ -329,7 +330,7 @@ td.mat-table-sticky {
 
 .mat-form-field {
   width: 100% !important;
-  font-size: 14px;
+  font-size: 14.5px;
 }
 
 .wlt-c-furg-login-page .mat-form-field-appearance-outline .mat-form-field-outline {
@@ -871,7 +872,7 @@ ul.wlt-c-furg-notifcation-content li {
 .wlt-c-furg-sidebar .nav .nav-item .nav-link .wlt-c-furg-menu-title {
   color: inherit;
   display: inline-block;
-  font-size: 14px;
+  font-size: 14.5px;
   line-height: 1;
   vertical-align: middle;
 }
@@ -1437,7 +1438,7 @@ ul.wlt-c-furg-notifcation-content li {
 }
 
 .wlt-c-furg-content-header h1 {
-  font-size: 18px;
+  font-size: 18.5px;
   color: var(--primary-color);
 }
 
@@ -1508,7 +1509,7 @@ tr.mat-footer-row {
 .wlt-table th.mat-header-cell {
   border-bottom-width: 1px;
   text-align: left;
-  font-size: 14px;
+  font-size: 14.5px;
   font-weight: 500;
   color: var(--neutral-color);
   white-space: nowrap;
@@ -1560,7 +1561,7 @@ tr.mat-footer-row {
   font-weight: 500;
   min-width: 85px;
   padding: 5px 15px;
-  font-size: 14px;
+  font-size: 14.5px;
   line-height: 24px;
   border: 1px solid var(--primary-color) !important;
   box-shadow: none;
@@ -1590,7 +1591,7 @@ tr.mat-footer-row {
   font-weight: 500;
   min-width: 85px;
   padding: 5px 15px;
-  font-size: 14px;
+  font-size: 14.5px;
   line-height: 24px;
   border: 1px solid #dc3545 !important;
   box-shadow: none;
@@ -1608,7 +1609,7 @@ tr.mat-footer-row {
   font-weight: 500;
   min-width: 85px;
   padding: 5px 15px;
-  font-size: 14px;
+  font-size: 14.5px;
   line-height: 24px;
   border: 1px solid var(--primary-color);
   box-shadow: none;
@@ -1632,7 +1633,7 @@ tr.mat-footer-row {
   font-weight: 500;
   min-width: 85px;
   padding: 5px 15px;
-  font-size: 14px;
+  font-size: 14.5px;
   line-height: 24px;
   border: 1px solid var(--gray-shade3);
   box-shadow: none;
@@ -1656,7 +1657,7 @@ tr.mat-footer-row {
   font-weight: 500;
   min-width: 85px;
   padding: 5px 15px;
-  font-size: 14px;
+  font-size: 14.5px;
   line-height: 24px;
   border: 1px solid #4caf50 !important;
   box-shadow: none;
@@ -1685,7 +1686,7 @@ tr.mat-footer-row {
   font-weight: 500;
   min-width: 85px;
   padding: 5px 15px;
-  font-size: 14px;
+  font-size: 14.5px;
   line-height: 24px;
   border: 1px solid #4caf50;
   box-shadow: none;
@@ -2291,12 +2292,10 @@ table.table.wlt-table td>span.report>a>i {
   text-align: center;
 }
 
-.wlt-table th {
+.wlt-table th.mat-header-cell {
   border-bottom-width: 1px;
-  border-bottom-style: solid;
-  border-bottom-color: rgba(0, 0, 0, .12);
   text-align: left;
-  font-size: 14px;
+  font-size: 14.5px;
   font-weight: 500;
   color: #003162;
   border-top: 0;
@@ -2311,7 +2310,7 @@ table.table.wlt-table td>span.report>a>i {
   border-bottom-style: solid;
   border-bottom-color: rgba(0, 0, 0, .12);
   color: var(--table-data-color);
-  font-size: 14px;
+  font-size: 14.5px;
   border-top: 0;
   white-space: nowrap;
 }
@@ -3062,4 +3061,280 @@ mat-card.full-width-report .report-wrapper.fixed-height iframe {
   .obms-toast-time    { color: #707070; }
   .obms-toast-close   { color: #707070; }
   .obms-toast-close:hover { color: #e0e0e0; }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   OBMS ERP SHARED UI ENHANCEMENTS
+   Consolidates all per-component duplicates of .wlt-view-field, .wlt-view-label,
+   .wlt-view-value, .status-badge and .badge-* into a single global definition.
+   Also refines section headings, table rows, and action-bar button consistency.
+
+   RULE: Do NOT redefine these classes in any individual component CSS file.
+         The component CSS files should only contain overrides truly unique
+         to that specific screen layout.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── View-mode read-only fields (all detail / view screens) ─────────────── */
+.wlt-view-field {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0 16px 0;
+}
+.wlt-view-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+  line-height: 1.2;
+}
+.wlt-view-value {
+  font-size: 14.5px;
+  font-weight: 500;
+  color: #1a1a1a;
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+/* ── ERP section headings ("Receipt Details", "Received Items" etc.) ─────── */
+.wlt-c-section-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--primary-color);
+  letter-spacing: 0.2px;
+  margin-bottom: 0;
+}
+/* The <hr> immediately after a section label */
+.wlt-c-section-label + hr {
+  border: none;
+  border-top: 2px solid var(--primary-color);
+  opacity: 0.15;
+  margin-top: 6px;
+  margin-bottom: 14px;
+}
+
+/* ── Status / workflow badges — all ERP list screens ─────────────────────── */
+.status-badge {
+  display: inline-block;
+  padding: 3px 11px;
+  border-radius: 12px;
+  font-size: .8rem;
+  font-weight: 500;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+/* Generic workflow */
+.badge-draft          { background: #e3f2fd; color: #1565c0; }
+.badge-submitted,
+.badge-waiting        { background: #fff8e1; color: #e65100; }
+.badge-approved       { background: #e8f5e9; color: #2e7d32; }
+.badge-rejected       { background: #ffebee; color: #c62828; }
+/* Purchase chain */
+.badge-po-posted      { background: #ede7f6; color: #4527a0; }
+.badge-grn-posted     { background: #e0f7fa; color: #00695c; }
+.badge-partial        { background: #fff8e1; color: #e65100; }
+.badge-received       { background: #f3e5f5; color: #6a1b9a; }
+/* BSR / stock transfer */
+.badge-transfer-created { background: #e8f5e9; color: #1b5e20; }
+.badge-cancelled      { background: #fafafa; color: #616161; border: 1px solid #e0e0e0; }
+/* Asset lifecycle */
+.badge-available      { background: #e8f5e9; color: #2e7d32; }
+.badge-allocated      { background: #e3f2fd; color: #1565c0; }
+.badge-maintenance    { background: #fff8e1; color: #e65100; }
+.badge-damaged        { background: #ffebee; color: #c62828; }
+.badge-disposed       { background: #f5f5f5; color: #757575; }
+.badge-in-transit     { background: #e0f7fa; color: #006064; }
+
+/* ── Mat-card content padding — consistent across all detail screens ─────── */
+mat-card-content,
+.mat-card-content {
+  padding-left: 20px !important;
+  padding-right: 20px !important;
+}
+
+/* ── ERP table: subtle row separators and consistent cell padding ─────────── */
+/* Odd-row stripe (list screens that use table-striped) */
+.wlt-table.table-striped tbody tr:nth-of-type(odd) {
+  background: #fafafa;
+}
+/* Cell bottom border — gives the "grid lines" visible in screenshot */
+.wlt-table td {
+  border-bottom: 1px solid #f2f2f2 !important;
+  vertical-align: middle;
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
+}
+/* ── wlt-new-agreement tables used inside forms (GRN received items, PO lines etc.) */
+.wlt-new-agreement .mat-row td {
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+  font-size: 14px;
+}
+.wlt-new-agreement .mat-header-cell {
+  font-size: 13.5px;
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
+}
+
+/* ── Action bar buttons — height, spacing, icon alignment ───────────────── */
+/* Standardise all ERP action buttons to the same height and icon gap */
+.btn.wlt-c-furg-btn-primary,
+.btn.wlt-c-furg-btn-secondary,
+.btn.wlt-c-furg-btn-gray,
+.btn.wlt-c-furg-btn-danger,
+.btn.wlt-c-furg-btn-Success,
+.btn.wlt-c-furg-btn-add,
+.btn.btn-outline-primary,
+.btn.btn-outline-secondary,
+.btn.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 36px;
+  padding: 0 14px;
+  font-size: 14.5px;
+  font-weight: 500;
+  line-height: 1;
+  border-radius: 5px !important;
+  box-shadow: none;
+  white-space: nowrap;
+}
+/* mat-icon inside any ERP button */
+.btn mat-icon,
+.btn .mat-icon {
+  font-size: 17px !important;
+  width: 17px !important;
+  height: 17px !important;
+  line-height: 17px !important;
+  margin: 0 !important;
+  float: none !important;
+  flex-shrink: 0;
+}
+
+/* ── Responsive: horizontal scroll for wide ERP tables on small screens ──── */
+@media (max-width: 991px) {
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .wlt-table td,
+  .wlt-table th {
+    white-space: nowrap;
+  }
+}
+
+/* ── mat-form-field wrapper: remove bottom gap in tight layouts ──────────── */
+.wlt-erp-form .mat-form-field-wrapper {
+  padding-bottom: 0.4em;
+}
+
+/* ── Page header h1 — tighten bottom spacing ─────────────────────────────── */
+.wlt-c-furg-content-header h1 {
+  font-size: 18.5px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+/* ── Breadcrumb — keep it compact ───────────────────────────────────────── */
+.wlt-c-furg-content-header .breadcrumb {
+  font-size: 12.5px;
+}
+.wlt-c-furg-content-header .breadcrumb-item + .breadcrumb-item::before {
+  color: #aaa;
+}
+
+/* ── mat-card: slightly tighter shadow for secondary cards ──────────────── */
+.mat-card {
+  border-radius: 6px !important;
+}
+
+/* ── Info / warning banners (alert-info, alert-warning) inside ERP forms ── */
+.alert {
+  border-radius: 6px;
+  font-size: 14px;
+  padding: 10px 14px;
+}
+.alert mat-icon {
+  font-size: 17px !important;
+  width: 17px !important;
+  height: 17px !important;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+
+
+/* ── Document Totals Summary ─────────────────────────────────────────────── */
+.summary-wrapper {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  margin: 18px 0 8px;
+}
+
+.summary-table {
+  width: 100%;
+  max-width: 410px;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--table-border, #E8E8E8);
+  border-radius: 5px;
+  overflow: hidden;
+  background: #fff;
+  font-size: 14px;
+}
+
+.summary-table th,
+.summary-table td {
+  padding: 11px 15px;
+  border-bottom: 1px solid var(--table-border, #E8E8E8);
+}
+
+.summary-table th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--table-data-color, #6A6A6A);
+  background: #fff;
+}
+
+.summary-table td {
+  text-align: right;
+  font-weight: 600;
+  color: var(--neutral-color, #363636);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.summary-table tr:last-child th,
+.summary-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.summary-table .summary-tax-amount {
+  color: #e65100;
+}
+
+.summary-table .summary-grand-total th,
+.summary-table .summary-grand-total td {
+  background: #e3f2fd;
+  border-top: 2px solid #1976d2;
+  color: #1565c0;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+@media (max-width: 576px) {
+  .summary-wrapper {
+    justify-content: stretch;
+  }
+
+  .summary-table {
+    max-width: 100%;
+  }
+
+  .summary-table th,
+  .summary-table td {
+    padding: 10px 12px;
+  }
 }

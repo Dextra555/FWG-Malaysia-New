@@ -134,6 +134,7 @@
 
       <!-- ── VIEW MODE (Posted / Approved / Submitted / Rejected) ── -->
       <div *ngIf="isEdit && !canEdit()" class="row mb-3">
+        <!-- Row 1: Reference No | Requisition Date | Required By Date | Status -->
         <div class="col-6 col-md-3">
           <div class="wlt-view-field">
             <span class="wlt-view-label">Reference No</span>
@@ -152,10 +153,10 @@
             <span class="wlt-view-value">{{frm.get('RequiredByDate')?.value | date:'dd/MM/yyyy'}}</span>
           </div>
         </div>
-        <div class="col-12 col-md-6" *ngIf="frm.get('Remarks')?.value">
+        <div class="col-6 col-md-3">
           <div class="wlt-view-field">
             <span class="wlt-view-label">Remarks</span>
-            <span class="wlt-view-value">{{frm.get('Remarks')?.value}}</span>
+            <span class="wlt-view-value">{{frm.get('Remarks')?.value || '—'}}</span>
           </div>
         </div>
       </div>
@@ -353,34 +354,26 @@
               No items added yet. Use the form above to add items.
             </td>
           </tr>
-          <!-- ── Totals footer ── -->
-          <tr class="mat-row" *ngIf="lines.length > 0">
-            <td [attr.colspan]="canEdit() ? 11 : 10" style="text-align:right;border-top:2px solid #dee2e6">
-              <strong>Sub-Total (RM)</strong>
-            </td>
-            <td style="text-align:right;border-top:2px solid #dee2e6">
-              <strong style="color:#1976d2">{{subTotal | number:'1.2-2'}}</strong>
-            </td>
-            <td *ngIf="canEdit()"></td>
+
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Document Totals Summary -->
+    <div class="summary-wrapper" *ngIf="lines.length > 0">
+      <table class="summary-table">
+        <tbody>
+          <tr>
+            <th>Sub-Total (RM)</th>
+            <td>{{ subTotal | number:'1.2-2' }}</td>
           </tr>
-          <tr class="mat-row" *ngIf="lines.length > 0 && sstTotal > 0">
-            <td [attr.colspan]="canEdit() ? 11 : 10" style="text-align:right">
-              <strong>SST (RM)</strong>
-            </td>
-            <td style="text-align:right">
-              <strong style="color:#e65100">{{sstTotal | number:'1.2-2'}}</strong>
-            </td>
-            <td *ngIf="canEdit()"></td>
+          <tr *ngIf="sstTotal > 0">
+            <th>SST (RM)</th>
+            <td class="summary-tax-amount">{{ sstTotal | number:'1.2-2' }}</td>
           </tr>
-          <tr class="mat-row" *ngIf="lines.length > 0">
-            <td [attr.colspan]="canEdit() ? 11 : 10"
-              style="text-align:right;border-top:2px solid #1976d2;background:#e3f2fd">
-              <strong>Grand Total (RM)</strong>
-            </td>
-            <td style="text-align:right;border-top:2px solid #1976d2;background:#e3f2fd">
-              <strong style="color:#1565c0;font-size:1.05em">{{grandTotal | number:'1.2-2'}}</strong>
-            </td>
-            <td *ngIf="canEdit()" style="background:#e3f2fd"></td>
+          <tr class="summary-grand-total">
+            <th>Grand Total (RM)</th>
+            <td>{{ grandTotal | number:'1.2-2' }}</td>
           </tr>
         </tbody>
       </table>

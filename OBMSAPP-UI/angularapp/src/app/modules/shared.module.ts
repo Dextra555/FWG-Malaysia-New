@@ -185,6 +185,8 @@ import { MonthlyAdvanceReportComponent } from './report/payroll/monthly-advance-
 import { HQStockLedgerComponent } from './report/inventory/hq-stock-ledger/hq-stock-ledger.component';
 import { BranchStockLedgerComponent } from './report/inventory/branch-stock-ledger/branch-stock-ledger.component';
 import { StockLedgerReportComponent } from './report/inventory/stock-ledger-report/stock-ledger-report.component';
+import { CurrentStockReportComponent } from './report/inventory/current-stock-report/current-stock-report.component';
+import { StockMovementReportComponent } from './report/inventory/stock-movement-report/stock-movement-report.component';
 import { PaySheetComponent } from './report/payroll/pay-sheet/pay-sheet.component';
 import { YearlyPaySheetComponent } from './report/payroll/yearly-pay-sheet/yearly-pay-sheet.component';
 import { PayHistoryComponent } from './report/payroll/pay-history/pay-history.component';
@@ -255,6 +257,11 @@ import { NotificationListComponent } from './administration/notification-list/no
 // Part 9: Branch Stock Request
 import { BranchStockRequestComponent } from './inventory/branch-stock-request/branch-stock-request.component';
 import { NewBSRComponent } from './inventory/branch-stock-request/new-bsr/new-bsr.component';
+
+// Inventory Dashboard
+import { InventoryDashboardComponent } from './inventory/inventory-dashboard/inventory-dashboard.component';
+import { PendingActivityDialogComponent } from './inventory/inventory-dashboard/pending-activity-dialog/pending-activity-dialog.component';
+import { SumFieldPipe } from '../shared/sum-field.pipe';
 
 
 
@@ -409,6 +416,8 @@ import { NewBSRComponent } from './inventory/branch-stock-request/new-bsr/new-bs
     HQStockLedgerComponent,
     BranchStockLedgerComponent,
     StockLedgerReportComponent,
+    CurrentStockReportComponent,
+    StockMovementReportComponent,
     PaySheetComponent,
     YearlyPaySheetComponent,
     PayHistoryComponent,
@@ -478,7 +487,12 @@ import { NewBSRComponent } from './inventory/branch-stock-request/new-bsr/new-bs
 
     // Part 9: Branch Stock Request
     BranchStockRequestComponent,
-    NewBSRComponent
+    NewBSRComponent,
+
+    // Inventory Dashboard
+    InventoryDashboardComponent,
+    PendingActivityDialogComponent,
+    SumFieldPipe,
 
   ],
   imports: [
@@ -550,7 +564,8 @@ import { NewBSRComponent } from './inventory/branch-stock-request/new-bsr/new-bs
     MatSelectScrollDirective,
     MatProgressSpinnerModule,
     MatDividerModule,
-    MatSlideToggleModule
+    MatSlideToggleModule,
+    SumFieldPipe
   ],
   providers: [
     { provide: MAT_DATE_LOCALE, useValue: 'en-GB' }

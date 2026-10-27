@@ -1,11 +1,14 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using OBMS.WebAPI.Models;
 using OBMS.WebAPI.Models.Domain;
 using OBMS.WebAPI.Models.DTO;
 using OBMS.WebAPI.Repositories.Interface;
 using OBMS.WebAPI.Utility;
 using SkiaSharp;
+using System.Data;
+using System.Data.SqlClient;
 
 namespace OBMS.WebAPI.Repositories.Implementation
 {
@@ -15,22 +18,27 @@ namespace OBMS.WebAPI.Repositories.Implementation
         // Part 7: injected for history recording + notifications
         private readonly INotificationRepository? _notif;
         private readonly IApprovalRepository?     _approval;
+        // Dashboard: raw ADO.NET connection string
+        private readonly IConfiguration _configuration;
 
         /// <summary>Legacy constructor — keeps existing DI registrations working.</summary>
-        public InventoryRepository(OBMSDbContext oBMSDbContext)
+        public InventoryRepository(OBMSDbContext oBMSDbContext, IConfiguration configuration)
         {
             _oBMSDbContext = oBMSDbContext;
+            _configuration = configuration;
         }
 
         /// <summary>Full constructor with Part 7 services.</summary>
         public InventoryRepository(
             OBMSDbContext oBMSDbContext,
             INotificationRepository notif,
-            IApprovalRepository approval)
+            IApprovalRepository approval,
+            IConfiguration configuration)
         {
             _oBMSDbContext = oBMSDbContext;
             _notif         = notif;
             _approval      = approval;
+            _configuration = configuration;
         }
 
         public async Task<InventoryCategory> SaveAndUpdateCategory(InventoryCategory category)
@@ -2796,6 +2804,48 @@ namespace OBMS.WebAPI.Repositories.Implementation
             return (resultSuccess, resultMessage);
         }
 
+
+        /// <summary>
+        /// Updates only SupplierInvoiceNo, DeliveryNoteRef, and Remarks on a posted GRN.
+        /// Stock ledger, PO quantities, and CreditorInvoice are NOT touched.
+        /// </summary>
+        public async Task<(bool Success, string Message)> UpdateGRNReference(UpdateGRNRefDto dto)
+        {
+            var grn = await _oBMSDbContext.GoodsReceiptNotes.FindAsync(dto.ID);
+            if (grn == null || !grn.IsActive)
+                return (false, "Goods receipt not found.");
+
+            grn.SupplierInvoiceNo = dto.SupplierInvoiceNo?.Trim();
+            grn.DeliveryNoteRef   = dto.DeliveryNoteRef?.Trim();
+            grn.Remarks           = dto.Remarks?.Trim();
+            grn.LASTUPDATE        = DateTime.Now;
+            grn.LastUpdatedBy     = dto.LastUpdatedBy;
+
+            _oBMSDbContext.GoodsReceiptNotes.Update(grn);
+            await _oBMSDbContext.SaveChangesAsync();
+
+            // Also keep the CreditorInvoice InvoiceNo in sync if it was
+            // originally set to the GRN number (i.e. no supplier invoice was
+            // provided at receipt time). Only update when a real invoice number
+            // is now being supplied — never blank it out.
+            if (!string.IsNullOrWhiteSpace(dto.SupplierInvoiceNo))
+            {
+                var ci = await _oBMSDbContext.CreditorInvoices
+                    .FirstOrDefaultAsync(c => c.RecID == dto.ID
+                                           && c.InvoiceType == "G"
+                                           && c.IsDeleted != true);
+                if (ci != null)
+                {
+                    ci.InvoiceNo   = dto.SupplierInvoiceNo.Trim();
+                    ci.LASTUPDATE  = DateTime.Now;
+                    ci.LastUpdatedBy = dto.LastUpdatedBy ?? "";
+                    _oBMSDbContext.CreditorInvoices.Update(ci);
+                    await _oBMSDbContext.SaveChangesAsync();
+                }
+            }
+
+            return (true, "Goods receipt reference updated successfully.");
+        }
 
         // ════════════════════════════════════════════════════════════════════════
         // PART 3 — PURCHASE RETURN
@@ -7025,6 +7075,141 @@ namespace OBMS.WebAPI.Repositories.Implementation
             await _oBMSDbContext.SaveChangesAsync();
 
             return (true, "Stock Issue successfully linked to Uniform Loan.");
+        }
+
+        // ── Inventory Dashboard ───────────────────────────────────────────────────
+
+        public async Task<InventoryDashboardDto> GetInventoryDashboard()
+        {
+            var dto = new InventoryDashboardDto();
+            var connStr = _configuration.GetConnectionString("obms");
+
+            using var conn = new SqlConnection(connStr);
+            using var cmd  = new SqlCommand("sp_InventoryDashboard", conn)
+            {
+                CommandType    = CommandType.StoredProcedure,
+                CommandTimeout = 120
+            };
+
+            await conn.OpenAsync();
+            using var reader = await cmd.ExecuteReaderAsync();
+
+            // ── RS1 : KPI Cards ──────────────────────────────────────────────
+            if (await reader.ReadAsync())
+            {
+                dto.TotalItems       = reader.IsDBNull(reader.GetOrdinal("TotalItems"))       ? 0 : reader.GetInt32(reader.GetOrdinal("TotalItems"));
+                dto.TotalStockValue  = reader.IsDBNull(reader.GetOrdinal("TotalStockValue"))  ? 0 : reader.GetDecimal(reader.GetOrdinal("TotalStockValue"));
+                dto.TotalStockQty    = reader.IsDBNull(reader.GetOrdinal("TotalStockQty"))    ? 0 : reader.GetDecimal(reader.GetOrdinal("TotalStockQty"));
+                dto.PendingTransfers = reader.IsDBNull(reader.GetOrdinal("PendingTransfers")) ? 0 : reader.GetInt32(reader.GetOrdinal("PendingTransfers"));
+                dto.PendingIssues    = reader.IsDBNull(reader.GetOrdinal("PendingIssues"))    ? 0 : reader.GetInt32(reader.GetOrdinal("PendingIssues"));
+                dto.LowStockItems    = reader.IsDBNull(reader.GetOrdinal("LowStockItems"))    ? 0 : reader.GetInt32(reader.GetOrdinal("LowStockItems"));
+            }
+
+            // ── RS2 : Warehouse Stock Value ──────────────────────────────────
+            if (await reader.NextResultAsync())
+            {
+                while (await reader.ReadAsync())
+                {
+                    dto.WarehouseStocks.Add(new WarehouseStockValueDto
+                    {
+                        WarehouseID   = reader.GetInt32(reader.GetOrdinal("WarehouseID")),
+                        WarehouseName = reader.GetString(reader.GetOrdinal("WarehouseName")),
+                        StockValue    = reader.IsDBNull(reader.GetOrdinal("StockValue")) ? 0 : reader.GetDecimal(reader.GetOrdinal("StockValue")),
+                        StockQty      = reader.IsDBNull(reader.GetOrdinal("StockQty"))   ? 0 : reader.GetDecimal(reader.GetOrdinal("StockQty"))
+                    });
+                }
+            }
+
+            // ── RS3 : Monthly Movements ──────────────────────────────────────
+            if (await reader.NextResultAsync())
+            {
+                while (await reader.ReadAsync())
+                {
+                    dto.MonthlyMovements.Add(new StockMovementDayDto
+                    {
+                        DateLabel  = reader.GetString(reader.GetOrdinal("DateLabel")),
+                        InwardQty  = reader.IsDBNull(reader.GetOrdinal("InwardQty"))  ? 0 : reader.GetDecimal(reader.GetOrdinal("InwardQty")),
+                        OutwardQty = reader.IsDBNull(reader.GetOrdinal("OutwardQty")) ? 0 : reader.GetDecimal(reader.GetOrdinal("OutwardQty"))
+                    });
+                }
+            }
+
+            // ── RS4 : Global Summary ─────────────────────────────────────────
+            if (await reader.NextResultAsync() && await reader.ReadAsync())
+            {
+                dto.GlobalSummary = new WarehouseGlobalSummaryDto
+                {
+                    OpeningQty = reader.IsDBNull(reader.GetOrdinal("OpeningQty")) ? 0 : reader.GetDecimal(reader.GetOrdinal("OpeningQty")),
+                    InwardQty  = reader.IsDBNull(reader.GetOrdinal("InwardQty"))  ? 0 : reader.GetDecimal(reader.GetOrdinal("InwardQty")),
+                    OutwardQty = reader.IsDBNull(reader.GetOrdinal("OutwardQty")) ? 0 : reader.GetDecimal(reader.GetOrdinal("OutwardQty")),
+                    ClosingQty = reader.IsDBNull(reader.GetOrdinal("ClosingQty")) ? 0 : reader.GetDecimal(reader.GetOrdinal("ClosingQty")),
+                    StockValue = reader.IsDBNull(reader.GetOrdinal("StockValue")) ? 0 : reader.GetDecimal(reader.GetOrdinal("StockValue"))
+                };
+            }
+
+            // ── RS5 : Low Stock Alerts ───────────────────────────────────────
+            if (await reader.NextResultAsync())
+            {
+                while (await reader.ReadAsync())
+                {
+                    dto.LowStockAlerts.Add(new LowStockAlertDto
+                    {
+                        ItemCode      = reader.IsDBNull(reader.GetOrdinal("ItemCode"))      ? "" : reader.GetString(reader.GetOrdinal("ItemCode")),
+                        ItemName      = reader.GetString(reader.GetOrdinal("ItemName")),
+                        WarehouseName = reader.GetString(reader.GetOrdinal("WarehouseName")),
+                        CurrentStock  = reader.IsDBNull(reader.GetOrdinal("AvailableQty"))  ? 0 : reader.GetDecimal(reader.GetOrdinal("AvailableQty")),
+                        ReorderLevel  = reader.IsDBNull(reader.GetOrdinal("ReorderLevel"))  ? 0 : reader.GetDecimal(reader.GetOrdinal("ReorderLevel"))
+                    });
+                }
+            }
+
+            // ── RS6 : Pending Activities ─────────────────────────────────────
+            if (await reader.NextResultAsync() && await reader.ReadAsync())
+            {
+                dto.PendingActivities = new PendingActivitiesDto
+                {
+                    POsPending         = reader.IsDBNull(reader.GetOrdinal("POsPending"))         ? 0 : reader.GetInt32(reader.GetOrdinal("POsPending")),
+                    GRNsPending        = reader.IsDBNull(reader.GetOrdinal("GRNsPending"))        ? 0 : reader.GetInt32(reader.GetOrdinal("GRNsPending")),
+                    TransfersPending   = reader.IsDBNull(reader.GetOrdinal("TransfersPending"))   ? 0 : reader.GetInt32(reader.GetOrdinal("TransfersPending")),
+                    IssuesPending      = reader.IsDBNull(reader.GetOrdinal("IssuesPending"))      ? 0 : reader.GetInt32(reader.GetOrdinal("IssuesPending")),
+                    AdjustmentsPending = reader.IsDBNull(reader.GetOrdinal("AdjustmentsPending")) ? 0 : reader.GetInt32(reader.GetOrdinal("AdjustmentsPending"))
+                };
+            }
+
+            // ── RS7 : Recent Transactions ────────────────────────────────────
+            if (await reader.NextResultAsync())
+            {
+                while (await reader.ReadAsync())
+                {
+                    dto.RecentTransactions.Add(new RecentTransactionDto
+                    {
+                        TxDate        = reader.GetDateTime(reader.GetOrdinal("TxDate")),
+                        TxType        = reader.GetString(reader.GetOrdinal("TxType")),
+                        TxTypeCode    = reader.IsDBNull(reader.GetOrdinal("TxTypeCode")) ? "" : reader.GetString(reader.GetOrdinal("TxTypeCode")),
+                        RefNo         = reader.IsDBNull(reader.GetOrdinal("RefNo"))      ? null : reader.GetString(reader.GetOrdinal("RefNo")),
+                        ItemName      = reader.GetString(reader.GetOrdinal("ItemName")),
+                        WarehouseName = reader.GetString(reader.GetOrdinal("WarehouseName")),
+                        Qty           = reader.IsDBNull(reader.GetOrdinal("Qty")) ? 0 : reader.GetDecimal(reader.GetOrdinal("Qty"))
+                    });
+                }
+            }
+
+            // ── RS8 : Item/Warehouse Qty (flat) ──────────────────────────────
+            if (await reader.NextResultAsync())
+            {
+                while (await reader.ReadAsync())
+                {
+                    dto.ItemWarehouseQty.Add(new ItemWarehouseQtyDto
+                    {
+                        ItemName      = reader.GetString(reader.GetOrdinal("ItemName")),
+                        WarehouseName = reader.GetString(reader.GetOrdinal("WarehouseName")),
+                        Qty           = reader.IsDBNull(reader.GetOrdinal("Qty"))      ? 0 : reader.GetDecimal(reader.GetOrdinal("Qty")),
+                        TotalQty      = reader.IsDBNull(reader.GetOrdinal("TotalQty")) ? 0 : reader.GetDecimal(reader.GetOrdinal("TotalQty"))
+                    });
+                }
+            }
+
+            return dto;
         }
     }
 }

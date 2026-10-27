@@ -83,7 +83,8 @@
         <ul class="nav flex-column">
           <li class="nav-item">
             <div class="collapse" [ngClass]="{'show': isSubmenuOpen('inventory')}">
-              <ul class="nav flex-column wlt-c-furg-sub-menu">              
+              <ul class="nav flex-column wlt-c-furg-sub-menu">
+                <li class="nav-item" routerLink="/inventory/dashboard"><a class="nav-link"><mat-icon style="font-size:14px;vertical-align:middle;margin-right:4px">dashboard</mat-icon>Dashboard</a></li>
                 <li class="nav-item" routerLink="/inventory/item-master"><a class="nav-link">Item Master </a></li>
                 <li class="nav-item" routerLink="/inventory/brand-master"><a class="nav-link">Brand Master</a></li>
                 <li class="nav-item" routerLink="/inventory/uom-master"><a class="nav-link">UOM Master</a></li>
@@ -138,6 +139,20 @@
                 <!-- <li class="nav-item" routerLink="/inventory/report/hq-stock-ledger"><a class="nav-link">HQ Stock Ledger</a></li> -->
                 <!-- <li class="nav-item" routerLink="/inventory/report/branch-stock-ledger"><a class="nav-link">Branch Stock Ledger</a></li> -->
                 <li class="nav-item" routerLink="/inventory/report/stock-ledger-report"><a class="nav-link">Stock Ledger Report</a></li>
+                <li class="nav-item" routerLink="/inventory/report/current-stock-report"><a class="nav-link">Current Stock Report</a></li>
+                <li class="nav-item" routerLink="/inventory/report/stock-movement-report"><a class="nav-link">Stock Movement Report</a></li>
+                <li class="nav-item" routerLink="/inventory/report/stock-in-grn-report"><a class="nav-link">Stock In (GRN) Report</a></li>
+                <li class="nav-item" routerLink="/inventory/report/stock-issue-list-report"><a class="nav-link">Stock Issue Report</a></li>
+                <li class="nav-item" routerLink="/inventory/report/item-category-stock-report"><a class="nav-link">Item &amp; Category Stock</a></li>
+                <li class="nav-item" routerLink="/inventory/report/warehouse-stock-report"><a class="nav-link">Warehouse Stock Report</a></li>
+                <li class="nav-item" routerLink="/inventory/report/supplier-purchase-report"><a class="nav-link">Supplier Purchase Report</a></li>
+                <li class="nav-item" routerLink="/inventory/report/low-stock-report"><a class="nav-link">Low Stock Report</a></li>
+                <li class="nav-item" routerLink="/inventory/report/stock-transfer-report"><a class="nav-link">Stock Transfer Report</a></li>
+                <li class="nav-item" routerLink="/inventory/report/stock-adj-damage-loss-report"><a class="nav-link"> Stock Adj &amp; Damage Loss</a></li>
+                <li class="nav-item" routerLink="/inventory/report/purchase-issue-return-report"><a class="nav-link">Purchase &amp; Issue Return</a></li>
+                <li class="nav-item" routerLink="/inventory/report/inventory-valuation-report"><a class="nav-link">Inventory Valuation</a></li>
+                <li class="nav-item" routerLink="/inventory/report/branch-asset-report"><a class="nav-link">Branch Asset Report</a></li>
+                <li class="nav-item" routerLink="/inventory/report/asset-movement-report"><a class="nav-link">Asset Movement Report</a></li>
                 <li class="nav-item" routerLink="/inventory/stock-ledger"><a class="nav-link">Stock Ledger</a></li>
                 <li class="nav-item" routerLink="/inventory/stock-balance-summary"><a class="nav-link">Stock Balance Summary</a></li>
                 <li class="nav-item" routerLink="/inventory/employee-item-holding"><a class="nav-link">Staff Item Holding</a></li>

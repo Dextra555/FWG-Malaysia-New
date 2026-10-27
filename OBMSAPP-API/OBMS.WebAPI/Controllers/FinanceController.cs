@@ -1094,7 +1094,9 @@ namespace OBMS.WebAPI.Controllers
         {
             try
             {
-                // 1. Compute GRN totals (SUM of ReceivedQty * UnitCost per GRN)
+                // 1. Compute GRN totals — prefer the stored GrandTotal (includes SST) that
+                //    was written by InventoryRepository.SaveGRN(). Fall back to re-summing
+                //    detail lines only for GRNs created before Migration 29 (GrandTotal = 0).
                 var grnTotals = await (
                     from grn in _oBMSDbContext.GoodsReceiptNotes
                     join po  in _oBMSDbContext.PurchaseOrders  on grn.POID       equals po.ID
@@ -1112,16 +1114,34 @@ namespace OBMS.WebAPI.Controllers
                         SupId   = sup.Id,
                         SupName = sup.Name,
                         BranchCode = br.Code,
-                        GRNTotal = (decimal?)_oBMSDbContext.GoodsReceiptNoteDetails
+                        // Use GrandTotal (sub-total + SST) when available;
+                        // fall back to sub-total sum for pre-SST GRNs where GrandTotal = 0.
+                        GRNStoredGrandTotal = grn.GrandTotal,
+                        GRNSubTotal = (decimal?)_oBMSDbContext.GoodsReceiptNoteDetails
                             .Where(d => d.GRNID == grn.ID)
                             .Sum(d => (decimal?)(d.ReceivedQty * d.UnitCost)) ?? 0m
                     }
                 ).ToListAsync();
 
-                if (!grnTotals.Any())
+                // Resolve the effective payable total per GRN after materialisation
+                // (cannot use conditional expression referencing both in EF LINQ)
+                var grnTotalsResolved = grnTotals.Select(g => new
+                {
+                    g.ID,
+                    g.GRNNumber,
+                    g.GRNDate,
+                    g.SupplierInvoiceNo,
+                    g.PONumber,
+                    g.SupId,
+                    g.SupName,
+                    g.BranchCode,
+                    GRNTotal = g.GRNStoredGrandTotal > 0 ? g.GRNStoredGrandTotal : g.GRNSubTotal
+                }).ToList();
+
+                if (!grnTotalsResolved.Any())
                     return Ok(new List<GRNPaymentRowDto>());
 
-                var grnIDs = grnTotals.Select(g => g.ID).ToList();
+                var grnIDs = grnTotalsResolved.Select(g => g.ID).ToList();
 
                 // 2. Compute already-paid amounts per GRN (across ALL non-deleted payments)
                 //    Include the current payment so PaidAmount reflects the true total paid so far.
@@ -1149,7 +1169,7 @@ namespace OBMS.WebAPI.Controllers
                 // 4. Build result rows
                 var rows = new List<GRNPaymentRowDto>();
 
-                foreach (var g in grnTotals)
+                foreach (var g in grnTotalsResolved)
                 {
                     var paid    = paidLookup.TryGetValue(g.ID, out var p) ? p : 0m;
                     var balance = g.GRNTotal - paid;
@@ -1515,7 +1535,9 @@ namespace OBMS.WebAPI.Controllers
 
                                 if (existingCI == null)
                                 {
-                                    // Fetch GRN data needed for the invoice row
+                                    // Fetch GRN data needed for the invoice row.
+                                    // Use GrandTotal (sub-total + SST) when available;
+                                    // fall back to sub-total sum for pre-SST GRNs.
                                     var grnData = await (
                                         from grn in _oBMSDbContext.GoodsReceiptNotes
                                         join po  in _oBMSDbContext.PurchaseOrders  on grn.POID       equals po.ID
@@ -1529,11 +1551,18 @@ namespace OBMS.WebAPI.Controllers
                                             grn.SupplierInvoiceNo,
                                             po.SupplierID,
                                             BranchCode = br.Code,
-                                            GRNTotal = (decimal?)_oBMSDbContext.GoodsReceiptNoteDetails
+                                            GRNStoredGrandTotal = grn.GrandTotal,
+                                            GRNSubTotal = (decimal?)_oBMSDbContext.GoodsReceiptNoteDetails
                                                 .Where(d => d.GRNID == grn.ID)
                                                 .Sum(d => (decimal?)(d.ReceivedQty * d.UnitCost)) ?? 0m
                                         }
                                     ).FirstOrDefaultAsync();
+
+                                    // Resolve after materialisation
+                                    decimal grnEffectiveTotal = grnData == null ? 0m
+                                        : grnData.GRNStoredGrandTotal > 0
+                                            ? grnData.GRNStoredGrandTotal
+                                            : grnData.GRNSubTotal;
 
                                     if (grnData != null)
                                     {
@@ -1548,7 +1577,7 @@ namespace OBMS.WebAPI.Controllers
                                                                 : grnData.GRNNumber,
                                             InvoiceType   = "G",
                                             InvoiceDate   = grnData.GRNDate,
-                                            Total         = grnData.GRNTotal,
+                                            Total         = grnEffectiveTotal,
                                             PaymentDate   = branchPaymentRequestDto.PaymentDate,
                                             ItemCategory  = string.IsNullOrWhiteSpace(branchPaymentRequestDto.ItemCategory)
                                                                 ? (int?)null
@@ -2532,7 +2561,7 @@ namespace OBMS.WebAPI.Controllers
         }
 
         [HttpGet("GetLegalDemandList")]
-        public async Task<IActionResult> GetList([FromQuery] string branch = null, [FromQuery] string client = null, [FromQuery] string actionTaken = null)
+        public async Task<IActionResult> GetList([FromQuery] string? branch = null, [FromQuery] string? client = null, [FromQuery] string? actionTaken = null)
         {
 
             try

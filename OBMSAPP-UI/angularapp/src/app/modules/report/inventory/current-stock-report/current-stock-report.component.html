@@ -1,0 +1,92 @@
+<div class="wlt-c-furg-content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-12 col-sm-12 col-md-4 col-lg-4">
+        <h1 class="mb-1">Report / Current Stock</h1>
+      </div>
+      <div class="col-12 col-sm-12 col-md-8 col-lg-8 my-1">
+        <ol class="breadcrumb float-md-right">
+          <li class="breadcrumb-item"><a routerLink="/dashboard">Report</a></li>
+          <li class="breadcrumb-item active">Current Stock</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+
+<mat-card class="report-card">
+  <mat-card-content>
+
+    <!-- Access denied -->
+    <div *ngIf="warningMessage !== ''" class="mt-2">
+      <mat-label style="color:red" [innerHTML]="warningMessage"></mat-label>
+    </div>
+
+    <form [formGroup]="frm" (ngSubmit)="onSubmit()" *ngIf="warningMessage === ''">
+      <div class="row">
+
+        <!-- Warehouse (optional — 0 = All) -->
+        <div class="col-12 col-sm-12 col-md-4 col-lg-4">
+          <mat-form-field appearance="outline">
+            <mat-label>Warehouse</mat-label>
+            <mat-select formControlName="WarehouseID">
+              <mat-option value="0">All Warehouses</mat-option>
+              <mat-option *ngFor="let w of warehouseList" [value]="w.ID">{{ w.Name }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <!-- Item (optional — 0 = All) -->
+        <div class="col-12 col-sm-12 col-md-4 col-lg-4">
+          <mat-form-field appearance="outline">
+            <mat-label>Item</mat-label>
+            <mat-select formControlName="ItemID">
+              <mat-option value="0">All Items</mat-option>
+              <mat-option *ngFor="let d of itemList" [value]="d.ID">{{ d.Name }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <!-- Buttons -->
+        <div class="col-12 col-sm-12 col-md-4 col-lg-4 d-flex align-items-center">
+          <button type="button" class="btn btn-outline-secondary mr-2" (click)="onClear()">
+            Clear
+          </button>
+          <button type="submit" class="btn wlt-c-furg-btn-primary mr-2">
+            Search
+          </button>
+          <button type="button" class="btn btn-success" (click)="onExportExcel()">
+            <mat-icon style="vertical-align:middle; font-size:18px; margin-right:4px">table_view</mat-icon>
+            Export Excel
+          </button>
+        </div>
+
+      </div>
+
+      <!-- Error message -->
+      <div class="row" *ngIf="errorMessage !== ''">
+        <div class="col-12">
+          <mat-label style="color:red">{{ errorMessage }}</mat-label>
+        </div>
+      </div>
+
+    </form>
+
+    <br />
+
+    <!-- PDF rendered inline in iframe -->
+    <iframe class="report-wrapper fixed-height"
+            *ngIf="warningMessage === '' && urlSafe"
+            [src]="urlSafe">
+    </iframe>
+
+  </mat-card-content>
+</mat-card>
+
+<!-- Loading spinner -->
+<div [style.display]="showLoadingSpinner ? 'block' : 'none'"
+     style="margin-top:-10.5rem; display:block; margin-left:-6.5rem;">
+  <div class="d-flex justify-content-center">
+    <span class="loader"></span>
+  </div>
+</div>

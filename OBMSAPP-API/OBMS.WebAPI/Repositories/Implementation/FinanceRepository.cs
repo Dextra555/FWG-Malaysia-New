@@ -709,7 +709,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
             return await query.ToListAsync();
         }
-        public async Task<List<ClientLegalDemandActionDto>> GetActionsAsync(string branch = null, string client = null, string actionTaken = null)
+        public async Task<List<ClientLegalDemandActionDto>> GetActionsAsync(string? branch = null, string? client = null, string? actionTaken = null)
         {
             var query = from action in _oBMSDbContext.ClientLegalDemandActions
                         join clientMaster in _oBMSDbContext.ClientMasters

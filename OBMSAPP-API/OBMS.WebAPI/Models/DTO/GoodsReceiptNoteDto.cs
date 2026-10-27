@@ -17,6 +17,19 @@ namespace OBMS.WebAPI.Models.DTO
         public List<GRNDetailRequestDto> Details { get; set; } = new();
     }
 
+    /// <summary>
+    /// Lightweight payload for updating only the reference/admin fields on a posted GRN.
+    /// Stock ledger, PO quantities, and CreditorInvoice are NOT touched.
+    /// </summary>
+    public class UpdateGRNRefDto
+    {
+        public int    ID                { get; set; }
+        public string? SupplierInvoiceNo { get; set; }
+        public string? DeliveryNoteRef   { get; set; }
+        public string? Remarks           { get; set; }
+        public string? LastUpdatedBy     { get; set; }
+    }
+
     public class GRNDetailRequestDto
     {
         public int ID { get; set; }

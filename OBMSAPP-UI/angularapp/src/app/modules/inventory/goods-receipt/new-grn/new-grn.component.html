@@ -31,13 +31,15 @@
 
       <!-- ── VIEW MODE ── -->
       <div *ngIf="isView" class="row mb-3">
-        <div class="col-6 col-md-2">
+
+        <!-- Row 1: GRN Number | Purchase Order | Date Received | Supplier -->
+        <div class="col-6 col-md-3">
           <div class="wlt-view-field">
             <span class="wlt-view-label">GRN Number</span>
             <span class="wlt-view-value">{{grnNumber || '—'}}</span>
           </div>
         </div>
-        <div class="col-6 col-md-4">
+        <div class="col-6 col-md-3">
           <div class="wlt-view-field">
             <span class="wlt-view-label">Purchase Order</span>
             <span class="wlt-view-value">{{poInfo?.PONumber || '—'}}</span>
@@ -49,36 +51,56 @@
             <span class="wlt-view-value">{{frm.get('GRNDate')?.value | date:'dd/MM/yyyy'}}</span>
           </div>
         </div>
-        <div class="col-6 col-md-3" *ngIf="poInfo">
+        <div class="col-6 col-md-3">
           <div class="wlt-view-field">
             <span class="wlt-view-label">Supplier</span>
-            <span class="wlt-view-value">{{poInfo.SupplierName}}</span>
+            <span class="wlt-view-value">{{poInfo?.SupplierName || '—'}}</span>
           </div>
         </div>
-        <div class="col-6 col-md-3" *ngIf="poInfo">
+
+        <!-- Row 2: Warehouse | Delivery Note | Supplier Invoice No | Remarks -->
+        <div class="col-6 col-md-3">
           <div class="wlt-view-field">
             <span class="wlt-view-label">Warehouse</span>
-            <span class="wlt-view-value">{{poInfo.WarehouseName}}</span>
+            <span class="wlt-view-value">{{poInfo?.WarehouseName || '—'}}</span>
           </div>
         </div>
-        <div class="col-6 col-md-3" *ngIf="frm.get('DeliveryNoteRef')?.value">
-          <div class="wlt-view-field">
+
+        <div class="col-6 col-md-3">
+          <div class="wlt-view-field" *ngIf="!isEditingRef">
             <span class="wlt-view-label">Delivery Note / Ref</span>
-            <span class="wlt-view-value">{{frm.get('DeliveryNoteRef')?.value}}</span>
+            <span class="wlt-view-value">{{frm.get('DeliveryNoteRef')?.value || '—'}}</span>
           </div>
+          <mat-form-field appearance="outline" *ngIf="isEditingRef" style="width:100%">
+            <mat-label>Delivery Note / Ref</mat-label>
+            <input matInput [(ngModel)]="refDeliveryNoteRef" [ngModelOptions]="{standalone:true}"
+              placeholder="Supplier delivery note">
+          </mat-form-field>
         </div>
-        <div class="col-6 col-md-3" *ngIf="frm.get('SupplierInvoiceNo')?.value">
-          <div class="wlt-view-field">
+
+        <div class="col-6 col-md-3">
+          <div class="wlt-view-field" *ngIf="!isEditingRef">
             <span class="wlt-view-label">Supplier Invoice No</span>
-            <span class="wlt-view-value">{{frm.get('SupplierInvoiceNo')?.value}}</span>
+            <span class="wlt-view-value">{{frm.get('SupplierInvoiceNo')?.value || '—'}}</span>
           </div>
+          <mat-form-field appearance="outline" *ngIf="isEditingRef" style="width:100%">
+            <mat-label>Supplier Invoice No</mat-label>
+            <input matInput [(ngModel)]="refSupplierInvoiceNo" [ngModelOptions]="{standalone:true}"
+              placeholder="Invoice number">
+          </mat-form-field>
         </div>
-        <div class="col-6 col-md-3" *ngIf="frm.get('Remarks')?.value">
-          <div class="wlt-view-field">
+
+        <div class="col-6 col-md-3">
+          <div class="wlt-view-field" *ngIf="!isEditingRef">
             <span class="wlt-view-label">Remarks</span>
-            <span class="wlt-view-value">{{frm.get('Remarks')?.value}}</span>
+            <span class="wlt-view-value">{{frm.get('Remarks')?.value || '—'}}</span>
           </div>
+          <mat-form-field appearance="outline" *ngIf="isEditingRef" style="width:100%">
+            <mat-label>Remarks</mat-label>
+            <input matInput [(ngModel)]="refRemarks" [ngModelOptions]="{standalone:true}">
+          </mat-form-field>
         </div>
+
       </div>
 
       <!-- ── NEW MODE ── -->
@@ -305,43 +327,29 @@
                 <span *ngIf="!(d.SSTAmount > 0)" class="text-muted">—</span>
               </td>
             </tr>
-            <!-- Sub-Total row -->
-            <tr class="mat-row">
-              <td class="mat-cell" colspan="4" style="text-align:right;border-top:2px solid #dee2e6">
-                <strong>Sub-Total (RM)</strong>
-              </td>
-              <td class="mat-cell" style="text-align:right;border-top:2px solid #dee2e6">
-                <strong>{{ viewTotalQty }}</strong>
-              </td>
-              <td class="mat-cell" style="border-top:2px solid #dee2e6"></td>
-              <td class="mat-cell" style="text-align:right;border-top:2px solid #dee2e6">
-                <strong style="color:var(--primary-color)">{{ viewTotalValue | number:'1.2-2' }}</strong>
-              </td>
-              <td class="mat-cell" colspan="2" style="border-top:2px solid #dee2e6"></td>
-            </tr>
-            <!-- SST Total row — only when at least one line has SST -->
-            <tr class="mat-row" *ngIf="hasSSTLines">
-              <td class="mat-cell" colspan="6" style="text-align:right">
-                <strong>SST (RM)</strong>
-              </td>
-              <td class="mat-cell" colspan="3" style="text-align:right">
-                <strong style="color:#e65100">{{ viewSSTTotal | number:'1.2-2' }}</strong>
-              </td>
-            </tr>
-            <!-- Grand Total row — always shown -->
-            <tr class="mat-row">
-              <td class="mat-cell" colspan="6"
-                style="text-align:right;border-top:2px solid #1976d2;background:#e3f2fd">
-                <strong>Grand Total (RM)</strong>
-              </td>
-              <td class="mat-cell" colspan="3"
-                style="text-align:right;border-top:2px solid #1976d2;background:#e3f2fd">
-                <strong style="color:#1565c0;font-size:1.05em">{{ viewGrandTotal | number:'1.2-2' }}</strong>
-              </td>
-            </tr>
           </tbody>
         </table>
       </div>
+    </div>
+
+    <!-- ── Document Totals Summary ─────────────────────────────────────── -->
+    <div class="summary-wrapper" *ngIf="isView && existingDetails.length > 0">
+      <table class="summary-table">
+        <tbody>
+          <tr>
+            <th>Sub-Total (RM)</th>
+            <td>{{ viewTotalValue | number:'1.2-2' }}</td>
+          </tr>
+          <tr *ngIf="hasSSTLines">
+            <th>SST (RM)</th>
+            <td class="summary-tax-amount">{{ viewSSTTotal | number:'1.2-2' }}</td>
+          </tr>
+          <tr class="summary-grand-total">
+            <th>Grand Total (RM)</th>
+            <td>{{ viewGrandTotal | number:'1.2-2' }}</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
     <!-- ── ACTION BUTTONS ──────────────────────────────────────────────── -->
@@ -361,6 +369,33 @@
             {{ isView ? 'Back' : 'Cancel' }}
           </button>
 
+          <!-- ── Reference-field edit controls (view mode only) ── -->
+          <!-- Cancel ref edit -->
+          <button *ngIf="isView && isEditingRef"
+            type="button" class="btn btn-outline-secondary mr-2"
+            (click)="cancelEditRef()">
+            <mat-icon style="vertical-align:middle;font-size:18px">close</mat-icon>
+            Cancel Edit
+          </button>
+
+          <!-- Save reference fields -->
+          <button *ngIf="isView && isEditingRef && (userAccessModel.updateAccess || currentUser === 'superadmin')"
+            type="button" class="btn wlt-c-furg-btn-primary mr-2"
+            [disabled]="refSaving"
+            (click)="saveRef()">
+            <mat-icon style="vertical-align:middle;font-size:18px">save</mat-icon>
+            {{ refSaving ? 'Saving…' : 'Save Reference' }}
+          </button>
+
+          <!-- Enter ref-edit mode -->
+          <button *ngIf="isView && !isEditingRef && (userAccessModel.updateAccess || currentUser === 'superadmin')"
+            type="button" class="btn btn-outline-primary mr-2"
+            matTooltip="Edit Supplier Invoice No, Delivery Note and Remarks only. Quantities and stock are not changed."
+            (click)="startEditRef()">
+            <mat-icon style="vertical-align:middle;font-size:18px">edit</mat-icon>
+            Edit Reference
+          </button>
+
           <!-- Print PDF — only for a saved GRN (view mode) -->
           <button *ngIf="isView"
             type="button" class="btn btn-secondary mr-2"
@@ -369,6 +404,7 @@
             <mat-icon style="vertical-align:middle;font-size:18px">print</mat-icon>
             Print PDF
           </button>
+
           <button *ngIf="!isView && (userAccessModel.createAccess || currentUser === 'superadmin')"
             type="button"
             class="btn wlt-c-furg-btn-primary"

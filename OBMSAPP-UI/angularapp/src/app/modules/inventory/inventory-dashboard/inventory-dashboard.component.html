@@ -1,0 +1,476 @@
+<!-- ════════════════════════════════════════════════════════════════
+     Inventory Dashboard  ·  Matches reference screenshot exactly
+     ════════════════════════════════════════════════════════════════ -->
+
+<!-- Page Header -->
+<div class="wlt-c-furg-content-header">
+  <div class="container-fluid">
+    <div class="row mb-2 align-items-center">
+      <div class="col-12 col-md-7">
+        <h1 class="mb-0">Inventory Dashboard</h1>
+      </div>
+      <div class="col-12 col-md-5 text-md-right">
+        <ol class="breadcrumb float-md-right mb-0">
+          <li class="breadcrumb-item"><a routerLink="/dashboard">Dashboard</a></li>
+          <li class="breadcrumb-item active">Inventory Dashboard</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Loading -->
+<div class="inv-spinner-wrap" *ngIf="showLoadingSpinner">
+  <mat-spinner diameter="44" color="warn"></mat-spinner>
+</div>
+
+<!-- Permission warning -->
+<div class="container-fluid mt-2" *ngIf="warningMessage && !showLoadingSpinner">
+  <div class="inv-warning-bar">
+    <mat-icon>lock</mat-icon>
+    <span [innerHTML]="warningMessage"></span>
+  </div>
+</div>
+
+<!-- ═══════════ MAIN BODY ═══════════ -->
+<div class="container-fluid inv-body" *ngIf="!warningMessage && !showLoadingSpinner">
+
+  <!-- ╔══════════════════════════════════════════════════╗
+       ║  ROW 1 — Six KPI Cards                          ║
+       ╚══════════════════════════════════════════════════╝ -->
+  <div class="row inv-kpi-row g-2">
+
+    <div class="col-6 col-sm-4 col-lg-2 mb-2">
+      <div class="inv-kpi">
+        <div class="inv-kpi-icon" style="background:#dff0ff">
+          <mat-icon style="color:#1a73e8">category</mat-icon>
+        </div>
+        <div class="inv-kpi-body">
+          <p class="inv-kpi-label">Total Items</p>
+          <h3 class="inv-kpi-val">{{ totalItems | number }}</h3>
+          <p class="inv-kpi-sub">Active Items</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-6 col-sm-4 col-lg-2 mb-2">
+      <div class="inv-kpi">
+        <div class="inv-kpi-icon" style="background:#ede7f6">
+          <mat-icon style="color:#7b1fa2">account_balance_wallet</mat-icon>
+        </div>
+        <div class="inv-kpi-body">
+          <p class="inv-kpi-label">Total Stock Value</p>
+          <h3 class="inv-kpi-val inv-kpi-val--currency">RM&nbsp;{{ formatNum(totalStockValue) }}</h3>
+          <p class="inv-kpi-sub">All Warehouses</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-6 col-sm-4 col-lg-2 mb-2">
+      <div class="inv-kpi">
+        <div class="inv-kpi-icon" style="background:#e8f5e9">
+          <mat-icon style="color:#2e7d32">local_shipping</mat-icon>
+        </div>
+        <div class="inv-kpi-body">
+          <p class="inv-kpi-label">Total Stock Quantity</p>
+          <h3 class="inv-kpi-val">{{ formatQty(totalStockQty) }}</h3>
+          <p class="inv-kpi-sub">All Items</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-6 col-sm-4 col-lg-2 mb-2">
+      <div class="inv-kpi">
+        <div class="inv-kpi-icon" style="background:#fff8e1">
+          <mat-icon style="color:#f57c00">compare_arrows</mat-icon>
+        </div>
+        <div class="inv-kpi-body">
+          <p class="inv-kpi-label">Pending Transfers</p>
+          <h3 class="inv-kpi-val">{{ pendingTransfers | number }}</h3>
+          <p class="inv-kpi-sub">In-Transit</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-6 col-sm-4 col-lg-2 mb-2">
+      <div class="inv-kpi">
+        <div class="inv-kpi-icon" style="background:#fce4ec">
+          <mat-icon style="color:#c62828">assignment_late</mat-icon>
+        </div>
+        <div class="inv-kpi-body">
+          <p class="inv-kpi-label">Pending Issues</p>
+          <h3 class="inv-kpi-val inv-kpi-val--alert">{{ pendingIssues | number }}</h3>
+          <p class="inv-kpi-sub">To be Processed</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-6 col-sm-4 col-lg-2 mb-2">
+      <div class="inv-kpi">
+        <div class="inv-kpi-icon" [ngStyle]="{'background': lowStockItems > 0 ? '#fce4ec' : '#e0f2f1'}">
+          <mat-icon [style.color]="lowStockItems > 0 ? '#c62828' : '#00796b'">warning_amber</mat-icon>
+        </div>
+        <div class="inv-kpi-body">
+          <p class="inv-kpi-label">Low Stock Items</p>
+          <h3 class="inv-kpi-val" [class.inv-kpi-val--alert]="lowStockItems > 0">{{ lowStockItems | number }}</h3>
+          <p class="inv-kpi-sub">Below Reorder Level</p>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /kpi row -->
+
+
+  <!-- ╔══════════════════════════════════════════════════╗
+       ║  ROW 2 — Charts + Stock Summary                 ║
+       ╚══════════════════════════════════════════════════╝ -->
+  <div class="row mb-2 align-items-stretch">
+
+    <!-- Donut: Stock Value by Warehouse (4 cols) -->
+    <div class="col-12 col-md-4 mb-2">
+      <div class="inv-panel h-100">
+        <div class="inv-panel-head">
+          <span class="inv-panel-title">Stock Value by Warehouse</span>
+        </div>
+        <div class="inv-panel-body">
+          <ng-container *ngIf="donutSeries.length > 0; else emptyDonut">
+            <div class="inv-donut-wrap">
+              <apx-chart
+                [series]="donutSeries"
+                [chart]="donutChart"
+                [labels]="donutLabels"
+                [dataLabels]="donutDataLabels"
+                [legend]="donutLegend"
+                [tooltip]="donutTooltip"
+                [plotOptions]="donutPlotOptions"
+                [colors]="donutColors">
+              </apx-chart>
+            </div>
+            <div class="inv-donut-legend">
+              <div class="inv-legend-row" *ngFor="let lbl of donutLabels; let i = index">
+                <span class="inv-legend-dot" [style.background]="donutColors[i % donutColors.length]"></span>
+                <span class="inv-legend-name">{{ lbl }}</span>
+                <span class="inv-legend-amt">{{ donutValueLabels[i] }}</span>
+              </div>
+              <div class="inv-legend-footer">
+                <span>Total</span>
+                <span>RM {{ formatNum(donutTotal) }}</span>
+              </div>
+            </div>
+          </ng-container>
+          <ng-template #emptyDonut>
+            <div class="inv-empty"><mat-icon>pie_chart</mat-icon><p>No warehouse data</p></div>
+          </ng-template>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bar: Inward vs Outward (5 cols) -->
+    <div class="col-12 col-md-5 mb-2">
+      <div class="inv-panel h-100">
+        <div class="inv-panel-head d-flex justify-content-between align-items-center">
+          <span class="inv-panel-title">Stock Inward vs Outward (This Month)</span>
+          <div class="inv-legend-chips">
+            <span class="inv-chip inv-chip--green">● Inward (Qty)</span>
+            <span class="inv-chip inv-chip--red">● Outward (Qty)</span>
+          </div>
+        </div>
+        <div class="inv-panel-body">
+          <ng-container *ngIf="barSeries[0].data.length > 0; else emptyBar">
+            <apx-chart
+              [series]="barSeries"
+              [chart]="barChart"
+              [dataLabels]="barDataLabels"
+              [xaxis]="barXAxis"
+              [yaxis]="barYAxis"
+              [stroke]="barStroke"
+              [fill]="barFill"
+              [colors]="barColors"
+              [grid]="barGrid">
+            </apx-chart>
+          </ng-container>
+          <ng-template #emptyBar>
+            <div class="inv-empty"><mat-icon>bar_chart</mat-icon><p>No movement this month</p></div>
+          </ng-template>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stock Summary — right column (3 cols) -->
+    <div class="col-12 col-md-3 mb-2">
+      <div class="inv-panel h-100">
+        <div class="inv-panel-head">
+          <span class="inv-panel-title">Stock Summary (All Warehouses)</span>
+        </div>
+        <div class="inv-panel-body">
+          <div class="inv-stat-list">
+            <div class="inv-stat-row">
+              <span class="inv-stat-label">Opening Stock (Qty)</span>
+              <span class="inv-stat-val inv-stat-val--green">{{ formatQty(globalSummary.OpeningQty) }}</span>
+            </div>
+            <div class="inv-stat-row">
+              <span class="inv-stat-label">Stock Inward (Qty)</span>
+              <span class="inv-stat-val inv-stat-val--green">{{ formatQty(globalSummary.InwardQty) }}</span>
+            </div>
+            <div class="inv-stat-row">
+              <span class="inv-stat-label">Stock Outward (Qty)</span>
+              <span class="inv-stat-val inv-stat-val--red">{{ formatQty(globalSummary.OutwardQty) }}</span>
+            </div>
+            <div class="inv-stat-row">
+              <span class="inv-stat-label">Closing Stock (Qty)</span>
+              <span class="inv-stat-val inv-stat-val--green">{{ formatQty(globalSummary.ClosingQty) }}</span>
+            </div>
+            <div class="inv-stat-row inv-stat-row--total">
+              <span class="inv-stat-label">Stock Value</span>
+              <span class="inv-stat-val">RM {{ formatNum(globalSummary.StockValue) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /row 2 -->
+
+
+  <!-- ╔══════════════════════════════════════════════════╗
+       ║  ROW 3 — Quick Access · Low Stock · Pending     ║
+       ╚══════════════════════════════════════════════════╝ -->
+  <div class="row mb-2 align-items-stretch">
+
+    <!-- Quick Access (3 cols) -->
+    <div class="col-12 col-md-3 mb-2">
+      <div class="inv-panel h-100">
+        <div class="inv-panel-head">
+          <span class="inv-panel-title">Quick Access</span>
+        </div>
+        <div class="inv-panel-body">
+          <div class="inv-qa-grid">
+            <a class="inv-qa-tile" *ngFor="let lnk of quickLinks" [routerLink]="lnk.route">
+              <div class="inv-qa-icon" [ngStyle]="{'background': lnk.color + '18', 'border': '1px solid ' + lnk.color + '30'}">
+                <mat-icon [style.color]="lnk.color">{{ lnk.icon }}</mat-icon>
+              </div>
+              <span class="inv-qa-label">{{ lnk.label }}</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Low Stock Alert (6 cols) -->
+    <div class="col-12 col-md-6 mb-2">
+      <div class="inv-panel h-100">
+        <div class="inv-panel-head d-flex justify-content-between align-items-center">
+          <span class="inv-panel-title">
+            <mat-icon class="inv-warn-icon">warning</mat-icon>
+            Low Stock Alert
+          </span>
+        </div>
+        <div class="inv-panel-body inv-panel-body--notop">
+          <ng-container *ngIf="lowStockAlerts.length > 0; else noLowStock">
+            <div class="table-responsive">
+              <table class="inv-tbl">
+                <thead>
+                  <tr>
+                    <th>Item Code</th>
+                    <th>Item Name</th>
+                    <th>Warehouse</th>
+                    <th class="text-right">Available Qty</th>
+                    <th class="text-right">Reorder Level</th>
+                    <th class="text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let r of lowStockAlerts">
+                    <td><span class="inv-item-code">{{ r.ItemCode }}</span></td>
+                    <td>{{ r.ItemName }}</td>
+                    <td class="inv-td-muted">{{ r.WarehouseName }}</td>
+                    <td class="text-right inv-qty-low">{{ formatQty(r.CurrentStock) }}</td>
+                    <td class="text-right inv-td-muted">{{ formatQty(r.ReorderLevel) }}</td>
+                    <td class="text-center"><span class="inv-badge-low">Low</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <a class="inv-view-more" routerLink="/inventory/stock-balance-summary">
+              View All Low Stock Items →
+            </a>
+          </ng-container>
+          <ng-template #noLowStock>
+            <div class="inv-empty inv-empty--ok">
+              <mat-icon>check_circle_outline</mat-icon>
+              <p>All items are above reorder level</p>
+            </div>
+          </ng-template>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pending Activities (3 cols) -->
+    <div class="col-12 col-md-3 mb-2">
+      <div class="inv-panel h-100">
+        <div class="inv-panel-head">
+          <span class="inv-panel-title">Pending Activities</span>
+        </div>
+        <div class="inv-panel-body inv-panel-body--notop">
+          <div class="inv-act-list">
+
+            <button class="inv-act-row inv-act-row--btn"
+                    (click)="openPendingActivity('PO', 'PRs Awaiting Purchase Order', pendingActivities?.POsPending ?? 0)">
+              <div class="inv-act-left">
+                <mat-icon class="inv-act-icon" style="color:#1a73e8">shopping_cart</mat-icon>
+                <span>Purchase Orders Pending</span>
+              </div>
+              <span class="inv-act-num" style="color:#1a73e8">{{ pendingActivities?.POsPending ?? 0 }}</span>
+            </button>
+
+            <button class="inv-act-row inv-act-row--btn"
+                    (click)="openPendingActivity('GRN', 'POs Awaiting GRN', pendingActivities?.GRNsPending ?? 0)">
+              <div class="inv-act-left">
+                <mat-icon class="inv-act-icon" style="color:#2e7d32">move_to_inbox</mat-icon>
+                <span>GRN Pending</span>              </div>
+              <span class="inv-act-num" style="color:#2e7d32">{{ pendingActivities?.GRNsPending ?? 0 }}</span>
+            </button>
+
+            <button class="inv-act-row inv-act-row--btn"
+                    (click)="openPendingActivity('TRANSFER', 'BSRs Awaiting Transfer', pendingActivities?.TransfersPending ?? 0)">
+              <div class="inv-act-left">
+                <mat-icon class="inv-act-icon" style="color:#f57c00">sync_alt</mat-icon>
+                <span>Stock Transfers Pending</span>
+              </div>
+              <span class="inv-act-num" style="color:#f57c00">{{ pendingActivities?.TransfersPending ?? 0 }}</span>
+            </button>
+
+            <button class="inv-act-row inv-act-row--btn"
+                    (click)="openPendingActivity('APPROVAL', 'Pending Approvals', pendingActivities?.PendingIssues ?? 0)">
+              <div class="inv-act-left">
+                <mat-icon class="inv-act-icon" style="color:#e65100">pending_actions</mat-icon>
+                <span>Pending Approvals</span>
+              </div>
+              <span class="inv-act-num" style="color:#e65100">{{ pendingActivities?.PendingIssues ?? 0 }}</span>
+            </button>
+
+            <button class="inv-act-row inv-act-row--btn"
+                    (click)="openPendingActivity('ADJUSTMENT', 'Pending Stock Adjustments', pendingActivities?.AdjustmentsPending ?? 0)">
+              <div class="inv-act-left">
+                <mat-icon class="inv-act-icon" style="color:#7b1fa2">tune</mat-icon>
+                <span>Stock Adjustments Pending</span>
+              </div>
+              <span class="inv-act-num" style="color:#7b1fa2">{{ pendingActivities?.AdjustmentsPending ?? 0 }}</span>
+            </button>
+
+          </div>
+          <a class="inv-view-more" routerLink="/administration/pending-approvals">
+            View All Pending Activities →
+          </a>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /row 3 -->
+
+
+  <!-- ╔══════════════════════════════════════════════════╗
+       ║  ROW 4 — Recent Transactions · WH Stock Qty     ║
+       ╚══════════════════════════════════════════════════╝ -->
+  <div class="row mb-2 align-items-stretch">
+
+    <!-- Recent Stock Transactions (6 cols) -->
+    <div class="col-12 col-md-6 mb-2">
+      <div class="inv-panel">
+        <div class="inv-panel-head">
+          <span class="inv-panel-title">Recent Stock Transactions</span>
+        </div>
+        <div class="inv-panel-body inv-panel-body--notop">
+          <ng-container *ngIf="recentTransactions.length > 0; else noTx">
+            <div class="table-responsive">
+              <table class="inv-tbl">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Ref No</th>
+                    <th>Item</th>
+                    <th>Warehouse</th>
+                    <th class="text-right">Qty</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let t of recentTransactions">
+                    <td class="inv-td-muted">{{ formatDate(t.TxDate) }}</td>
+                    <td>{{ t.TxType }}</td>
+                    <td><span class="inv-item-code">{{ t.RefNo || '—' }}</span></td>
+                    <td>{{ t.ItemName }}</td>
+                    <td class="inv-td-muted">{{ t.WarehouseName }}</td>
+                    <td class="text-right"
+                        [class.inv-qty-in]="isInward(t.TxTypeCode)"
+                        [class.inv-qty-out]="!isInward(t.TxTypeCode)">
+                      <strong>{{ formatQty(t.Qty) }}</strong>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <a class="inv-view-more" routerLink="/inventory/stock-ledger">
+              View All Transactions →
+            </a>
+          </ng-container>
+          <ng-template #noTx>
+            <div class="inv-empty"><mat-icon>receipt_long</mat-icon><p>No recent transactions</p></div>
+          </ng-template>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stock Qty by Warehouse — Top 5 Items (6 cols) -->
+    <div class="col-12 col-md-6 mb-2">
+      <div class="inv-panel">
+        <div class="inv-panel-head">
+          <span class="inv-panel-title">Stock Quantity by Warehouse (Top 5 Items)</span>
+        </div>
+        <div class="inv-panel-body inv-panel-body--notop">
+          <ng-container *ngIf="whQtyRows.length > 0; else noWh">
+            <div class="table-responsive">
+              <table class="inv-tbl">
+                <thead>
+                  <tr>
+                    <th>Item Name</th>
+                    <th class="text-right" *ngFor="let wh of whQtyHeaders">{{ wh }}</th>
+                    <th class="text-right">Total Qty</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of whQtyRows">
+                    <td>{{ row.ItemName }}</td>
+                    <td class="text-right inv-td-muted" *ngFor="let wh of whQtyHeaders">
+                      {{ formatQty(row[wh] || 0) }}
+                    </td>
+                    <td class="text-right"><strong>{{ formatQty(row.TotalQty) }}</strong></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <a class="inv-view-more" routerLink="/inventory/stock-balance-summary">
+              View Full Stock Summary Report →
+            </a>
+          </ng-container>
+          <ng-template #noWh>
+            <div class="inv-empty"><mat-icon>table_chart</mat-icon><p>No stock data</p></div>
+          </ng-template>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /row 4 -->
+
+
+  <!-- Footer -->
+  <div class="inv-footer">
+    <mat-icon class="inv-footer-icon">info_outline</mat-icon>
+    <span>All values are calculated based on current data.</span>
+    <span *ngIf="lastUpdated">&nbsp; Last updated on {{ lastUpdated | date:'dd MMM yyyy HH:mm' }}</span>
+    <button class="inv-footer-refresh" (click)="loadDashboard()">
+      <mat-icon>refresh</mat-icon> Refresh
+    </button>
+  </div>
+
+</div><!-- /inv-body -->

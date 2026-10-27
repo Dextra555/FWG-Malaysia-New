@@ -510,6 +510,35 @@ export class InventoryService {
       .pipe(catchError(this.errorHandle));
   }
 
+  // ── Pending Activities popup helpers ──────────────────────────────────────
+  // Each method reuses the existing list endpoint and returns an Observable so
+  // the dialog can call whichever one it needs without a new API endpoint.
+
+  /** Returns Approved PRs that have no PO created yet (true "PO Pending"). */
+  getPendingPOs(): Observable<any[]> {
+    return this.getPRList();  // dialog filters by Status = 'Approved' AND no linked PO
+  }
+
+  /** Returns Approved/Partially Received POs that have no GRN yet (true "GRN Pending"). */
+  getPendingGRNs(): Observable<any[]> {
+    return this.getPOList();  // dialog filters by Status Approved / Partially Received
+  }
+
+  /** Returns Approved BSRs that have no linked Transfer yet (true "Transfer Pending"). */
+  getPendingTransfers(): Observable<any[]> {
+    return this.getBSRList();  // dialog filters by Status=Approved AND LinkedTransferID is null
+  }
+
+  /** Returns Stock Issues this month (matches dashboard count). */
+  getPendingIssues(): Observable<any[]> {
+    return this.getStockIssueList();    // dialog filters by current month
+  }
+
+  /** Returns Stock Adjustments in Draft or Submitted status (matches dashboard count). */
+  getPendingAdjustments(): Observable<any[]> {
+    return this.getStockAdjustmentList(); // dialog filters by Status Draft/Submitted
+  }
+
   // ── Part 3: Purchase Order ─────────────────────────────────────────────────
 
   getPOList(): Observable<any[]> {
@@ -619,6 +648,13 @@ export class InventoryService {
   deleteGRN(id: number, currentUser: string): Observable<any> {
     return this.httpClient.post<any>(
       `${this.apiUrl}Inventory/DeleteGRN/${id}?currentUser=${encodeURIComponent(currentUser)}`, null)
+      .pipe(catchError(this.errorHandle));
+  }
+
+  /** Updates only SupplierInvoiceNo, DeliveryNoteRef, and Remarks on a posted GRN.
+   *  Stock ledger, PO quantities, and finance records are NOT changed. */
+  updateGRNReference(body: { ID: number; SupplierInvoiceNo?: string; DeliveryNoteRef?: string; Remarks?: string }): Observable<any> {
+    return this.httpClient.post<any>(this.apiUrl + 'Inventory/UpdateGRNReference', body)
       .pipe(catchError(this.errorHandle));
   }
 
@@ -1263,6 +1299,18 @@ export class InventoryService {
   /** Rejects a Submitted BSR. ApprovalRemarks is mandatory. */
   rejectBSR(id: number, body: any): Observable<any> {
     return this.httpClient.post<any>(`${this.apiUrl}StockRequest/RejectBSR/${id}`, body)
+      .pipe(catchError(this.errorHandle));
+  }
+
+  // ── Inventory Dashboard ──────────────────────────────────────────────────
+
+  /**
+   * Returns all dashboard data in a single API call:
+   * KPI cards, warehouse donut, monthly bar chart, warehouse summary table.
+   * Maps to GET api/Inventory/GetInventoryDashboard → sp_InventoryDashboard.
+   */
+  getInventoryDashboard(): Observable<any> {
+    return this.httpClient.get<any>(this.apiUrl + 'Inventory/GetInventoryDashboard')
       .pipe(catchError(this.errorHandle));
   }
 

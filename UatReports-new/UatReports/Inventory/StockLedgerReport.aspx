@@ -62,7 +62,7 @@
             ? (Lookup("SELECT Name FROM ItemMaster WHERE ID=@p", itemID.ToString()) ?? itemIDStr)
             : "All Items";
         string typeLbl   = TypeLabel(transactionType);
-        string period    = startDate.ToString("dd MMM yyyy") + " \u2013 " + endDate.ToString("dd MMM yyyy");
+        string period    = startDate.ToString("dd MMM yyyy") + " to " + endDate.ToString("dd MMM yyyy");
 
         // ── 4. Build PDF or Excel based on ?format= ──────────────────────
         string format = (Request.QueryString["format"] ?? "pdf").ToLower().Trim();
@@ -229,6 +229,7 @@
                 new[]{ "Period:",           period   }
             };
             var ft = new PdfPTable(4) { WidthPercentage = 100f, SpacingAfter = 8f };
+            ft.SetWidths(new float[] { 1.2f, 2.3f, 1.2f, 2.3f });
             ft.DefaultCell.Border = Rectangle.NO_BORDER;
             foreach (var f in filters)
             {
@@ -605,11 +606,11 @@
 
     private class FooterEvent : PdfPageEventHelper
     {
-        private readonly string    _user;
-        private readonly Font      _font;
-        private readonly BaseColor _navy;
+        private readonly string                _user;
+        private readonly iTextSharp.text.Font  _font;
+        private readonly BaseColor             _navy;
 
-        public FooterEvent(string user, Font font, BaseColor navy)
+        public FooterEvent(string user, iTextSharp.text.Font font, BaseColor navy)
         { _user = user; _font = font; _navy = navy; }
 
         public override void OnEndPage(PdfWriter writer, Document doc)

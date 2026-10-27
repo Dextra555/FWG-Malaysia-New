@@ -1,0 +1,118 @@
+<div class="wlt-c-furg-content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-12 col-sm-12 col-md-4 col-lg-4">
+        <h1 class="mb-1">Report / Branch Asset</h1>
+      </div>
+      <div class="col-12 col-sm-12 col-md-8 col-lg-8 my-1">
+        <ol class="breadcrumb float-md-right">
+          <li class="breadcrumb-item"><a routerLink="/dashboard">Report</a></li>
+          <li class="breadcrumb-item active">Branch Asset</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+
+<mat-card class="report-card">
+  <mat-card-content>
+
+    <!-- Access denied -->
+    <div *ngIf="warningMessage !== ''" class="mt-2">
+      <mat-label style="color:red" [innerHTML]="warningMessage"></mat-label>
+    </div>
+
+    <form [formGroup]="frm" (ngSubmit)="onSubmit()" *ngIf="warningMessage === ''">
+
+      <!-- Row 1: Filters -->
+      <div class="row align-items-center">
+
+        <!-- Branch (optional) -->
+        <div class="col-12 col-sm-6 col-md-3 col-lg-3">
+          <mat-form-field appearance="outline">
+            <mat-label>Branch</mat-label>
+            <mat-select formControlName="BranchID">
+              <mat-option value="0">All Branches</mat-option>
+              <mat-option *ngFor="let b of branchList" [value]="b.ID">{{ b.Name }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <!-- Asset Status (optional) -->
+        <div class="col-12 col-sm-6 col-md-2 col-lg-2">
+          <mat-form-field appearance="outline">
+            <mat-label>Asset Status</mat-label>
+            <mat-select formControlName="AssetStatus">
+              <mat-option *ngFor="let s of assetStatusOptions" [value]="s.value">
+                {{ s.label }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <!-- Asset Type (optional) -->
+        <div class="col-12 col-sm-6 col-md-2 col-lg-2">
+          <mat-form-field appearance="outline">
+            <mat-label>Asset Type</mat-label>
+            <mat-select formControlName="AssetType">
+              <mat-option *ngFor="let t of assetTypeOptions" [value]="t.value">
+                {{ t.label }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <!-- Info badge -->
+        <div class="col-12 col-sm-6 col-md-3 col-lg-3">
+          <span style="font-size:12px; background-color:#1a3a5c; color:#fff;
+                       border-radius:4px; padding:6px 10px; display:inline-block;">
+            <mat-icon style="vertical-align:middle; font-size:16px; margin-right:4px;">info</mat-icon>
+            Shows current asset allocation status
+          </span>
+        </div>
+
+      </div>
+
+      <!-- Row 2: Buttons -->
+      <div class="row mt-1">
+        <div class="col-12 text-right">
+          <button type="button" class="btn btn-outline-secondary mr-2" (click)="onClear()">
+            Clear
+          </button>
+          <button type="submit" class="btn wlt-c-furg-btn-primary mr-2">
+            Search
+          </button>
+          <button type="button" class="btn btn-success" (click)="onExportExcel()">
+            <mat-icon style="vertical-align:middle; font-size:18px; margin-right:4px">table_view</mat-icon>
+            Export Excel
+          </button>
+        </div>
+      </div>
+
+      <!-- Error message -->
+      <div class="row" *ngIf="errorMessage !== ''">
+        <div class="col-12">
+          <mat-label style="color:red">{{ errorMessage }}</mat-label>
+        </div>
+      </div>
+
+    </form>
+
+    <br />
+
+    <!-- PDF rendered inline in iframe -->
+    <iframe class="report-wrapper fixed-height"
+            *ngIf="warningMessage === '' && urlSafe"
+            [src]="urlSafe">
+    </iframe>
+
+  </mat-card-content>
+</mat-card>
+
+<!-- Loading spinner -->
+<div [style.display]="showLoadingSpinner ? 'block' : 'none'"
+     style="margin-top:-10.5rem; display:block; margin-left:-6.5rem;">
+  <div class="d-flex justify-content-center">
+    <span class="loader"></span>
+  </div>
+</div>

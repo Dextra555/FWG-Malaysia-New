@@ -1,0 +1,122 @@
+<!-- ════════════════════════════════════════════════════════════════
+     Pending Activity Dialog
+     Reuses OBMS maroon theme + mat-dialog pattern from
+     ApprovalHistoryDialogComponent
+     ════════════════════════════════════════════════════════════════ -->
+
+<!-- Dialog Title -->
+<div class="pad-header" mat-dialog-title>
+  <div class="pad-header-left">
+    <mat-icon class="pad-header-icon">pending_actions</mat-icon>
+    <span class="pad-header-title">{{ data.title }}</span>
+    <span class="pad-count-chip">{{ filteredRows.length }}</span>
+  </div>
+  <button mat-icon-button class="pad-close-btn" (click)="close()" aria-label="Close">
+    <mat-icon>close</mat-icon>
+  </button>
+</div>
+
+<mat-dialog-content class="pad-content">
+
+  <!-- Loading -->
+  <div class="pad-state-wrap" *ngIf="loading">
+    <mat-spinner diameter="40" color="warn"></mat-spinner>
+    <p class="pad-state-msg">Loading documents…</p>
+  </div>
+
+  <!-- Error -->
+  <div class="pad-error" *ngIf="!loading && errorMessage">
+    <mat-icon>error_outline</mat-icon>
+    <span>{{ errorMessage }}</span>
+  </div>
+
+  <!-- Search + table -->
+  <ng-container *ngIf="!loading && !errorMessage">
+
+    <!-- Search box -->
+    <div class="pad-search-wrap">
+      <mat-form-field appearance="outline" class="pad-search-field">
+        <mat-label>Search documents…</mat-label>
+        <input matInput (input)="applyFilter($event)" [value]="filterText"
+               placeholder="Document number, supplier, warehouse…">
+        <mat-icon matSuffix>search</mat-icon>
+      </mat-form-field>
+    </div>
+
+    <!-- Empty state -->
+    <div class="pad-state-wrap" *ngIf="filteredRows.length === 0">
+      <mat-icon class="pad-empty-icon">inbox</mat-icon>
+      <p class="pad-state-msg" *ngIf="!filterText">No pending documents found.</p>
+      <p class="pad-state-msg" *ngIf="filterText">
+        No results for <strong>"{{ filterText }}"</strong>.
+      </p>
+    </div>
+
+    <!-- Table -->
+    <div class="table-responsive" *ngIf="filteredRows.length > 0">
+      <table class="pad-table">
+        <thead>
+          <tr>
+            <th *ngFor="let col of columns"
+                [class.text-right]="col.align === 'right'"
+                [class.text-center]="col.align === 'center'">
+              {{ col.label }}
+            </th>
+            <th class="text-center">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of filteredRows">
+            <td *ngFor="let col of columns"
+                [class.text-right]="col.align === 'right'"
+                [class.text-center]="col.align === 'center'">
+
+              <!-- Document number — clickable link → goes to the document view page -->
+              <ng-container *ngIf="isDocNumColumn(col.key)">
+                <a class="pad-doc-link" href="javascript:void(0)"
+                   (click)="navigateToDoc(row)"
+                   [title]="'View ' + cellValue(row, col)">
+                  {{ cellValue(row, col) }}
+                </a>
+              </ng-container>
+
+              <!-- Status badge -->
+              <ng-container *ngIf="isStatusColumn(col.key)">
+                <span [ngClass]="statusClass(row[col.key])">
+                  {{ row[col.key] || '—' }}
+                </span>
+              </ng-container>
+
+              <!-- Amount -->
+              <ng-container *ngIf="isAmountColumn(col.key)">
+                <span class="pad-amount">{{ cellValue(row, col) }}</span>
+              </ng-container>
+
+              <!-- Plain text -->
+              <ng-container *ngIf="!isDocNumColumn(col.key) && !isStatusColumn(col.key) && !isAmountColumn(col.key)">
+                {{ cellValue(row, col) }}
+              </ng-container>
+
+            </td>
+            <!-- Open button (always last column) -->
+            <td class="text-center">
+              <button mat-icon-button color="primary" (click)="navigateTo(row)"
+                      [matTooltip]="data.activityType === 'PO' ? 'Create PO for this PR' : data.activityType === 'GRN' ? 'Create GRN for this PO' : data.activityType === 'TRANSFER' ? 'Open BSR to create Transfer' : 'Open document'"
+                      class="pad-open-btn">
+                <mat-icon>open_in_new</mat-icon>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </ng-container>
+</mat-dialog-content>
+
+<!-- Footer -->
+<mat-dialog-actions align="end" class="pad-actions">
+  <button mat-button class="pad-btn-close" (click)="close()">
+    <mat-icon>close</mat-icon>&nbsp;Close
+  </button>
+</mat-dialog-actions>

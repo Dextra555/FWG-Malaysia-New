@@ -52,6 +52,9 @@ export class HeaderComponent implements OnInit {
       case 'master':
         this._router.navigate(['/master/report/employee-expiry-reminder']);
         break;
+      case 'inventory':
+        this._router.navigate(['/inventory/dashboard']);
+        break;
       default:
         this._router.navigate(['/dashboard']);
         break;

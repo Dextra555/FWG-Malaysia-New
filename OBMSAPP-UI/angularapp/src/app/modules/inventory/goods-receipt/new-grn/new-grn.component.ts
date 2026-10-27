@@ -25,6 +25,14 @@ export class NewGRNComponent implements OnInit {
   /** SST total and grand total for the saved GRN (view mode) */
   viewSSTTotalAmt  = 0;
   viewGrandTotalAmt = 0;
+
+  // ── Reference-field inline edit (view mode only) ─────────────────────────
+  isEditingRef    = false;   // toggles the edit inputs in view mode
+  refSaving       = false;   // disables Save button while API call is in flight
+  refSupplierInvoiceNo = '';
+  refDeliveryNoteRef   = '';
+  refRemarks           = '';
+
   // Search filter state
   poSearch = ''; filteredPOs: any[] = [];
 
@@ -134,6 +142,12 @@ export class NewGRNComponent implements OnInit {
         // Store SST totals from the GRN header for the footer display
         this.viewSSTTotalAmt   = d.SSTTotal   || 0;
         this.viewGrandTotalAmt = d.GrandTotal  || 0;
+
+        // Pre-fill the editable ref fields so the inputs are ready when the
+        // user clicks Edit Reference without having to retype the existing values
+        this.refSupplierInvoiceNo = d.SupplierInvoiceNo || '';
+        this.refDeliveryNoteRef   = d.DeliveryNoteRef   || '';
+        this.refRemarks           = d.Remarks           || '';
 
         // Populate poInfo for the view-mode PO summary panel.
         // Try the already-loaded approvedPOs list first; fall back to a direct API call.
@@ -257,6 +271,51 @@ export class NewGRNComponent implements OnInit {
     this.service.saveGRN(payload).subscribe({
       next: (res: any) => { this.showMsg(res?.message || 'Goods receipt saved. Stock has been updated.', 'success', 'Success Message'); this.route.navigateByUrl('/dummy', { skipLocationChange: true }).then(() => this.route.navigate(['/inventory/goods-receipt'])); },
       error: (err: any) => { this.showMsg(this.extractMsg(err, 'Unable to save the goods receipt right now. Please try again. If the problem continues, contact your administrator.'), 'error', 'Error Message'); this.hideSpinner(); }
+    });
+  }
+
+  // ── Reference-field inline edit (view mode) ─────────────────────────────
+
+  /** Enter edit mode for the three reference fields. */
+  startEditRef(): void {
+    // Refresh from current form values in case the user navigated back without saving
+    this.refSupplierInvoiceNo = this.frm.get('SupplierInvoiceNo')?.value || '';
+    this.refDeliveryNoteRef   = this.frm.get('DeliveryNoteRef')?.value   || '';
+    this.refRemarks           = this.frm.get('Remarks')?.value           || '';
+    this.isEditingRef = true;
+  }
+
+  /** Cancel reference edit without saving. */
+  cancelEditRef(): void {
+    this.isEditingRef = false;
+  }
+
+  /** POST only the three reference fields to the API. No stock/ledger/PO changes. */
+  saveRef(): void {
+    if (this.refSaving) return;
+    this.refSaving = true;
+    const payload = {
+      ID:               +this.ID,
+      SupplierInvoiceNo: this.refSupplierInvoiceNo.trim(),
+      DeliveryNoteRef:   this.refDeliveryNoteRef.trim(),
+      Remarks:           this.refRemarks.trim()
+    };
+    this.service.updateGRNReference(payload).subscribe({
+      next: (res: any) => {
+        // Reflect the saved values back into the read-only display
+        this.frm.patchValue({
+          SupplierInvoiceNo: payload.SupplierInvoiceNo,
+          DeliveryNoteRef:   payload.DeliveryNoteRef,
+          Remarks:           payload.Remarks
+        });
+        this.isEditingRef = false;
+        this.refSaving    = false;
+        this.showMsg(res?.message || 'Reference updated successfully.', 'success', 'Success Message');
+      },
+      error: (err: any) => {
+        this.refSaving = false;
+        this.showMsg(this.extractMsg(err, 'Unable to update right now. Please try again.'), 'error', 'Error Message');
+      }
     });
   }
 

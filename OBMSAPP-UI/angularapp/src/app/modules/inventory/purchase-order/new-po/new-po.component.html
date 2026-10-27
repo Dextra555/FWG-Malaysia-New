@@ -118,13 +118,14 @@
 
       <!-- ── VIEW MODE ── -->
       <div *ngIf="isEdit && !canEdit()" class="row mb-3">
-        <div class="col-6 col-md-2">
+        <!-- Row 1: PO Number | Supplier | Warehouse -->
+        <div class="col-6 col-md-3">
           <div class="wlt-view-field">
             <span class="wlt-view-label">PO Number</span>
             <span class="wlt-view-value">{{frm.get('PONumber')?.value || '—'}}</span>
           </div>
         </div>
-        <div class="col-6 col-md-4">
+        <div class="col-6 col-md-3">
           <div class="wlt-view-field">
             <span class="wlt-view-label">Supplier</span>
             <span class="wlt-view-value">{{viewSupplierName}}</span>
@@ -136,22 +137,24 @@
             <span class="wlt-view-value">{{viewWarehouseName}}</span>
           </div>
         </div>
+        <!-- Row 1 col 4: PO Date -->
         <div class="col-6 col-md-3">
           <div class="wlt-view-field">
             <span class="wlt-view-label">PO Date</span>
             <span class="wlt-view-value">{{frm.get('PODate')?.value | date:'dd/MM/yyyy'}}</span>
           </div>
         </div>
+        <!-- Row 2: Expected Date | Remarks | (empty) | (empty) -->
         <div class="col-6 col-md-3">
           <div class="wlt-view-field">
             <span class="wlt-view-label">Expected Delivery Date</span>
             <span class="wlt-view-value">{{frm.get('ExpectedDate')?.value | date:'dd/MM/yyyy'}}</span>
           </div>
         </div>
-        <div class="col-12 col-md-6" *ngIf="frm.get('Remarks')?.value">
+        <div class="col-6 col-md-3">
           <div class="wlt-view-field">
             <span class="wlt-view-label">Remarks</span>
-            <span class="wlt-view-value">{{frm.get('Remarks')?.value}}</span>
+            <span class="wlt-view-value">{{frm.get('Remarks')?.value || '—'}}</span>
           </div>
         </div>
       </div>
@@ -401,37 +404,25 @@
             </td>
           </tr>
 
-          <!-- ── Totals footer ── -->
-          <!-- Sub-Total row -->
-          <tr class="mat-row" *ngIf="lines.length > 0">
-            <td [attr.colspan]="canEdit() ? 10 : 9" style="text-align:right;border-top:2px solid #dee2e6">
-              <strong>Sub-Total (RM)</strong>
-            </td>
-            <td style="text-align:right;border-top:2px solid #dee2e6">
-              <strong style="color:#1976d2">{{formatAmount(totalAmount)}}</strong>
-            </td>
-            <td *ngIf="canEdit()"></td>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ── Document Totals Summary ─────────────────────────────────────── -->
+    <div class="summary-wrapper" *ngIf="lines.length > 0">
+      <table class="summary-table">
+        <tbody>
+          <tr>
+            <th>Sub-Total (RM)</th>
+            <td>{{formatAmount(totalAmount)}}</td>
           </tr>
-          <!-- SST Total row — only shown when any line has SST -->
-          <tr class="mat-row" *ngIf="lines.length > 0 && sstTotal > 0">
-            <td [attr.colspan]="canEdit() ? 10 : 9" style="text-align:right">
-              <strong>SST (RM)</strong>
-            </td>
-            <td style="text-align:right">
-              <strong style="color:#e65100">{{formatAmount(sstTotal)}}</strong>
-            </td>
-            <td *ngIf="canEdit()"></td>
+          <tr *ngIf="sstTotal > 0">
+            <th>SST (RM)</th>
+            <td class="summary-tax-amount">{{formatAmount(sstTotal)}}</td>
           </tr>
-          <!-- Grand Total row -->
-          <tr class="mat-row" *ngIf="lines.length > 0">
-            <td [attr.colspan]="canEdit() ? 10 : 9"
-              style="text-align:right;border-top:2px solid #1976d2;background:#e3f2fd">
-              <strong>Grand Total (RM)</strong>
-            </td>
-            <td style="text-align:right;border-top:2px solid #1976d2;background:#e3f2fd">
-              <strong style="color:#1565c0;font-size:1.05em">{{formatAmount(grandTotal)}}</strong>
-            </td>
-            <td *ngIf="canEdit()" style="background:#e3f2fd"></td>
+          <tr class="summary-grand-total">
+            <th>Grand Total (RM)</th>
+            <td>{{formatAmount(grandTotal)}}</td>
           </tr>
         </tbody>
       </table>

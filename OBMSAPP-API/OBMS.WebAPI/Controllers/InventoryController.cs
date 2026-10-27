@@ -2424,6 +2424,34 @@ namespace OBMS.WebAPI.Controllers
         }
 
 
+        /// <summary>
+        /// Updates only the reference/admin fields (SupplierInvoiceNo, DeliveryNoteRef, Remarks)
+        /// on an already-posted GRN. Stock ledger, PO quantities, and CreditorInvoice totals
+        /// are never modified by this endpoint.
+        /// </summary>
+        [HttpPost("UpdateGRNReference")]
+        public async Task<IActionResult> UpdateGRNReference([FromBody] UpdateGRNRefDto dto)
+        {
+            if (dto.ID <= 0)
+                return BadRequest(new { success = false, message = "Invalid GRN ID." });
+
+            // Stamp the authenticated user — never trust client-supplied LastUpdatedBy
+            var jwtUser = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
+            if (!string.IsNullOrWhiteSpace(jwtUser)) dto.LastUpdatedBy = jwtUser;
+
+            try
+            {
+                var (success, message) = await _inventoryRepository.UpdateGRNReference(dto);
+                if (!success) return BadRequest(new { success = false, message });
+                return Ok(new { success = true, message });
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[UpdateGRNReference] {ex}");
+                return StatusCode(500, new { success = false, message = "Unable to update the goods receipt right now. Please try again." });
+            }
+        }
+
         // ════════════════════════════════════════════════════════════════════════
         // PART 3 — PURCHASE RETURN ENDPOINTS
         // ════════════════════════════════════════════════════════════════════════
@@ -3197,6 +3225,37 @@ namespace OBMS.WebAPI.Controllers
             {
                 Console.Error.WriteLine($"[GetEmployeeIssueRegister] {ex}");
                 return StatusCode(500, new { success = false, message = "Unable to load the staff issue register right now. Please try again." });
+            }
+        }
+
+        // ════════════════════════════════════════════════════════════════════════
+        // INVENTORY DASHBOARD ENDPOINT
+        // ════════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Returns all Inventory Dashboard data in a single call:
+        ///   - KPI cards (6 figures)
+        ///   - Warehouse stock value breakdown (donut chart)
+        ///   - Current-month inward vs outward by day (bar chart)
+        ///   - Stock summary per warehouse (table)
+        ///
+        /// Data is sourced from StockLedger via sp_InventoryDashboard.
+        /// No authorization filter — follows the same open-endpoint pattern
+        /// as all other InventoryController endpoints; screen-level access
+        /// control is enforced by the Angular component via getUserAccessRights.
+        /// </summary>
+        [HttpGet("GetInventoryDashboard")]
+        public async Task<IActionResult> GetInventoryDashboard()
+        {
+            try
+            {
+                var data = await _inventoryRepository.GetInventoryDashboard();
+                return Ok(data);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[GetInventoryDashboard] {ex}");
+                return StatusCode(500, new { success = false, message = "Unable to load the inventory dashboard right now. Please try again." });
             }
         }
 

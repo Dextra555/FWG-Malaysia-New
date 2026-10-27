@@ -182,6 +182,11 @@ namespace OBMS.WebAPI.Repositories.Interface
         Task<(bool Success, string Message, GoodsReceiptNote? Record)> SaveGRN(GRNRequestDto dto);
         Task<(bool CanDelete, string? BlockingMessage, string? BlockingDocNumber)> CheckGRNDependency(int id);
         Task<(bool Success, string Message)> DeleteGRN(int id, string currentUser);
+        /// <summary>
+        /// Updates only SupplierInvoiceNo, DeliveryNoteRef, and Remarks on a posted GRN.
+        /// Does NOT touch stock ledger, PO quantities, or CreditorInvoice.
+        /// </summary>
+        Task<(bool Success, string Message)> UpdateGRNReference(UpdateGRNRefDto dto);
 
         // ── Part 3: Purchase Return ───────────────────────────────────────────────
 
@@ -376,6 +381,14 @@ namespace OBMS.WebAPI.Repositories.Interface
         /// Called after the user creates the transfer from the approved BSR form.
         /// </summary>
         Task<(bool Success, string Message)> LinkBSRTransfer(int id, int transferID, string currentUser);
+
+    // ── Inventory Dashboard ───────────────────────────────────────────────────
+
+    /// <summary>
+    /// Executes sp_InventoryDashboard and returns all KPI, chart, and summary
+    /// data in a single call. Reads from StockLedger as the single source of truth.
+    /// </summary>
+    Task<InventoryDashboardDto> GetInventoryDashboard();
 
     // ── Stock Issue → Uniform Loan integration ────────────────────────────────
     /// <summary>
