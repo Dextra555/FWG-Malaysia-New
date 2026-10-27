@@ -1,0 +1,10 @@
+{
+  "name": "obmsapp-ui",
+  "version": "0.0.0",
+  "scripts": {
+    "preinstall": "cd angularapp && npm install",
+    "start": "cd angularapp && npm start",
+    "build": "cd angularapp && npm run build",
+    "test": "cd angularapp && npm test"
+  }
+}

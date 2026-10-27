@@ -145,6 +145,18 @@ public partial class OBMSDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // Global convention: set decimal(18,4) for all decimal properties to suppress EF Core warnings
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            foreach (var property in entityType.GetProperties())
+            {
+                if (property.ClrType == typeof(decimal) || property.ClrType == typeof(decimal?))
+                {
+                    property.SetColumnType("decimal(18,4)");
+                }
+            }
+        }
+
         modelBuilder.Entity<BranchPaymentForBranch>().ToTable("BranchPaymentsForBranch");
         modelBuilder.Entity<PayToView>().ToTable("PayToView");
         modelBuilder.Entity<SupplierInvoiceView>().ToTable("SupplierInvoiceView");
@@ -158,8 +170,7 @@ public partial class OBMSDbContext : DbContext
         modelBuilder.Entity<QueryResult>().HasNoKey().ToView(null);
         modelBuilder.Entity<AttendanceDisplayResult>().HasNoKey().ToView(null);
         modelBuilder.Entity<EmployeeVisaPassportListView>().HasNoKey().ToView(null);
-        modelBuilder.Entity<AgreementDetails>(entity =>entity.Property(e => e.Rate).HasColumnType("decimal(18,4)"));
+        modelBuilder.Entity<AgreementDetails>(entity => entity.Property(e => e.Rate).HasColumnType("decimal(18,4)"));
         modelBuilder.Entity<ClientInvoiceDetail>().Property(p => p.Rate).HasColumnType("decimal(18,4)");
-
     }
 }

@@ -23,7 +23,8 @@
             "allowedCommonJsDependencies": [
               "@boldreports/javascript-reporting-controls/Scripts/bold.report-viewer.min",
               "@boldreports/javascript-reporting-controls/Scripts/data-visualization/ej.bulletgraph.min",
-              "@boldreports/javascript-reporting-controls/Scripts/data-visualization/ej.chart.min"
+              "@boldreports/javascript-reporting-controls/Scripts/data-visualization/ej.chart.min",
+                "crypto-js"
             ],
             "outputPath": "dist/angularapp",
             "index": "src/index.html",

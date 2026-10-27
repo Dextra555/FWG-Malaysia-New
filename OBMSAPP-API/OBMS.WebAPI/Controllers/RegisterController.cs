@@ -87,11 +87,18 @@ namespace OBMS.WebAPI.Controllers
         {
             try
             {
+                if (loginUser == null || string.IsNullOrWhiteSpace(loginUser.userName) || string.IsNullOrWhiteSpace(loginUser.password))
+                {
+                    dictResult.Add("Failure", "Failure");
+                    dictResult.Add("Users", new { });
+                    dictResult.Add("Message", "Login failed please check your login details....");
+                    return Ok(dictResult);
+                }
+
                 var obmsUser = new Obmsuser
                 {
-                    Name = loginUser.userName,
-                    Password = loginUser.password
-
+                    Name = loginUser.userName.Trim(),
+                    Password = loginUser.password.Trim()
                 };
 
                 var userAvailable = await _registerRepository.LoginUser(obmsUser);

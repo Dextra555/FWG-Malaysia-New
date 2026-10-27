@@ -24,9 +24,13 @@ export class AuthInterceptor implements HttpInterceptor {
     return next.handle(req).pipe(
       catchError((error: HttpErrorResponse) => {
         if (error.status === 401) {
-          // Token expired or invalid
-          this.authService.logout(); // Clear any stored data
-          this.router.navigate(['/login']); // Redirect to login
+          // Only logout if it's NOT a notification/signalr endpoint
+          const url = req.url.toLowerCase();
+          const isNotifEndpoint = url.includes('/notification') || url.includes('/hubs/');
+          if (!isNotifEndpoint) {
+            this.authService.logout();
+            this.router.navigate(['/login']);
+          }
         }
         return throwError(error);
       })
