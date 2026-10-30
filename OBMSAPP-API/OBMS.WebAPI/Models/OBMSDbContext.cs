@@ -15,6 +15,7 @@ public partial class OBMSDbContext : DbContext
     public virtual DbSet<Obmsuser> Obmsusers { get; set; }
     public virtual DbSet<BranchMaster> BranchMasters { get; set; }
     public virtual DbSet<ClientMaster> ClientMasters { get; set; }
+    public virtual DbSet<ClientMasterBreak> ClientBreaks { get; set; }
     public virtual DbSet<ShiftTimeMaster> ShiftTimeMasters { get; set; }
     public virtual DbSet<SIP> SIPs { get; set; }
     public virtual DbSet<IncomeTax> IncomeTaxs { get; set; }

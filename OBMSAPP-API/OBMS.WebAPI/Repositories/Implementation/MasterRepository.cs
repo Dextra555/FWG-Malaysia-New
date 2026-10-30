@@ -343,6 +343,53 @@ namespace OBMS.WebAPI.Repositories.Implementation
         }
         #endregion
 
+        //Client Break logic methods
+        #region Client Break
+
+        public async Task<List<ClientMasterBreak>> GetClientBreakList(string clientCode)
+        {
+            return await _oBMSDbContext.ClientBreaks
+                .Where(x => x.ClientCode == clientCode)
+                .OrderBy(x => x.SortOrder)
+                .ToListAsync();
+        }
+
+        public async Task SaveClientBreaks(string clientCode, List<ClientMasterBreak> breaks)
+        {
+            // Remove all existing breaks for this client then re-insert
+            var existing = _oBMSDbContext.ClientBreaks.Where(x => x.ClientCode == clientCode);
+            _oBMSDbContext.ClientBreaks.RemoveRange(existing);
+            await _oBMSDbContext.SaveChangesAsync();
+
+            if (breaks != null && breaks.Count > 0)
+            {
+                int order = 1;
+                foreach (var b in breaks)
+                {
+                    _oBMSDbContext.ClientBreaks.Add(new ClientMasterBreak
+                    {
+                        ClientCode  = clientCode,
+                        BreakHours  = b.BreakHours,
+                        SortOrder   = order++,
+                        CreatedDate = DateTime.Now
+                    });
+                }
+                await _oBMSDbContext.SaveChangesAsync();
+            }
+        }
+
+        public async Task DeleteClientBreakById(int id)
+        {
+            var existing = await _oBMSDbContext.ClientBreaks.FindAsync(id);
+            if (existing != null)
+            {
+                _oBMSDbContext.ClientBreaks.Remove(existing);
+                await _oBMSDbContext.SaveChangesAsync();
+            }
+        }
+
+        #endregion
+
         //shift time master module logic methods
         #region Shift Time Master
         public async Task<List<ShiftTimeMaster>> GetShiftTimeMasterList()

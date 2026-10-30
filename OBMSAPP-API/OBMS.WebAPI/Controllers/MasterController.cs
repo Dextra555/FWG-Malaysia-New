@@ -315,6 +315,68 @@ namespace OBMS.WebAPI.Controllers
         }
         #endregion
 
+        #region Client Break Module
+
+        [HttpGet]
+        [Route("GetClientBreakList")]
+        public async Task<ActionResult<List<ClientBreakDto>>> GetClientBreakList(string clientCode)
+        {
+            try
+            {
+                var breaks = await _masterRepository.GetClientBreakList(clientCode);
+                return Ok(breaks);
+            }
+            catch (Exception ex)
+            {
+                throw;
+            }
+        }
+
+        [HttpPost]
+        [Route("SaveClientBreaks")]
+        public async Task<ActionResult<HttpResponseMessage>> SaveClientBreaks(string clientCode, [FromBody] List<ClientBreakDto> breaksDto)
+        {
+            try
+            {
+                var breaks = breaksDto?.Select((b, idx) => new ClientMasterBreak
+                {
+                    ClientCode = clientCode,
+                    BreakHours = b.BreakHours,
+                    SortOrder  = idx + 1,
+                    CreatedDate = DateTime.Now
+                }).ToList() ?? new List<ClientMasterBreak>();
+
+                await _masterRepository.SaveClientBreaks(clientCode, breaks);
+
+                Dictionary<string, object> dictResult = new Dictionary<string, object>();
+                dictResult.Add("Success", "Success");
+                return Ok(dictResult);
+            }
+            catch (Exception ex)
+            {
+                throw;
+            }
+        }
+
+        [HttpPost]
+        [Route("DeleteClientBreakById")]
+        public async Task<ActionResult<HttpResponseMessage>> DeleteClientBreakById(int id)
+        {
+            try
+            {
+                await _masterRepository.DeleteClientBreakById(id);
+                Dictionary<string, object> dictResult = new Dictionary<string, object>();
+                dictResult.Add("Success", "Success");
+                return Ok(dictResult);
+            }
+            catch (Exception ex)
+            {
+                throw;
+            }
+        }
+
+        #endregion
+
         #region Shift Timing Module
 
         [HttpGet]
