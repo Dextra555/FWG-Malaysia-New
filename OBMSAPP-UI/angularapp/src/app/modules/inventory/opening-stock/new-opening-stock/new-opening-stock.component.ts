@@ -130,7 +130,7 @@ export class NewOpeningStockComponent implements OnInit {
   }
 
   loadWarehouses(): void {
-    this.service.getWarehouseMasters().subscribe({
+    this.service.getWarehouseMasters(this.currentUser).subscribe({
       next: (d: any[]) => { this.warehouses = (d || []).filter(w => w.IsActive); this.filteredWarehouses = [...this.warehouses]; },
       error: () => { this.errorMessage = 'Unable to load warehouse list. Please refresh the page.'; }
     });

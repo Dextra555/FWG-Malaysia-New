@@ -77,7 +77,7 @@ export class WarehouseMasterComponent implements AfterViewInit {
 
           if (this.userAccessModel.readAccess === true || this.currentUser == 'superadmin') {
             this.warningMessage = '';
-            this.service.getWarehouseMasters().subscribe((d: any) => {
+            this.service.getWarehouseMasters(this.currentUser).subscribe((d: any) => {
               this.data = d;
               if (d.length > 0) {
                 this.dataSource = new MatTableDataSource(d);

@@ -30,13 +30,17 @@
         <div class="col-12 col-md-2">
           <mat-form-field appearance="outline">
             <mat-label>From Date</mat-label>
-            <input matInput type="date" [(ngModel)]="dateFrom">
+            <input matInput [matDatepicker]="pickerFrom" [(ngModel)]="dateFrom" placeholder="" autocomplete="off">
+            <mat-datepicker-toggle matSuffix [for]="pickerFrom"></mat-datepicker-toggle>
+            <mat-datepicker #pickerFrom></mat-datepicker>
           </mat-form-field>
         </div>
         <div class="col-12 col-md-2">
           <mat-form-field appearance="outline">
             <mat-label>To Date</mat-label>
-            <input matInput type="date" [(ngModel)]="dateTo">
+            <input matInput [matDatepicker]="pickerTo" [(ngModel)]="dateTo" placeholder="" autocomplete="off">
+            <mat-datepicker-toggle matSuffix [for]="pickerTo"></mat-datepicker-toggle>
+            <mat-datepicker #pickerTo></mat-datepicker>
           </mat-form-field>
         </div>
         <div class="col-12 col-md-2">

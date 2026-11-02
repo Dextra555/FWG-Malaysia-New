@@ -21,11 +21,20 @@ export class CurrentStockReportComponent implements OnInit {
   frm!: FormGroup;
   warehouseList: any[] = [];
   itemList: any[]      = [];
-  currentUser: string  = '';
+  categoryList: any[]  = [];
+  sizeList: string[]   = [];
+
+  currentUser: string    = '';
   errorMessage: string   = '';
   warningMessage: string = '';
   showLoadingSpinner: boolean = false;
+  loadingSizes: boolean  = false;
   userAccessModel!: UserAccessModel;
+
+  /** Parent categories with sub-categories — rendered as mat-optgroup */
+  categoryGroups: { parent: any; children: any[] }[] = [];
+  /** Standalone categories (no children) — rendered flat */
+  categoryFlat: any[] = [];
 
   constructor(
     public sanitizer: DomSanitizer,
@@ -39,8 +48,10 @@ export class CurrentStockReportComponent implements OnInit {
     this.url += 'LoginID=' + this.currentUser;
 
     this.frm = this.fb.group({
-      WarehouseID: ['0'],   // 0 = All Warehouses
-      ItemID:      ['0'],   // 0 = All Items
+      WarehouseID: ['0'],
+      ItemID:      ['0'],
+      CategoryID:  ['0'],
+      Size:        ['']
     });
 
     this.userAccessModel = {
@@ -55,6 +66,13 @@ export class CurrentStockReportComponent implements OnInit {
       this._dataService.getUsername().subscribe(u => this.currentUser = u);
     }
     this.getUserAccessRights(this.currentUser, 'Current Stock Report');
+
+    // When Category changes → clear Size and reload size list
+    this.frm.get('CategoryID')!.valueChanges.subscribe((catId: any) => {
+      this.frm.get('Size')!.setValue('', { emitEvent: false });
+      this.sizeList = [];
+      this.loadSizes(parseInt(catId, 10) || 0);
+    });
   }
 
   getUserAccessRights(userName: string, screenName: string): void {
@@ -69,12 +87,22 @@ export class CurrentStockReportComponent implements OnInit {
 
           if (this.userAccessModel.readAccess === true || this.currentUser === 'superadmin') {
             this.warningMessage = '';
-            this.service.getWarehouseMasters().subscribe((d: any[]) => {
+
+            this.service.getWarehouseMasters(this.currentUser).subscribe((d: any[]) => {
               this.warehouseList = (d || []).filter((w: any) => w.IsActive);
             });
+
             this.service.GetReportHQMaster().subscribe((d: any) => {
-              this.itemList = d;
+              this.itemList = d || [];
             });
+
+            this.service.getCategories().subscribe((d: any) => {
+              const all = (d || []).filter((c: any) => c.ID > 0);
+              this.categoryList = all;
+              this.buildCategoryGroups(all);
+            });
+
+            this.loadSizes(0);
           } else {
             this.warningMessage = `Dear <B>${this.currentUser}</B>, <br>
               You do not have permissions to view this page. <br>
@@ -87,34 +115,82 @@ export class CurrentStockReportComponent implements OnInit {
     );
   }
 
+  buildCategoryGroups(all: any[]): void {
+    const parentIDs = new Set(
+      all.filter(c => c.ParentCategoryID).map(c => c.ParentCategoryID)
+    );
+    const groups: { parent: any; children: any[] }[] = [];
+    const usedIDs = new Set<number>();
+
+    all.filter(c => parentIDs.has(c.ID)).forEach(parent => {
+      const children = all.filter(c => c.ParentCategoryID === parent.ID);
+      groups.push({ parent, children });
+      usedIDs.add(parent.ID);
+      children.forEach(ch => usedIDs.add(ch.ID));
+    });
+
+    this.categoryGroups = groups;
+    this.categoryFlat   = all.filter(c => !usedIDs.has(c.ID));
+  }
+
+  getCategoryLabel(id: any): string {
+    const found = this.categoryList.find(c => c.ID === parseInt(id, 10));
+    return found ? found.Name : String(id);
+  }
+
+  loadSizes(categoryID: number): void {
+    this.loadingSizes = true;
+    this.service.getItemSizesByCategory(categoryID).subscribe({
+      next: (data: any[]) => {
+        this.sizeList    = (data || []).map((s: any) => s.Size || s.size || '').filter(Boolean);
+        this.loadingSizes = false;
+      },
+      error: () => { this.sizeList = []; this.loadingSizes = false; }
+    });
+  }
+
   onSubmit(): void {
     this.errorMessage = '';
-    const raw = this.frm.value;
+    const raw        = this.frm.value;
+    const categoryID = parseInt(raw.CategoryID, 10) || 0;
+    const size       = (raw.Size || '').trim();
 
-    let localURL = '';
-    localURL += '&WarehouseID=' + (raw.WarehouseID || '0');
-    localURL += '&ItemID='      + (raw.ItemID      || '0');
+    const params = new URLSearchParams();
+    params.set('LoginID',     this.currentUser       || '');
+    params.set('WarehouseID', String(raw.WarehouseID || 0));
+    params.set('ItemID',      String(raw.ItemID      || 0));
+    params.set('CategoryID',  String(categoryID));
+    if (size) params.set('Size', size);
 
-    this.urlSafe = this.sanitizer.bypassSecurityTrustResourceUrl(this.url + localURL);
+    this.urlSafe = this.sanitizer.bypassSecurityTrustResourceUrl(
+      environment.baseReportUrl + 'Inventory/CurrentStockReport.aspx?' + params.toString()
+    );
   }
 
   onExportExcel(): void {
     this.errorMessage = '';
-    const raw = this.frm.value;
+    const raw        = this.frm.value;
+    const categoryID = parseInt(raw.CategoryID, 10) || 0;
+    const size       = (raw.Size || '').trim();
 
     const params = new URLSearchParams();
-    params.set('LoginID',     this.currentUser      || '');
+    params.set('LoginID',     this.currentUser       || '');
     params.set('WarehouseID', String(raw.WarehouseID || 0));
     params.set('ItemID',      String(raw.ItemID      || 0));
-    params.set('format',      'excel');
+    params.set('CategoryID',  String(categoryID));
+    if (size) params.set('Size', size);
+    params.set('format', 'excel');
 
-    const baseUrl = environment.baseReportUrl + 'Inventory/CurrentStockReport.aspx';
-    window.open(baseUrl + '?' + params.toString(), '_blank');
+    window.open(
+      environment.baseReportUrl + 'Inventory/CurrentStockReport.aspx?' + params.toString(),
+      '_blank'
+    );
   }
 
   onClear(): void {
-    this.frm.patchValue({ WarehouseID: '0', ItemID: '0' });
+    this.frm.patchValue({ WarehouseID: '0', ItemID: '0', CategoryID: '0', Size: '' });
     this.urlSafe      = undefined;
     this.errorMessage = '';
+    this.loadSizes(0);
   }
 }

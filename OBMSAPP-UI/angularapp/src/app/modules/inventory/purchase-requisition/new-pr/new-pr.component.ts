@@ -50,6 +50,11 @@ export class NewPRComponent implements OnInit {
   approverCheckDone = false;   // prevents flicker before API responds
   approverName      = '';      // configured approver username — shown in the pending banner
 
+  // ── Reference-field inline edit (view mode) ──────────────────────────────
+  isEditingRef    = false;   // toggles the edit inputs in view mode
+  refSaving       = false;   // disables Save button while API call is in flight
+  refRemarks      = '';
+
   // ── Role (from sessionStorage 'userrole', set at login from OBMSUsers.IsAdmin) ──
   // '0'→'user', '1'→'admin', '2'→'superadmin'
   // Used so SuperAdmin (any username) sees Approve/Reject without routing config.
@@ -661,6 +666,43 @@ export class NewPRComponent implements OnInit {
   }
 
   onCancel(): void { this.route.navigate(['/inventory/purchase-requisition']); }
+
+  // ── Reference-field inline edit (view mode) ─────────────────────────────
+
+  /** Enter edit mode for remarks only. */
+  startEditRef(): void {
+    this.refRemarks = this.frm.get('Remarks')?.value || '';
+    this.isEditingRef = true;
+  }
+
+  /** Cancel reference edit without saving. */
+  cancelEditRef(): void {
+    this.isEditingRef = false;
+  }
+
+  /** POST only Remarks to the API. No item/quantity/ledger changes. */
+  saveRef(): void {
+    if (this.refSaving) return;
+    this.refSaving = true;
+    const payload = {
+      ID:            +this.ID,
+      PRNumber:      this.frm.get('PRNumber')?.value,
+      Remarks:       this.refRemarks.trim(),
+      LastUpdatedBy: this.currentUser
+    };
+    this.service.updatePRReference(payload).subscribe({
+      next: (res: any) => {
+        this.frm.patchValue({ Remarks: payload.Remarks });
+        this.isEditingRef = false;
+        this.refSaving    = false;
+        this.showMsg(res?.message || 'Remarks updated successfully.', 'success', 'Success Message');
+      },
+      error: (err: any) => {
+        this.refSaving = false;
+        this.showMsg(this.extractMsg(err, 'Unable to update right now. Please try again.'), 'error', 'Error Message');
+      }
+    });
+  }
 
   onPrintPDF(): void {
     if (!this.isEdit || !this.ID) return;

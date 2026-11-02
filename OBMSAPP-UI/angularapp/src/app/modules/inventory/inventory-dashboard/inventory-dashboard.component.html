@@ -98,9 +98,8 @@
           <mat-icon style="color:#c62828">assignment_late</mat-icon>
         </div>
         <div class="inv-kpi-body">
-          <p class="inv-kpi-label">Pending Issues</p>
+          <p class="inv-kpi-label">Pending Approvals</p>
           <h3 class="inv-kpi-val inv-kpi-val--alert">{{ pendingIssues | number }}</h3>
-          <p class="inv-kpi-sub">To be Processed</p>
         </div>
       </div>
     </div>
@@ -341,12 +340,12 @@
             </button>
 
             <button class="inv-act-row inv-act-row--btn"
-                    (click)="openPendingActivity('APPROVAL', 'Pending Approvals', pendingActivities?.PendingIssues ?? 0)">
+                    (click)="openPendingActivity('APPROVAL', 'Pending Approvals', pendingActivities?.ApprovalsPending ?? 0)">
               <div class="inv-act-left">
                 <mat-icon class="inv-act-icon" style="color:#e65100">pending_actions</mat-icon>
                 <span>Pending Approvals</span>
               </div>
-              <span class="inv-act-num" style="color:#e65100">{{ pendingActivities?.PendingIssues ?? 0 }}</span>
+              <span class="inv-act-num" style="color:#e65100">{{ pendingActivities?.ApprovalsPending ?? 0 }}</span>
             </button>
 
             <button class="inv-act-row inv-act-row--btn"

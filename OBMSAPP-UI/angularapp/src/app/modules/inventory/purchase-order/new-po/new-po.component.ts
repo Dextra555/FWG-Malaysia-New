@@ -59,10 +59,10 @@ export class NewPOComponent implements OnInit {
   sstTotal      = 0;
   grandTotal    = 0;
 
-  // ── Approver visibility flag ─────────────────────────────────────────────
-  isApprover        = false;
-  approverCheckDone = false;
-  approverName      = '';      // configured approver username — shown in the pending banner
+  // ── Reference-field inline edit (view mode) ──────────────────────────────
+  isEditingRef    = false;   // toggles the edit inputs in view mode
+  refSaving       = false;   // disables Save button while API call is in flight
+  refRemarks      = '';
 
   // ── Linked GRN (set after loadExisting when PO is Approved or Received) ──
   linkedGRN: any = null;   // holds GRN info if a GRN has already been posted for this PO
@@ -72,6 +72,11 @@ export class NewPOComponent implements OnInit {
   isPRLinked        = false;   // true = item list is locked, only Qty/Price editable
   linkedPRNumber    = '';      // PR number shown in lock banner
   editabilityLoaded = false;   // prevents flickering before first API response
+
+  // ── Approver check (set in checkIsApprover) ──────────────────────────────
+  isApprover        = false;
+  approverCheckDone = false;
+  approverName      = '';
 
   userAccessModel!: UserAccessModel;
   currentUser       = '';
@@ -204,7 +209,7 @@ export class NewPOComponent implements OnInit {
       next: (d: any[]) => { this.suppliers = d || []; this.filteredSuppliers = [...this.suppliers]; },
       error: () => { this.errorMessage = 'Unable to load the supplier list. Please try again.'; }
     });
-    this.service.getWarehouseMasters().subscribe({
+      this.service.getWarehouseMasters(this.currentUser).subscribe({
       next: (d: any[]) => { this.warehouses = (d || []).filter((w: any) => w.IsActive); this.filteredWarehouses = [...this.warehouses]; },
       error: () => { this.errorMessage = 'Unable to load the warehouse list. Please try again.'; }
     });
@@ -284,9 +289,10 @@ export class NewPOComponent implements OnInit {
         // ── Load editability from backend ──────────────────────────────────
         this.service.getPOEditability(+this.ID).subscribe({
           next: (edit: any) => {
-            this.canEditPO      = edit.canEdit  ?? false;
-            this.isPRLinked     = edit.isPRLinked ?? false;
-            this.linkedPRNumber = edit.linkedPRNumber ?? '';
+            // API returns PascalCase (PropertyNamingPolicy = null); support both cases
+            this.canEditPO      = edit.CanEdit      ?? edit.canEdit      ?? false;
+            this.isPRLinked     = edit.IsPRLinked   ?? edit.isPRLinked   ?? false;
+            this.linkedPRNumber = edit.LinkedPRNumber ?? edit.linkedPRNumber ?? '';
             this.editabilityLoaded = true;
 
             // Re-enable form fields when editing is allowed
@@ -705,6 +711,45 @@ export class NewPOComponent implements OnInit {
   }
 
   onCancel(): void { this.route.navigate(['/inventory/purchase-order']); }
+
+  // ── Reference-field inline edit (view mode) ─────────────────────────────
+
+  /** Enter edit mode for the reference fields. */
+  startEditRef(): void {
+    this.refRemarks = this.frm.get('Remarks')?.value || '';
+    this.isEditingRef = true;
+  }
+
+  /** Cancel reference edit without saving. */
+  cancelEditRef(): void {
+    this.isEditingRef = false;
+  }
+
+  /** POST only the Remarks field to the API. No item/quantity/ledger changes. */
+  saveRef(): void {
+    if (this.refSaving) return;
+    this.refSaving = true;
+    const payload = {
+      ID:            +this.ID,
+      Remarks:       this.refRemarks.trim(),
+      LastUpdatedBy: this.currentUser
+    };
+    this.service.updatePOReference(payload).subscribe({
+      next: (res: any) => {
+        // Reflect the saved values back into the read-only display
+        this.frm.patchValue({
+          Remarks: payload.Remarks
+        });
+        this.isEditingRef = false;
+        this.refSaving    = false;
+        this.showMsg(res?.message || 'Reference updated successfully.', 'success', 'Success Message');
+      },
+      error: (err: any) => {
+        this.refSaving = false;
+        this.showMsg(this.extractMsg(err, 'Unable to update right now. Please try again.'), 'error', 'Error Message');
+      }
+    });
+  }
 
   onPrintPDF(): void {
     if (!this.isEdit || !this.ID) return;

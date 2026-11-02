@@ -156,7 +156,17 @@
         <div class="col-6 col-md-3">
           <div class="wlt-view-field">
             <span class="wlt-view-label">Remarks</span>
-            <span class="wlt-view-value">{{frm.get('Remarks')?.value || '—'}}</span>
+            <!-- View mode: show value -->
+            <span *ngIf="!isEditingRef" class="wlt-view-value">{{frm.get('Remarks')?.value || '—'}}</span>
+            <!-- Edit mode: inline textarea -->
+            <textarea *ngIf="isEditingRef"
+              class="form-control form-control-sm mt-1"
+              rows="2"
+              [(ngModel)]="refRemarks"
+              [ngModelOptions]="{standalone: true}"
+              placeholder="Enter remarks…"
+              style="font-size:13px">
+            </textarea>
           </div>
         </div>
       </div>
@@ -399,6 +409,32 @@
             type="button" class="btn wlt-c-furg-btn-primary mr-2" [disabled]="showLoadingSpinner" (click)="onSave()">
             <mat-icon style="vertical-align:middle;font-size:18px">save</mat-icon>
             {{isEdit ? 'Update Draft' : 'Save Draft'}}
+          </button>
+
+          <!-- Reference-field edit controls (view mode only) -->
+          <!-- Cancel ref edit -->
+          <button *ngIf="isEdit && isEditingRef && (userAccessModel.updateAccess || userRole === 'superadmin')"
+            type="button" class="btn btn-outline-secondary mr-2"
+            (click)="cancelEditRef()">
+            <mat-icon style="vertical-align:middle;font-size:18px">close</mat-icon>
+            Cancel Edit
+          </button>
+
+          <!-- Save reference fields -->
+          <button *ngIf="isEdit && isEditingRef && (userAccessModel.updateAccess || userRole === 'superadmin')"
+            type="button" class="btn wlt-c-furg-btn-primary mr-2" [disabled]="refSaving"
+            (click)="saveRef()">
+            <mat-icon style="vertical-align:middle;font-size:18px">save</mat-icon>
+            {{ refSaving ? 'Saving…' : 'Save Remarks' }}
+          </button>
+
+          <!-- Enter ref-edit mode -->
+          <button *ngIf="isEdit && !isEditingRef && (userAccessModel.updateAccess || userRole === 'superadmin')"
+            type="button" class="btn btn-outline-primary mr-2"
+            matTooltip="Edit Remarks only. Items and quantities are not changed."
+            (click)="startEditRef()">
+            <mat-icon style="vertical-align:middle;font-size:18px">edit</mat-icon>
+            Edit Remarks
           </button>
 
           <!-- Submit — visible on new form (with lines) and on saved Draft -->

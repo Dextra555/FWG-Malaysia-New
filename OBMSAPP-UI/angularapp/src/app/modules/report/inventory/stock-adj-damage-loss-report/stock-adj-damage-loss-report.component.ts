@@ -84,7 +84,7 @@ export class StockAdjDamageLossReportComponent implements OnInit {
           if (this.userAccessModel.readAccess === true || this.currentUser === 'superadmin') {
             this.warningMessage = '';
 
-            this.service.getWarehouseMasters().subscribe((d: any[]) => {
+            this.service.getWarehouseMasters(this.currentUser).subscribe((d: any[]) => {
               this.warehouseList = (d || []).filter((w: any) => w.IsActive);
             });
 

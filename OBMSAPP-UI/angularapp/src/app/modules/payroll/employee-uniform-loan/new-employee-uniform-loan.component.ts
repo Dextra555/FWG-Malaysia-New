@@ -69,6 +69,8 @@ export class NewEmployeeUniformLoanComponent implements OnInit {
   loadingPendingIssues: boolean = false;
   /** Pending stock issue documents for the selected employee */
   pendingStockIssues: any[] = [];
+  /** Category ID to apply once inventoryModel is loaded */
+  pendingCategoryID: number = 0;
   /** The stock issue document the user has selected to link */
   selectedStockIssueDocID: number = 0;
   selectedStockIssueNo: string = '';
@@ -299,6 +301,12 @@ export class NewEmployeeUniformLoanComponent implements OnInit {
     this._payrollService.getInventoryCategories().subscribe(
       (data) => {
         this.inventoryModel = data;
+        // If a category was queued before the list loaded (e.g. from stock issue autofill),
+        // apply it now that the options are available.
+        if (this.pendingCategoryID > 0) {
+          this.employeeUniformLoanForm.patchValue({ InventoryCategoryID: this.pendingCategoryID });
+          this.pendingCategoryID = 0;
+        }
         this.hideSpinner();
       },
       (error) => this.handleErrors(error)
@@ -785,6 +793,18 @@ export class NewEmployeeUniformLoanComponent implements OnInit {
     // Compute and set total Amount
     const totalAmount = rows.reduce((sum, r) => sum + r.Price * r.Quantity, 0);
     this.employeeUniformLoanForm.patchValue({ Amount: totalAmount.toFixed(2) });
+
+    // Auto-fill category from the first line's CategoryID.
+    // If inventoryModel is already loaded → set directly.
+    // If not yet loaded → store in pendingCategoryID; getInventoryList() will apply it.
+    const firstCategoryID = this.stockIssueItemRows[0]?.CategoryID ?? 0;
+    if (firstCategoryID > 0) {
+      if (this.inventoryModel && this.inventoryModel.length > 0) {
+        this.employeeUniformLoanForm.patchValue({ InventoryCategoryID: firstCategoryID });
+      } else {
+        this.pendingCategoryID = firstCategoryID;
+      }
+    }
 
     this.formReady = true;
     this.showStockIssuePanel = false;  // close panel

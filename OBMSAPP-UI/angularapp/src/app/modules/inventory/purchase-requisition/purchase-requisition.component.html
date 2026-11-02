@@ -71,19 +71,24 @@
           <td mat-cell *matCellDef="let row">{{row.Remarks}}</td>
         </ng-container>
 
-        <ng-container matColumnDef="action" stickyEnd>
+<ng-container matColumnDef="action" stickyEnd>
           <th mat-header-cell *matHeaderCellDef style="text-align:center;width:120px">Action</th>
           <td mat-cell *matCellDef="let row" style="text-align:center">
             <a *ngIf="userAccessModel.updateAccess || currentUser === 'superadmin'"
                style="cursor:pointer" class="wlt-c-furg-text-primary mr-2"
                matTooltip="View / Edit"
                [routerLink]="['/inventory/purchase-requisition/new-pr', row.ID]">
-              <mat-icon>edit</mat-icon>
+               <mat-icon>edit</mat-icon>
             </a>
+            <span *ngIf="row.DisplayStatus === 'Draft' && (userAccessModel.updateAccess || currentUser === 'superadmin')"
+              style="cursor:pointer;color:#1976d2;margin-left:8px" matTooltip="Edit this requisition"
+              (click)="editPrRow(row)">
+               <mat-icon>edit</mat-icon>
+            </span>
             <a *ngIf="(userAccessModel.deleteAccess || currentUser === 'superadmin') && row.Status === 'Draft'"
                style="cursor:pointer" class="wlt-c-furg-text-danger"
                matTooltip="Delete" (click)="deleteClick(row)">
-              <mat-icon>delete_outline</mat-icon>
+               <mat-icon>delete_outline</mat-icon>
             </a>
           </td>
         </ng-container>

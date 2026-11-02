@@ -21,7 +21,9 @@ export class StockMovementReportComponent implements OnInit {
   frm!: FormGroup;
   warehouseList: any[] = [];
   itemList: any[]      = [];
-  currentUser: string  = '';
+  clientList: any[]    = [];   // distinct client names from StockIssues
+
+  currentUser: string    = '';
   errorMessage: string   = '';
   warningMessage: string = '';
   showLoadingSpinner: boolean = false;
@@ -42,8 +44,9 @@ export class StockMovementReportComponent implements OnInit {
     const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
     this.frm = this.fb.group({
-      WarehouseID: ['0'],                              // optional — 0 = All
-      ItemID:      ['0'],                              // optional — 0 = All
+      WarehouseID: ['0'],
+      ItemID:      ['0'],
+      ClientName:  [''],                               // '' = All Clients
       StartDate:   [firstOfMonth, Validators.required],
       EndDate:     [today,        Validators.required]
     });
@@ -74,11 +77,19 @@ export class StockMovementReportComponent implements OnInit {
 
           if (this.userAccessModel.readAccess === true || this.currentUser === 'superadmin') {
             this.warningMessage = '';
-            this.service.getWarehouseMasters().subscribe((d: any[]) => {
+
+            this.service.getWarehouseMasters(this.currentUser).subscribe((d: any[]) => {
               this.warehouseList = (d || []).filter((w: any) => w.IsActive);
             });
+
             this.service.GetReportHQMaster().subscribe((d: any) => {
-              this.itemList = d;
+              this.itemList = d || [];
+            });
+
+            // Load distinct client names from StockIssues
+            this.service.getStockIssueClients().subscribe({
+              next: (d: any[]) => { this.clientList = d || []; },
+              error: () => { this.clientList = []; }
             });
           } else {
             this.warningMessage = `Dear <B>${this.currentUser}</B>, <br>
@@ -109,13 +120,18 @@ export class StockMovementReportComponent implements OnInit {
       return;
     }
 
-    let localURL = '';
-    localURL += '&WarehouseID=' + (raw.WarehouseID || '0');
-    localURL += '&ItemID='      + (raw.ItemID      || '0');
-    localURL += '&StartDate='   + this.returnDate(raw.StartDate);
-    localURL += '&EndDate='     + this.returnDate(raw.EndDate);
+    const params = new URLSearchParams();
+    params.set('LoginID',     this.currentUser          || '');
+    params.set('WarehouseID', String(raw.WarehouseID    || 0));
+    params.set('ItemID',      String(raw.ItemID         || 0));
+    params.set('StartDate',   this.returnDate(raw.StartDate));
+    params.set('EndDate',     this.returnDate(raw.EndDate));
+    if ((raw.ClientName || '').trim())
+      params.set('ClientName', raw.ClientName.trim());
 
-    this.urlSafe = this.sanitizer.bypassSecurityTrustResourceUrl(this.url + localURL);
+    this.urlSafe = this.sanitizer.bypassSecurityTrustResourceUrl(
+      environment.baseReportUrl + 'Inventory/StockMovementReport.aspx?' + params.toString()
+    );
   }
 
   onExportExcel(): void {
@@ -141,17 +157,21 @@ export class StockMovementReportComponent implements OnInit {
     params.set('ItemID',      String(raw.ItemID         || 0));
     params.set('StartDate',   this.returnDate(raw.StartDate));
     params.set('EndDate',     this.returnDate(raw.EndDate));
-    params.set('format',      'excel');
+    if ((raw.ClientName || '').trim())
+      params.set('ClientName', raw.ClientName.trim());
+    params.set('format', 'excel');
 
-    const baseUrl = environment.baseReportUrl + 'Inventory/StockMovementReport.aspx';
-    window.open(baseUrl + '?' + params.toString(), '_blank');
+    window.open(
+      environment.baseReportUrl + 'Inventory/StockMovementReport.aspx?' + params.toString(),
+      '_blank'
+    );
   }
 
   onClear(): void {
     const today        = new Date();
     const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     this.frm.patchValue({
-      WarehouseID: '0', ItemID: '0',
+      WarehouseID: '0', ItemID: '0', ClientName: '',
       StartDate: firstOfMonth, EndDate: today
     });
     this.urlSafe      = undefined;
@@ -159,11 +179,10 @@ export class StockMovementReportComponent implements OnInit {
   }
 
   returnDate(date?: any): string {
-    let currentDate = new Date();
-    if (date) currentDate = new Date(date);
-    const year  = currentDate.getFullYear();
-    const month = String(currentDate.getMonth() + 1).padStart(2, '0');
-    const day   = String(currentDate.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    const d = date ? new Date(date) : new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   }
 }

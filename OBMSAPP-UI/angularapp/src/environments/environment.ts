@@ -42,7 +42,7 @@ export const environment = {
   baseUrl: 'http://localhost:5002/api/',
   // baseReportUrl: 'http://124.217.236.37:8229/',
   // baseReportUrl: 'http://localhost:3333/',
-    baseReportUrl: 'http://localhost:8080/',
+  baseReportUrl: 'http://localhost:3333/',
 
   
 };

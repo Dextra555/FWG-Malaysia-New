@@ -23,10 +23,50 @@
     </div>
 
     <form [formGroup]="frm" (ngSubmit)="onSubmit()" *ngIf="warningMessage === ''">
+
+      <!-- ── Row 1: Category + Size ──────────────────────────────────── -->
       <div class="row">
 
-        <!-- Warehouse (optional — 0 = All) -->
-        <div class="col-12 col-sm-12 col-md-4 col-lg-4">
+        <!-- Category -->
+        <div class="col-12 col-sm-6 col-md-3 col-lg-3">
+          <mat-form-field appearance="outline">
+            <mat-label>Category</mat-label>
+            <mat-select formControlName="CategoryID">
+              <mat-option value="0">All Categories</mat-option>
+              <ng-container *ngFor="let grp of categoryGroups">
+                <mat-optgroup [label]="grp.parent.Name">
+                  <mat-option [value]="grp.parent.ID">{{ grp.parent.Name }} (All)</mat-option>
+                  <mat-option *ngFor="let sub of grp.children" [value]="sub.ID">
+                    {{ sub.Name }}
+                  </mat-option>
+                </mat-optgroup>
+              </ng-container>
+              <mat-option *ngFor="let cat of categoryFlat" [value]="cat.ID">
+                {{ cat.Name }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <!-- Size -->
+        <div class="col-12 col-sm-6 col-md-2 col-lg-2">
+          <mat-form-field appearance="outline">
+            <mat-label>
+              Size
+              <span *ngIf="loadingSizes" style="font-size:0.72rem;color:#999;font-style:italic;"> (loading…)</span>
+            </mat-label>
+            <mat-select formControlName="Size">
+              <mat-option value="">All Sizes</mat-option>
+              <mat-option *ngFor="let s of sizeList" [value]="s">{{ s }}</mat-option>
+            </mat-select>
+            <mat-hint *ngIf="sizeList.length === 0 && !loadingSizes">
+              No sizes for this category
+            </mat-hint>
+          </mat-form-field>
+        </div>
+
+        <!-- Warehouse -->
+        <div class="col-12 col-sm-6 col-md-3 col-lg-3">
           <mat-form-field appearance="outline">
             <mat-label>Warehouse</mat-label>
             <mat-select formControlName="WarehouseID">
@@ -36,8 +76,8 @@
           </mat-form-field>
         </div>
 
-        <!-- Item (optional — 0 = All) -->
-        <div class="col-12 col-sm-12 col-md-4 col-lg-4">
+        <!-- Item -->
+        <div class="col-12 col-sm-6 col-md-4 col-lg-4">
           <mat-form-field appearance="outline">
             <mat-label>Item</mat-label>
             <mat-select formControlName="ItemID">
@@ -47,8 +87,18 @@
           </mat-form-field>
         </div>
 
-        <!-- Buttons -->
-        <div class="col-12 col-sm-12 col-md-4 col-lg-4 d-flex align-items-center">
+      </div>
+
+      <!-- Error message -->
+      <div class="row" *ngIf="errorMessage !== ''">
+        <div class="col-12">
+          <mat-label style="color:red">{{ errorMessage }}</mat-label>
+        </div>
+      </div>
+
+      <!-- Buttons -->
+      <div class="row mt-1">
+        <div class="col-12 text-right">
           <button type="button" class="btn btn-outline-secondary mr-2" (click)="onClear()">
             Clear
           </button>
@@ -59,14 +109,6 @@
             <mat-icon style="vertical-align:middle; font-size:18px; margin-right:4px">table_view</mat-icon>
             Export Excel
           </button>
-        </div>
-
-      </div>
-
-      <!-- Error message -->
-      <div class="row" *ngIf="errorMessage !== ''">
-        <div class="col-12">
-          <mat-label style="color:red">{{ errorMessage }}</mat-label>
         </div>
       </div>
 

@@ -90,8 +90,9 @@ export class InventoryService {
   }
 
   // Warehouse Master
-  getWarehouseMasters() {
-    return this.httpClient.get<any>(this.apiUrl + 'Inventory/GetWarehouseMasters'
+  getWarehouseMasters(userName?: string) {
+    const params = userName ? `?userName=${encodeURIComponent(userName)}` : '';
+    return this.httpClient.get<any>(this.apiUrl + 'Inventory/GetWarehouseMasters' + params
     ).pipe(catchError(this.errorHandle));
   }
 
@@ -415,7 +416,8 @@ export class InventoryService {
   // ── Part 2: Stock Ledger ───────────────────────────────────────────────────
 
   getStockLedger(warehouseID: number, itemID: number | null, dateFrom: string,
-                 dateTo: string, transactionType: string): Observable<any[]> {
+                 dateTo: string, transactionType: string,
+                 categoryID?: number, size?: string): Observable<any[]> {
     let params = new HttpParams()
       .set('warehouseID', warehouseID)
       .set('dateFrom', dateFrom)
@@ -424,7 +426,25 @@ export class InventoryService {
     if (itemID && itemID > 0) {
       params = params.set('itemID', itemID);
     }
+    if (categoryID && categoryID > 0) {
+      params = params.set('categoryID', categoryID);
+    }
+    if (size && size.trim() !== '') {
+      params = params.set('size', size.trim());
+    }
     return this.httpClient.get<any[]>(this.apiUrl + 'Inventory/GetStockLedger', { params })
+      .pipe(catchError(this.errorHandle));
+  }
+
+  getItemSizesByCategory(categoryID: number = 0): Observable<any[]> {
+    const params = new HttpParams().set('categoryID', categoryID);
+    return this.httpClient.get<any[]>(this.apiUrl + 'Inventory/GetItemSizesByCategory', { params })
+      .pipe(catchError(this.errorHandle));
+  }
+
+  /** Returns distinct client (Branch) names from StockIssues for the movement report filter. */
+  getStockIssueClients(): Observable<any[]> {
+    return this.httpClient.get<any[]>(this.apiUrl + 'Inventory/GetStockIssueClients')
       .pipe(catchError(this.errorHandle));
   }
 
@@ -655,6 +675,19 @@ export class InventoryService {
    *  Stock ledger, PO quantities, and finance records are NOT changed. */
   updateGRNReference(body: { ID: number; SupplierInvoiceNo?: string; DeliveryNoteRef?: string; Remarks?: string }): Observable<any> {
     return this.httpClient.post<any>(this.apiUrl + 'Inventory/UpdateGRNReference', body)
+      .pipe(catchError(this.errorHandle));
+  }
+
+  /** Updates only reference fields (SupplierInvoiceNo, DeliveryNoteRef, Remarks) on a PR.
+   *  Item lines, quantities, and stock are NOT changed. */
+  updatePRReference(body: { ID: number; PRNumber: string; SupplierInvoiceNo?: string; DeliveryNoteRef?: string; Remarks?: string; LastUpdatedBy: string }): Observable<any> {
+    return this.httpClient.post<any>(this.apiUrl + 'Inventory/UpdatePRReference', body)
+      .pipe(catchError(this.errorHandle));
+  }
+
+  /** Updates only Remarks on a PO. Item lines, quantities, and stock are NOT changed. */
+  updatePOReference(body: { ID: number; Remarks?: string; LastUpdatedBy: string }): Observable<any> {
+    return this.httpClient.post<any>(this.apiUrl + 'Inventory/UpdatePOReference', body)
       .pipe(catchError(this.errorHandle));
   }
 

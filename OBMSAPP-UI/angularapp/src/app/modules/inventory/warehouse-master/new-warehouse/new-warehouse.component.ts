@@ -94,13 +94,21 @@ export class NewWarehouseComponent implements OnInit {
   }
 
   loadBranches() {
-    this.service.getBranchList().subscribe(
-      (d: any) => {
-        this.branches = d;
-        this.filteredBranches = [...d];
-      },
-      (error) => this.handleErrors(error)
-    );
+    // superadmin → all branches; normal user → only their allowed branches
+    const userRole = sessionStorage.getItem('userrole') ?? '0';
+    const isSuperAdmin = userRole === '2' || this.currentUser === 'superadmin';
+
+    if (isSuperAdmin) {
+      this.service.getBranchList().subscribe(
+        (d: any) => { this.branches = d; this.filteredBranches = [...d]; },
+        (error) => this.handleErrors(error)
+      );
+    } else {
+      this.service.getBranchListByUser(this.currentUser).subscribe(
+        (d: any) => { this.branches = d; this.filteredBranches = [...d]; },
+        (error) => this.handleErrors(error)
+      );
+    }
   }
 
   onBranchOpen(opened: boolean) { if (opened) { this.branchSearch = ''; this.filteredBranches = [...this.branches]; } }

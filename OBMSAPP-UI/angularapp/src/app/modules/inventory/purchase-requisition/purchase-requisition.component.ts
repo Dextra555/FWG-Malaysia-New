@@ -162,6 +162,14 @@ export class PurchaseRequisitionComponent implements OnInit, AfterViewInit {
       });
   }
 
+  editPrRow(row: any): void {
+    if (row.DisplayStatus !== 'Draft') {
+      this.showMsg(`Purchase Requisition ${row.PRNumber} cannot be edited because it has already been ${row.DisplayStatus.toLowerCase()} and only Draft requisitions can be edited.`, 'warning', 'Warning Message');
+      return;
+    }
+    this.route.navigate(['/inventory/purchase-requisition/new-pr', row.ID]);
+  }
+
   private extractMsg(err: any, fallback: string): string {
     if (typeof err === 'string') return err;
     return err?.error?.message || err?.message || fallback;

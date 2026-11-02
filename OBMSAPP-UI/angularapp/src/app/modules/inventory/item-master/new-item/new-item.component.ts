@@ -62,6 +62,7 @@ export class NewItemComponent implements OnInit {
       ReorderLevel:    [null],
       ReorderQuantity: [null],
       Remarks:         [''],
+      Size:            [''],                        // Optional size (e.g. S/M/L/XL); blank = no size
       // SellPrice, Quantity, qty removed from form — not part of approved design
     });
   }
@@ -102,6 +103,7 @@ export class NewItemComponent implements OnInit {
             ReorderLevel:    item.ReorderLevel,
             ReorderQuantity: item.ReorderQuantity,
             Remarks:         item.Remarks,
+            Size:            item.Size ?? '',
           });
           // Load categories matching the item's type
           this.updateCategories(itemType ?? 'P');

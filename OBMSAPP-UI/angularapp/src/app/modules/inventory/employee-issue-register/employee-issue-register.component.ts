@@ -31,9 +31,9 @@ export class EmployeeIssueRegisterComponent implements OnInit, AfterViewInit {
   errorMessage: string = '';
   showLoadingSpinner: boolean = false;
 
-  // Filters
-  dateFrom: string = '';
-  dateTo: string = '';
+  // Filters (Material datepicker binds Date objects; sent to API as YYYY-MM-DD)
+  dateFrom: Date | null = null;
+  dateTo: Date | null = null;
   issueToTypeFilter: string = 'ALL';
   selectedEmployeeID: number = 0;
   filterValue: string = '';
@@ -68,8 +68,8 @@ export class EmployeeIssueRegisterComponent implements OnInit, AfterViewInit {
     // Default: current month
     const now   = new Date();
     const first = new Date(now.getFullYear(), now.getMonth(), 1);
-    this.dateFrom = this.toDateString(first);
-    this.dateTo   = this.toDateString(now);
+    this.dateFrom = first;
+    this.dateTo   = now;
   }
 
   ngOnInit(): void {
@@ -132,9 +132,11 @@ export class EmployeeIssueRegisterComponent implements OnInit, AfterViewInit {
       this.errorMessage = 'Please select a date range.';
       return;
     }
+    const fromStr = this.toDateString(this.dateFrom);
+    const toStr   = this.toDateString(this.dateTo);
     this.showLoadingSpinner = true;
     this.service.getEmployeeIssueRegister(
-      this.dateFrom, this.dateTo, this.selectedEmployeeID, this.issueToTypeFilter
+      fromStr, toStr, this.selectedEmployeeID, this.issueToTypeFilter
     ).subscribe({
       next: (d: any[]) => {
         const data = d || [];
@@ -162,7 +164,10 @@ export class EmployeeIssueRegisterComponent implements OnInit, AfterViewInit {
   }
 
   toDateString(d: Date): string {
-    return d.toISOString().split('T')[0];
+    const year  = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day   = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   formatDate(val: any): string {

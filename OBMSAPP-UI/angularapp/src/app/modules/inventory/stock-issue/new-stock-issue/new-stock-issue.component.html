@@ -100,6 +100,7 @@
                 <mat-option value="">-- Select --</mat-option>
                 <mat-option value="Staff">Staff</mat-option>
                 <mat-option value="Guard">Guard</mat-option>
+                <mat-option value="Other Guards">Other Guards</mat-option>
                 <mat-option value="Branch">Branch</mat-option>
                 <mat-option value="Other">Other</mat-option>
               </mat-select>
@@ -120,7 +121,7 @@
                 <mat-option disabled *ngIf="loadingEmployees">
                   <span style="font-size:12px; color:#888;">Loading…</span>
                 </mat-option>
-                <mat-option disabled *ngIf="!loadingEmployees && (issueToType==='Guard'||issueToType==='Staff') && frm.get('WarehouseID')?.value <= 0">
+                <mat-option disabled *ngIf="!loadingEmployees && (issueToType==='Guard'||issueToType==='Staff'||issueToType==='Other Guards') && frm.get('WarehouseID')?.value <= 0">
                   <span style="font-size:12px; color:#e65100;">⚠ Please select a warehouse first.</span>
                 </mat-option>
                 <mat-option disabled style="position:sticky; top:0; background:#fff; z-index:1; padding:0"
@@ -146,13 +147,13 @@
                 <mat-option disabled *ngIf="!loadingEmployees && filteredRecipients.length === 0 && recipientSearch.length > 0">
                   No results found.
                 </mat-option>
-                <mat-option disabled *ngIf="!loadingEmployees && getSourceList().length === 0 && !recipientSearch && (issueToType==='Guard'||issueToType==='Staff') && frm.get('WarehouseID')?.value > 0">
+                <mat-option disabled *ngIf="!loadingEmployees && getSourceList().length === 0 && !recipientSearch && (issueToType==='Guard'||issueToType==='Staff'||issueToType==='Other Guards') && frm.get('WarehouseID')?.value > 0">
                   <span style="font-size:12px; color:#888;">No active {{issueToType}}s found for this warehouse.</span>
                 </mat-option>
               </mat-select>
             </mat-form-field>
             <small class="text-warning d-block mt-n2 mb-2"
-                   *ngIf="(issueToType==='Guard'||issueToType==='Staff') && frm.get('WarehouseID')?.value <= 0">
+                   *ngIf="(issueToType==='Guard'||issueToType==='Staff'||issueToType==='Other Guards') && frm.get('WarehouseID')?.value <= 0">
               Select a warehouse to load the {{issueToType}} list.
             </small>
           </div>
@@ -197,12 +198,13 @@
           <table class="table table-bordered table-sm">
             <thead class="thead-light">
               <tr>
-                <th style="width:35%">Item</th>
-                <th style="width:12%; text-align:right">Available</th>
-                <th style="width:12%; text-align:right">Issue Qty *</th>
-                <th style="width:12%; text-align:right">Unit Cost</th>
-                <th style="width:20%">Remarks</th>
-                <th style="width:9%; text-align:center" *ngIf="!isViewMode">Remove</th>
+                <th style="width:30%">Item</th>
+                <th style="width:18%">Client Name <span style="color:red">*</span></th>
+                <th style="width:10%; text-align:right" *ngIf="!isViewMode">Available</th>
+                <th style="width:10%; text-align:right">Issue Qty *</th>
+                <th style="width:10%; text-align:right">Unit Cost</th>
+                <th style="width:15%">Remarks</th>
+                <th style="width:7%; text-align:center" *ngIf="!isViewMode">Remove</th>
               </tr>
             </thead>
             <tbody>
@@ -219,7 +221,41 @@
                     Please select an item.
                   </small>
                 </td>
-                <td style="text-align:right; vertical-align:middle">
+
+                <!-- Client Name -->
+                <td>
+                  <ng-container *ngIf="!isViewMode; else clientView">
+                    <mat-select formControlName="ClientID"
+                                (selectionChange)="onClientChange(i)"
+                                (openedChange)="onClientOpen(i, $event)"
+                                style="width:100%; padding:4px">
+                      <mat-option disabled style="position:sticky;top:0;background:#fff;z-index:1;padding:0">
+                        <div style="padding:4px 8px">
+                          <input type="text" placeholder="Search client…"
+                            [value]="clientSearchMap[i] || ''"
+                            (input)="onClientSearch(i, $any($event.target).value)"
+                            (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()"
+                            style="width:100%;border:1px solid #ccc;border-radius:4px;padding:5px 7px;font-size:12px;outline:none">
+                        </div>
+                      </mat-option>
+                      <mat-option [value]="0">-- Select Client --</mat-option>
+                      <mat-option *ngFor="let c of (filteredClientsMap[i] || clients)" [value]="c.ID">
+                        {{c.Name}}
+                      </mat-option>
+                      <mat-option disabled *ngIf="(filteredClientsMap[i] || clients).length === 0 && (clientSearchMap[i] || '').length > 0">
+                        No results found.
+                      </mat-option>
+                    </mat-select>
+                    <small class="text-danger"
+                      *ngIf="line.get('ClientID')?.hasError('mustSelect') && line.get('ClientID')?.touched">
+                      Please select a client.
+                    </small>
+                  </ng-container>
+                  <ng-template #clientView>
+                    <span style="font-size:13px">{{line.get('_ClientName')?.value || '—'}}</span>
+                  </ng-template>
+                </td>
+                <td style="text-align:right; vertical-align:middle" *ngIf="!isViewMode">
                   <span [class.text-danger]="(availableStockMap[i] || 0) === 0">
                     {{formatNumber(availableStockMap[i] || 0)}}
                   </span>

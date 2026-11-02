@@ -2,7 +2,6 @@ import { Component, OnInit } from '@angular/core';
 import { environment } from '../../../../../environments/environment';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
 import { MastermoduleService } from '../../../../service/mastermodule.service';
 import { InventoryService } from '../../../../service/inventory.service';
 import { UserAccessModel } from 'src/app/model/userAccesModel';
@@ -15,22 +14,27 @@ import { DatasharingService } from 'src/app/service/datasharing.service';
 })
 export class StockLedgerReportComponent implements OnInit {
 
-  url: string = environment.baseReportUrl;
+  // ASPX report base URL  (LoginID appended in constructor)
+  baseUrl: string = environment.baseReportUrl + 'Inventory/StockLedgerReport.aspx?';
   urlSafe: SafeResourceUrl | undefined;
-  currentUrl: string = 'Inventory/StockLedgerReport.aspx?';
 
   frm!: FormGroup;
   warehouseList: any[] = [];
   itemList: any[]      = [];
-  currentUser: string  = '';
+  categoryList: any[]  = [];
+  sizeList: string[]   = [];
+
+  currentUser: string    = '';
   errorMessage: string   = '';
   warningMessage: string = '';
   showLoadingSpinner: boolean = false;
+  loadingSizes: boolean = false;
   userAccessModel!: UserAccessModel;
 
-  // Table data
-  ledgerRows: any[]    = [];
-  showTable: boolean   = false;
+  /** Parent categories that have sub-categories — shown as optgroups */
+  categoryGroups: { parent: any; children: any[] }[] = [];
+  /** Standalone categories (no parent, no children) — shown flat */
+  categoryFlat: any[] = [];
 
   transactionTypeOptions = [
     { value: 'ALL',          label: 'All Transaction Types' },
@@ -51,12 +55,9 @@ export class StockLedgerReportComponent implements OnInit {
     private _masterService: MastermoduleService,
     private service: InventoryService,
     private fb: FormBuilder,
-    private _dataService: DatasharingService,
-    private router: Router
+    private _dataService: DatasharingService
   ) {
     this.currentUser = sessionStorage.getItem('username')!;
-    this.url += this.currentUrl;
-    this.url += 'LoginID=' + this.currentUser;
 
     const today        = new Date();
     const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -66,7 +67,9 @@ export class StockLedgerReportComponent implements OnInit {
       ItemID:          ['0'],
       TransactionType: ['ALL'],
       StartDate:       [firstOfMonth, Validators.required],
-      EndDate:         [today,        Validators.required]
+      EndDate:         [today,        Validators.required],
+      CategoryID:      ['0'],
+      Size:            ['']
     });
 
     this.userAccessModel = {
@@ -81,6 +84,13 @@ export class StockLedgerReportComponent implements OnInit {
       this._dataService.getUsername().subscribe(u => this.currentUser = u);
     }
     this.getUserAccessRights(this.currentUser, 'Stock Ledger Report');
+
+    // When Category changes → clear selected Size and reload size list
+    this.frm.get('CategoryID')!.valueChanges.subscribe((catId: any) => {
+      this.frm.get('Size')!.setValue('', { emitEvent: false });
+      this.sizeList = [];
+      this.loadSizes(parseInt(catId, 10) || 0);
+    });
   }
 
   getUserAccessRights(userName: string, screenName: string): void {
@@ -95,12 +105,22 @@ export class StockLedgerReportComponent implements OnInit {
 
           if (this.userAccessModel.readAccess === true || this.currentUser === 'superadmin') {
             this.warningMessage = '';
-            this.service.getWarehouseMasters().subscribe((d: any[]) => {
+
+            this.service.getWarehouseMasters(this.currentUser).subscribe((d: any[]) => {
               this.warehouseList = (d || []).filter((w: any) => w.IsActive);
             });
+
             this.service.GetReportHQMaster().subscribe((d: any) => {
-              this.itemList = d;
+              this.itemList = d || [];
             });
+
+            this.service.getCategories().subscribe((d: any) => {
+              const all = (d || []).filter((c: any) => c.ID > 0);
+              this.categoryList = all;
+              this.buildCategoryGroups(all);
+            });
+
+            this.loadSizes(0);   // pre-load all sizes
           } else {
             this.warningMessage = `Dear <B>${this.currentUser}</B>, <br>
               You do not have permissions to view this page. <br>
@@ -113,6 +133,44 @@ export class StockLedgerReportComponent implements OnInit {
     );
   }
 
+  /** Group categories into parent/children for the optgroup dropdown. */
+  buildCategoryGroups(all: any[]): void {
+    const parentIDs = new Set(
+      all.filter(c => c.ParentCategoryID).map(c => c.ParentCategoryID)
+    );
+    const groups: { parent: any; children: any[] }[] = [];
+    const usedIDs = new Set<number>();
+
+    all.filter(c => parentIDs.has(c.ID)).forEach(parent => {
+      const children = all.filter(c => c.ParentCategoryID === parent.ID);
+      groups.push({ parent, children });
+      usedIDs.add(parent.ID);
+      children.forEach(ch => usedIDs.add(ch.ID));
+    });
+
+    this.categoryGroups = groups;
+    this.categoryFlat   = all.filter(c => !usedIDs.has(c.ID));
+  }
+
+  /** Display label for the category badge. */
+  getCategoryLabel(id: any): string {
+    const found = this.categoryList.find(c => c.ID === parseInt(id, 10));
+    return found ? found.Name : String(id);
+  }
+
+  /** Load size list for the given categoryID (0 = all). */
+  loadSizes(categoryID: number): void {
+    this.loadingSizes = true;
+    this.service.getItemSizesByCategory(categoryID).subscribe({
+      next: (data: any[]) => {
+        this.sizeList    = (data || []).map((s: any) => s.Size || s.size || '').filter(Boolean);
+        this.loadingSizes = false;
+      },
+      error: () => { this.sizeList = []; this.loadingSizes = false; }
+    });
+  }
+
+  /** Build the ASPX URL and set it on the iframe. */
   onSubmit(): void {
     this.errorMessage = '';
 
@@ -130,126 +188,72 @@ export class StockLedgerReportComponent implements OnInit {
       return;
     }
 
-    this.showLoadingSpinner = true;
-    this.showTable          = false;
-    this.ledgerRows         = [];
+    const categoryID = parseInt(raw.CategoryID, 10) || 0;
+    const size       = (raw.Size || '').trim();
 
-    this.service.getStockLedger(
-      raw.WarehouseID || 0,
-      raw.ItemID || 0,
-      this.returnDate(raw.StartDate),
-      this.returnDate(raw.EndDate),
-      raw.TransactionType || 'ALL'
-    ).subscribe({
-      next: (data: any[]) => {
-        this.ledgerRows         = data || [];
-        this.showTable          = true;
-        this.showLoadingSpinner = false;
-        if (this.ledgerRows.length === 0) {
-          this.errorMessage = 'No stock ledger data found for the selected filters.';
-        }
-      },
-      error: () => {
-        this.showLoadingSpinner = false;
-        this.errorMessage = 'Unable to retrieve stock ledger data. Please try again.';
-      }
-    });
-
-    // Also build PDF URL for Export Excel
-    let localURL = '';
-    localURL += '&StartDate='       + this.returnDate(raw.StartDate);
-    localURL += '&EndDate='         + this.returnDate(raw.EndDate);
-    localURL += '&WarehouseID='     + (raw.WarehouseID     || '0');
-    localURL += '&ItemID='          + (raw.ItemID          || '0');
-    localURL += '&TransactionType=' + (raw.TransactionType || 'ALL');
-
-    this.urlSafe = this.sanitizer.bypassSecurityTrustResourceUrl(this.url + localURL);
-  }
-
-  // Map TransactionType → Angular route segment
-  getNavRoute(txType: string, refId: any): string | null {
-    const id = refId ? String(refId) : null;
-    const routes: { [key: string]: string } = {
-      'OPENING':      'inventory/opening-stock/new-opening-stock',
-      'STOCK_IN':     'inventory/goods-receipt/new-grn',
-      'ISSUE':        'inventory/stock-issue/new-stock-issue',
-      'ISSUE_RETURN': 'inventory/stock-issue-return/new-stock-issue-return',
-      'TRANSFER_IN':  'inventory/stock-transfer/new-stock-transfer',
-      'TRANSFER_OUT': 'inventory/stock-transfer/new-stock-transfer',
-      'ADJ_PLUS':     'inventory/stock-adjustment/new-stock-adjustment',
-      'ADJ_MINUS':    'inventory/stock-adjustment/new-stock-adjustment',
-      'PURCHASE_RTN': 'inventory/purchase-return/new-return',
-      'DAMAGE_LOSS':  'inventory/stock-damage-loss/new-stock-damage-loss',
-    };
-    const seg = routes[(txType || '').toUpperCase()];
-    if (!seg) return null;
-    return id ? `/${seg}/${id}` : `/${seg.substring(0, seg.lastIndexOf('/'))}`;
-  }
-
-  navigateTo(txType: string, refId: any): void {
-    const route = this.getNavRoute(txType, refId);
-    if (route) this.router.navigate([route]);
-  }
-
-  getTotalIn(): number {
-    return this.ledgerRows.reduce((sum, r) => sum + (parseFloat(r.InQty) || 0), 0);
-  }
-
-  getTotalOut(): number {
-    return this.ledgerRows.reduce((sum, r) => sum + (parseFloat(r.OutQty) || 0), 0);
-  }
-
-  onExportExcel(): void {
-    if (this.frm.invalid) {
-      this.frm.markAllAsTouched();
-      return;
-    }
-
-    const raw = this.frm.value;
-
-    const from = new Date(raw.StartDate);
-    const to   = new Date(raw.EndDate);
-    if (from > to) {
-      this.errorMessage = "The 'From' date must be before the 'To' date.";
-      return;
-    }
-
-    this.errorMessage = '';
-
-    // Build same URL as PDF but with &format=excel — triggers download
     const params = new URLSearchParams();
-    params.set('LoginID',         this.currentUser           || '');
+    params.set('LoginID',         this.currentUser             || '');
     params.set('StartDate',       this.returnDate(raw.StartDate));
     params.set('EndDate',         this.returnDate(raw.EndDate));
-    params.set('WarehouseID',     String(raw.WarehouseID     || 0));
-    params.set('ItemID',          String(raw.ItemID          || 0));
-    params.set('TransactionType', raw.TransactionType        || 'ALL');
+    params.set('WarehouseID',     String(raw.WarehouseID       || 0));
+    params.set('ItemID',          String(raw.ItemID            || 0));
+    params.set('TransactionType', raw.TransactionType          || 'ALL');
+    params.set('CategoryID',      String(categoryID));
+    if (size) params.set('Size',  size);
+
+    this.urlSafe = this.sanitizer.bypassSecurityTrustResourceUrl(
+      environment.baseReportUrl + 'Inventory/StockLedgerReport.aspx?' + params.toString()
+    );
+  }
+
+  /** Open the Excel export in a new tab. */
+  onExportExcel(): void {
+    if (this.frm.invalid) { this.frm.markAllAsTouched(); return; }
+
+    const raw = this.frm.value;
+    const from = new Date(raw.StartDate);
+    const to   = new Date(raw.EndDate);
+    if (from > to) { this.errorMessage = "The 'From' date must be before the 'To' date."; return; }
+    this.errorMessage = '';
+
+    const categoryID = parseInt(raw.CategoryID, 10) || 0;
+    const size       = (raw.Size || '').trim();
+
+    const params = new URLSearchParams();
+    params.set('LoginID',         this.currentUser             || '');
+    params.set('StartDate',       this.returnDate(raw.StartDate));
+    params.set('EndDate',         this.returnDate(raw.EndDate));
+    params.set('WarehouseID',     String(raw.WarehouseID       || 0));
+    params.set('ItemID',          String(raw.ItemID            || 0));
+    params.set('TransactionType', raw.TransactionType          || 'ALL');
+    params.set('CategoryID',      String(categoryID));
+    if (size) params.set('Size',  size);
     params.set('format',          'excel');
 
-    const baseUrl = environment.baseReportUrl + 'Inventory/StockLedgerReport.aspx';
-    window.open(baseUrl + '?' + params.toString(), '_blank');
+    window.open(
+      environment.baseReportUrl + 'Inventory/StockLedgerReport.aspx?' + params.toString(),
+      '_blank'
+    );
   }
 
   onClear(): void {
     const today        = new Date();
     const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     this.frm.patchValue({
-      WarehouseID: '', ItemID: '0',
-      TransactionType: 'ALL',
-      StartDate: firstOfMonth, EndDate: today
+      WarehouseID: '', ItemID: '0', TransactionType: 'ALL',
+      StartDate: firstOfMonth, EndDate: today,
+      CategoryID: '0', Size: ''
     });
     this.urlSafe      = undefined;
     this.errorMessage = '';
-    this.ledgerRows   = [];
-    this.showTable    = false;
+    this.loadSizes(0);
   }
 
   returnDate(date?: any): string {
-    let currentDate = new Date();
-    if (date) currentDate = new Date(date);
-    const year  = currentDate.getFullYear();
-    const month = String(currentDate.getMonth() + 1).padStart(2, '0');
-    const day   = String(currentDate.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    const d = date ? new Date(date) : new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   }
 }

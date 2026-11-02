@@ -23,10 +23,54 @@
     </div>
 
     <form [formGroup]="frm" (ngSubmit)="onSubmit()" *ngIf="warningMessage === ''">
+
+      <!-- ── Row 1: Category + Size ────────────────────────────────────── -->
       <div class="row">
 
+        <!-- Category -->
+        <div class="col-12 col-sm-6 col-md-3 col-lg-3">
+          <mat-form-field appearance="outline">
+            <mat-label>Category</mat-label>
+            <mat-select formControlName="CategoryID">
+              <mat-option value="0">All Categories</mat-option>
+              <!-- Parent categories with children as optgroups -->
+              <ng-container *ngFor="let grp of categoryGroups">
+                <mat-optgroup [label]="grp.parent.Name">
+                  <mat-option [value]="grp.parent.ID">
+                    {{ grp.parent.Name }} (All)
+                  </mat-option>
+                  <mat-option *ngFor="let sub of grp.children" [value]="sub.ID">
+                    {{ sub.Name }}
+                  </mat-option>
+                </mat-optgroup>
+              </ng-container>
+              <!-- Standalone categories -->
+              <mat-option *ngFor="let cat of categoryFlat" [value]="cat.ID">
+                {{ cat.Name }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <!-- Size -->
+        <div class="col-12 col-sm-6 col-md-2 col-lg-2">
+          <mat-form-field appearance="outline">
+            <mat-label>
+              Size
+              <span *ngIf="loadingSizes" class="sl-hint-loading"> (loading…)</span>
+            </mat-label>
+            <mat-select formControlName="Size">
+              <mat-option value="">All Sizes</mat-option>
+              <mat-option *ngFor="let s of sizeList" [value]="s">{{ s }}</mat-option>
+            </mat-select>
+            <mat-hint *ngIf="sizeList.length === 0 && !loadingSizes">
+              No sizes for this category
+            </mat-hint>
+          </mat-form-field>
+        </div>
+
         <!-- Warehouse -->
-        <div class="col-12 col-sm-12 col-md-3 col-lg-3">
+        <div class="col-12 col-sm-6 col-md-3 col-lg-3">
           <mat-form-field appearance="outline">
             <mat-label>Warehouse <span style="color:red">*</span></mat-label>
             <mat-select formControlName="WarehouseID">
@@ -40,7 +84,7 @@
         </div>
 
         <!-- Item -->
-        <div class="col-12 col-sm-12 col-md-3 col-lg-3">
+        <div class="col-12 col-sm-6 col-md-4 col-lg-4">
           <mat-form-field appearance="outline">
             <mat-label>Item</mat-label>
             <mat-select formControlName="ItemID">
@@ -50,8 +94,13 @@
           </mat-form-field>
         </div>
 
+      </div>
+
+      <!-- ── Row 2: Transaction Type + Dates ──────────────────────────── -->
+      <div class="row">
+
         <!-- Transaction Type -->
-        <div class="col-12 col-sm-12 col-md-2 col-lg-2">
+        <div class="col-12 col-sm-6 col-md-3 col-lg-3">
           <mat-form-field appearance="outline">
             <mat-label>Transaction Type</mat-label>
             <mat-select formControlName="TransactionType">
@@ -63,7 +112,7 @@
         </div>
 
         <!-- Start Date -->
-        <div class="col-12 col-sm-12 col-md-2 col-lg-2">
+        <div class="col-12 col-sm-6 col-md-2 col-lg-2">
           <mat-form-field appearance="outline">
             <mat-label>Start Date <span style="color:red">*</span></mat-label>
             <input matInput formControlName="StartDate"
@@ -75,7 +124,7 @@
         </div>
 
         <!-- End Date -->
-        <div class="col-12 col-sm-12 col-md-2 col-lg-2">
+        <div class="col-12 col-sm-6 col-md-2 col-lg-2">
           <mat-form-field appearance="outline">
             <mat-label>End Date <span style="color:red">*</span></mat-label>
             <input matInput formControlName="EndDate"
@@ -116,69 +165,11 @@
 
     <br />
 
-    <!-- ── Results Table ─────────────────────────────────────────────── -->
-    <div *ngIf="showTable && ledgerRows.length > 0" class="table-responsive mt-2">
-      <table class="table table-bordered table-sm sl-report-table">
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Type</th>
-            <th>Item Code</th>
-            <th>Item Name</th>
-            <th>UOM</th>
-            <th class="text-right">In Qty</th>
-            <th class="text-right">Out Qty</th>
-            <th class="text-right">Balance</th>
-            <th class="text-right">Unit Cost</th>
-            <th>Ref No</th>
-            <th>Remarks</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let row of ledgerRows">
-            <td>{{ row.TransactionDate | date:'dd MMM yyyy' }}</td>
-            <td>{{ row.TransactionTypeLabel }}</td>
-            <td>{{ row.ItemCode }}</td>
-            <td>{{ row.ItemName }}</td>
-            <td>{{ row.UOMName }}</td>
-            <td class="text-right">{{ row.InQty | number:'1.2-2' }}</td>
-            <td class="text-right">{{ row.OutQty | number:'1.2-2' }}</td>
-            <td class="text-right"
-                [ngClass]="{'text-danger fw-bold': row.RunningBalance < 0}">
-              {{ row.RunningBalance | number:'1.2-2' }}
-            </td>
-            <td class="text-right">{{ row.UnitCost | number:'1.2-2' }}</td>
-            <td>
-              <!-- Clickable Ref No: navigates to transaction detail page -->
-              <a *ngIf="getNavRoute(row.TransactionType, row.ReferenceID)"
-                 [routerLink]="getNavRoute(row.TransactionType, row.ReferenceID)"
-                 class="sl-ref-link"
-                 title="View {{ row.TransactionTypeLabel }} detail">
-                {{ row.ReferenceNo }}
-              </a>
-              <span *ngIf="!getNavRoute(row.TransactionType, row.ReferenceID)">
-                {{ row.ReferenceNo }}
-              </span>
-            </td>
-            <td>{{ row.Remarks }}</td>
-          </tr>
-        </tbody>
-        <!-- Totals row -->
-        <tfoot>
-          <tr class="sl-total-row">
-            <td colspan="5"><strong>TOTALS</strong></td>
-            <td class="text-right"><strong>{{ getTotalIn() | number:'1.2-2' }}</strong></td>
-            <td class="text-right"><strong>{{ getTotalOut() | number:'1.2-2' }}</strong></td>
-            <td colspan="4"></td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
-
-    <!-- No data message -->
-    <div *ngIf="showTable && ledgerRows.length === 0 && errorMessage === ''" class="mt-3 text-center text-muted">
-      No records found.
-    </div>
+    <!-- PDF rendered inline in iframe (same as WarehouseStockReport) -->
+    <iframe class="report-wrapper fixed-height"
+            *ngIf="warningMessage === '' && urlSafe"
+            [src]="urlSafe">
+    </iframe>
 
   </mat-card-content>
 </mat-card>

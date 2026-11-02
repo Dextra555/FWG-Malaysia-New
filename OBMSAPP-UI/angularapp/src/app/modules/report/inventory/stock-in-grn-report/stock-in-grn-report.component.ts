@@ -78,7 +78,7 @@ export class StockInGRNReportComponent implements OnInit {
             this.warningMessage = '';
 
             // Load warehouse dropdown
-            this.service.getWarehouseMasters().subscribe((d: any[]) => {
+            this.service.getWarehouseMasters(this.currentUser).subscribe((d: any[]) => {
               this.warehouseList = (d || []).filter((w: any) => w.IsActive);
             });
 

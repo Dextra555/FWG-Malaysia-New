@@ -40,7 +40,7 @@ export class NewStockIssueComponent implements OnInit {
   warehouses:  any[] = [];
   items:       any[] = [];
 
-  issueToTypes: string[] = ['Staff', 'Guard', 'Branch', 'Other'];
+  issueToTypes: string[] = ['Staff', 'Guard', 'Other Guards', 'Branch', 'Other'];
 
   // Recipient lookup lists
   /** Full list loaded from API (filtered by warehouse + role) */
@@ -52,6 +52,11 @@ export class NewStockIssueComponent implements OnInit {
 
   /** true while loading employee list after warehouse/type change */
   loadingEmployees: boolean = false;
+
+  // Client list for per-row Client Name dropdown
+  clients:            any[] = [];
+  clientSearchMap:    { [i: number]: string }  = {};
+  filteredClientsMap: { [i: number]: any[] }   = {};
 
   // Available stock display per row
   availableStockMap: { [key: number]: number } = {};
@@ -101,6 +106,7 @@ export class NewStockIssueComponent implements OnInit {
     this.loadWarehouses();
     this.loadItems();
     this.loadBranchList();
+    this.loadClients();
 
     if (this.ID && this.ID !== '0') {
       this.isViewMode = true;
@@ -129,7 +135,7 @@ export class NewStockIssueComponent implements OnInit {
   }
 
   loadWarehouses(): void {
-    this.service.getWarehouseMasters().subscribe({
+    this.service.getWarehouseMasters(this.currentUser).subscribe({
       next: (d: any[]) => { this.warehouses = (d || []).filter((w: any) => w.IsActive); },
       error: () => { this.errorMessage = 'Unable to load warehouse list. Please refresh the page.'; }
     });
@@ -147,6 +153,23 @@ export class NewStockIssueComponent implements OnInit {
       next: (d: any[]) => { this.branchList = d || []; },
       error: () => {}
     });
+  }
+
+  loadClients(): void {
+    this._masterService.getClientMsterListByStatus('Active').subscribe({
+      next: (d: any[]) => {
+        this.clients = (d || []).filter((c: any) => c.Status !== 'Inactive');
+        this.resetAllClientFilters();
+      },
+      error: () => { this.clients = []; }
+    });
+  }
+
+  private resetAllClientFilters(): void {
+    for (let i = 0; i < this.details.length; i++) {
+      this.clientSearchMap[i]    = '';
+      this.filteredClientsMap[i] = [...this.clients];
+    }
   }
 
   // ── Called when Warehouse selection changes ────────────────────────────────
@@ -180,7 +203,7 @@ export class NewStockIssueComponent implements OnInit {
     const type        = this.frm.get('IssueToType')?.value;
     const warehouseID = +(this.frm.get('WarehouseID')?.value || 0);
 
-    if (type === 'Staff' || type === 'Guard') {
+    if (type === 'Staff' || type === 'Guard' || type === 'Other Guards') {
       if (warehouseID <= 0) {
         this.employeeList       = [];
         this.filteredRecipients = [];
@@ -209,8 +232,8 @@ export class NewStockIssueComponent implements OnInit {
   // Returns the right source list based on current type
   getSourceList(): any[] {
     const type = this.frm.get('IssueToType')?.value;
-    if (type === 'Staff' || type === 'Guard') return this.employeeList;
-    if (type === 'Branch')                    return this.branchList;
+    if (type === 'Staff' || type === 'Guard' || type === 'Other Guards') return this.employeeList;
+    if (type === 'Branch') return this.branchList;
     return [];
   }
 
@@ -275,13 +298,15 @@ export class NewStockIssueComponent implements OnInit {
         detailsArray.clear();
         (d.Details || []).forEach((line: any) => {
           const row = this.fb.group({
-            ID:       [line.ID],
-            ItemID:   [line.ItemID,  [Validators.required, mustSelect()]],
-            _ItemName:[line.ItemName || ''],
-            UOMID:    [line.UOMID],
-            IssueQty: [line.IssueQty, [Validators.required, greaterThanZero()]],
-            UnitCost: [line.UnitCost || 0],
-            Remarks:  [line.Remarks]
+            ID:          [line.ID],
+            ItemID:      [line.ItemID,  [Validators.required, mustSelect()]],
+            _ItemName:   [line.ItemName || ''],
+            UOMID:       [line.UOMID],
+            IssueQty:    [line.IssueQty, [Validators.required, greaterThanZero()]],
+            UnitCost:    [line.UnitCost || 0],
+            ClientID:    [line.ClientID ?? 0],
+            _ClientName: [line.ClientName || ''],
+            Remarks:     [line.Remarks]
           });
           detailsArray.push(row);
         });
@@ -296,28 +321,65 @@ export class NewStockIssueComponent implements OnInit {
 
   // ── Detail rows ────────────────────────────────────────────────────────────
   addDetailRow(): void {
+    const i = this.details.length;
     this.details.push(this.fb.group({
-      ID:       [0],
-      ItemID:   [0,   [Validators.required, mustSelect()]],
-      _ItemName:[''],
-      UOMID:    [null],
-      IssueQty: [null, [Validators.required, greaterThanZero()]],
-      UnitCost: [0],
-      Remarks:  ['']
+      ID:         [0],
+      ItemID:     [0,   [Validators.required, mustSelect()]],
+      _ItemName:  [''],
+      UOMID:      [null],
+      IssueQty:   [null, [Validators.required, greaterThanZero()]],
+      UnitCost:   [0],
+      ClientID:   [0, [Validators.required, mustSelect()]],
+      _ClientName:[''],
+      Remarks:    ['']
     }));
+    this.clientSearchMap[i]    = '';
+    this.filteredClientsMap[i] = [...this.clients];
   }
 
   removeDetailRow(i: number): void {
     this.details.removeAt(i);
     delete this.availableStockMap[i];
-    // Re-key the map
-    const newMap: { [key: number]: number } = {};
+    // Re-key availability map
+    const newAvail: { [key: number]: number } = {};
     Object.keys(this.availableStockMap).forEach(k => {
       const ki = +k;
-      if (ki > i) newMap[ki - 1] = this.availableStockMap[ki];
-      else if (ki < i) newMap[ki] = this.availableStockMap[ki];
+      if (ki > i) newAvail[ki - 1] = this.availableStockMap[ki];
+      else if (ki < i) newAvail[ki] = this.availableStockMap[ki];
     });
-    this.availableStockMap = newMap;
+    this.availableStockMap = newAvail;
+    // Re-key client search/filter maps
+    const newSearch:   { [k: number]: string } = {};
+    const newFiltered: { [k: number]: any[] }  = {};
+    for (let k = 0; k < this.details.length; k++) {
+      const src = k >= i ? k + 1 : k;
+      newSearch[k]   = this.clientSearchMap[src]    ?? '';
+      newFiltered[k] = this.filteredClientsMap[src] ?? [...this.clients];
+    }
+    this.clientSearchMap    = newSearch;
+    this.filteredClientsMap = newFiltered;
+  }
+
+  // ── Client dropdown helpers ────────────────────────────────────────────────
+  onClientOpen(i: number, opened: boolean): void {
+    if (opened) {
+      this.clientSearchMap[i]    = '';
+      this.filteredClientsMap[i] = [...this.clients];
+    }
+  }
+
+  onClientSearch(i: number, q: string): void {
+    this.clientSearchMap[i] = q;
+    const s = q.toLowerCase();
+    this.filteredClientsMap[i] = this.clients.filter(
+      (c: any) => c.Name?.toLowerCase().includes(s) || c.Code?.toLowerCase().includes(s)
+    );
+  }
+
+  onClientChange(i: number): void {
+    const clientID = +this.details.at(i).get('ClientID')?.value;
+    const selected = this.clients.find((c: any) => c.ID === clientID);
+    this.details.at(i).get('_ClientName')?.setValue(selected?.Name || '');
   }
 
   onItemChange(i: number): void {
@@ -374,7 +436,7 @@ export class NewStockIssueComponent implements OnInit {
     return this.warehouses.find((w: any) => w.ID === id)?.Name || '—';
   }
   get showRecipientDropdown(): boolean {
-    return ['Staff', 'Guard', 'Branch'].includes(this.issueToType);
+    return ['Staff', 'Guard', 'Other Guards', 'Branch'].includes(this.issueToType);
   }
 
   onSubmit(): void {
@@ -416,6 +478,7 @@ export class NewStockIssueComponent implements OnInit {
         UOMID:        d.UOMID ? +d.UOMID : null,
         IssueQty:     +d.IssueQty,
         UnitCost:     +d.UnitCost || 0,
+        ClientID:     d.ClientID && +d.ClientID > 0 ? +d.ClientID : null,
         Remarks:      d.Remarks,
         LastUpdatedBy: this.currentUser
       }))

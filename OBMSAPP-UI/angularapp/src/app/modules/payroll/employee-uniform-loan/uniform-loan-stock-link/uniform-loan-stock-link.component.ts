@@ -126,13 +126,33 @@ export class UniformLoanStockLinkComponent implements OnInit, AfterViewInit {
   // ── load branch list ──────────────────────────────────────────────────────
   loadBranches(): void {
     this.loadingBranches = true;
-    this._masterService.getBranchMasterList().subscribe({
-      next: (data: any) => {
-        this.branchList    = Array.isArray(data) ? data : (data?.Result ?? []);
-        this.loadingBranches = false;
-      },
-      error: () => { this.loadingBranches = false; }
-    });
+    const userRole   = sessionStorage.getItem('userrole') ?? '0';
+    const isSuperAdmin = userRole === '2' || this.currentUser === 'superadmin';
+
+    if (isSuperAdmin) {
+      // superadmin sees all branches
+      this._masterService.getBranchMasterList().subscribe({
+        next: (data: any) => {
+          this.branchList      = Array.isArray(data) ? data : (data?.Result ?? []);
+          this.loadingBranches = false;
+        },
+        error: () => { this.loadingBranches = false; }
+      });
+    } else {
+      // normal user — only their allowed branches
+      this._inventoryService.getBranchListByUser(this.currentUser).subscribe({
+        next: (data: any[]) => {
+          this.branchList      = data ?? [];
+          this.loadingBranches = false;
+          // auto-select if user has exactly one branch
+          if (this.branchList.length === 1) {
+            this.selectedBranchCode = this.branchList[0].Code ?? '';
+            this.onBranchOrTypeChange();
+          }
+        },
+        error: () => { this.loadingBranches = false; }
+      });
+    }
   }
 
   // ── branch or type changed → reload employee list ─────────────────────────

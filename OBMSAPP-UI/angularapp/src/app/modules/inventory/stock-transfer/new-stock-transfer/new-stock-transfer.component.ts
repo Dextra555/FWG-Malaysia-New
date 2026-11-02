@@ -99,7 +99,7 @@ export class NewStockTransferComponent implements OnInit {
   /** Loads warehouses + items in parallel, then calls the given callback once both are ready. */
   private loadWarehousesAndItems(onReady: () => void): void {
     forkJoin({
-      warehouses: this.service.getWarehouseMasters(),
+      warehouses: this.service.getWarehouseMasters(this.currentUser),
       items: this.service.getItemsForStock()
     }).subscribe({
       next: ({ warehouses, items }: any) => {

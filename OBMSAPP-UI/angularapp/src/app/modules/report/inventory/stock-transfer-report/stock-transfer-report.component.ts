@@ -77,7 +77,7 @@ export class StockTransferReportComponent implements OnInit {
             this.warningMessage = '';
 
             // One warehouse list shared for both From and To dropdowns
-            this.service.getWarehouseMasters().subscribe((d: any[]) => {
+            this.service.getWarehouseMasters(this.currentUser).subscribe((d: any[]) => {
               this.warehouseList = (d || []).filter((w: any) => w.IsActive);
             });
 

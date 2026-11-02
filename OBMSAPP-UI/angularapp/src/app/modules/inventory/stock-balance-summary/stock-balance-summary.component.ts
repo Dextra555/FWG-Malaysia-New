@@ -37,7 +37,7 @@ export class StockBalanceSummaryComponent implements OnInit, AfterViewInit {
   filterValue: string = '';
 
   displayedColumns: string[] = [
-    'WarehouseName', 'ItemCode', 'ItemName', 'CategoryName',
+    'WarehouseName', 'ItemCode', 'ItemName', 'Size', 'CategoryName',
     'UOMName', 'CurrentStock', 'ReorderLevel', 'Status',
     'LastUnitCost', 'StockValue', 'LastMovementDate', 'LastTransactionType'
   ];
@@ -47,6 +47,15 @@ export class StockBalanceSummaryComponent implements OnInit, AfterViewInit {
   // Summary totals
   totalStockValue: number = 0;
   belowReorderCount: number = 0;
+
+  /// Total current stock quantity for the rows currently shown
+  /// (reflects the warehouse filter and the search box, so when a
+  /// category such as "Pants" is searched, this is the total stock
+  /// across all of its sizes).
+  get totalStockQty(): number {
+    const rows = this.dataSource?.filteredData ?? this.dataSource?.data ?? [];
+    return rows.reduce((s: number, x: any) => s + (x.CurrentStock || 0), 0);
+  }
 
   constructor(
     private _liveAnnouncer: LiveAnnouncer,

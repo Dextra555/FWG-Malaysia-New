@@ -84,7 +84,6 @@
           <li class="nav-item">
             <div class="collapse" [ngClass]="{'show': isSubmenuOpen('inventory')}">
               <ul class="nav flex-column wlt-c-furg-sub-menu">
-                <li class="nav-item" routerLink="/inventory/dashboard"><a class="nav-link"><mat-icon style="font-size:14px;vertical-align:middle;margin-right:4px">dashboard</mat-icon>Dashboard</a></li>
                 <li class="nav-item" routerLink="/inventory/item-master"><a class="nav-link">Item Master </a></li>
                 <li class="nav-item" routerLink="/inventory/brand-master"><a class="nav-link">Brand Master</a></li>
                 <li class="nav-item" routerLink="/inventory/uom-master"><a class="nav-link">UOM Master</a></li>
@@ -100,10 +99,10 @@
                     <a class="nav-link collapsed reportHeader">Stock Operations</a>
                   </span>
                 </li>
+                <li class="nav-item" routerLink="/inventory/branch-stock-request"><a class="nav-link">Branch Stock Request</a></li>
+                <li class="nav-item" routerLink="/inventory/stock-transfer"><a class="nav-link">Stock Transfer</a></li>
                 <li class="nav-item" routerLink="/inventory/stock-issue"><a class="nav-link">Stock Issue</a></li>
                 <li class="nav-item" routerLink="/inventory/stock-issue-return"><a class="nav-link">Issue Return</a></li>
-                <li class="nav-item" routerLink="/inventory/stock-transfer"><a class="nav-link">Stock Transfer</a></li>
-                <li class="nav-item" routerLink="/inventory/branch-stock-request"><a class="nav-link">Branch Stock Request</a></li>
                 <li class="nav-item" routerLink="/inventory/stock-adjustment"><a class="nav-link">Stock Adjustment</a></li>
                 <li class="nav-item" routerLink="/inventory/stock-damage-loss"><a class="nav-link">Damage / Loss</a></li>
                 <!-- Part 6: Asset Management -->
@@ -120,7 +119,7 @@
                 <li class="nav-item" routerLink="/inventory/asset-damage"><a class="nav-link">Asset Damage</a></li>
                 <li class="nav-item" routerLink="/inventory/asset-disposal"><a class="nav-link">Asset Disposal</a></li>
                 <li class="nav-item" routerLink="/inventory/asset-location"><a class="nav-link">Asset Location</a></li>
-                <li class="nav-item" routerLink="/inventory/recepient-master"><a class="nav-link">Recepient Master</a></li>                <li class="nav-item" hidden routerLink="/inventory/purchase-bills"><a class="nav-link">Purchase Bills</a></li>
+                <li class="nav-item" hidden routerLink="/inventory/recepient-master"><a class="nav-link">Recepient Master</a></li>                <li class="nav-item" hidden routerLink="/inventory/purchase-bills"><a class="nav-link">Purchase Bills</a></li>
                 <li class="nav-item" hidden routerLink="/inventory/material-issue"><a class="nav-link">Material Issue</a></li>
               </ul>
             </div>

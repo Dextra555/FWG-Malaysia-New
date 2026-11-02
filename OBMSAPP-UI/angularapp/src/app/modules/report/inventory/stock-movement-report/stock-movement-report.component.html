@@ -23,10 +23,12 @@
     </div>
 
     <form [formGroup]="frm" (ngSubmit)="onSubmit()" *ngIf="warningMessage === ''">
+
+      <!-- ── Row 1: Warehouse + Item + Client Name ──────────────────────── -->
       <div class="row">
 
-        <!-- Warehouse (optional) -->
-        <div class="col-12 col-sm-12 col-md-3 col-lg-3">
+        <!-- Warehouse -->
+        <div class="col-12 col-sm-6 col-md-3 col-lg-3">
           <mat-form-field appearance="outline">
             <mat-label>Warehouse</mat-label>
             <mat-select formControlName="WarehouseID">
@@ -36,8 +38,8 @@
           </mat-form-field>
         </div>
 
-        <!-- Item (optional) -->
-        <div class="col-12 col-sm-12 col-md-3 col-lg-3">
+        <!-- Item -->
+        <div class="col-12 col-sm-6 col-md-3 col-lg-3">
           <mat-form-field appearance="outline">
             <mat-label>Item</mat-label>
             <mat-select formControlName="ItemID">
@@ -47,8 +49,26 @@
           </mat-form-field>
         </div>
 
-        <!-- Start Date (required) -->
-        <div class="col-12 col-sm-12 col-md-2 col-lg-2">
+        <!-- Client Name -->
+        <div class="col-12 col-sm-6 col-md-3 col-lg-3">
+          <mat-form-field appearance="outline">
+            <mat-label>Client Name</mat-label>
+            <mat-select formControlName="ClientName">
+              <mat-option value="">All Clients</mat-option>
+              <mat-option *ngFor="let c of clientList" [value]="c.clientName">
+                {{ c.clientName }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+      </div>
+
+      <!-- ── Row 2: Dates ───────────────────────────────────────────────── -->
+      <div class="row">
+
+        <!-- Start Date -->
+        <div class="col-12 col-sm-6 col-md-2 col-lg-2">
           <mat-form-field appearance="outline">
             <mat-label>Start Date <span style="color:red">*</span></mat-label>
             <input matInput formControlName="StartDate"
@@ -59,8 +79,8 @@
           </mat-form-field>
         </div>
 
-        <!-- End Date (required) -->
-        <div class="col-12 col-sm-12 col-md-2 col-lg-2">
+        <!-- End Date -->
+        <div class="col-12 col-sm-6 col-md-2 col-lg-2">
           <mat-form-field appearance="outline">
             <mat-label>End Date <span style="color:red">*</span></mat-label>
             <input matInput formControlName="EndDate"
@@ -71,27 +91,29 @@
           </mat-form-field>
         </div>
 
-        <!-- Buttons -->
-        <div class="col-12 col-sm-12 col-md-2 col-lg-2 d-flex align-items-center flex-wrap">
-          <button type="button" class="btn btn-outline-secondary mr-2 mb-1" (click)="onClear()">
-            Clear
-          </button>
-          <button type="submit" class="btn wlt-c-furg-btn-primary mr-2 mb-1">
-            Search
-          </button>
-          <button type="button" class="btn btn-success mb-1" (click)="onExportExcel()"
-                  [disabled]="frm.invalid">
-            <mat-icon style="vertical-align:middle; font-size:18px; margin-right:4px">table_view</mat-icon>
-            Export Excel
-          </button>
-        </div>
-
       </div>
 
       <!-- Error message -->
       <div class="row" *ngIf="errorMessage !== ''">
         <div class="col-12">
           <mat-label style="color:red">{{ errorMessage }}</mat-label>
+        </div>
+      </div>
+
+      <!-- Buttons -->
+      <div class="row mt-1">
+        <div class="col-12 text-right">
+          <button type="button" class="btn btn-outline-secondary mr-2" (click)="onClear()">
+            Clear
+          </button>
+          <button type="submit" class="btn wlt-c-furg-btn-primary mr-2">
+            Search
+          </button>
+          <button type="button" class="btn btn-success" (click)="onExportExcel()"
+                  [disabled]="frm.invalid">
+            <mat-icon style="vertical-align:middle; font-size:18px; margin-right:4px">table_view</mat-icon>
+            Export Excel
+          </button>
         </div>
       </div>
 

@@ -1,3 +1,4 @@
+<!-- PAGE HEADER & BREADCRUMB -->
 <div class="wlt-c-furg-content-header">
   <div class="container-fluid">
     <div class="row mb-2">
@@ -57,13 +58,6 @@
       </div>
     </div>
 
-    <div *ngSwitchCase="'Rejected'" class="alert alert-danger mb-0" style="border-left:4px solid #c62828">
-      <mat-icon style="vertical-align:middle">cancel</mat-icon>
-      <strong> Rejected</strong> — This purchase order has been rejected.
-      <span *ngIf="rejectReason"> Reason: <em>{{rejectReason}}</em></span>
-      <br><small>Please create a new order or contact your administrator.</small>
-    </div>
-
     <div *ngSwitchCase="'Partially Received'" class="alert alert-warning mb-0" style="border-left:4px solid #e65100">
       <mat-icon style="vertical-align:middle">local_shipping</mat-icon>
       <strong> Partially Received</strong> — Some items have been received. Record the remaining goods when they arrive.
@@ -110,10 +104,7 @@
   <mat-card-content>
     <form [formGroup]="frm">
       <div class="row mt-2">
-        <div class="col-12">
-          <h6 class="wlt-c-section-label"><strong>Order Details</strong></h6>
-          <hr class="mt-0">
-        </div>
+        <div class="col-12"><h6 class="wlt-c-section-label"><strong>Order Details</strong></h6><hr class="mt-0"></div>
       </div>
 
       <!-- ── VIEW MODE ── -->
@@ -154,7 +145,17 @@
         <div class="col-6 col-md-3">
           <div class="wlt-view-field">
             <span class="wlt-view-label">Remarks</span>
-            <span class="wlt-view-value">{{frm.get('Remarks')?.value || '—'}}</span>
+            <!-- View mode: show value -->
+            <span *ngIf="!isEditingRef" class="wlt-view-value">{{frm.get('Remarks')?.value || '—'}}</span>
+            <!-- Edit mode: inline textarea -->
+            <textarea *ngIf="isEditingRef"
+              class="form-control form-control-sm mt-1"
+              rows="2"
+              [(ngModel)]="refRemarks"
+              [ngModelOptions]="{standalone: true}"
+              placeholder="Enter remarks…"
+              style="font-size:13px">
+            </textarea>
           </div>
         </div>
       </div>
@@ -403,7 +404,6 @@
               No items added yet.
             </td>
           </tr>
-
         </tbody>
       </table>
     </div>
@@ -442,6 +442,31 @@
             (click)="onPrintPDF()">
             <mat-icon style="vertical-align:middle;font-size:18px">print</mat-icon>
             Print PDF
+          </button>
+
+          <!-- Cancel remarks edit -->
+          <button *ngIf="isEdit && isEditingRef && (userAccessModel.updateAccess || userRole === 'superadmin')"
+            type="button" class="btn btn-outline-secondary mr-2"
+            (click)="cancelEditRef()">
+            <mat-icon style="vertical-align:middle;font-size:18px">close</mat-icon>
+            Cancel Edit
+          </button>
+
+          <!-- Save remarks -->
+          <button *ngIf="isEdit && isEditingRef && (userAccessModel.updateAccess || userRole === 'superadmin')"
+            type="button" class="btn wlt-c-furg-btn-primary mr-2" [disabled]="refSaving"
+            (click)="saveRef()">
+            <mat-icon style="vertical-align:middle;font-size:18px">save</mat-icon>
+            {{ refSaving ? 'Saving…' : 'Save Remarks' }}
+          </button>
+
+          <!-- Edit remarks — shown in view mode (non-editable PO statuses) -->
+          <button *ngIf="isEdit && !isEditingRef && !canEdit() && (userAccessModel.updateAccess || userRole === 'superadmin')"
+            type="button" class="btn btn-outline-primary mr-2"
+            matTooltip="Edit Remarks only. Items and quantities are not changed."
+            (click)="startEditRef()">
+            <mat-icon style="vertical-align:middle;font-size:18px">edit</mat-icon>
+            Edit Remarks
           </button>
 
           <!-- Save Draft (new form or existing Draft) -->
