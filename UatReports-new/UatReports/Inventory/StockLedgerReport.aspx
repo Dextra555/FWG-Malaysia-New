@@ -24,6 +24,8 @@
         string warehouseIDStr  = (Request.QueryString["WarehouseID"]     ?? "0").Trim();
         string itemIDStr       = (Request.QueryString["ItemID"]          ?? "0").Trim();
         string transactionType = (Request.QueryString["TransactionType"] ?? "ALL").Trim();
+        string categoryIDStr   = (Request.QueryString["CategoryID"]      ?? "0").Trim();
+        string sizeFilter      = (Request.QueryString["Size"]            ?? "").Trim();
         string format          = (Request.QueryString["format"]          ?? "pdf").ToLower().Trim();
 
         if (string.IsNullOrWhiteSpace(startDateStr) || string.IsNullOrWhiteSpace(endDateStr))
@@ -45,9 +47,12 @@
         int itemID = 0;
         int.TryParse(itemIDStr, out itemID);
 
+        int categoryID = 0;
+        int.TryParse(categoryIDStr, out categoryID);
+
         // ── 2. Execute stored procedure ───────────────────────────────────
         DataTable dt;
-        try   { dt = RunSP(warehouseID, itemID, transactionType, startDate, endDate); }
+        try   { dt = RunSP(warehouseID, itemID, transactionType, startDate, endDate, categoryID, sizeFilter); }
         catch (Exception ex)
         {
             LogErr("sp_InventoryStockLedger", ex.Message);
@@ -59,18 +64,22 @@
         { SendError("No stock ledger data found for the selected filters."); return; }
 
         // ── 3. Resolve display names ──────────────────────────────────────
-        string whName   = Lookup("SELECT Name FROM WarehouseMaster WHERE ID=@p", warehouseID.ToString()) ?? warehouseIDStr;
-        string itemName = itemID > 0
+        string whName      = Lookup("SELECT Name FROM WarehouseMaster WHERE ID=@p", warehouseID.ToString()) ?? warehouseIDStr;
+        string itemName    = itemID > 0
             ? (Lookup("SELECT Name FROM ItemMaster WHERE ID=@p", itemID.ToString()) ?? itemIDStr)
             : "All Items";
-        string typeLbl  = TypeLabel(transactionType);
-        string period   = startDate.ToString("dd MMM yyyy") + " to " + endDate.ToString("dd MMM yyyy");
+        string catName     = categoryID > 0
+            ? (Lookup("SELECT Name FROM InventoryCategory WHERE ID=@p", categoryID.ToString()) ?? categoryIDStr)
+            : "All Categories";
+        string typeLbl     = TypeLabel(transactionType);
+        string sizeLbl     = string.IsNullOrEmpty(sizeFilter) ? "All Sizes" : sizeFilter;
+        string period      = startDate.ToString("dd MMM yyyy") + " to " + endDate.ToString("dd MMM yyyy");
 
         // ── 4. Excel or PDF ───────────────────────────────────────────────
         if (format == "excel")
         {
             byte[] xlsx;
-            try   { xlsx = BuildExcel(whName, itemName, typeLbl, period, dt); }
+            try   { xlsx = BuildExcel(whName, itemName, catName, sizeLbl, typeLbl, period, dt); }
             catch (Exception ex)
             {
                 LogErr("BuildExcel", ex.Message);
@@ -91,7 +100,7 @@
         }
 
         byte[] pdf;
-        try   { pdf = BuildPdf(loginID, whName, itemName, typeLbl, period, dt); }
+        try   { pdf = BuildPdf(loginID, whName, itemName, catName, sizeLbl, typeLbl, period, dt); }
         catch (Exception ex)
         {
             LogErr("BuildPdf", ex.Message);
@@ -116,6 +125,7 @@
     // ════════════════════════════════════════════════════════════════════════
 
     private byte[] BuildPdf(string loginID, string whName, string itemName,
+                            string catName, string sizeLbl,
                             string typeLbl, string period, DataTable dt)
     {
         // ── Colours (identical to CurrentStockReport) ────────────────────
@@ -179,7 +189,7 @@
             hdrTable.AddCell(logoCell);
 
             // Company text cell
-            Font fCoName = new Font(Font.FontFamily.HELVETICA, 11f, Font.BOLD,   navy);
+            Font fCoName = new Font(Font.FontFamily.HELVETICA, 11f, Font.BOLD,   BaseColor.DARK_GRAY);
             Font fCoReg  = new Font(Font.FontFamily.HELVETICA,  8f, Font.BOLD,   navy);
             Font fCoSub  = new Font(Font.FontFamily.HELVETICA,  8f, Font.NORMAL, BaseColor.DARK_GRAY);
 
@@ -215,11 +225,13 @@
             {
                 new[]{ "Warehouse:",        whName   },
                 new[]{ "Item:",             itemName },
+                new[]{ "Category:",         catName  },
+                new[]{ "Size:",             sizeLbl  },
                 new[]{ "Transaction Type:", typeLbl  },
                 new[]{ "Period:",           period   }
             };
-            var ft = new PdfPTable(4) { WidthPercentage = 100f, SpacingAfter = 8f };
-            ft.SetWidths(new float[] { 1.3f, 2.2f, 1.6f, 3.9f });
+            var ft = new PdfPTable(3) { WidthPercentage = 100f, SpacingAfter = 8f };
+            ft.SetWidths(new float[] { 1.5f, 3.5f, 5.0f });
             ft.DefaultCell.Border = Rectangle.NO_BORDER;
             foreach (var f in filters)
             {
@@ -228,23 +240,28 @@
                 ph.Add(new Chunk(f[1], fFilter));
                 ft.AddCell(new PdfPCell(ph) { Border = Rectangle.NO_BORDER, Padding = 2f, NoWrap = true });
             }
+            // pad to complete the last row if needed (6 items → 2 rows of 3)
             doc.Add(ft);
 
             // ── Data table ────────────────────────────────────────────────
             // header text | field name | rel width | isNumeric | isDate
+            // S.No is generated in the loop (not a DB field) — handled specially
             var cols = new object[][]
             {
-                new object[]{ "Date",       "TransactionDate",      2.0f, false, true  },
-                new object[]{ "Type",       "TransactionTypeLabel", 2.6f, false, false },
-                new object[]{ "Item Code",  "ItemCode",             1.8f, false, false },
-                new object[]{ "Item Name",  "ItemName",             4.2f, false, false },
-                new object[]{ "UOM",        "UOMName",              1.3f, false, false },
-                new object[]{ "In Qty",     "InQty",                1.7f, true,  false },
-                new object[]{ "Out Qty",    "OutQty",               1.7f, true,  false },
-                new object[]{ "Balance",    "RunningBalance",       1.7f, true,  false },
-                new object[]{ "Unit Cost",  "UnitCost",             1.7f, true,  false },
-                new object[]{ "Ref No",     "ReferenceNo",          1.9f, false, false },
-                new object[]{ "Remarks",    "Remarks",              3.4f, false, false },
+                new object[]{ "S.No",       "SERNO",               0.8f, false, false },
+                new object[]{ "Ref No",     "ReferenceNo",          1.8f, false, false },
+                new object[]{ "Date",       "TransactionDate",      1.8f, false, true  },
+                new object[]{ "Type",       "TransactionTypeLabel", 2.2f, false, false },
+                new object[]{ "Category",   "CategoryName",         2.0f, false, false },
+                new object[]{ "Item Code",  "ItemCode",             1.6f, false, false },
+                new object[]{ "Item Name",  "ItemName",             3.5f, false, false },
+                new object[]{ "Size",       "Size",                 1.0f, false, false },
+                new object[]{ "UOM",        "UOMName",              1.0f, false, false },
+                new object[]{ "In Qty",     "InQty",                1.5f, true,  false },
+                new object[]{ "Out Qty",    "OutQty",               1.5f, true,  false },
+                new object[]{ "Balance",    "RunningBalance",       1.5f, true,  false },
+                new object[]{ "Unit Cost",  "UnitCost",             1.5f, true,  false },
+                new object[]{ "Remarks",    "Remarks",              2.6f, false, false },
             };
 
             float[] widths = new float[cols.Length];
@@ -268,44 +285,83 @@
             // Data rows
             int ri = 0;
             decimal totalIn = 0, totalOut = 0;
+            string pdfBaseUrl = GetAppBaseUrl();
             foreach (DataRow dr in dt.Rows)
             {
-                var rowBg = (ri++ % 2 == 0) ? BaseColor.WHITE : rowAlt;
+                var rowBg = (ri % 2 == 0) ? BaseColor.WHITE : rowAlt;
+
+                // Per-row values needed for Ref No hyperlink
+                string rowTxType = dt.Columns.Contains("TransactionType") && dr["TransactionType"] != DBNull.Value
+                    ? dr["TransactionType"].ToString().ToUpper() : "";
+                string rowRefId  = dt.Columns.Contains("ReferenceID") && dr["ReferenceID"] != DBNull.Value
+                    ? dr["ReferenceID"].ToString() : "";
+
                 foreach (var c in cols)
                 {
                     string field  = (string)c[1];
                     bool   isNum  = (bool)c[3];
                     bool   isDate = (bool)c[4];
-                    object raw    = dt.Columns.Contains(field) ? dr[field] : null;
-                    string txt    = FmtCell(raw, isNum, isDate);
 
-                    Font cf = fTD;
-                    if (isNum && raw != null && raw != DBNull.Value)
-                    { decimal dv; if (decimal.TryParse(raw.ToString(), out dv) && dv < 0) cf = fTDRed; }
+                    // S.No — generated, not a DB field
+                    string txt;
+                    if (field == "SERNO")
+                    {
+                        txt = (ri + 1).ToString();
+                    }
+                    else
+                    {
+                        object raw = dt.Columns.Contains(field) ? dr[field] : null;
+                        txt = FmtCell(raw, isNum, isDate);
 
-                    if (field == "InQty"  && raw != null && raw != DBNull.Value) { decimal v; if (decimal.TryParse(raw.ToString(), out v)) totalIn  += v; }
-                    if (field == "OutQty" && raw != null && raw != DBNull.Value) { decimal v; if (decimal.TryParse(raw.ToString(), out v)) totalOut += v; }
+                        // Ref No → clickable hyperlink in PDF
+                        if (field == "ReferenceNo" && !string.IsNullOrEmpty(txt) && !string.IsNullOrEmpty(pdfBaseUrl))
+                        {
+                            string navUrl = BuildNavUrl(pdfBaseUrl, rowTxType, rowRefId);
+                            if (!string.IsNullOrEmpty(navUrl))
+                            {
+                                Font fLink = new Font(Font.FontFamily.HELVETICA, 7.5f, Font.UNDERLINE,
+                                                      new BaseColor(0x0d, 0x6e, 0xfd));
+                                var anchor = new Anchor(txt, fLink) { Reference = navUrl };
+                                tbl.AddCell(new PdfPCell(anchor)
+                                {
+                                    BackgroundColor     = rowBg,
+                                    HorizontalAlignment = Element.ALIGN_LEFT,
+                                    Padding = 4f, Border = Rectangle.BOX, BorderColor = border
+                                });
+                                continue;
+                            }
+                        }
 
-                    tbl.AddCell(new PdfPCell(new Phrase(txt, cf))
+                        if (isNum && raw != null && raw != DBNull.Value)
+                        { decimal dv; if (decimal.TryParse(raw.ToString(), out dv) && dv < 0)
+                            { tbl.AddCell(new PdfPCell(new Phrase(txt, fTDRed))
+                              { BackgroundColor = rowBg, HorizontalAlignment = Element.ALIGN_RIGHT,
+                                Padding = 4f, Border = Rectangle.BOX, BorderColor = border }); continue; } }
+                        if (field == "InQty"  && raw != null && raw != DBNull.Value) { decimal v; if (decimal.TryParse(raw.ToString(), out v)) totalIn  += v; }
+                        if (field == "OutQty" && raw != null && raw != DBNull.Value) { decimal v; if (decimal.TryParse(raw.ToString(), out v)) totalOut += v; }
+                    }
+
+                    tbl.AddCell(new PdfPCell(new Phrase(txt, fTD))
                     {
                         BackgroundColor     = rowBg,
                         HorizontalAlignment = isNum ? Element.ALIGN_RIGHT : Element.ALIGN_LEFT,
                         Padding = 4f, Border = Rectangle.BOX, BorderColor = border
                     });
                 }
+                ri++;
             }
 
-            // Totals row — first 5 cols merged, then In Qty, Out Qty, rest blank
+            // Totals row — first 8 cols merged, then In Qty, Out Qty, rest blank
             tbl.AddCell(new PdfPCell(new Phrase("TOTALS", fTotal))
             {
-                Colspan             = 5,
+                Colspan             = 8,
                 BackgroundColor     = totalBg,
                 HorizontalAlignment = Element.ALIGN_LEFT,
                 VerticalAlignment   = Element.ALIGN_MIDDLE,
                 Padding = 5f, Border = Rectangle.BOX, BorderColor = navy, BorderWidth = 1.5f,
                 NoWrap  = true
             });
-            for (int i = 5; i < cols.Length; i++)
+            for (int i = 8; i < cols.Length; i++)
             {
                 string field = (string)cols[i][1];
                 string txt   = field == "InQty"  ? totalIn.ToString("N2")
@@ -330,20 +386,24 @@
     // ════════════════════════════════════════════════════════════════════════
 
     private byte[] BuildExcel(string whName, string itemName,
+                              string catName, string sizeLbl,
                               string typeLbl, string period, DataTable dt)
     {
         var cols = new string[][]
         {
+            new[]{ "S.No",        "SERNO"                },
+            new[]{ "Ref No",      "ReferenceNo"          },
             new[]{ "Date",        "TransactionDate"      },
             new[]{ "Type",        "TransactionTypeLabel" },
+            new[]{ "Category",    "CategoryName"         },
             new[]{ "Item Code",   "ItemCode"             },
             new[]{ "Item Name",   "ItemName"             },
+            new[]{ "Size",        "Size"                 },
             new[]{ "UOM",         "UOMName"              },
             new[]{ "In Qty",      "InQty"                },
             new[]{ "Out Qty",     "OutQty"               },
             new[]{ "Balance",     "RunningBalance"       },
             new[]{ "Unit Cost",   "UnitCost"             },
-            new[]{ "Ref No",      "ReferenceNo"          },
             new[]{ "Remarks",     "Remarks"              },
         };
 
@@ -362,7 +422,7 @@
                       "</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->");
         sb.AppendLine("<style>");
         sb.AppendLine("body,td,th{font-family:Arial;font-size:10pt;}");
-        sb.AppendLine(".co{font-size:13pt;font-weight:bold;color:#1a3a5c;}");
+        sb.AppendLine(".co{font-size:13pt;font-weight:bold;color:#404040;}");
         sb.AppendLine(".sub{font-size:9pt;color:#555;}");
         sb.AppendLine(".ttl{font-size:12pt;font-weight:bold;color:#1a3a5c;text-align:center;}");
         sb.AppendLine(".fl{font-weight:bold;font-size:9pt;}");
@@ -398,6 +458,8 @@
         sb.AppendFormat("<tr><td colspan=\"{0}\">", span);
         sb.AppendFormat("<span class=\"fl\">Warehouse: </span><span class=\"fv\">{0}</span>&nbsp;&nbsp;&nbsp;", H(whName));
         sb.AppendFormat("<span class=\"fl\">Item: </span><span class=\"fv\">{0}</span>&nbsp;&nbsp;&nbsp;", H(itemName));
+        sb.AppendFormat("<span class=\"fl\">Category: </span><span class=\"fv\">{0}</span>&nbsp;&nbsp;&nbsp;", H(catName));
+        sb.AppendFormat("<span class=\"fl\">Size: </span><span class=\"fv\">{0}</span>&nbsp;&nbsp;&nbsp;", H(sizeLbl));
         sb.AppendFormat("<span class=\"fl\">Type: </span><span class=\"fv\">{0}</span>&nbsp;&nbsp;&nbsp;", H(typeLbl));
         sb.AppendFormat("<span class=\"fl\">Period: </span><span class=\"fv\">{0}</span>", H(period));
         sb.AppendLine("</td></tr>");
@@ -412,20 +474,22 @@
         // Data rows
         decimal totalIn = 0, totalOut = 0;
         int ri = 0;
-        string xlsBaseUrl = (AppSettings("AppBaseUrl") ?? "").TrimEnd('/');
         foreach (DataRow dr in dt.Rows)
         {
-            string alt = (ri++ % 2 == 1) ? " alt" : "";
-            string rowTxType = dt.Columns.Contains("TransactionType")
-                ? (dr["TransactionType"] == DBNull.Value ? "" : dr["TransactionType"].ToString().ToUpper())
-                : "";
-            object rowRefIdRaw = dt.Columns.Contains("ReferenceID") ? dr["ReferenceID"] : null;
-            string rowRefId    = (rowRefIdRaw != null && rowRefIdRaw != DBNull.Value) ? rowRefIdRaw.ToString() : "";
+            string alt = (ri % 2 == 1) ? " alt" : "";
 
             sb.AppendLine("<tr>");
             foreach (var c in cols)
             {
                 string fld = c[1];
+
+                // S.No — sequential counter, not a DB field
+                if (fld == "SERNO")
+                {
+                    sb.AppendFormat("<td class=\"td{0}\">{1}</td>", alt, ri + 1);
+                    continue;
+                }
+
                 object raw = dt.Columns.Contains(fld) ? dr[fld] : null;
                 string txt = "";
                 if (raw != null && raw != DBNull.Value)
@@ -437,18 +501,7 @@
                 if (fld == "InQty")  { decimal v; if (decimal.TryParse(txt, out v)) totalIn  += v; }
                 if (fld == "OutQty") { decimal v; if (decimal.TryParse(txt, out v)) totalOut += v; }
 
-                // Ref No → hyperlink in Excel
-                if (fld == "ReferenceNo" && !string.IsNullOrEmpty(txt) && !string.IsNullOrEmpty(xlsBaseUrl))
-                {
-                    string navUrl = BuildNavUrl(xlsBaseUrl, rowTxType, rowRefId);
-                    if (!string.IsNullOrEmpty(navUrl))
-                    {
-                        sb.AppendFormat("<td class=\"td{0}\"><a href=\"{1}\" style=\"color:#0d6efd;text-decoration:underline;\">{2}</a></td>",
-                            alt, H(navUrl), H(txt));
-                        continue;
-                    }
-                }
-
+                // Ref No — plain text only in Excel (no hyperlink)
                 if (numFlds.Contains(fld))
                 {
                     decimal num; bool ok = decimal.TryParse(txt, out num);
@@ -461,11 +514,12 @@
                 }
             }
             sb.AppendLine("</tr>");
+            ri++;
         }
 
         // Totals row
         sb.AppendLine("<tr>");
-        sb.AppendFormat("<td class=\"tot td\" colspan=\"5\">TOTALS</td>");
+        sb.AppendFormat("<td class=\"tot td\" colspan=\"8\">TOTALS</td>");
         for (int i = 5; i < cols.Length; i++)
         {
             string fld   = cols[i][1];
@@ -490,7 +544,9 @@
     // DATA ACCESS
     // ════════════════════════════════════════════════════════════════════════
 
-    private DataTable RunSP(int whID, int itemID, string txType, DateTime from, DateTime to)
+    private DataTable RunSP(int whID, int itemID, string txType,
+                            DateTime from, DateTime to,
+                            int categoryID, string sizeFilter)
     {
         var dt = new DataTable();
         using (var conn = new SqlConnection(ConnStr()))
@@ -503,6 +559,9 @@
             cmd.Parameters.AddWithValue("@TransactionType", txType ?? "ALL");
             cmd.Parameters.AddWithValue("@FromDate",        from.Date);
             cmd.Parameters.AddWithValue("@ToDate",          to.Date);
+            cmd.Parameters.AddWithValue("@CategoryID",      categoryID);
+            cmd.Parameters.AddWithValue("@Size",
+                string.IsNullOrWhiteSpace(sizeFilter) ? "" : sizeFilter.Trim());
             conn.Open();
             new SqlDataAdapter(cmd).Fill(dt);
         }
@@ -573,6 +632,26 @@
             case "DAMAGE_LOSS":  return "Damage / Loss";
             default:             return "All Types";
         }
+    }
+
+    // ── Dynamic base URL ──────────────────────────────────────────────────
+    // Derives the Angular UI URL from the current HTTP request:
+    //   scheme + host (no IP config needed) + AppUIPort from Web.config
+    // Web.config only needs the port number, not the IP address.
+    // Example Web.config:
+    //   <add key="AppUIPort" value="8644"/>   ← UAT
+    //   <add key="AppUIPort" value="80"/>     ← Live
+    private string GetAppBaseUrl()
+    {
+        string port = (ConfigurationManager.AppSettings["AppUIPort"] ?? "").Trim();
+        if (string.IsNullOrEmpty(port)) return "";
+
+        // Request.Url gives the current scheme + host (IP or domain) automatically
+        var uri     = Request.Url;
+        string host = uri.Host;   // e.g. 124.217.236.37 or obms.company.com
+        string scheme = uri.Scheme; // http or https
+
+        return string.Format("{0}://{1}:{2}", scheme, host, port).TrimEnd('/');
     }
 
     // Navigation URL: TransactionType → Angular route

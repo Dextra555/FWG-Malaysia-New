@@ -12,20 +12,19 @@
     {
         string loginID = (Request.QueryString["LoginID"] ?? "").Trim();
         string warehouseIDStr = (Request.QueryString["WarehouseID"] ?? "0").Trim();
-        string itemIDStr = (Request.QueryString["ItemID"] ?? "0").Trim();
+        string itemIDStr      = (Request.QueryString["ItemID"]      ?? "0").Trim();
+        string categoryIDStr  = (Request.QueryString["CategoryID"]  ?? "0").Trim();
+        string sizeFilter     = (Request.QueryString["Size"]        ?? "").Trim();
         string format = (Request.QueryString["format"] ?? "pdf").ToLower().Trim();
 
-        int warehouseID = 0;
-        int.TryParse(warehouseIDStr, out warehouseID);
-
-        int itemID = 0;
-        int.TryParse(itemIDStr, out itemID);
+        int warehouseID = 0; int.TryParse(warehouseIDStr, out warehouseID);
+        int itemID      = 0; int.TryParse(itemIDStr,      out itemID);
+        int categoryID  = 0; int.TryParse(categoryIDStr,  out categoryID);
 
         DataTable dt;
-
         try
         {
-            dt = RunSP(warehouseID, itemID);
+            dt = RunSP(warehouseID, itemID, categoryID, sizeFilter);
         }
         catch (Exception ex)
         {
@@ -41,14 +40,18 @@
         }
 
         string whName = warehouseID > 0
-            ? (Lookup("SELECT Name FROM WarehouseMaster WHERE ID=@p",
-                warehouseID.ToString()) ?? warehouseIDStr)
+            ? (Lookup("SELECT Name FROM WarehouseMaster WHERE ID=@p", warehouseID.ToString()) ?? warehouseIDStr)
             : "All Warehouses";
 
         string itemName = itemID > 0
-            ? (Lookup("SELECT Name FROM ItemMaster WHERE ID=@p",
-                itemID.ToString()) ?? itemIDStr)
+            ? (Lookup("SELECT Name FROM ItemMaster WHERE ID=@p", itemID.ToString()) ?? itemIDStr)
             : "All Items";
+
+        string catName  = categoryID > 0
+            ? (Lookup("SELECT Name FROM InventoryCategory WHERE ID=@p", categoryID.ToString()) ?? categoryIDStr)
+            : "All Categories";
+
+        string sizeLbl  = string.IsNullOrEmpty(sizeFilter) ? "All Sizes" : sizeFilter;
 
         // Default period: first day of this month through today.
         // StartDate and EndDate can override the displayed period.
@@ -72,7 +75,7 @@
 
             try
             {
-                xlsx = BuildExcel(whName, itemName, period, dt);
+            xlsx = BuildExcel(whName, itemName, catName, sizeLbl, period, dt);
             }
             catch (Exception ex)
             {
@@ -101,7 +104,7 @@
 
         try
         {
-            pdf = BuildPdf(loginID, whName, itemName, period, dt);
+            pdf = BuildPdf(loginID, whName, itemName, catName, sizeLbl, period, dt);
         }
         catch (Exception ex)
         {
@@ -133,6 +136,8 @@
         string loginID,
         string whName,
         string itemName,
+        string catName,
+        string sizeLbl,
         string period,
         DataTable dt)
     {
@@ -231,7 +236,7 @@
             hdrTable.AddCell(logoCell);
 
             Font fCoName = new Font(
-                Font.FontFamily.HELVETICA, 11f, Font.BOLD, navy);
+                Font.FontFamily.HELVETICA, 11f, Font.BOLD, BaseColor.DARK_GRAY);
 
             Font fCoReg = new Font(
                 Font.FontFamily.HELVETICA, 8f, Font.BOLD, navy);
@@ -275,18 +280,15 @@
             // Filter summary
             var filters = new string[][]
             {
-                new[] { "Warehouse:", whName },
-                new[] { "Item:", itemName },
-                new[] { "Period:", period }
+                new[] { "Warehouse:", whName   },
+                new[] { "Item:",      itemName },
+                new[] { "Category:",  catName  },
+                new[] { "Size:",      sizeLbl  },
+                new[] { "Period:",    period   }
             };
 
-            var ft = new PdfPTable(3)
-            {
-                WidthPercentage = 100f,
-                SpacingAfter = 8f
-            };
-
-            ft.SetWidths(new float[] { 3.2f, 2.8f, 4.0f });
+            var ft = new PdfPTable(3) { WidthPercentage = 100f, SpacingAfter = 8f };
+            ft.SetWidths(new float[] { 1.5f, 3.5f, 5.0f });
             ft.DefaultCell.Border = Rectangle.NO_BORDER;
 
             foreach (var f in filters)
@@ -294,33 +296,25 @@
                 var ph = new Phrase();
                 ph.Add(new Chunk(f[0] + " ", fFilterB));
                 ph.Add(new Chunk(f[1], fFilter));
-
-                ft.AddCell(new PdfPCell(ph)
-                {
-                    Border = Rectangle.NO_BORDER,
-                    Padding = 2f,
-                    NoWrap = true
-                });
+                ft.AddCell(new PdfPCell(ph) { Border = Rectangle.NO_BORDER, Padding = 2f, NoWrap = true });
             }
-
             doc.Add(ft);
 
-            // Data table columns
-            // Header, field name, relative width, numerics
             var cols = new object[][]
             {
-                new object[] { "S.NO.",            "#",                1.2f, true  },
-                new object[] { "Warehouse",     "WarehouseName",     2.8f, false },
-                new object[] { "Item Code",     "ItemCode",          1.8f, false },
-                new object[] { "Item Name",     "ItemName",          4.5f, false },
-                new object[] { "Category",      "CategoryName",      2.2f, false },
-                new object[] { "Brand",         "BrandName",        1.8f, false },
-                new object[] { "UOM",           "UOMName",          1.2f, false },
-                new object[] { "Current Stock", "CurrentStock",     2.0f, true  },
-                new object[] { "Reorder Lvl",   "ReorderLevel",     2.0f, true  },
-                new object[] { "Unit Cost",     "LastUnitCost",     2.0f, true  },
-                new object[] { "Stock Value",   "StockValue",       2.2f, true  },
-                new object[] { "Status",        "BelowReorderLevel",2.0f, false }
+                new object[] { "S.NO.",         "#",                 1.2f, true  },
+                new object[] { "Warehouse",      "WarehouseName",    2.6f, false },
+                new object[] { "Item Code",      "ItemCode",         1.6f, false },
+                new object[] { "Item Name",      "ItemName",         3.8f, false },
+                new object[] { "Category",       "CategoryName",     2.0f, false },
+                new object[] { "Brand",          "BrandName",        1.6f, false },
+                new object[] { "Size",           "Size",             1.0f, false },
+                new object[] { "UOM",            "UOMName",          1.0f, false },
+                new object[] { "Current Stock",  "CurrentStock",     1.8f, true  },
+                new object[] { "Reorder Lvl",    "ReorderLevel",     1.8f, true  },
+                new object[] { "Unit Cost",      "LastUnitCost",     1.8f, true  },
+                new object[] { "Stock Value",    "StockValue",       2.0f, true  },
+                new object[] { "Status",         "BelowReorderLevel",1.8f, false }
             };
 
             float[] widths = new float[cols.Length];
@@ -450,10 +444,10 @@
                 }
             }
 
-            // TOTALS: merge first seven columns horizontally
+            // TOTALS: merge first 8 columns (S.No through UOM)
             tbl.AddCell(new PdfPCell(new Phrase("TOTALS", fTotal))
             {
-                Colspan = 7,
+                Colspan = 8,
                 BackgroundColor = totalBg,
                 HorizontalAlignment = Element.ALIGN_LEFT,
                 VerticalAlignment = Element.ALIGN_MIDDLE,
@@ -464,7 +458,7 @@
                 NoWrap = true
             });
 
-            for (int i = 7; i < cols.Length; i++)
+            for (int i = 8; i < cols.Length; i++)
             {
                 string field = (string)cols[i][1];
 
@@ -500,22 +494,25 @@
     private byte[] BuildExcel(
         string whName,
         string itemName,
+        string catName,
+        string sizeLbl,
         string period,
         DataTable dt)
     {
         var cols = new string[][]
         {
-            new[] { "S.NO.",            "#" },
-            new[] { "Warehouse",     "WarehouseName" },
-            new[] { "Item Code",     "ItemCode" },
-            new[] { "Item Name",     "ItemName" },
-            new[] { "Category",      "CategoryName" },
-            new[] { "Brand",         "BrandName" },
-            new[] { "UOM",           "UOMName" },
-            new[] { "Current Stock", "CurrentStock" },
-            new[] { "Reorder Level", "ReorderLevel" },
-            new[] { "Unit Cost",     "LastUnitCost" },
-            new[] { "Stock Value",   "StockValue" },
+            new[] { "S.NO.",         "#"                 },
+            new[] { "Warehouse",     "WarehouseName"     },
+            new[] { "Item Code",     "ItemCode"          },
+            new[] { "Item Name",     "ItemName"          },
+            new[] { "Category",      "CategoryName"      },
+            new[] { "Brand",         "BrandName"         },
+            new[] { "Size",          "Size"              },
+            new[] { "UOM",           "UOMName"           },
+            new[] { "Current Stock", "CurrentStock"      },
+            new[] { "Reorder Level", "ReorderLevel"      },
+            new[] { "Unit Cost",     "LastUnitCost"      },
+            new[] { "Stock Value",   "StockValue"        },
             new[] { "Status",        "BelowReorderLevel" }
         };
 
@@ -545,7 +542,7 @@
 
         sb.AppendLine("<style>");
         sb.AppendLine("body,td,th{font-family:Arial;font-size:10pt;}");
-        sb.AppendLine(".co{font-size:13pt;font-weight:bold;color:#1a3a5c;}");
+        sb.AppendLine(".co{font-size:13pt;font-weight:bold;color:#404040;}");
         sb.AppendLine(".sub{font-size:9pt;color:#555;}");
         sb.AppendLine(".ttl{font-size:12pt;font-weight:bold;color:#1a3a5c;text-align:center;}");
         sb.AppendLine(".fl{font-weight:bold;font-size:9pt;}");
@@ -610,20 +607,13 @@
             span);
 
         // Filters: Period uses HTML numeric entity for the en dash.
+        // Filters
         sb.AppendFormat("<tr><td colspan=\"{0}\">", span);
-
-        sb.AppendFormat(
-            "<span class=\"fl\">Warehouse: </span><span class=\"fv\">{0}</span>&nbsp;&nbsp;&nbsp;",
-            H(whName));
-
-        sb.AppendFormat(
-            "<span class=\"fl\">Item: </span><span class=\"fv\">{0}</span>&nbsp;&nbsp;&nbsp;",
-            H(itemName));
-
-        sb.AppendFormat(
-            "<span class=\"fl\">Period: </span><span class=\"fv\">{0}</span>",
-            H(period));
-
+        sb.AppendFormat("<span class=\"fl\">Warehouse: </span><span class=\"fv\">{0}</span>&nbsp;&nbsp;&nbsp;", H(whName));
+        sb.AppendFormat("<span class=\"fl\">Item: </span><span class=\"fv\">{0}</span>&nbsp;&nbsp;&nbsp;", H(itemName));
+        sb.AppendFormat("<span class=\"fl\">Category: </span><span class=\"fv\">{0}</span>&nbsp;&nbsp;&nbsp;", H(catName));
+        sb.AppendFormat("<span class=\"fl\">Size: </span><span class=\"fv\">{0}</span>&nbsp;&nbsp;&nbsp;", H(sizeLbl));
+        sb.AppendFormat("<span class=\"fl\">Period: </span><span class=\"fv\">{0}</span>", H(period));
         sb.AppendLine("</td></tr>");
 
         sb.AppendFormat(
@@ -735,10 +725,9 @@
 
         // TOTALS: merge first seven columns into one horizontal cell.
         sb.AppendLine("<tr>");
-        sb.AppendLine(
-            "<td class=\"tot td\" colspan=\"7\">TOTALS</td>");
+        sb.AppendLine("<td class=\"tot td\" colspan=\"8\">TOTALS</td>");
 
-        for (int i = 7; i < cols.Length; i++)
+        for (int i = 8; i < cols.Length; i++)
         {
             string fld = cols[i][1];
 
@@ -775,7 +764,7 @@
     // DATA ACCESS
     // ============================================================
 
-    private DataTable RunSP(int whID, int itemID)
+    private DataTable RunSP(int whID, int itemID, int categoryID, string sizeFilter)
     {
         var dt = new DataTable();
 
@@ -786,7 +775,10 @@
             cmd.CommandTimeout = 60;
 
             cmd.Parameters.AddWithValue("@WarehouseID", whID);
-            cmd.Parameters.AddWithValue("@ItemID", itemID);
+            cmd.Parameters.AddWithValue("@ItemID",      itemID);
+            cmd.Parameters.AddWithValue("@CategoryID",  categoryID);
+            cmd.Parameters.AddWithValue("@Size",
+                string.IsNullOrWhiteSpace(sizeFilter) ? "" : sizeFilter.Trim());
 
             conn.Open();
             new SqlDataAdapter(cmd).Fill(dt);

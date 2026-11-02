@@ -27,6 +27,7 @@
         string itemIDStr      = (Request.QueryString["ItemID"]       ?? "0").Trim();
         string startDateStr   = (Request.QueryString["StartDate"]    ?? "").Trim();
         string endDateStr     = (Request.QueryString["EndDate"]      ?? "").Trim();
+        string clientName     = (Request.QueryString["ClientName"]   ?? "").Trim();
         string format         = (Request.QueryString["format"]       ?? "pdf").ToLower().Trim();
 
         // ── 2. Validate dates ─────────────────────────────────────────────
@@ -49,7 +50,7 @@
 
         // ── 3. Execute stored procedure ───────────────────────────────────
         DataTable dt;
-        try   { dt = RunSP(warehouseID, itemID, startDate, endDate); }
+        try   { dt = RunSP(warehouseID, itemID, startDate, endDate, clientName); }
         catch (Exception ex)
         {
             LogErr("sp_StockMovementReport", ex.Message);
@@ -67,13 +68,14 @@
         string itemName = itemID > 0
             ? (Lookup("SELECT Name FROM ItemMaster WHERE ID=@p", itemID.ToString()) ?? itemIDStr)
             : "All Items";
+        string clientLbl = string.IsNullOrEmpty(clientName) ? "All Clients" : clientName;
         string period   = startDate.ToString("dd MMM yyyy") + " to "+ endDate.ToString("dd MMM yyyy");
 
         // ── 5. Build PDF or Excel ─────────────────────────────────────────
         if (format == "excel")
         {
             byte[] xlsx;
-            try   { xlsx = BuildExcel(whName, itemName, period, dt); }
+            try   { xlsx = BuildExcel(whName, itemName, clientLbl, period, dt); }
             catch (Exception ex)
             {
                 LogErr("BuildExcel", ex.Message);
@@ -96,7 +98,7 @@
 
         // ── 5b. Build PDF (default) ───────────────────────────────────────
         byte[] pdf;
-        try   { pdf = BuildPdf(loginID, whName, itemName, period, dt); }
+        try   { pdf = BuildPdf(loginID, whName, itemName, clientLbl, period, dt); }
         catch (Exception ex)
         {
             LogErr("BuildPdf", ex.Message);
@@ -121,7 +123,7 @@
     // ════════════════════════════════════════════════════════════════════════
 
     private byte[] BuildPdf(string loginID, string whName, string itemName,
-                            string period, DataTable dt)
+                            string clientLbl, string period, DataTable dt)
     {
         // ── Colours (same palette as CurrentStockReport) ──────────────────
         BaseColor navy     = new BaseColor(0x1a, 0x3a, 0x5c);
@@ -185,7 +187,7 @@
             hdrTable.AddCell(logoCell);
 
             // Company text cell
-            Font fCoName = new Font(Font.FontFamily.HELVETICA, 11f, Font.BOLD,   navy);
+            Font fCoName = new Font(Font.FontFamily.HELVETICA, 11f, Font.BOLD,   BaseColor.DARK_GRAY);
             Font fCoReg  = new Font(Font.FontFamily.HELVETICA,  8f, Font.BOLD,   navy);
             Font fCoSub  = new Font(Font.FontFamily.HELVETICA,  8f, Font.NORMAL, BaseColor.DARK_GRAY);
 
@@ -216,42 +218,49 @@
             // ── Report title ──────────────────────────────────────────────
             P(doc, "STOCK MOVEMENT REPORT", fTitle, Element.ALIGN_CENTER, 6f);
 
-            // ── Filter summary (3 pairs → 6 cells) ───────────────────────
-            var ft = new PdfPTable(6) { WidthPercentage = 100f, SpacingAfter = 8f };
-            ft.SetWidths(new float[] { 1f, 2f, 1f, 2f, 1f, 2f });
+            // ── Filter summary ────────────────────────────────────────────
+            var ft = new PdfPTable(3) { WidthPercentage = 100f, SpacingAfter = 8f };
+            ft.SetWidths(new float[] { 1.5f, 3.5f, 5.0f });
             ft.DefaultCell.Border = Rectangle.NO_BORDER;
             string[][] filters = new string[][]
             {
-                new[]{ "Warehouse:", whName   },
-                new[]{ "Item:",      itemName },
-                new[]{ "Period:",    period   }
+                new[]{ "Warehouse:",   whName    },
+                new[]{ "Item:",        itemName  },
+                new[]{ "Client:",      clientLbl },
+                new[]{ "Period:",      period    }
             };
             foreach (var f in filters)
             {
                 var ph = new Phrase();
                 ph.Add(new Chunk(f[0] + " ", fFilterB));
                 ph.Add(new Chunk(f[1], fFilter));
-                ft.AddCell(new PdfPCell(ph) { Border = Rectangle.NO_BORDER, Padding = 2f });
-                ft.AddCell(new PdfPCell(new Phrase("")) { Border = Rectangle.NO_BORDER });
+                ft.AddCell(new PdfPCell(ph) { Border = Rectangle.NO_BORDER, Padding = 2f, NoWrap = true });
+                // add a blank cell for the 3-column layout to pair correctly
             }
+            // If odd number of filter pairs, pad remaining cells
+            int filterCount = filters.Length;
+            int rem = filterCount % 3;
+            for (int p = 0; p < (rem == 0 ? 0 : 3 - rem); p++)
+                ft.AddCell(new PdfPCell(new Phrase("")) { Border = Rectangle.NO_BORDER });
             doc.Add(ft);
 
             // ── Data table ────────────────────────────────────────────────
             // header, fieldName, relWidth, isNumeric
             var cols = new object[][]
             {
-                new object[]{ "S.NO.",               "#",               1.0f, true  },
-                new object[]{ "Warehouse",        "WarehouseName",   2.5f, false },
-                new object[]{ "Item Code",        "ItemCode",        1.8f, false },
-                new object[]{ "Item Name",        "ItemName",        4.0f, false },
-                new object[]{ "Category",         "CategoryName",    2.0f, false },
-                new object[]{ "UOM",              "UOMName",         1.2f, false },
-                new object[]{ "Opening Bal",      "OpeningBalance",  2.0f, true  },
-                new object[]{ "Total In",         "TotalIn",         1.8f, true  },
-                new object[]{ "Total Out",        "TotalOut",        1.8f, true  },
-                new object[]{ "Closing Bal",      "ClosingBalance",  2.0f, true  },
-                new object[]{ "Unit Cost",        "LastUnitCost",    2.0f, true  },
-                new object[]{ "Txn Count",        "TxnCount",        1.5f, true  },
+                new object[]{ "S.NO.",        "#",               0.9f, true  },
+                new object[]{ "Warehouse",    "WarehouseName",   2.3f, false },
+                new object[]{ "Item Code",    "ItemCode",        1.6f, false },
+                new object[]{ "Item Name",    "ItemName",        3.5f, false },
+                new object[]{ "Category",     "CategoryName",    1.8f, false },
+                new object[]{ "Client Name",  "ClientName",      2.5f, false },
+                new object[]{ "UOM",          "UOMName",         1.0f, false },
+                new object[]{ "Opening Bal",  "OpeningBalance",  1.8f, true  },
+                new object[]{ "Total In",     "TotalIn",         1.6f, true  },
+                new object[]{ "Total Out",    "TotalOut",        1.6f, true  },
+                new object[]{ "Closing Bal",  "ClosingBalance",  1.8f, true  },
+                new object[]{ "Unit Cost",    "LastUnitCost",    1.8f, true  },
+                new object[]{ "Txn Count",    "TxnCount",        1.3f, true  },
             };
 
             float[] widths = new float[cols.Length];
@@ -383,22 +392,24 @@
     // EXCEL BUILDER
     // ════════════════════════════════════════════════════════════════════════
 
-    private byte[] BuildExcel(string whName, string itemName, string period, DataTable dt)
+    private byte[] BuildExcel(string whName, string itemName,
+                              string clientLbl, string period, DataTable dt)
     {
         var cols = new string[][]
         {
-            new[]{ "S.NO.",            "#"               },
-            new[]{ "Warehouse",     "WarehouseName"   },
-            new[]{ "Item Code",     "ItemCode"        },
-            new[]{ "Item Name",     "ItemName"        },
-            new[]{ "Category",      "CategoryName"    },
-            new[]{ "UOM",           "UOMName"         },
-            new[]{ "Opening Bal",   "OpeningBalance"  },
-            new[]{ "Total In",      "TotalIn"         },
-            new[]{ "Total Out",     "TotalOut"        },
-            new[]{ "Closing Bal",   "ClosingBalance"  },
-            new[]{ "Unit Cost",     "LastUnitCost"    },
-            new[]{ "Txn Count",     "TxnCount"        },
+            new[]{ "S.NO.",          "#"               },
+            new[]{ "Warehouse",      "WarehouseName"   },
+            new[]{ "Item Code",      "ItemCode"        },
+            new[]{ "Item Name",      "ItemName"        },
+            new[]{ "Category",       "CategoryName"    },
+            new[]{ "Client Name",    "ClientName"      },
+            new[]{ "UOM",            "UOMName"         },
+            new[]{ "Opening Bal",    "OpeningBalance"  },
+            new[]{ "Total In",       "TotalIn"         },
+            new[]{ "Total Out",      "TotalOut"        },
+            new[]{ "Closing Bal",    "ClosingBalance"  },
+            new[]{ "Unit Cost",      "LastUnitCost"    },
+            new[]{ "Txn Count",      "TxnCount"        },
         };
 
         var numFlds = new System.Collections.Generic.HashSet<string>
@@ -417,7 +428,7 @@
                       "</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->");
         sb.AppendLine("<style>");
         sb.AppendLine("body,td,th{font-family:Arial;font-size:10pt;}");
-        sb.AppendLine(".co{font-size:13pt;font-weight:bold;color:#1a3a5c;}");
+        sb.AppendLine(".co{font-size:13pt;font-weight:bold;color:#404040;}");
         sb.AppendLine(".sub{font-size:9pt;color:#555;}");
         sb.AppendLine(".ttl{font-size:12pt;font-weight:bold;color:#1a3a5c;text-align:center;}");
         sb.AppendLine(".fl{font-weight:bold;font-size:9pt;}");
@@ -454,6 +465,7 @@
         sb.AppendFormat("<tr><td colspan=\"{0}\">", span);
         sb.AppendFormat("<span class=\"fl\">Warehouse: </span><span class=\"fv\">{0}</span>&nbsp;&nbsp;&nbsp;", H(whName));
         sb.AppendFormat("<span class=\"fl\">Item: </span><span class=\"fv\">{0}</span>&nbsp;&nbsp;&nbsp;", H(itemName));
+        sb.AppendFormat("<span class=\"fl\">Client: </span><span class=\"fv\">{0}</span>&nbsp;&nbsp;&nbsp;", H(clientLbl));
         sb.AppendFormat("<span class=\"fl\">Period: </span><span class=\"fv\">{0}</span>", H(period));
         sb.AppendLine("</td></tr>");
         sb.AppendFormat("<tr><td colspan=\"{0}\" style=\"padding:3px;\"></td></tr>\n", span);
@@ -510,9 +522,8 @@
             sb.AppendLine("</tr>");
         }
 
-        // Totals row — merge non-numeric label columns, show values for numeric ones
+        // Totals row
         sb.AppendLine("<tr>");
-        // Find how many leading non-numeric (label) columns exist
         int xlsLabelSpan = 0;
         for (int i = 0; i < cols.Length; i++)
         {
@@ -521,16 +532,15 @@
             else break;
         }
         if (xlsLabelSpan < 1) xlsLabelSpan = 1;
-        // Merged TOTALS label
         sb.AppendFormat("<td class=\"tot td\" colspan=\"{0}\"><b>TOTALS</b></td>", xlsLabelSpan);
-        // Numeric cells
         for (int i = xlsLabelSpan; i < cols.Length; i++)
         {
             string fld   = cols[i][1];
             bool   isNum = numFlds.Contains(fld);
             string val   = fld == "TotalIn"        ? totalIn.ToString("N2")
                          : fld == "TotalOut"       ? totalOut.ToString("N2")
-                         : fld == "ClosingBalance" ? totalClose.ToString("N2") : "";
+                         : fld == "ClosingBalance" ? totalClose.ToString("N2")
+                         : "";
             string align = isNum ? " style=\"text-align:right;\"" : "";
             sb.AppendFormat("<td class=\"tot td\"{0}>{1}</td>", align, H(val));
         }
@@ -549,7 +559,7 @@
     // DATA ACCESS
     // ════════════════════════════════════════════════════════════════════════
 
-    private DataTable RunSP(int whID, int itemID, DateTime from, DateTime to)
+    private DataTable RunSP(int whID, int itemID, DateTime from, DateTime to, string clientName)
     {
         var dt = new DataTable();
         using (var conn = new SqlConnection(ConnStr()))
@@ -561,6 +571,8 @@
             cmd.Parameters.AddWithValue("@ItemID",      itemID);
             cmd.Parameters.AddWithValue("@FromDate",    from.Date);
             cmd.Parameters.AddWithValue("@ToDate",      to.Date);
+            cmd.Parameters.AddWithValue("@ClientName",
+                string.IsNullOrWhiteSpace(clientName) ? "" : clientName.Trim());
             conn.Open();
             new SqlDataAdapter(cmd).Fill(dt);
         }

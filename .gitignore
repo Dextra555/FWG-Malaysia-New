@@ -10,3 +10,42 @@ dist/
 *.bak
 *.log
 build_output.txt
+
+# claude-memory-kit:gitignore:start v0.5.3
+# claude-memory-kit — added by `cmk install`. Do not edit by hand;
+# `cmk install` refreshes these lines idempotently. Remove via
+# `cmk uninstall`.
+
+# Local-tier (per-machine, never committed)
+context.local/
+
+# SQLite + FTS5 read cache (regenerable from markdown)
+context/.index/
+
+# Run-time locks + transient state
+context/.locks/
+
+# Diagnostic NDJSON logs (observability only; carry raw turn excerpts —
+# e.g. discarded-low-trust traces — that are NOT secret-screened, so they
+# must never be committed). The durable memory lives in the scratchpads +
+# fact files, not these logs.
+context/sessions/*.extract.log
+
+# Per-day distilled artifacts: daily-distill writes today-<date>.distilled.md
+# per day so a killed run resumes from the days it finished. They are TRANSIENT
+# working state — the durable rolling summary is recent.md (assembled from them).
+# Gitignored so intermediate summary output doesn't travel with `git clone`;
+# losing them only forces a re-distill.
+context/sessions/today-*.distilled.md
+
+# Transcript-extraction temp buffer. capture-turn writes
+# context/transcripts/.extract-<ts>.tmp as the turn buffer for the detached
+# auto-extract child, which consumes + deletes it. Gitignored so a crash-orphaned
+# partial (raw, un-screened turn content) never travels with `git clone`.
+context/transcripts/.extract-*.tmp
+
+# Transcript live buffer (privacy screen). Hooks append each turn here first;
+# entries move to the committed transcript only AFTER the async privacy judge
+# screens them. Un-judged content must never travel with `git clone`.
+context/transcripts/*.live.md
+# claude-memory-kit:gitignore:end

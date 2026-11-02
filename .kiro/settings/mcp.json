@@ -1,0 +1,25 @@
+{
+  "mcpServers": {
+    "claude-memory-kit": {
+      "type": "stdio",
+      "command": "cmk",
+      "args": [
+        "mcp",
+        "serve"
+      ],
+      "autoApprove": [
+        "mk_remember",
+        "mk_search",
+        "mk_get",
+        "mk_timeline",
+        "mk_cite",
+        "mk_recent_activity",
+        "mk_trust",
+        "mk_lessons_promote",
+        "mk_forget",
+        "mk_queue_list",
+        "mk_queue_resolve"
+      ]
+    }
+  }
+}

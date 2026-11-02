@@ -324,7 +324,16 @@ BEGIN
         -- Stock Adjustments awaiting approval
         (SELECT COUNT(*) FROM StockAdjustment
          WHERE IsActive = 1
-           AND Status IN ('Draft', 'Submitted')) AS AdjustmentsPending;
+           AND Status IN ('Draft', 'Submitted')) AS AdjustmentsPending,
+
+        -- Pending Approvals: all Submitted documents across PR, PO, BSR, Stock Adjustment, Asset Disposal
+        (
+            (SELECT COUNT(*) FROM PurchaseRequisition WHERE IsActive = 1 AND Status = 'Submitted') +
+            (SELECT COUNT(*) FROM PurchaseOrder       WHERE IsActive = 1 AND Status = 'Submitted') +
+            (SELECT COUNT(*) FROM StockRequest        WHERE IsActive = 1 AND Status = 'Submitted') +
+            (SELECT COUNT(*) FROM StockAdjustment     WHERE IsActive = 1 AND Status = 'Submitted') +
+            (SELECT COUNT(*) FROM AssetDisposal       WHERE IsActive = 1 AND Status = 'Submitted')
+        ) AS ApprovalsPending;
 
 
     -- ══════════════════════════════════════════════════════════════════════
