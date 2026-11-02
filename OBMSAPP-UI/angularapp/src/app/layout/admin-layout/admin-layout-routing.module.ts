@@ -140,6 +140,18 @@ import { BranchStockLedgerComponent } from "../../modules/report/inventory/branc
 import { StockLedgerReportComponent } from "../../modules/report/inventory/stock-ledger-report/stock-ledger-report.component";
 import { CurrentStockReportComponent } from "../../modules/report/inventory/current-stock-report/current-stock-report.component";
 import { StockMovementReportComponent } from "../../modules/report/inventory/stock-movement-report/stock-movement-report.component";
+import { StockInGRNReportComponent } from "../../modules/report/inventory/stock-in-grn-report/stock-in-grn-report.component";
+import { StockIssueListReportComponent } from "../../modules/report/inventory/stock-issue-list-report/stock-issue-list-report.component";
+import { ItemCategoryStockReportComponent } from "../../modules/report/inventory/item-category-stock-report/item-category-stock-report.component";
+import { WarehouseStockReportComponent } from "../../modules/report/inventory/warehouse-stock-report/warehouse-stock-report.component";
+import { SupplierPurchaseReportComponent } from "../../modules/report/inventory/supplier-purchase-report/supplier-purchase-report.component";
+import { LowStockReportComponent } from "../../modules/report/inventory/low-stock-report/low-stock-report.component";
+import { StockTransferReportComponent } from "../../modules/report/inventory/stock-transfer-report/stock-transfer-report.component";
+import { StockAdjDamageLossReportComponent } from "../../modules/report/inventory/stock-adj-damage-loss-report/stock-adj-damage-loss-report.component";
+import { PurchaseIssueReturnReportComponent } from "../../modules/report/inventory/purchase-issue-return-report/purchase-issue-return-report.component";
+import { InventoryValuationReportComponent } from "../../modules/report/inventory/inventory-valuation-report/inventory-valuation-report.component";
+import { BranchAssetReportComponent } from "../../modules/report/inventory/branch-asset-report/branch-asset-report.component";
+import { AssetMovementReportComponent } from "../../modules/report/inventory/asset-movement-report/asset-movement-report.component";
 import { PaySheetComponent } from "../../modules/report/payroll/pay-sheet/pay-sheet.component";
 import { YearlyPaySheetComponent } from "../../modules/report/payroll/yearly-pay-sheet/yearly-pay-sheet.component";
 import { PayHistoryComponent } from "../../modules/report/payroll/pay-history/pay-history.component";
@@ -415,6 +427,18 @@ const routes: Routes = [
   { path: 'inventory/report/stock-ledger-report', component: StockLedgerReportComponent, canActivate: [AuthGuard] },
   { path: 'inventory/report/current-stock-report', component: CurrentStockReportComponent, canActivate: [AuthGuard] },
   { path: 'inventory/report/stock-movement-report', component: StockMovementReportComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/report/stock-in-grn-report', component: StockInGRNReportComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/report/stock-issue-list-report', component: StockIssueListReportComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/report/item-category-stock-report', component: ItemCategoryStockReportComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/report/warehouse-stock-report', component: WarehouseStockReportComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/report/supplier-purchase-report', component: SupplierPurchaseReportComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/report/low-stock-report', component: LowStockReportComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/report/stock-transfer-report', component: StockTransferReportComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/report/stock-adj-damage-loss-report', component: StockAdjDamageLossReportComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/report/purchase-issue-return-report', component: PurchaseIssueReturnReportComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/report/inventory-valuation-report', component: InventoryValuationReportComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/report/branch-asset-report', component: BranchAssetReportComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/report/asset-movement-report', component: AssetMovementReportComponent, canActivate: [AuthGuard] },
 
   //payroll report module
   { path: 'report/payroll/monthly-advance-report', component: MonthlyAdvanceReportComponent, canActivate: [AuthGuard] },

@@ -22,6 +22,7 @@ namespace OBMS.WebAPI.Models.Domain
         public decimal? ReorderLevel { get; set; }
         public decimal? ReorderQuantity { get; set; }
         public int? WarehouseID { get; set; }           // Default warehouse for this item
+        public string? Size { get; set; }               // Optional size (e.g. S/M/L/XL) — each size is a separate item record
 
         [ForeignKey("BrandID")]
         public virtual BrandMaster? Brand { get; set; }

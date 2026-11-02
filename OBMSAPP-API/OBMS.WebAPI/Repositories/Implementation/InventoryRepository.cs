@@ -41,6 +41,55 @@ namespace OBMS.WebAPI.Repositories.Implementation
             _configuration = configuration;
         }
 
+        // ── Branch-access helper ──────────────────────────────────────────────────
+
+        /// <summary>
+        /// Returns true when the user should see ALL records (superadmin or legacy "superadmin" username).
+        /// Mirrors the same check used in MasterRepository.
+        /// </summary>
+        private bool IsSuperAdmin(string? userName)
+        {
+            if (string.IsNullOrWhiteSpace(userName)) return false;
+            if (userName.Equals("superadmin", StringComparison.OrdinalIgnoreCase)) return true;
+            var user = _oBMSDbContext.Obmsusers
+                .FirstOrDefault(u => u.Name == userName && !u.IsDeleted);
+            return user != null && user.IsAdmin == "2";
+        }
+
+        /// <summary>
+        /// Returns the set of WarehouseIDs that the given user is allowed to see.
+        /// Superadmin → all warehouses.
+        /// Normal user → warehouses whose branch is listed in OBMSBranches for that user.
+        /// </summary>
+        private async Task<List<int>> GetAllowedWarehouseIDsAsync(string userName)
+        {
+            var allowedBranchCodes = await _oBMSDbContext.OBMSBranches
+                .Where(o => o.Name == userName && o.IsAllowed == true)
+                .Select(o => o.BranchCode)
+                .ToListAsync();
+
+            return await _oBMSDbContext.BranchMasters
+                .Where(b => allowedBranchCodes.Contains(b.Code))
+                .Join(_oBMSDbContext.WarehouseMasters,
+                    b  => b.ID,
+                    wh => wh.BranchID,
+                    (b, wh) => wh.ID)
+                .ToListAsync();
+        }
+
+        private async Task<List<string>?> GetAllowedAssetBranchCodesAsync(string userName)
+        {
+            if (IsSuperAdmin(userName))
+                return null;
+
+            return await _oBMSDbContext.OBMSBranches
+                .Where(branch => branch.Name == userName
+                              && branch.IsAllowed == true
+                              && branch.BranchCode != null)
+                .Select(branch => branch.BranchCode!)
+                .ToListAsync();
+        }
+
         public async Task<InventoryCategory> SaveAndUpdateCategory(InventoryCategory category)
         {
 
@@ -157,7 +206,8 @@ namespace OBMS.WebAPI.Repositories.Implementation
                             Price = item.Price,
                             ReorderLevel = item.ReorderLevel,
                             ReorderQuantity = item.ReorderQuantity,
-                            Remarks = item.Remarks
+                            Remarks = item.Remarks,
+                            Size = item.Size
                         };
             return new List<Object>(query.OrderBy(x => x.ItemName).ToList());
         }
@@ -202,19 +252,25 @@ namespace OBMS.WebAPI.Repositories.Implementation
             throw new NotImplementedException();
         }
 
-        public async Task<List<Object>> GetAssetMasters()
+        public async Task<List<Object>> GetAssetMasters(string userName)
         {
-            var ret = _oBMSDbContext.AssetMasters.ToList();
+            var allowedBranches = await GetAllowedAssetBranchCodesAsync(userName);
+            var query = _oBMSDbContext.AssetMasters.AsQueryable();
+            if (allowedBranches != null)
+                query = query.Where(asset => asset.Branch != null && allowedBranches.Contains(asset.Branch));
+
+            var ret = await query.ToListAsync();
             return new List<Object>(ret);
         }
 
-        public async Task<AssetMaster> GetAssetByID(int ID)
+        public async Task<AssetMaster> GetAssetByID(int ID, string userName)
         {
+            var allowedBranches = await GetAllowedAssetBranchCodesAsync(userName);
+            var query = _oBMSDbContext.AssetMasters.Where(asset => asset.ID == ID);
+            if (allowedBranches != null)
+                query = query.Where(asset => asset.Branch != null && allowedBranches.Contains(asset.Branch));
 
-
-            var obj = _oBMSDbContext.AssetMasters.Where(x => x.ID == ID).FirstOrDefault();
-
-            return obj;
+            return (await query.FirstOrDefaultAsync())!;
         }
 
 
@@ -784,10 +840,19 @@ namespace OBMS.WebAPI.Repositories.Implementation
             return warehouse;
         }
 
-        public async Task<List<Object>> GetWarehouseMasters()
+        public async Task<List<Object>> GetWarehouseMasters(string? userName = null)
         {
-            var ret = await _oBMSDbContext.WarehouseMasters.ToListAsync();
-            return new List<Object>(ret.OrderBy(x => x.Name).ToList());
+            IQueryable<WarehouseMaster> query = _oBMSDbContext.WarehouseMasters;
+
+            // If a non-superadmin user is provided, filter by their allowed branches
+            if (!string.IsNullOrWhiteSpace(userName) && !IsSuperAdmin(userName))
+            {
+                var allowedIDs = await GetAllowedWarehouseIDsAsync(userName);
+                query = query.Where(wh => allowedIDs.Contains(wh.ID));
+            }
+
+            var ret = await query.OrderBy(x => x.Name).ToListAsync();
+            return new List<Object>(ret);
         }
 
         public async Task<WarehouseMaster> GetWarehouseByID(int ID)
@@ -831,9 +896,9 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
         // ── Part 2: Opening Stock ────────────────────────────────────────────────
 
-        public async Task<List<OpeningStockListDto>> GetOpeningStockList()
+        public async Task<List<OpeningStockListDto>> GetOpeningStockList(string userName)
         {
-            var result = await (
+            IQueryable<OpeningStockListDto> query =
                 from os in _oBMSDbContext.OpeningStocks
                 join wh in _oBMSDbContext.WarehouseMasters   on os.WarehouseID equals wh.ID
                 join im in _oBMSDbContext.ItemMasters         on os.ItemID       equals im.ID
@@ -864,9 +929,15 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     Remarks       = os.Remarks,
                     LASTUPDATE    = os.LASTUPDATE,
                     LastUpdatedBy = os.LastUpdatedBy
-                }
-            ).ToListAsync();
-            return result;
+                };
+
+            if (!IsSuperAdmin(userName))
+            {
+                var allowedIds = await GetAllowedWarehouseIDsAsync(userName);
+                query = query.Where(r => allowedIds.Contains(r.WarehouseID));
+            }
+
+            return await query.ToListAsync();
         }
 
         public async Task<OpeningStockListDto?> GetOpeningStockByID(int id)
@@ -1135,7 +1206,9 @@ namespace OBMS.WebAPI.Repositories.Implementation
             int? itemID,
             DateTime dateFrom,
             DateTime dateTo,
-            string? transactionType)
+            string? transactionType,
+            int? categoryID = null,
+            string? size = null)
         {
             var typeLabels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
@@ -1153,6 +1226,18 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
             var dateToEnd = dateTo.Date.AddDays(1).AddSeconds(-1);
 
+            // ── Build child-category ID set when a parent category is selected ──
+            HashSet<int>? categoryIDs = null;
+            if (categoryID.HasValue && categoryID.Value > 0)
+            {
+                var childIDs = await _oBMSDbContext.InventoryCategories
+                    .Where(c => c.ParentCategoryID == categoryID.Value)
+                    .Select(c => c.ID)
+                    .ToListAsync();
+
+                categoryIDs = new HashSet<int>(childIDs) { categoryID.Value };
+            }
+
             var query = _oBMSDbContext.StockLedgers
                 .Where(sl => sl.WarehouseID     == warehouseID
                           && sl.TransactionDate >= dateFrom.Date
@@ -1168,6 +1253,8 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 from sl in query
                 join wh in _oBMSDbContext.WarehouseMasters on sl.WarehouseID equals wh.ID
                 join im in _oBMSDbContext.ItemMasters       on sl.ItemID       equals im.ID
+                join ic in _oBMSDbContext.InventoryCategories on im.CategoryID equals ic.ID into icJoin
+                from ic in icJoin.DefaultIfEmpty()
                 join um in _oBMSDbContext.UOMMasters   on im.UOMID equals um.ID into umJoin
                 from um in umJoin.DefaultIfEmpty()
                 orderby sl.ItemID, sl.TransactionDate, sl.ID
@@ -1175,13 +1262,27 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 {
                     sl.ID, sl.TransactionNo, sl.TransactionDate, sl.TransactionType,
                     sl.WarehouseID, WarehouseName = wh.Name,
-                    sl.ItemID, ItemCode = im.Code ?? "", ItemName = im.Name,
-                    UOMName = um != null ? um.Name : "",
+                    sl.ItemID,
+                    ItemCode     = im.Code ?? "",
+                    ItemName     = im.Name,
+                    ItemSize     = im.Size,
+                    CategoryName = ic != null ? ic.Name : "",
+                    CategoryID   = (int?)im.CategoryID,
+                    UOMName      = um != null ? um.Name : "",
                     sl.InQty, sl.OutQty, sl.UnitCost,
                     sl.ReferenceNo, sl.ReferenceType, sl.Remarks,
                     sl.LASTUPDATE, sl.LastUpdatedBy
                 }
             ).ToListAsync();
+
+            // ── Apply category / size filters in-memory (after join) ──────────
+            // Category: include selected category AND its sub-categories
+            if (categoryIDs != null)
+                rows = rows.Where(r => r.CategoryID.HasValue && categoryIDs.Contains(r.CategoryID.Value)).ToList();
+
+            // Size: when specified, only exact-match rows (NULL-size items excluded)
+            if (!string.IsNullOrWhiteSpace(size))
+                rows = rows.Where(r => string.Equals(r.ItemSize, size, StringComparison.OrdinalIgnoreCase)).ToList();
 
             var result = new List<StockLedgerRowDto>();
             var runningBalances = new Dictionary<(int, int), decimal>();
@@ -1205,6 +1306,8 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     ItemID               = row.ItemID,
                     ItemCode             = row.ItemCode,
                     ItemName             = row.ItemName,
+                    Size                 = row.ItemSize,
+                    CategoryName         = row.CategoryName,
                     UOMName              = row.UOMName,
                     InQty                = row.InQty,
                     OutQty               = row.OutQty,
@@ -1218,6 +1321,41 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 });
             }
             return result;
+        }
+
+        /// <summary>
+        /// Returns distinct non-null Size values for items under the given category
+        /// (and its sub-categories). categoryID = 0 returns sizes for all categories.
+        /// Sorted numerically first (28, 30, 32…) then alphabetically (S, M, L…).
+        /// </summary>
+        public async Task<List<ItemSizeDto>> GetItemSizesByCategory(int categoryID)
+        {
+            IQueryable<ItemMaster> query = _oBMSDbContext.ItemMasters
+                .Where(im => im.Size != null && im.Size != "");
+
+            if (categoryID > 0)
+            {
+                var childIDs = await _oBMSDbContext.InventoryCategories
+                    .Where(c => c.ParentCategoryID == categoryID)
+                    .Select(c => c.ID)
+                    .ToListAsync();
+
+                var categoryIDs = new HashSet<int>(childIDs) { categoryID };
+                query = query.Where(im => im.CategoryID != null && categoryIDs.Contains((int)im.CategoryID));
+            }
+
+            var sizes = await query
+                .Select(im => im.Size!)
+                .Distinct()
+                .ToListAsync();
+
+            // Sort: numeric values first (ascending), then alpha
+            return sizes
+                .OrderBy(s => int.TryParse(s, out _) ? 0 : 1)
+                .ThenBy(s => int.TryParse(s, out int n) ? (double)n : double.MaxValue)
+                .ThenBy(s => s, StringComparer.OrdinalIgnoreCase)
+                .Select(s => new ItemSizeDto { Size = s })
+                .ToList();
         }
 
         public async Task<decimal> GetCurrentStock(int warehouseID, int itemID)
@@ -1292,9 +1430,12 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 LastUpdatedBy   = pr.LastUpdatedBy
             };
 
-        public async Task<List<PRListDto>> GetPRList()
+        public async Task<List<PRListDto>> GetPRList(string userName)
         {
-            var list = await PRListQuery().ToListAsync();
+            var query = PRListQuery();
+            if (!IsSuperAdmin(userName))
+                query = query.Where(r => r.SubmittedBy == userName || r.LastUpdatedBy == userName);
+            var list = await query.ToListAsync();
             foreach (var pr in list)
             {
                 pr.Details = await GetPRDetails(pr.ID);
@@ -1870,9 +2011,15 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 LastUpdatedBy = po.LastUpdatedBy
             };
 
-        public async Task<List<POListDto>> GetPOList()
+        public async Task<List<POListDto>> GetPOList(string userName)
         {
-            var list = await POListQuery().ToListAsync();
+            var query = POListQuery();
+            if (!IsSuperAdmin(userName))
+            {
+                var allowedIds = await GetAllowedWarehouseIDsAsync(userName);
+                query = query.Where(r => allowedIds.Contains(r.WarehouseID));
+            }
+            var list = await query.ToListAsync();
             foreach (var po in list)
                 po.Details = await GetPODetails(po.ID);
             return list;
@@ -2288,9 +2435,9 @@ namespace OBMS.WebAPI.Repositories.Implementation
         // PART 3 — GOODS RECEIPT NOTE
         // ════════════════════════════════════════════════════════════════════════
 
-        public async Task<List<GRNListDto>> GetGRNList()
+        public async Task<List<GRNListDto>> GetGRNList(string userName)
         {
-            var list = await (
+            IQueryable<GRNListDto> query =
                 from grn in _oBMSDbContext.GoodsReceiptNotes
                 join po  in _oBMSDbContext.PurchaseOrders      on grn.POID        equals po.ID
                 join sup in _oBMSDbContext.Suppliers           on po.SupplierID   equals sup.Id
@@ -2312,9 +2459,15 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     Remarks         = grn.Remarks,
                     LASTUPDATE      = grn.LASTUPDATE,
                     LastUpdatedBy   = grn.LastUpdatedBy
-                }
-            ).ToListAsync();
+                };
 
+            if (!IsSuperAdmin(userName))
+            {
+                var allowedIds = await GetAllowedWarehouseIDsAsync(userName);
+                query = query.Where(r => allowedIds.Contains(r.WarehouseID));
+            }
+
+            var list = await query.ToListAsync();
             foreach (var g in list)
                 g.Details = await GetGRNDetails(g.ID);
             return list;
@@ -2847,13 +3000,56 @@ namespace OBMS.WebAPI.Repositories.Implementation
             return (true, "Goods receipt reference updated successfully.");
         }
 
+        /// <summary>
+        /// Updates only SupplierInvoiceNo, DeliveryNoteRef, and Remarks on a Purchase Requisition.
+        /// Item lines, quantities, and stock are NOT changed.
+        /// </summary>
+        public async Task<(bool Success, string Message)> UpdatePRReference(UpdatePRRefDto dto)
+        {
+            var pr = await _oBMSDbContext.PurchaseRequisitions.FindAsync(dto.ID);
+            if (pr == null)
+                return (false, "This purchase requisition could not be found.");
+
+            // Remarks can be updated at any status; only items/quantities are locked after Draft.
+            pr.SupplierInvoiceNo = dto.SupplierInvoiceNo?.Trim();
+            pr.DeliveryNoteRef   = dto.DeliveryNoteRef?.Trim();
+            pr.Remarks           = dto.Remarks?.Trim();
+            pr.LASTUPDATE        = DateTime.Now;
+            pr.LastUpdatedBy     = dto.LastUpdatedBy;
+
+            _oBMSDbContext.PurchaseRequisitions.Update(pr);
+            await _oBMSDbContext.SaveChangesAsync();
+
+            return (true, "Remarks updated successfully.");
+        }
+
+        /// <summary>
+        /// Updates only Remarks on a Purchase Order.
+        /// Item lines, quantities, stock, and finance records are NOT changed.
+        /// </summary>
+        public async Task<(bool Success, string Message)> UpdatePOReference(UpdatePORefDto dto)
+        {
+            var po = await _oBMSDbContext.PurchaseOrders.FindAsync(dto.ID);
+            if (po == null || !po.IsActive)
+                return (false, "Purchase order not found.");
+
+            po.Remarks       = dto.Remarks?.Trim();
+            po.LASTUPDATE    = DateTime.Now;
+            po.LastUpdatedBy = dto.LastUpdatedBy;
+
+            _oBMSDbContext.PurchaseOrders.Update(po);
+            await _oBMSDbContext.SaveChangesAsync();
+
+            return (true, "Purchase order remarks updated successfully.");
+        }
+
         // ════════════════════════════════════════════════════════════════════════
         // PART 3 — PURCHASE RETURN
         // ════════════════════════════════════════════════════════════════════════
 
-        public async Task<List<PurchaseReturnListDto>> GetPurchaseReturnList()
+        public async Task<List<PurchaseReturnListDto>> GetPurchaseReturnList(string userName)
         {
-            var list = await (
+            IQueryable<PurchaseReturnListDto> query =
                 from ret in _oBMSDbContext.PurchaseReturns
                 join grn in _oBMSDbContext.GoodsReceiptNotes on ret.GRNID       equals grn.ID
                 join po  in _oBMSDbContext.PurchaseOrders    on grn.POID        equals po.ID
@@ -2875,9 +3071,15 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     Reason        = ret.Reason,
                     LASTUPDATE    = ret.LASTUPDATE,
                     LastUpdatedBy = ret.LastUpdatedBy
-                }
-            ).ToListAsync();
+                };
 
+            if (!IsSuperAdmin(userName))
+            {
+                var allowedIds = await GetAllowedWarehouseIDsAsync(userName);
+                query = query.Where(r => allowedIds.Contains(r.WarehouseID));
+            }
+
+            var list = await query.ToListAsync();
             foreach (var r in list)
                 r.Details = await GetReturnDetails(r.ID);
             return list;
@@ -3149,9 +3351,9 @@ namespace OBMS.WebAPI.Repositories.Implementation
         // A. STOCK ISSUE
         // ────────────────────────────────────────────────────────────────────────
 
-        public async Task<List<StockIssueDocListDto>> GetStockIssueList()
+        public async Task<List<StockIssueDocListDto>> GetStockIssueList(string userName)
         {
-            var docs = await (
+            IQueryable<StockIssueDocListDto> query =
                 from sid in _oBMSDbContext.StockIssueDocs
                 join wh in _oBMSDbContext.WarehouseMasters on sid.WarehouseID equals wh.ID
                 where sid.IsActive == true
@@ -3170,9 +3372,15 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     LASTUPDATE    = sid.LASTUPDATE,
                     LastUpdatedBy = sid.LastUpdatedBy,
                     Details       = new List<StockIssueDocDetailListDto>()
-                }
-            ).ToListAsync();
-            return docs;
+                };
+
+            if (!IsSuperAdmin(userName))
+            {
+                var allowedIds = await GetAllowedWarehouseIDsAsync(userName);
+                query = query.Where(r => allowedIds.Contains(r.WarehouseID));
+            }
+
+            return await query.ToListAsync();
         }
 
         public async Task<StockIssueDocListDto?> GetStockIssueByID(int id)
@@ -3214,6 +3422,8 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 from ic in icJoin.DefaultIfEmpty()
                 join um in _oBMSDbContext.UOMMasters on d.UOMID equals um.ID into umJoin
                 from um in umJoin.DefaultIfEmpty()
+                join cm in _oBMSDbContext.ClientMasters on d.ClientID equals cm.ID into cmJoin
+                from cm in cmJoin.DefaultIfEmpty()
                 where d.IssueDocID == issueDocID
                 select new StockIssueDocDetailListDto
                 {
@@ -3228,6 +3438,8 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     IssueQty     = d.IssueQty,
                     UnitCost     = d.UnitCost,
                     TotalValue   = d.IssueQty * d.UnitCost,
+                    ClientID     = d.ClientID,
+                    ClientName   = cm != null ? cm.Name : "",
                     Remarks      = d.Remarks
                 }
             ).ToListAsync();
@@ -3254,11 +3466,14 @@ namespace OBMS.WebAPI.Repositories.Implementation
             if (!dto.Details.Any())
                 return (false, "Please add at least one item to the stock issue.", null);
 
-            // ── Per-item stock availability check (backend) ─────────────────────
+            // ── Per-item validations ────────────────────────────────────────────
             foreach (var line in dto.Details)
             {
                 if (line.IssueQty <= 0)
                     return (false, "Issue quantity must be greater than zero.", null);
+
+                if (line.ClientID == null || line.ClientID <= 0)
+                    return (false, "Please select a client for all item rows.", null);
 
                 var available = await GetCurrentStockInternal(dto.WarehouseID, line.ItemID);
                 if (line.IssueQty > available)
@@ -3335,6 +3550,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                             UOMID         = line.UOMID,
                             IssueQty      = line.IssueQty,
                             UnitCost      = line.UnitCost,
+                            ClientID      = line.ClientID > 0 ? line.ClientID : null,
                             Remarks       = line.Remarks,
                             LASTUPDATE    = DateTime.Now,
                             LastUpdatedBy = line.LastUpdatedBy
@@ -3449,9 +3665,9 @@ namespace OBMS.WebAPI.Repositories.Implementation
             return await BuildIssueDetailList(issueDocID);
         }
 
-        public async Task<List<StockIssueReturnListDto>> GetStockIssueReturnList()
+        public async Task<List<StockIssueReturnListDto>> GetStockIssueReturnList(string userName)
         {
-            var returns = await (
+            IQueryable<StockIssueReturnListDto> query =
                 from sir in _oBMSDbContext.StockIssueReturns
                 join sid in _oBMSDbContext.StockIssueDocs on sir.OriginalIssueDocID equals sid.ID
                 join wh  in _oBMSDbContext.WarehouseMasters on sir.WarehouseID equals wh.ID
@@ -3471,9 +3687,15 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     LASTUPDATE         = sir.LASTUPDATE,
                     LastUpdatedBy      = sir.LastUpdatedBy,
                     Details            = new List<StockIssueReturnDetailListDto>()
-                }
-            ).ToListAsync();
-            return returns;
+                };
+
+            if (!IsSuperAdmin(userName))
+            {
+                var allowedIds = await GetAllowedWarehouseIDsAsync(userName);
+                query = query.Where(r => allowedIds.Contains(r.WarehouseID));
+            }
+
+            return await query.ToListAsync();
         }
 
         public async Task<StockIssueReturnListDto?> GetStockIssueReturnByID(int id)
@@ -3650,9 +3872,9 @@ namespace OBMS.WebAPI.Repositories.Implementation
         // C. STOCK TRANSFER
         // ────────────────────────────────────────────────────────────────────────
 
-        public async Task<List<StockTransferListDto>> GetStockTransferList()
+        public async Task<List<StockTransferListDto>> GetStockTransferList(string userName)
         {
-            var list = await (
+            IQueryable<StockTransferListDto> query =
                 from st in _oBMSDbContext.StockTransfers
                 join sw in _oBMSDbContext.WarehouseMasters on st.SourceWarehouseID equals sw.ID
                 join dw in _oBMSDbContext.WarehouseMasters on st.DestWarehouseID   equals dw.ID
@@ -3671,9 +3893,15 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     LASTUPDATE           = st.LASTUPDATE,
                     LastUpdatedBy        = st.LastUpdatedBy,
                     Details              = new List<StockTransferDetailListDto>()
-                }
-            ).ToListAsync();
-            return list;
+                };
+
+            if (!IsSuperAdmin(userName))
+            {
+                var allowed = await GetAllowedWarehouseIDsAsync(userName);
+                query = query.Where(r => allowed.Contains(r.SourceWarehouseID) || allowed.Contains(r.DestWarehouseID));
+            }
+
+            return await query.ToListAsync();
         }
 
         public async Task<StockTransferListDto?> GetStockTransferByID(int id)
@@ -3905,9 +4133,9 @@ namespace OBMS.WebAPI.Repositories.Implementation
         // D. STOCK ADJUSTMENT
         // ────────────────────────────────────────────────────────────────────────
 
-        public async Task<List<StockAdjustmentListDto>> GetStockAdjustmentList()
+        public async Task<List<StockAdjustmentListDto>> GetStockAdjustmentList(string userName)
         {
-            var list = await (
+            IQueryable<StockAdjustmentListDto> query =
                 from sa in _oBMSDbContext.StockAdjustments
                 join wh in _oBMSDbContext.WarehouseMasters   on sa.WarehouseID equals wh.ID
                 join im in _oBMSDbContext.ItemMasters         on sa.ItemID       equals im.ID
@@ -3944,9 +4172,15 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     ApprovedBy     = sa.ApprovedBy,
                     ApprovedDate   = sa.ApprovedDate,
                     ApprovalRemarks = sa.ApprovalRemarks
-                }
-            ).ToListAsync();
-            return list;
+                };
+
+            if (!IsSuperAdmin(userName))
+            {
+                var allowedIds = await GetAllowedWarehouseIDsAsync(userName);
+                query = query.Where(r => allowedIds.Contains(r.WarehouseID));
+            }
+
+            return await query.ToListAsync();
         }
 
         public async Task<StockAdjustmentListDto?> GetStockAdjustmentByID(int id)
@@ -4299,9 +4533,9 @@ namespace OBMS.WebAPI.Repositories.Implementation
         // E. DAMAGE / LOSS
         // ────────────────────────────────────────────────────────────────────────
 
-        public async Task<List<StockDamageLossListDto>> GetStockDamageLossList()
+        public async Task<List<StockDamageLossListDto>> GetStockDamageLossList(string userName)
         {
-            var list = await (
+            IQueryable<StockDamageLossListDto> query =
                 from dl in _oBMSDbContext.StockDamageLosses
                 join wh in _oBMSDbContext.WarehouseMasters   on dl.WarehouseID equals wh.ID
                 join im in _oBMSDbContext.ItemMasters         on dl.ItemID       equals im.ID
@@ -4331,9 +4565,15 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     Remarks       = dl.Remarks,
                     LASTUPDATE    = dl.LASTUPDATE,
                     LastUpdatedBy = dl.LastUpdatedBy
-                }
-            ).ToListAsync();
-            return list;
+                };
+
+            if (!IsSuperAdmin(userName))
+            {
+                var allowedIds = await GetAllowedWarehouseIDsAsync(userName);
+                query = query.Where(r => allowedIds.Contains(r.WarehouseID));
+            }
+
+            return await query.ToListAsync();
         }
 
         public async Task<StockDamageLossListDto?> GetStockDamageLossByID(int id)
@@ -4720,6 +4960,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     im.Code,
                     im.Name,
                     im.ReorderLevel,
+                    im.Size,
                     CategoryName = ic != null ? ic.Name : "",
                     BrandName    = br != null ? br.Name : "",
                     UOMName      = um != null ? um.Name : "",
@@ -4746,6 +4987,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                         ItemID               = p.ItemID,
                         ItemCode             = itemInfo?.Code ?? "",
                         ItemName             = itemInfo?.Name ?? "",
+                        Size                 = itemInfo?.Size ?? "",
                         CategoryName         = itemInfo?.CategoryName ?? "",
                         BrandName            = itemInfo?.BrandName ?? "",
                         UOMName              = itemInfo?.UOMName ?? "",
@@ -4774,7 +5016,8 @@ namespace OBMS.WebAPI.Repositories.Implementation
             DateTime dateFrom,
             DateTime dateTo,
             int? employeeID,
-            string? issueToType)
+            string? issueToType,
+            string? userName = null)
         {
             var query =
                 from doc    in _oBMSDbContext.StockIssueDocs
@@ -4793,6 +5036,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 {
                     doc.IssueNo,
                     doc.IssueDate,
+                    WarehouseID   = doc.WarehouseID,
                     WarehouseName = wh.Name,
                     doc.IssueToType,
                     doc.IssueToID,
@@ -4814,6 +5058,12 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
             if (!string.IsNullOrEmpty(issueToType) && issueToType != "ALL")
                 query = query.Where(x => x.IssueToType == issueToType);
+
+            if (!string.IsNullOrEmpty(userName) && !IsSuperAdmin(userName))
+            {
+                var allowedIds = await GetAllowedWarehouseIDsAsync(userName);
+                query = query.Where(x => allowedIds.Contains(x.WarehouseID));
+            }
 
             var lines = await query
                 .OrderBy(x => x.IssueToName)
@@ -4931,12 +5181,14 @@ namespace OBMS.WebAPI.Repositories.Implementation
         // A. ASSET MASTER
         // ────────────────────────────────────────────────────────────────────
 
-        public async Task<List<AssetListDto>> GetAssetList()
+        public async Task<List<AssetListDto>> GetAssetList(string userName)
         {
+            var allowedBranches = await GetAllowedAssetBranchCodesAsync(userName);
             var list = await (
                 from a in _oBMSDbContext.AssetMasters
                 join sup in _oBMSDbContext.Suppliers on a.SupplierID equals sup.Id into supJoin
                 from sup in supJoin.DefaultIfEmpty()
+                where allowedBranches == null || (a.Branch != null && allowedBranches.Contains(a.Branch))
                 orderby a.AssetCode
                 select new AssetListDto
                 {
@@ -4983,13 +5235,15 @@ namespace OBMS.WebAPI.Repositories.Implementation
             return list;
         }
 
-        public async Task<AssetListDto?> GetAssetByIDEnriched(int id)
+        public async Task<AssetListDto?> GetAssetByIDEnriched(int id, string userName)
         {
+            var allowedBranches = await GetAllowedAssetBranchCodesAsync(userName);
             var asset = await (
                 from a in _oBMSDbContext.AssetMasters
                 join sup in _oBMSDbContext.Suppliers on a.SupplierID equals sup.Id into supJoin
                 from sup in supJoin.DefaultIfEmpty()
                 where a.ID == id
+                   && (allowedBranches == null || (a.Branch != null && allowedBranches.Contains(a.Branch)))
                 select new AssetListDto
                 {
                     ID                  = a.ID,
@@ -5116,11 +5370,13 @@ namespace OBMS.WebAPI.Repositories.Implementation
         // B. ASSET ALLOCATION
         // ────────────────────────────────────────────────────────────────────
 
-        public async Task<List<AssetAllocationListDto>> GetAssetAllocationList(bool activeOnly)
+        public async Task<List<AssetAllocationListDto>> GetAssetAllocationList(bool activeOnly, string userName)
         {
+            var allowedBranches = await GetAllowedAssetBranchCodesAsync(userName);
             var q = from aa in _oBMSDbContext.AssetAllocations
                     join a in _oBMSDbContext.AssetMasters on aa.AssetID equals a.ID
-                    where !activeOnly || aa.IsActive == true
+                    where (!activeOnly || aa.IsActive == true)
+                       && (allowedBranches == null || (a.Branch != null && allowedBranches.Contains(a.Branch)))
                     orderby aa.AllocationDate descending
                     select new AssetAllocationListDto
                     {
@@ -5143,12 +5399,14 @@ namespace OBMS.WebAPI.Repositories.Implementation
             return await q.ToListAsync();
         }
 
-        public async Task<AssetAllocationListDto?> GetAssetAllocationByID(int id)
+        public async Task<AssetAllocationListDto?> GetAssetAllocationByID(int id, string userName)
         {
+            var allowedBranches = await GetAllowedAssetBranchCodesAsync(userName);
             return await (
                 from aa in _oBMSDbContext.AssetAllocations
                 join a in _oBMSDbContext.AssetMasters on aa.AssetID equals a.ID
                 where aa.ID == id
+                   && (allowedBranches == null || (a.Branch != null && allowedBranches.Contains(a.Branch)))
                 select new AssetAllocationListDto
                 {
                     ID               = aa.ID,
@@ -5170,12 +5428,14 @@ namespace OBMS.WebAPI.Repositories.Implementation
             ).FirstOrDefaultAsync();
         }
 
-        public async Task<List<AssetAllocationListDto>> GetActiveAllocationsByAsset(int assetID)
+        public async Task<List<AssetAllocationListDto>> GetActiveAllocationsByAsset(int assetID, string userName)
         {
+            var allowedBranches = await GetAllowedAssetBranchCodesAsync(userName);
             return await (
                 from aa in _oBMSDbContext.AssetAllocations
                 join a in _oBMSDbContext.AssetMasters on aa.AssetID equals a.ID
                 where aa.AssetID == assetID && aa.IsActive
+                   && (allowedBranches == null || (a.Branch != null && allowedBranches.Contains(a.Branch)))
                 select new AssetAllocationListDto
                 {
                     ID = aa.ID, AllocationNo = aa.AllocationNo,
@@ -5297,12 +5557,14 @@ namespace OBMS.WebAPI.Repositories.Implementation
         // C. ASSET TRANSFER
         // ────────────────────────────────────────────────────────────────────
 
-        public async Task<List<AssetTransferListDto>> GetAssetTransferList()
+        public async Task<List<AssetTransferListDto>> GetAssetTransferList(string userName)
         {
+            var allowedBranches = await GetAllowedAssetBranchCodesAsync(userName);
             return await (
                 from at in _oBMSDbContext.AssetTransfers
                 join a in _oBMSDbContext.AssetMasters on at.AssetID equals a.ID
                 where at.IsActive
+                   && (allowedBranches == null || (a.Branch != null && allowedBranches.Contains(a.Branch)))
                 orderby at.TransferDate descending
                 select new AssetTransferListDto
                 {
@@ -5317,12 +5579,14 @@ namespace OBMS.WebAPI.Repositories.Implementation
             ).ToListAsync();
         }
 
-        public async Task<AssetTransferListDto?> GetAssetTransferByID(int id)
+        public async Task<AssetTransferListDto?> GetAssetTransferByID(int id, string userName)
         {
+            var allowedBranches = await GetAllowedAssetBranchCodesAsync(userName);
             return await (
                 from at in _oBMSDbContext.AssetTransfers
                 join a in _oBMSDbContext.AssetMasters on at.AssetID equals a.ID
                 where at.ID == id
+                   && (allowedBranches == null || (a.Branch != null && allowedBranches.Contains(a.Branch)))
                 select new AssetTransferListDto
                 {
                     ID = at.ID, TransferNo = at.TransferNo,
@@ -5428,14 +5692,16 @@ namespace OBMS.WebAPI.Repositories.Implementation
         // D. ASSET RETURN
         // ────────────────────────────────────────────────────────────────────
 
-        public async Task<List<AssetReturnListDto>> GetAssetReturnList()
+        public async Task<List<AssetReturnListDto>> GetAssetReturnList(string userName)
         {
+            var allowedBranches = await GetAllowedAssetBranchCodesAsync(userName);
             return await (
                 from ar in _oBMSDbContext.AssetReturns
                 join a  in _oBMSDbContext.AssetMasters    on ar.AssetID      equals a.ID
                 join aa in _oBMSDbContext.AssetAllocations on ar.AllocationID equals aa.ID into aaJoin
                 from aa in aaJoin.DefaultIfEmpty()
                 where ar.IsActive
+                   && (allowedBranches == null || (a.Branch != null && allowedBranches.Contains(a.Branch)))
                 orderby ar.ReturnDate descending
                 select new AssetReturnListDto
                 {
@@ -5450,14 +5716,16 @@ namespace OBMS.WebAPI.Repositories.Implementation
             ).ToListAsync();
         }
 
-        public async Task<AssetReturnListDto?> GetAssetReturnByID(int id)
+        public async Task<AssetReturnListDto?> GetAssetReturnByID(int id, string userName)
         {
+            var allowedBranches = await GetAllowedAssetBranchCodesAsync(userName);
             return await (
                 from ar in _oBMSDbContext.AssetReturns
                 join a  in _oBMSDbContext.AssetMasters    on ar.AssetID      equals a.ID
                 join aa in _oBMSDbContext.AssetAllocations on ar.AllocationID equals aa.ID into aaJoin
                 from aa in aaJoin.DefaultIfEmpty()
                 where ar.ID == id
+                   && (allowedBranches == null || (a.Branch != null && allowedBranches.Contains(a.Branch)))
                 select new AssetReturnListDto
                 {
                     ID = ar.ID, ReturnNo = ar.ReturnNo,
@@ -5550,11 +5818,13 @@ namespace OBMS.WebAPI.Repositories.Implementation
         // E. ASSET MAINTENANCE
         // ────────────────────────────────────────────────────────────────────
 
-        public async Task<List<AssetMaintenanceListDto>> GetAssetMaintenanceList(int? assetID)
+        public async Task<List<AssetMaintenanceListDto>> GetAssetMaintenanceList(int? assetID, string userName)
         {
+            var allowedBranches = await GetAllowedAssetBranchCodesAsync(userName);
             var q = from am in _oBMSDbContext.AssetMaintenances
                     join a in _oBMSDbContext.AssetMasters on am.AssetID equals a.ID
                     where am.IsActive && (!assetID.HasValue || am.AssetID == assetID)
+                       && (allowedBranches == null || (a.Branch != null && allowedBranches.Contains(a.Branch)))
                     orderby am.StartDate descending
                     select new AssetMaintenanceListDto
                     {
@@ -5569,12 +5839,14 @@ namespace OBMS.WebAPI.Repositories.Implementation
             return await q.ToListAsync();
         }
 
-        public async Task<AssetMaintenanceListDto?> GetAssetMaintenanceByID(int id)
+        public async Task<AssetMaintenanceListDto?> GetAssetMaintenanceByID(int id, string userName)
         {
+            var allowedBranches = await GetAllowedAssetBranchCodesAsync(userName);
             return await (
                 from am in _oBMSDbContext.AssetMaintenances
                 join a in _oBMSDbContext.AssetMasters on am.AssetID equals a.ID
                 where am.ID == id
+                   && (allowedBranches == null || (a.Branch != null && allowedBranches.Contains(a.Branch)))
                 select new AssetMaintenanceListDto
                 {
                     ID = am.ID, MaintenanceNo = am.MaintenanceNo,
@@ -5706,11 +5978,13 @@ namespace OBMS.WebAPI.Repositories.Implementation
         // F. ASSET DAMAGE
         // ────────────────────────────────────────────────────────────────────
 
-        public async Task<List<AssetDamageListDto>> GetAssetDamageList(int? assetID)
+        public async Task<List<AssetDamageListDto>> GetAssetDamageList(int? assetID, string userName)
         {
+            var allowedBranches = await GetAllowedAssetBranchCodesAsync(userName);
             var q = from ad in _oBMSDbContext.AssetDamages
                     join a in _oBMSDbContext.AssetMasters on ad.AssetID equals a.ID
                     where ad.IsActive && (!assetID.HasValue || ad.AssetID == assetID)
+                       && (allowedBranches == null || (a.Branch != null && allowedBranches.Contains(a.Branch)))
                     orderby ad.DamageDate descending
                     select new AssetDamageListDto
                     {
@@ -5724,12 +5998,14 @@ namespace OBMS.WebAPI.Repositories.Implementation
             return await q.ToListAsync();
         }
 
-        public async Task<AssetDamageListDto?> GetAssetDamageByID(int id)
+        public async Task<AssetDamageListDto?> GetAssetDamageByID(int id, string userName)
         {
+            var allowedBranches = await GetAllowedAssetBranchCodesAsync(userName);
             return await (
                 from ad in _oBMSDbContext.AssetDamages
                 join a in _oBMSDbContext.AssetMasters on ad.AssetID equals a.ID
                 where ad.ID == id
+                   && (allowedBranches == null || (a.Branch != null && allowedBranches.Contains(a.Branch)))
                 select new AssetDamageListDto
                 {
                     ID = ad.ID, DamageNo = ad.DamageNo,
@@ -5804,12 +6080,14 @@ namespace OBMS.WebAPI.Repositories.Implementation
         // G. ASSET DISPOSAL
         // ────────────────────────────────────────────────────────────────────
 
-        public async Task<List<AssetDisposalListDto>> GetAssetDisposalList()
+        public async Task<List<AssetDisposalListDto>> GetAssetDisposalList(string userName)
         {
+            var allowedBranches = await GetAllowedAssetBranchCodesAsync(userName);
             return await (
                 from disp in _oBMSDbContext.AssetDisposals
                 join a in _oBMSDbContext.AssetMasters on disp.AssetID equals a.ID
                 where disp.IsActive
+                   && (allowedBranches == null || (a.Branch != null && allowedBranches.Contains(a.Branch)))
                 orderby disp.DisposalDate descending
                 select new AssetDisposalListDto
                 {
@@ -5828,12 +6106,14 @@ namespace OBMS.WebAPI.Repositories.Implementation
             ).ToListAsync();
         }
 
-        public async Task<AssetDisposalListDto?> GetAssetDisposalByID(int id)
+        public async Task<AssetDisposalListDto?> GetAssetDisposalByID(int id, string userName)
         {
+            var allowedBranches = await GetAllowedAssetBranchCodesAsync(userName);
             return await (
                 from disp in _oBMSDbContext.AssetDisposals
                 join a in _oBMSDbContext.AssetMasters on disp.AssetID equals a.ID
                 where disp.ID == id
+                   && (allowedBranches == null || (a.Branch != null && allowedBranches.Contains(a.Branch)))
                 select new AssetDisposalListDto
                 {
                     ID = disp.ID, DisposalNo = disp.DisposalNo,
@@ -6118,12 +6398,14 @@ namespace OBMS.WebAPI.Repositories.Implementation
         // H. ASSET MOVEMENT HISTORY
         // ────────────────────────────────────────────────────────────────────
 
-        public async Task<List<AssetMovementHistoryDto>> GetAssetMovementHistory(int assetID)
+        public async Task<List<AssetMovementHistoryDto>> GetAssetMovementHistory(int assetID, string userName)
         {
+            var allowedBranches = await GetAllowedAssetBranchCodesAsync(userName);
             return await (
                 from h in _oBMSDbContext.AssetMovementHistories
                 join a in _oBMSDbContext.AssetMasters on h.AssetID equals a.ID
                 where h.AssetID == assetID
+                   && (allowedBranches == null || (a.Branch != null && allowedBranches.Contains(a.Branch)))
                 orderby h.MovementDate ascending
                 select new AssetMovementHistoryDto
                 {
@@ -6218,12 +6500,14 @@ namespace OBMS.WebAPI.Repositories.Implementation
             return (true, $"Location updated successfully. Status: {statusLabel}.");
         }
 
-        public async Task<List<AssetLocationLogDto>> GetAssetLocationLog(int assetID)
+        public async Task<List<AssetLocationLogDto>> GetAssetLocationLog(int assetID, string userName)
         {
+            var allowedBranches = await GetAllowedAssetBranchCodesAsync(userName);
             return await (
                 from log in _oBMSDbContext.AssetLocationLogs
                 join a   in _oBMSDbContext.AssetMasters on log.AssetID equals a.ID
                 where log.AssetID == assetID
+                   && (allowedBranches == null || (a.Branch != null && allowedBranches.Contains(a.Branch)))
                 orderby log.LogDate descending
                 select new AssetLocationLogDto
                 {
@@ -6242,13 +6526,15 @@ namespace OBMS.WebAPI.Repositories.Implementation
             ).ToListAsync();
         }
 
-        public async Task<List<AssetListDto>> GetDefectLocationAssets()
+        public async Task<List<AssetListDto>> GetDefectLocationAssets(string userName)
         {
+            var allowedBranches = await GetAllowedAssetBranchCodesAsync(userName);
             var list = await (
                 from a in _oBMSDbContext.AssetMasters
                 join sup in _oBMSDbContext.Suppliers on a.SupplierID equals sup.Id into supJoin
                 from sup in supJoin.DefaultIfEmpty()
                 where a.IsActive == true
+                   && (allowedBranches == null || (a.Branch != null && allowedBranches.Contains(a.Branch)))
                    && (a.LocationStatus == "Defect_Location"
                     || a.LocationStatus == "Parked_Away"
                     || a.LocationStatus == "Unknown")
@@ -6344,12 +6630,37 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
         // ── GetBSRList ────────────────────────────────────────────────────────
 
-        public async Task<List<StockRequestListDto>> GetBSRList()
+        public async Task<List<StockRequestListDto>> GetBSRList(string userName)
         {
-            var list = await BSRListQuery().ToListAsync();
+            var query = BSRListQuery();
+
+            // Superadmin sees every branch; normal users see only their allowed branches.
+            bool isSuperAdmin =
+                string.IsNullOrWhiteSpace(userName) ||
+                userName.Equals("superadmin", StringComparison.OrdinalIgnoreCase) ||
+                (_oBMSDbContext.Obmsusers
+                    .FirstOrDefault(u => u.Name == userName && !u.IsDeleted)?.IsAdmin == "2");
+
+            if (!isSuperAdmin)
+            {
+                // OBMSBranches.Name = username, BranchCode = BranchMaster.Code
+                var allowedBranchCodes = await _oBMSDbContext.OBMSBranches
+                    .Where(o => o.Name == userName && o.IsAllowed == true)
+                    .Select(o => o.BranchCode)
+                    .ToListAsync();
+
+                var allowedBranchIDs = await _oBMSDbContext.BranchMasters
+                    .Where(b => allowedBranchCodes.Contains(b.Code))
+                    .Select(b => b.ID)
+                    .ToListAsync();
+
+                query = query.Where(sr => allowedBranchIDs.Contains(sr.RequestingBranchID));
+            }
+
             // Line items are not loaded for the list view (performance).
-            return list;
+            return await query.ToListAsync();
         }
+
 
         // ── GetBSRByID ────────────────────────────────────────────────────────
 
@@ -6775,6 +7086,10 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     e.EMP_ROLE == "FGuard" ||
                     e.EMP_ROLE == "Foreign Guard");
             }
+            else if (issueToType.Equals("Other Guards", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(e => e.EMP_ROLE == "Others");
+            }
             else if (issueToType.Equals("Staff", StringComparison.OrdinalIgnoreCase))
             {
                 query = query.Where(e => e.EMP_ROLE == "Staff");
@@ -6821,6 +7136,10 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     e.EMP_ROLE == "Guard" ||
                     e.EMP_ROLE == "FGuard" ||
                     e.EMP_ROLE == "Foreign Guard");
+            }
+            else if (issueToType.Equals("Other Guards", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(e => e.EMP_ROLE == "Others");
             }
             else if (issueToType.Equals("Staff", StringComparison.OrdinalIgnoreCase))
             {
@@ -6885,6 +7204,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     det.IssueDocID,
                     det.ID,
                     det.ItemID,
+                    CategoryID = item.CategoryID,
                     ItemName = item.Name,
                     ItemCode = item.Code,
                     det.IssueQty,
@@ -6913,6 +7233,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     {
                         IssueDetailID = d.ID,
                         ItemID        = d.ItemID,
+                        CategoryID    = d.CategoryID,
                         ItemName      = d.ItemName,
                         ItemCode      = d.ItemCode,
                         IssueQty      = d.IssueQty,
@@ -6970,6 +7291,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     det.IssueDocID,
                     det.ID,
                     det.ItemID,
+                    CategoryID = item.CategoryID,
                     ItemName = item.Name,
                     ItemCode = item.Code,
                     det.IssueQty,
@@ -6997,6 +7319,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     {
                         IssueDetailID = d.ID,
                         ItemID        = d.ItemID,
+                        CategoryID    = d.CategoryID,
                         ItemName      = d.ItemName,
                         ItemCode      = d.ItemCode,
                         IssueQty      = d.IssueQty,
@@ -7172,7 +7495,8 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     GRNsPending        = reader.IsDBNull(reader.GetOrdinal("GRNsPending"))        ? 0 : reader.GetInt32(reader.GetOrdinal("GRNsPending")),
                     TransfersPending   = reader.IsDBNull(reader.GetOrdinal("TransfersPending"))   ? 0 : reader.GetInt32(reader.GetOrdinal("TransfersPending")),
                     IssuesPending      = reader.IsDBNull(reader.GetOrdinal("IssuesPending"))      ? 0 : reader.GetInt32(reader.GetOrdinal("IssuesPending")),
-                    AdjustmentsPending = reader.IsDBNull(reader.GetOrdinal("AdjustmentsPending")) ? 0 : reader.GetInt32(reader.GetOrdinal("AdjustmentsPending"))
+                    AdjustmentsPending = reader.IsDBNull(reader.GetOrdinal("AdjustmentsPending")) ? 0 : reader.GetInt32(reader.GetOrdinal("AdjustmentsPending")),
+                    ApprovalsPending   = reader.IsDBNull(reader.GetOrdinal("ApprovalsPending"))   ? 0 : reader.GetInt32(reader.GetOrdinal("ApprovalsPending"))
                 };
             }
 

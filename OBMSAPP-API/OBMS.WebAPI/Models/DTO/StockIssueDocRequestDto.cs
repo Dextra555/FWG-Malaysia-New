@@ -44,6 +44,9 @@ namespace OBMS.WebAPI.Models.DTO
 
         public decimal UnitCost { get; set; }
 
+        /// <summary>Optional FK to ClientMaster — which client this item is being issued for.</summary>
+        public int? ClientID { get; set; }
+
         public string? Remarks { get; set; }
 
         public string? LastUpdatedBy { get; set; }

@@ -18,6 +18,9 @@ namespace OBMS.WebAPI.Models.DTO
         public string UOMName { get; set; } = string.Empty;
         public string UOMShort { get; set; } = string.Empty;
 
+        /// <summary>Optional size from ItemMaster (e.g. S/M/L/XL); empty when the item has no size.</summary>
+        public string Size { get; set; } = string.Empty;
+
         public decimal CurrentStock { get; set; }
 
         /// <summary>From ItemMaster — used only for display/comparison, not stock calculation</summary>

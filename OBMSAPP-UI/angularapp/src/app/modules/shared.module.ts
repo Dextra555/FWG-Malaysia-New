@@ -187,6 +187,18 @@ import { BranchStockLedgerComponent } from './report/inventory/branch-stock-ledg
 import { StockLedgerReportComponent } from './report/inventory/stock-ledger-report/stock-ledger-report.component';
 import { CurrentStockReportComponent } from './report/inventory/current-stock-report/current-stock-report.component';
 import { StockMovementReportComponent } from './report/inventory/stock-movement-report/stock-movement-report.component';
+import { StockInGRNReportComponent } from './report/inventory/stock-in-grn-report/stock-in-grn-report.component';
+import { StockIssueListReportComponent } from './report/inventory/stock-issue-list-report/stock-issue-list-report.component';
+import { ItemCategoryStockReportComponent } from './report/inventory/item-category-stock-report/item-category-stock-report.component';
+import { WarehouseStockReportComponent } from './report/inventory/warehouse-stock-report/warehouse-stock-report.component';
+import { SupplierPurchaseReportComponent } from './report/inventory/supplier-purchase-report/supplier-purchase-report.component';
+import { LowStockReportComponent } from './report/inventory/low-stock-report/low-stock-report.component';
+import { StockTransferReportComponent } from './report/inventory/stock-transfer-report/stock-transfer-report.component';
+import { StockAdjDamageLossReportComponent } from './report/inventory/stock-adj-damage-loss-report/stock-adj-damage-loss-report.component';
+import { PurchaseIssueReturnReportComponent } from './report/inventory/purchase-issue-return-report/purchase-issue-return-report.component';
+import { InventoryValuationReportComponent } from './report/inventory/inventory-valuation-report/inventory-valuation-report.component';
+import { BranchAssetReportComponent } from './report/inventory/branch-asset-report/branch-asset-report.component';
+import { AssetMovementReportComponent } from './report/inventory/asset-movement-report/asset-movement-report.component';
 import { PaySheetComponent } from './report/payroll/pay-sheet/pay-sheet.component';
 import { YearlyPaySheetComponent } from './report/payroll/yearly-pay-sheet/yearly-pay-sheet.component';
 import { PayHistoryComponent } from './report/payroll/pay-history/pay-history.component';
@@ -418,6 +430,18 @@ import { SumFieldPipe } from '../shared/sum-field.pipe';
     StockLedgerReportComponent,
     CurrentStockReportComponent,
     StockMovementReportComponent,
+    StockInGRNReportComponent,
+    StockIssueListReportComponent,
+    ItemCategoryStockReportComponent,
+    WarehouseStockReportComponent,
+    SupplierPurchaseReportComponent,
+    LowStockReportComponent,
+    StockTransferReportComponent,
+    StockAdjDamageLossReportComponent,
+    PurchaseIssueReturnReportComponent,
+    InventoryValuationReportComponent,
+    BranchAssetReportComponent,
+    AssetMovementReportComponent,
     PaySheetComponent,
     YearlyPaySheetComponent,
     PayHistoryComponent,

@@ -317,6 +317,7 @@ BEGIN
         v.RunningBalance,
         v.UnitCost,
         v.ReferenceType,
+        v.ReferenceID,
         v.ReferenceNo,
         v.Remarks
     FROM VWStockLedger v

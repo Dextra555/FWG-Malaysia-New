@@ -919,10 +919,10 @@ namespace OBMS.WebAPI.Controllers
 
                 return results;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
 
-                throw ex;
+                throw;
             }
 
         }

@@ -19,6 +19,13 @@ namespace OBMS.WebAPI.Models.DTO
         public int ItemID { get; set; }
         public string ItemCode { get; set; } = string.Empty;
         public string ItemName { get; set; } = string.Empty;
+
+        /// <summary>Item size (e.g. S/M/L/XL/28/30). Null when the item has no size.</summary>
+        public string? Size { get; set; }
+
+        /// <summary>Category the item belongs to.</summary>
+        public string? CategoryName { get; set; }
+
         public string UOMName { get; set; } = string.Empty;
         public decimal InQty { get; set; }
         public decimal OutQty { get; set; }
@@ -32,5 +39,13 @@ namespace OBMS.WebAPI.Models.DTO
         public string? Remarks { get; set; }
         public DateTime LASTUPDATE { get; set; }
         public string? LastUpdatedBy { get; set; }
+    }
+
+    /// <summary>
+    /// One distinct size value returned by GetItemSizesByCategory.
+    /// </summary>
+    public class ItemSizeDto
+    {
+        public string Size { get; set; } = string.Empty;
     }
 }

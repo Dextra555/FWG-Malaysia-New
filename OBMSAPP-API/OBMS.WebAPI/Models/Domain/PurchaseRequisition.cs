@@ -33,6 +33,12 @@ namespace OBMS.WebAPI.Models.Domain
         /// <summary>Filled by approver on Approve or Reject action.</summary>
         public string? ApprovalRemarks { get; set; }
 
+        /// <summary>Supplier invoice/reference number — optional, set on Draft PR.</summary>
+        public string? SupplierInvoiceNo { get; set; }
+
+        /// <summary>Delivery note reference — optional, set on Draft PR.</summary>
+        public string? DeliveryNoteRef { get; set; }
+
         public bool IsActive { get; set; } = true;
 
         public DateTime LASTUPDATE { get; set; }

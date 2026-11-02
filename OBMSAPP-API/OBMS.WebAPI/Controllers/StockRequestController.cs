@@ -54,13 +54,13 @@ namespace OBMS.WebAPI.Controllers
         // LIST + READ
         // ════════════════════════════════════════════════════════════════════
 
-        /// <summary>Returns all active stock requests (list view — no detail lines).</summary>
+        /// <summary>Returns active stock requests visible to the current user.</summary>
         [HttpGet("GetBSRList")]
         public async Task<IActionResult> GetBSRList()
         {
             try
             {
-                return Ok(await _repo.GetBSRList());
+                return Ok(await _repo.GetBSRList(GetJwtUser()));
             }
             catch (Exception ex)
             {

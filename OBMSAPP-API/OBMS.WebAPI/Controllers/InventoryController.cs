@@ -30,6 +30,17 @@ namespace OBMS.WebAPI.Controllers
             _oBMSDbContext = oBMSDbContext;
         }
 
+        // ── JWT helper ────────────────────────────────────────────────────────
+
+        private string GetJwtUser()
+        {
+            var name = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
+            if (string.IsNullOrWhiteSpace(name))
+                throw new UnauthorizedAccessException(
+                    "Unable to identify the current user. Please log in again.");
+            return name;
+        }
+
         [HttpPost]
         [Route("SaveAndUpdateCategory")]
         public async Task<ActionResult<HttpResponseMessage>> SaveAndUpdateCategory(InventoryCategoryDto inventoryCategoryDto)
@@ -181,6 +192,7 @@ namespace OBMS.WebAPI.Controllers
                 item.ReorderLevel = dto.ReorderLevel;
                 item.ReorderQuantity = dto.ReorderQuantity;
                 item.WarehouseID = dto.WarehouseID == 0 ? null : dto.WarehouseID;
+                item.Size = string.IsNullOrWhiteSpace(dto.Size) ? null : dto.Size.Trim();
                 // SellPrice and Quantity: not mapped from DTO — preserved as-is on edit, null on new
 
                 await _inventoryRepository.SaveAndUpdateItem(item);
@@ -304,7 +316,7 @@ namespace OBMS.WebAPI.Controllers
         {
             try
             {
-                var obj = await _inventoryRepository.GetAssetMasters();
+                var obj = await _inventoryRepository.GetAssetMasters(GetJwtUser());
 
                 return obj;
             }
@@ -321,7 +333,7 @@ namespace OBMS.WebAPI.Controllers
         {
             try
             {
-                var data = await _inventoryRepository.GetAssetByID(ID);
+                var data = await _inventoryRepository.GetAssetByID(ID, GetJwtUser());
 
                 return data;
             }
@@ -1391,11 +1403,11 @@ namespace OBMS.WebAPI.Controllers
         }
 
         [HttpGet("GetWarehouseMasters")]
-        public async Task<ActionResult<List<WarehouseMaster>>> GetWarehouseMasters()
+        public async Task<ActionResult<List<WarehouseMaster>>> GetWarehouseMasters(string? userName = null)
         {
             try
             {
-                var warehouses = await _inventoryRepository.GetWarehouseMasters();
+                var warehouses = await _inventoryRepository.GetWarehouseMasters(userName);
                 return Ok(warehouses);
             }
             catch (Exception ex)
@@ -1570,7 +1582,7 @@ namespace OBMS.WebAPI.Controllers
         {
             try
             {
-                var list = await _inventoryRepository.GetOpeningStockList();
+                var list = await _inventoryRepository.GetOpeningStockList(GetJwtUser());
                 return Ok(list);
             }
             catch (Exception ex)
@@ -1707,7 +1719,8 @@ namespace OBMS.WebAPI.Controllers
         /// <summary>
         /// Returns stock ledger rows for the given filters with running balance per row.
         /// Required: warehouseID, dateFrom, dateTo.
-        /// Optional: itemID (0 = all items), transactionType ("ALL" or specific code).
+        /// Optional: itemID (0 = all items), transactionType ("ALL" or specific code),
+        ///           categoryID (0 = all categories), size (empty = all sizes).
         /// </summary>
         [HttpGet("GetStockLedger")]
         public async Task<IActionResult> GetStockLedger(
@@ -1715,7 +1728,9 @@ namespace OBMS.WebAPI.Controllers
             int? itemID,
             DateTime dateFrom,
             DateTime dateTo,
-            string? transactionType = "ALL")
+            string? transactionType = "ALL",
+            int? categoryID = null,
+            string? size = null)
         {
             if (warehouseID <= 0)
                 return BadRequest(new { success = false, message = "Please select a warehouse." });
@@ -1729,7 +1744,8 @@ namespace OBMS.WebAPI.Controllers
             try
             {
                 var rows = await _inventoryRepository.GetStockLedger(
-                    warehouseID, itemID, dateFrom, dateTo, transactionType);
+                    warehouseID, itemID, dateFrom, dateTo, transactionType,
+                    categoryID, size);
 
                 return Ok(rows);
             }
@@ -1741,6 +1757,58 @@ namespace OBMS.WebAPI.Controllers
                     success = false,
                     message = "Unable to load the stock ledger right now. Please try again."
                 });
+            }
+        }
+
+        /// <summary>
+        /// Returns distinct non-null Size values for items in the given category
+        /// (and its sub-categories). categoryID = 0 returns sizes across all categories.
+        /// Used to populate the Size filter dropdown on the Stock Ledger Report.
+        /// </summary>
+        [HttpGet("GetItemSizesByCategory")]
+        public async Task<IActionResult> GetItemSizesByCategory(int categoryID = 0)
+        {
+            try
+            {
+                var sizes = await _inventoryRepository.GetItemSizesByCategory(categoryID);
+                return Ok(sizes);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[GetItemSizesByCategory] {ex}");
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "Unable to load sizes. Please try again."
+                });
+            }
+        }
+
+        /// <summary>
+        /// Returns distinct client (Branch) names from StockIssues.
+        /// Used to populate the Client Name filter on the Stock Movement Report.
+        /// </summary>
+        [HttpGet("GetStockIssueClients")]
+        public async Task<IActionResult> GetStockIssueClients()
+        {
+            try
+            {
+                var clients = await (
+                    from si in _oBMSDbContext.StockIssues
+                    where !string.IsNullOrEmpty(si.Branch)
+                    select si.Branch
+                )
+                .Distinct()
+                .OrderBy(b => b)
+                .Select(b => new { ClientName = b })
+                .ToListAsync();
+
+                return Ok(clients);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[GetStockIssueClients] {ex}");
+                return StatusCode(500, new { success = false, message = "Unable to load client list." });
             }
         }
 
@@ -1863,7 +1931,7 @@ namespace OBMS.WebAPI.Controllers
         [HttpGet("GetPRList")]
         public async Task<IActionResult> GetPRList()
         {
-            try { return Ok(await _inventoryRepository.GetPRList()); }
+            try { return Ok(await _inventoryRepository.GetPRList(GetJwtUser())); }
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"[GetPRList] {ex}");
@@ -2105,7 +2173,7 @@ namespace OBMS.WebAPI.Controllers
         [HttpGet("GetPOList")]
         public async Task<IActionResult> GetPOList()
         {
-            try { return Ok(await _inventoryRepository.GetPOList()); }
+            try { return Ok(await _inventoryRepository.GetPOList(GetJwtUser())); }
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"[GetPOList] {ex}");
@@ -2275,7 +2343,7 @@ namespace OBMS.WebAPI.Controllers
         [HttpGet("GetGRNList")]
         public async Task<IActionResult> GetGRNList()
         {
-            try { return Ok(await _inventoryRepository.GetGRNList()); }
+            try { return Ok(await _inventoryRepository.GetGRNList(GetJwtUser())); }
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"[GetGRNList] {ex}");
@@ -2452,14 +2520,64 @@ namespace OBMS.WebAPI.Controllers
             }
         }
 
-        // ════════════════════════════════════════════════════════════════════════
-        // PART 3 — PURCHASE RETURN ENDPOINTS
+        /// <summary>
+        /// Updates only the reference/admin fields (SupplierInvoiceNo, DeliveryNoteRef, Remarks)
+        /// on a Purchase Requisition. Item lines, quantities, and stock are NOT changed.
+        /// </summary>
+        [HttpPost("UpdatePRReference")]
+        public async Task<IActionResult> UpdatePRReference([FromBody] UpdatePRRefDto dto)
+        {
+            if (dto.ID <= 0)
+                return BadRequest(new { success = false, message = "Invalid PR ID." });
+
+            // Stamp the authenticated user — never trust client-supplied LastUpdatedBy
+            var jwtUser = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
+            if (!string.IsNullOrWhiteSpace(jwtUser)) dto.LastUpdatedBy = jwtUser;
+
+            try
+            {
+                var (success, message) = await _inventoryRepository.UpdatePRReference(dto);
+                if (!success) return BadRequest(new { success = false, message });
+                return Ok(new { success = true, message });
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[UpdatePRReference] {ex}");
+                return StatusCode(500, new { success = false, message = "Unable to update the purchase requisition right now. Please try again." });
+            }
+        }
+
+        /// <summary>
+        /// Updates only Remarks on a Purchase Order.
+        /// Item lines, quantities, and stock are NOT changed.
+        /// </summary>
+        [HttpPost("UpdatePOReference")]
+        public async Task<IActionResult> UpdatePOReference([FromBody] UpdatePORefDto dto)
+        {
+            if (dto.ID <= 0)
+                return BadRequest(new { success = false, message = "Invalid PO ID." });
+
+            var jwtUser = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
+            if (!string.IsNullOrWhiteSpace(jwtUser)) dto.LastUpdatedBy = jwtUser;
+
+            try
+            {
+                var (success, message) = await _inventoryRepository.UpdatePOReference(dto);
+                if (!success) return BadRequest(new { success = false, message });
+                return Ok(new { success = true, message });
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[UpdatePOReference] {ex}");
+                return StatusCode(500, new { success = false, message = "Unable to update the purchase order right now. Please try again." });
+            }
+        }
         // ════════════════════════════════════════════════════════════════════════
 
         [HttpGet("GetPurchaseReturnList")]
         public async Task<IActionResult> GetPurchaseReturnList()
         {
-            try { return Ok(await _inventoryRepository.GetPurchaseReturnList()); }
+            try { return Ok(await _inventoryRepository.GetPurchaseReturnList(GetJwtUser())); }
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"[GetPurchaseReturnList] {ex}");
@@ -2561,7 +2679,7 @@ namespace OBMS.WebAPI.Controllers
         [HttpGet("GetStockIssueList")]
         public async Task<IActionResult> GetStockIssueList()
         {
-            try { return Ok(await _inventoryRepository.GetStockIssueList()); }
+            try { return Ok(await _inventoryRepository.GetStockIssueList(GetJwtUser())); }
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"[GetStockIssueList] {ex}");
@@ -2679,7 +2797,7 @@ namespace OBMS.WebAPI.Controllers
         [HttpGet("GetStockIssueReturnList")]
         public async Task<IActionResult> GetStockIssueReturnList()
         {
-            try { return Ok(await _inventoryRepository.GetStockIssueReturnList()); }
+            try { return Ok(await _inventoryRepository.GetStockIssueReturnList(GetJwtUser())); }
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"[GetStockIssueReturnList] {ex}");
@@ -2757,7 +2875,7 @@ namespace OBMS.WebAPI.Controllers
         [HttpGet("GetStockTransferList")]
         public async Task<IActionResult> GetStockTransferList()
         {
-            try { return Ok(await _inventoryRepository.GetStockTransferList()); }
+            try { return Ok(await _inventoryRepository.GetStockTransferList(GetJwtUser())); }
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"[GetStockTransferList] {ex}");
@@ -2853,7 +2971,7 @@ namespace OBMS.WebAPI.Controllers
         [HttpGet("GetStockAdjustmentList")]
         public async Task<IActionResult> GetStockAdjustmentList()
         {
-            try { return Ok(await _inventoryRepository.GetStockAdjustmentList()); }
+            try { return Ok(await _inventoryRepository.GetStockAdjustmentList(GetJwtUser())); }
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"[GetStockAdjustmentList] {ex}");
@@ -3015,7 +3133,7 @@ namespace OBMS.WebAPI.Controllers
         [HttpGet("GetStockDamageLossList")]
         public async Task<IActionResult> GetStockDamageLossList()
         {
-            try { return Ok(await _inventoryRepository.GetStockDamageLossList()); }
+            try { return Ok(await _inventoryRepository.GetStockDamageLossList(GetJwtUser())); }
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"[GetStockDamageLossList] {ex}");
@@ -3218,7 +3336,7 @@ namespace OBMS.WebAPI.Controllers
             {
                 int? empID = (employeeID.HasValue && employeeID > 0) ? employeeID : null;
                 var list = await _inventoryRepository.GetEmployeeIssueRegister(
-                    dateFrom, dateTo, empID, issueToType);
+                    dateFrom, dateTo, empID, issueToType, GetJwtUser());
                 return Ok(list);
             }
             catch (Exception ex)
@@ -3268,7 +3386,7 @@ namespace OBMS.WebAPI.Controllers
         [HttpGet("GetAssetList")]
         public async Task<IActionResult> GetAssetList()
         {
-            try { return Ok(await _inventoryRepository.GetAssetList()); }
+            try { return Ok(await _inventoryRepository.GetAssetList(GetJwtUser())); }
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"[GetAssetList] {ex}");
@@ -3281,7 +3399,7 @@ namespace OBMS.WebAPI.Controllers
         {
             try
             {
-                var record = await _inventoryRepository.GetAssetByIDEnriched(ID);
+                var record = await _inventoryRepository.GetAssetByIDEnriched(ID, GetJwtUser());
                 if (record == null) return NotFound(new { success = false, message = "Asset not found." });
                 return Ok(record);
             }
@@ -3355,7 +3473,7 @@ namespace OBMS.WebAPI.Controllers
         [HttpGet("GetAssetAllocationList")]
         public async Task<IActionResult> GetAssetAllocationList([FromQuery] bool activeOnly = false)
         {
-            try { return Ok(await _inventoryRepository.GetAssetAllocationList(activeOnly)); }
+            try { return Ok(await _inventoryRepository.GetAssetAllocationList(activeOnly, GetJwtUser())); }
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"[GetAssetAllocationList] {ex}");
@@ -3368,7 +3486,7 @@ namespace OBMS.WebAPI.Controllers
         {
             try
             {
-                var record = await _inventoryRepository.GetAssetAllocationByID(ID);
+                var record = await _inventoryRepository.GetAssetAllocationByID(ID, GetJwtUser());
                 if (record == null) return NotFound(new { success = false, message = "Allocation record not found." });
                 return Ok(record);
             }
@@ -3382,7 +3500,7 @@ namespace OBMS.WebAPI.Controllers
         [HttpGet("GetActiveAllocationsByAsset")]
         public async Task<IActionResult> GetActiveAllocationsByAsset(int assetID)
         {
-            try { return Ok(await _inventoryRepository.GetActiveAllocationsByAsset(assetID)); }
+            try { return Ok(await _inventoryRepository.GetActiveAllocationsByAsset(assetID, GetJwtUser())); }
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"[GetActiveAllocationsByAsset] {ex}");
@@ -3456,7 +3574,7 @@ namespace OBMS.WebAPI.Controllers
         [HttpGet("GetAssetTransferList")]
         public async Task<IActionResult> GetAssetTransferList()
         {
-            try { return Ok(await _inventoryRepository.GetAssetTransferList()); }
+            try { return Ok(await _inventoryRepository.GetAssetTransferList(GetJwtUser())); }
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"[GetAssetTransferList] {ex}");
@@ -3469,7 +3587,7 @@ namespace OBMS.WebAPI.Controllers
         {
             try
             {
-                var record = await _inventoryRepository.GetAssetTransferByID(ID);
+                var record = await _inventoryRepository.GetAssetTransferByID(ID, GetJwtUser());
                 if (record == null) return NotFound(new { success = false, message = "Transfer record not found." });
                 return Ok(record);
             }
@@ -3528,7 +3646,7 @@ namespace OBMS.WebAPI.Controllers
         [HttpGet("GetAssetReturnList")]
         public async Task<IActionResult> GetAssetReturnList()
         {
-            try { return Ok(await _inventoryRepository.GetAssetReturnList()); }
+            try { return Ok(await _inventoryRepository.GetAssetReturnList(GetJwtUser())); }
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"[GetAssetReturnList] {ex}");
@@ -3541,7 +3659,7 @@ namespace OBMS.WebAPI.Controllers
         {
             try
             {
-                var record = await _inventoryRepository.GetAssetReturnByID(ID);
+                var record = await _inventoryRepository.GetAssetReturnByID(ID, GetJwtUser());
                 if (record == null) return NotFound(new { success = false, message = "Return record not found." });
                 return Ok(record);
             }
@@ -3600,7 +3718,7 @@ namespace OBMS.WebAPI.Controllers
         [HttpGet("GetAssetMaintenanceList")]
         public async Task<IActionResult> GetAssetMaintenanceList([FromQuery] int? assetID)
         {
-            try { return Ok(await _inventoryRepository.GetAssetMaintenanceList(assetID > 0 ? assetID : null)); }
+            try { return Ok(await _inventoryRepository.GetAssetMaintenanceList(assetID > 0 ? assetID : null, GetJwtUser())); }
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"[GetAssetMaintenanceList] {ex}");
@@ -3613,7 +3731,7 @@ namespace OBMS.WebAPI.Controllers
         {
             try
             {
-                var record = await _inventoryRepository.GetAssetMaintenanceByID(ID);
+                var record = await _inventoryRepository.GetAssetMaintenanceByID(ID, GetJwtUser());
                 if (record == null) return NotFound(new { success = false, message = "Maintenance record not found." });
                 return Ok(record);
             }
@@ -3693,7 +3811,7 @@ namespace OBMS.WebAPI.Controllers
         [HttpGet("GetAssetDamageList")]
         public async Task<IActionResult> GetAssetDamageList([FromQuery] int? assetID)
         {
-            try { return Ok(await _inventoryRepository.GetAssetDamageList(assetID > 0 ? assetID : null)); }
+            try { return Ok(await _inventoryRepository.GetAssetDamageList(assetID > 0 ? assetID : null, GetJwtUser())); }
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"[GetAssetDamageList] {ex}");
@@ -3706,7 +3824,7 @@ namespace OBMS.WebAPI.Controllers
         {
             try
             {
-                var record = await _inventoryRepository.GetAssetDamageByID(ID);
+                var record = await _inventoryRepository.GetAssetDamageByID(ID, GetJwtUser());
                 if (record == null) return NotFound(new { success = false, message = "Damage record not found." });
                 return Ok(record);
             }
@@ -3765,7 +3883,7 @@ namespace OBMS.WebAPI.Controllers
         [HttpGet("GetAssetDisposalList")]
         public async Task<IActionResult> GetAssetDisposalList()
         {
-            try { return Ok(await _inventoryRepository.GetAssetDisposalList()); }
+            try { return Ok(await _inventoryRepository.GetAssetDisposalList(GetJwtUser())); }
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"[GetAssetDisposalList] {ex}");
@@ -3778,7 +3896,7 @@ namespace OBMS.WebAPI.Controllers
         {
             try
             {
-                var record = await _inventoryRepository.GetAssetDisposalByID(ID);
+                var record = await _inventoryRepository.GetAssetDisposalByID(ID, GetJwtUser());
                 if (record == null) return NotFound(new { success = false, message = "Disposal record not found." });
                 return Ok(record);
             }
@@ -3905,7 +4023,7 @@ namespace OBMS.WebAPI.Controllers
         {
             if (assetID <= 0)
                 return BadRequest(new { success = false, message = "Please provide a valid asset ID." });
-            try { return Ok(await _inventoryRepository.GetAssetMovementHistory(assetID)); }
+            try { return Ok(await _inventoryRepository.GetAssetMovementHistory(assetID, GetJwtUser())); }
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"[GetAssetMovementHistory] {ex}");
@@ -3941,7 +4059,7 @@ namespace OBMS.WebAPI.Controllers
         {
             if (assetID <= 0)
                 return BadRequest(new { success = false, message = "Please provide a valid asset ID." });
-            try { return Ok(await _inventoryRepository.GetAssetLocationLog(assetID)); }
+            try { return Ok(await _inventoryRepository.GetAssetLocationLog(assetID, GetJwtUser())); }
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"[GetAssetLocationLog] {ex}");
@@ -3952,7 +4070,7 @@ namespace OBMS.WebAPI.Controllers
         [HttpGet("GetDefectLocationAssets")]
         public async Task<IActionResult> GetDefectLocationAssets()
         {
-            try { return Ok(await _inventoryRepository.GetDefectLocationAssets()); }
+            try { return Ok(await _inventoryRepository.GetDefectLocationAssets(GetJwtUser())); }
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"[GetDefectLocationAssets] {ex}");

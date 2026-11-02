@@ -74,6 +74,7 @@ namespace OBMS.WebAPI.Models.DTO
         public int TransfersPending    { get; set; }
         public int IssuesPending       { get; set; }
         public int AdjustmentsPending  { get; set; }
+        public int ApprovalsPending    { get; set; }
     }
 
     // ── RS7 ─────────────────────────────────────────────────────────────────

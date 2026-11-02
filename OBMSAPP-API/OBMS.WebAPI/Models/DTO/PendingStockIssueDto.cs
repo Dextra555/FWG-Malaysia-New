@@ -22,6 +22,7 @@ namespace OBMS.WebAPI.Models.DTO
     {
         public int IssueDetailID { get; set; }
         public int ItemID { get; set; }
+        public int CategoryID { get; set; }
         public string ItemName { get; set; } = string.Empty;
         public string ItemCode { get; set; } = string.Empty;
         public decimal IssueQty { get; set; }

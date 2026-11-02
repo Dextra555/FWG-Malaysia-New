@@ -23,6 +23,9 @@ namespace OBMS.WebAPI.Models.Domain
 
         public decimal UnitCost { get; set; } = 0;
 
+        /// <summary>Optional FK to ClientMaster — which client this item is being issued for.</summary>
+        public int? ClientID { get; set; }
+
         public string? Remarks { get; set; }
 
         public DateTime LASTUPDATE { get; set; }

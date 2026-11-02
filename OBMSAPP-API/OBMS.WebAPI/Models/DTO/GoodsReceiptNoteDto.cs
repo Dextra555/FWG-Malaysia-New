@@ -30,6 +30,28 @@ namespace OBMS.WebAPI.Models.DTO
         public string? LastUpdatedBy     { get; set; }
     }
 
+    /// <summary>
+    /// Lightweight payload for updating only the reference/admin fields on a Purchase Requisition.
+    /// Item lines, quantities, and stock are NOT changed.
+    /// </summary>
+    public class UpdatePRRefDto
+    {
+        public int    ID                { get; set; }
+        public string? PRNumber         { get; set; }
+        public string? SupplierInvoiceNo { get; set; }
+        public string? DeliveryNoteRef   { get; set; }
+        public string? Remarks           { get; set; }
+        public string? LastUpdatedBy     { get; set; }
+    }
+
+    /// <summary>Payload for updating only Remarks on a Purchase Order. Items/stock are NOT changed.</summary>
+    public class UpdatePORefDto
+    {
+        public int     ID            { get; set; }
+        public string? Remarks       { get; set; }
+        public string? LastUpdatedBy { get; set; }
+    }
+
     public class GRNDetailRequestDto
     {
         public int ID { get; set; }

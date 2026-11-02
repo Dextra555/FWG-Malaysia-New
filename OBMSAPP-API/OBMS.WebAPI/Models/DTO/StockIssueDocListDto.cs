@@ -32,6 +32,8 @@ namespace OBMS.WebAPI.Models.DTO
         public decimal IssueQty { get; set; }
         public decimal UnitCost { get; set; }
         public decimal TotalValue { get; set; }
+        public int? ClientID { get; set; }
+        public string? ClientName { get; set; }
         public string? Remarks { get; set; }
         /// <summary>Pre-computed: how much of this line has already been returned.</summary>
         public decimal AlreadyReturnedQty { get; set; }

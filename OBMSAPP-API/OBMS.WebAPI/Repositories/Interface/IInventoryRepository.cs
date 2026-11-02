@@ -22,9 +22,9 @@ namespace OBMS.WebAPI.Repositories.Interface
 
         Task<AssetMaster> SaveAndUpdateAssetMaster(AssetMaster item);
 
-        Task<List<Object>> GetAssetMasters();
+        Task<List<Object>> GetAssetMasters(string userName);
 
-        Task<AssetMaster> GetAssetByID(int ID);
+        Task<AssetMaster> GetAssetByID(int ID, string userName);
 
         Task<Dictionary<string, Object>> GetSupplierMaster(int ID);
 
@@ -82,14 +82,14 @@ namespace OBMS.WebAPI.Repositories.Interface
         bool DeleteUOMAsync(int id);
 
         Task<WarehouseMaster> SaveAndUpdateWarehouseMaster(WarehouseMaster warehouse);
-        Task<List<Object>> GetWarehouseMasters();
+        Task<List<Object>> GetWarehouseMasters(string? userName = null);
         Task<WarehouseMaster> GetWarehouseByID(int ID);
         bool DeleteWarehouseAsync(int id);
 
         // ── Part 2: Opening Stock ────────────────────────────────────────────────
 
-        /// <summary>Returns all active opening stock entries, enriched with Item/Warehouse names.</summary>
-        Task<List<OpeningStockListDto>> GetOpeningStockList();
+        /// <summary>Returns opening stock entries visible to the given user (superadmin sees all; others see only their allowed branches).</summary>
+        Task<List<OpeningStockListDto>> GetOpeningStockList(string userName);
 
         /// <summary>Returns a single opening stock entry by ID, enriched.</summary>
         Task<OpeningStockListDto?> GetOpeningStockByID(int id);
@@ -111,14 +111,23 @@ namespace OBMS.WebAPI.Repositories.Interface
 
         /// <summary>
         /// Returns ledger rows filtered by warehouse, optional item, date range,
-        /// and optional transaction type. Includes running balance per row.
+        /// optional transaction type, optional category, and optional size.
+        /// Includes running balance per row.
         /// </summary>
         Task<List<StockLedgerRowDto>> GetStockLedger(
             int warehouseID,
             int? itemID,
             DateTime dateFrom,
             DateTime dateTo,
-            string? transactionType);
+            string? transactionType,
+            int? categoryID = null,
+            string? size = null);
+
+        /// <summary>
+        /// Returns distinct non-null Size values for items belonging to the given
+        /// category (and its sub-categories). categoryID = 0 returns sizes for all categories.
+        /// </summary>
+        Task<List<ItemSizeDto>> GetItemSizesByCategory(int categoryID);
 
         /// <summary>Returns current stock balance for a given item in a warehouse.</summary>
         Task<decimal> GetCurrentStock(int warehouseID, int itemID);
@@ -132,13 +141,14 @@ namespace OBMS.WebAPI.Repositories.Interface
 
         // ── Part 3: Purchase Requisition ─────────────────────────────────────────
 
-        Task<List<PRListDto>> GetPRList();
+        Task<List<PRListDto>> GetPRList(string userName);
         Task<PRListDto?> GetPRByID(int id);
         Task<(bool Success, string Message, PurchaseRequisition? Record)> SavePR(PRRequestDto dto);
         Task<(bool Success, string Message)> SubmitPR(int id, string currentUser);
         Task<(bool Success, string Message)> ApprovePR(int id, PRApprovalDto dto);
         Task<(bool Success, string Message)> RejectPR(int id, PRApprovalDto dto);
         Task<(bool Success, string Message)> DeletePR(int id, string currentUser);
+        Task<(bool Success, string Message)> UpdatePRReference(UpdatePRRefDto dto);
 
         // ── Part 3: PR Processing Tasks (Purchase department claim/inbox) ─────────
 
@@ -163,7 +173,7 @@ namespace OBMS.WebAPI.Repositories.Interface
 
         // ── Part 3: Purchase Order ────────────────────────────────────────────────
 
-        Task<List<POListDto>> GetPOList();
+        Task<List<POListDto>> GetPOList(string userName);
         Task<POListDto?> GetPOByID(int id);
         Task<POListDto?> GetPOByPRID(int prID);
         Task<List<PRListDto>> GetApprovedPRsForPO();
@@ -171,10 +181,12 @@ namespace OBMS.WebAPI.Repositories.Interface
         Task<(bool Success, string Message)> ApprovePO(int id, POApprovalDto dto);
         Task<(bool Success, string Message)> CancelPO(int id, string currentUser);
         Task<POEditabilityDto> GetPOEditability(int id);
+        /// <summary>Updates only Remarks on a Purchase Order. Items/quantities/stock are NOT changed.</summary>
+        Task<(bool Success, string Message)> UpdatePOReference(UpdatePORefDto dto);
 
         // ── Part 3: GRN ───────────────────────────────────────────────────────────
 
-        Task<List<GRNListDto>> GetGRNList();
+        Task<List<GRNListDto>> GetGRNList(string userName);
         Task<GRNListDto?> GetGRNByID(int id);
         Task<GRNListDto?> GetGRNByPOID(int poID);
         Task<List<POListDto>> GetApprovedPOsForGRN();
@@ -190,7 +202,7 @@ namespace OBMS.WebAPI.Repositories.Interface
 
         // ── Part 3: Purchase Return ───────────────────────────────────────────────
 
-        Task<List<PurchaseReturnListDto>> GetPurchaseReturnList();
+        Task<List<PurchaseReturnListDto>> GetPurchaseReturnList(string userName);
         Task<PurchaseReturnListDto?> GetPurchaseReturnByID(int id);
         Task<List<GRNListDto>> GetGRNsForReturn();
         Task<List<GRNLineForReturnDto>> GetGRNLinesForReturn(int grnID);
@@ -198,7 +210,7 @@ namespace OBMS.WebAPI.Repositories.Interface
 
         // ── Part 4: Stock Issue ───────────────────────────────────────────────────
 
-        Task<List<StockIssueDocListDto>> GetStockIssueList();
+        Task<List<StockIssueDocListDto>> GetStockIssueList(string userName);
         Task<StockIssueDocListDto?> GetStockIssueByID(int id);
         Task<(bool Success, string Message, StockIssueDoc? Record)> SaveStockIssue(StockIssueDocRequestDto dto);
         Task<(bool Success, string Message)> DeleteStockIssue(int id, string currentUser);
@@ -209,20 +221,20 @@ namespace OBMS.WebAPI.Repositories.Interface
         Task<List<StockIssueDocListDto>> GetIssuableDocsForReturn();
         /// <summary>Returns detail lines of a single issue doc enriched with already-returned qty.</summary>
         Task<List<StockIssueDocDetailListDto>> GetIssueDetailsForReturn(int issueDocID);
-        Task<List<StockIssueReturnListDto>> GetStockIssueReturnList();
+        Task<List<StockIssueReturnListDto>> GetStockIssueReturnList(string userName);
         Task<StockIssueReturnListDto?> GetStockIssueReturnByID(int id);
         Task<(bool Success, string Message, StockIssueReturn? Record)> SaveStockIssueReturn(StockIssueReturnRequestDto dto);
 
         // ── Part 4: Stock Transfer ────────────────────────────────────────────────
 
-        Task<List<StockTransferListDto>> GetStockTransferList();
+        Task<List<StockTransferListDto>> GetStockTransferList(string userName);
         Task<StockTransferListDto?> GetStockTransferByID(int id);
         Task<(bool Success, string Message, StockTransfer? Record)> SaveStockTransfer(StockTransferRequestDto dto);
         Task<(bool Success, string Message)> DeleteStockTransfer(int id, string currentUser);
 
         // ── Part 4: Stock Adjustment ──────────────────────────────────────────────
 
-        Task<List<StockAdjustmentListDto>> GetStockAdjustmentList();
+        Task<List<StockAdjustmentListDto>> GetStockAdjustmentList(string userName);
         Task<StockAdjustmentListDto?> GetStockAdjustmentByID(int id);
         Task<(bool Success, string Message, StockAdjustment? Record)> SaveStockAdjustment(StockAdjustmentRequestDto dto);
         Task<(bool Success, string Message)> DeleteStockAdjustment(int id, string currentUser);
@@ -232,7 +244,7 @@ namespace OBMS.WebAPI.Repositories.Interface
 
         // ── Part 4: Damage / Loss ─────────────────────────────────────────────────
 
-        Task<List<StockDamageLossListDto>> GetStockDamageLossList();
+        Task<List<StockDamageLossListDto>> GetStockDamageLossList(string userName);
         Task<StockDamageLossListDto?> GetStockDamageLossByID(int id);
         Task<(bool Success, string Message, StockDamageLoss? Record)> SaveStockDamageLoss(StockDamageLossRequestDto dto);
         Task<(bool Success, string Message)> DeleteStockDamageLoss(int id, string currentUser);
@@ -277,52 +289,53 @@ namespace OBMS.WebAPI.Repositories.Interface
             DateTime dateFrom,
             DateTime dateTo,
             int? employeeID,
-            string? issueToType);
+            string? issueToType,
+            string? userName = null);
 
         // ── Part 6: Asset Master ──────────────────────────────────────────────────
 
-        Task<List<AssetListDto>> GetAssetList();
-        Task<AssetListDto?> GetAssetByIDEnriched(int id);
+        Task<List<AssetListDto>> GetAssetList(string userName);
+        Task<AssetListDto?> GetAssetByIDEnriched(int id, string userName);
         Task<(bool Success, string Message, AssetMaster? Record)> SaveAsset(AssetMasterRequestDto dto);
         Task<(bool Success, string Message)> DeleteAsset(int id, string currentUser);
 
         // ── Part 6: Asset Allocation ──────────────────────────────────────────────
 
-        Task<List<AssetAllocationListDto>> GetAssetAllocationList(bool activeOnly);
-        Task<AssetAllocationListDto?> GetAssetAllocationByID(int id);
-        Task<List<AssetAllocationListDto>> GetActiveAllocationsByAsset(int assetID);
+        Task<List<AssetAllocationListDto>> GetAssetAllocationList(bool activeOnly, string userName);
+        Task<AssetAllocationListDto?> GetAssetAllocationByID(int id, string userName);
+        Task<List<AssetAllocationListDto>> GetActiveAllocationsByAsset(int assetID, string userName);
         Task<(bool Success, string Message, AssetAllocation? Record)> SaveAssetAllocation(AssetAllocationRequestDto dto);
         Task<(bool Success, string Message)> CancelAssetAllocation(int id, string currentUser);
 
         // ── Part 6: Asset Transfer ────────────────────────────────────────────────
 
-        Task<List<AssetTransferListDto>> GetAssetTransferList();
-        Task<AssetTransferListDto?> GetAssetTransferByID(int id);
+        Task<List<AssetTransferListDto>> GetAssetTransferList(string userName);
+        Task<AssetTransferListDto?> GetAssetTransferByID(int id, string userName);
         Task<(bool Success, string Message, AssetTransfer? Record)> SaveAssetTransfer(AssetTransferRequestDto dto);
 
         // ── Part 6: Asset Return ──────────────────────────────────────────────────
 
-        Task<List<AssetReturnListDto>> GetAssetReturnList();
-        Task<AssetReturnListDto?> GetAssetReturnByID(int id);
+        Task<List<AssetReturnListDto>> GetAssetReturnList(string userName);
+        Task<AssetReturnListDto?> GetAssetReturnByID(int id, string userName);
         Task<(bool Success, string Message, AssetReturn? Record)> SaveAssetReturn(AssetReturnRequestDto dto);
 
         // ── Part 6: Asset Maintenance ─────────────────────────────────────────────
 
-        Task<List<AssetMaintenanceListDto>> GetAssetMaintenanceList(int? assetID);
-        Task<AssetMaintenanceListDto?> GetAssetMaintenanceByID(int id);
+        Task<List<AssetMaintenanceListDto>> GetAssetMaintenanceList(int? assetID, string userName);
+        Task<AssetMaintenanceListDto?> GetAssetMaintenanceByID(int id, string userName);
         Task<(bool Success, string Message, AssetMaintenance? Record)> SaveAssetMaintenance(AssetMaintenanceRequestDto dto);
         Task<(bool Success, string Message)> CompleteAssetMaintenance(int id, DateTime completionDate, decimal cost, string remarks, string currentUser);
 
         // ── Part 6: Asset Damage ──────────────────────────────────────────────────
 
-        Task<List<AssetDamageListDto>> GetAssetDamageList(int? assetID);
-        Task<AssetDamageListDto?> GetAssetDamageByID(int id);
+        Task<List<AssetDamageListDto>> GetAssetDamageList(int? assetID, string userName);
+        Task<AssetDamageListDto?> GetAssetDamageByID(int id, string userName);
         Task<(bool Success, string Message, AssetDamage? Record)> SaveAssetDamage(AssetDamageRequestDto dto);
 
         // ── Part 6: Asset Disposal ────────────────────────────────────────────────
 
-        Task<List<AssetDisposalListDto>> GetAssetDisposalList();
-        Task<AssetDisposalListDto?> GetAssetDisposalByID(int id);
+        Task<List<AssetDisposalListDto>> GetAssetDisposalList(string userName);
+        Task<AssetDisposalListDto?> GetAssetDisposalByID(int id, string userName);
         Task<(bool Success, string Message, AssetDisposal? Record)> SaveAssetDisposal(AssetDisposalRequestDto dto);
         Task<(bool Success, string Message)> SubmitAD(int id, string currentUser);
         Task<(bool Success, string Message)> ApproveAD(int id, ADApprovalDto dto);
@@ -330,7 +343,7 @@ namespace OBMS.WebAPI.Repositories.Interface
 
         // ── Part 6: Asset Movement History ────────────────────────────────────────
 
-        Task<List<AssetMovementHistoryDto>> GetAssetMovementHistory(int assetID);
+        Task<List<AssetMovementHistoryDto>> GetAssetMovementHistory(int assetID, string userName);
 
         // ── Asset Location Tracking ────────────────────────────────────────────
 
@@ -338,15 +351,15 @@ namespace OBMS.WebAPI.Repositories.Interface
         Task<(bool Success, string Message)> UpdateAssetLocation(AssetLocationUpdateDto dto);
 
         /// <summary>Returns full location history for a single asset.</summary>
-        Task<List<AssetLocationLogDto>> GetAssetLocationLog(int assetID);
+        Task<List<AssetLocationLogDto>> GetAssetLocationLog(int assetID, string userName);
 
         /// <summary>Returns all assets with Defect_Location or Parked_Away status.</summary>
-        Task<List<AssetListDto>> GetDefectLocationAssets();
+        Task<List<AssetListDto>> GetDefectLocationAssets(string userName);
 
         // ── Part 9: Branch Stock Request ─────────────────────────────────────────
 
-        /// <summary>Returns all active stock requests, enriched with branch/warehouse names.</summary>
-        Task<List<StockRequestListDto>> GetBSRList();
+        /// <summary>Returns active stock requests visible to the given user (superadmin sees all; others see only their allowed branches).</summary>
+        Task<List<StockRequestListDto>> GetBSRList(string userName);
 
         /// <summary>Returns a single stock request with full line items.</summary>
         Task<StockRequestListDto?> GetBSRByID(int id);
