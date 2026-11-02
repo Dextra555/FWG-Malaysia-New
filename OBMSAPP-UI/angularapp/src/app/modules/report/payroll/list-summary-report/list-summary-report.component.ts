@@ -3,6 +3,7 @@ import { FormGroup, FormBuilder, Validators } from '@angular/forms';
 import { MatDatepickerInputEvent } from '@angular/material/datepicker';
 import { SafeResourceUrl, DomSanitizer } from '@angular/platform-browser';
 import { NavigationEnd, Router } from '@angular/router';
+import { forkJoin } from 'rxjs';
 import { UserAccessModel } from 'src/app/model/userAccesModel';
 import { DatasharingService } from 'src/app/service/datasharing.service';
 import { MastermoduleService } from 'src/app/service/mastermodule.service';
@@ -26,6 +27,7 @@ export class ListSummaryReportComponent implements OnInit {
   warningMessage: string = '';
   showLoadingSpinner: boolean = false;
   userAccessModel!: UserAccessModel;
+  staffAdminAccessModel!: UserAccessModel;
   dtAdvanceDate!: string;
   reportType!: number;
   private formatDate(date: any) {
@@ -59,6 +61,12 @@ export class ListSummaryReportComponent implements OnInit {
       deleteAccess: false,
       createAccess: false,
     }
+    this.staffAdminAccessModel = {
+      readAccess: false,
+      updateAccess: false,
+      deleteAccess: false,
+      createAccess: false,
+    }
   }
 
   ngOnInit(): void {
@@ -81,28 +89,39 @@ export class ListSummaryReportComponent implements OnInit {
   }
   getUserAccessRights(userName: string, screenName: string) {
     this.showLoadingSpinner = true;
-    this._masterService.getUserAccessRights(userName, screenName).subscribe(
-      (data) => {
-        if (data != null) {
-          this.userAccessModel.readAccess = data.Read
-          this.userAccessModel.deleteAccess = data.Delete;
-          this.userAccessModel.updateAccess = data.Update;
-          this.userAccessModel.createAccess = data.Create;
-          if (this.userAccessModel.readAccess === true || this.userRole == 'superadmin') {
-            this.warningMessage = '';           
-          } else {
-            this.warningMessage = `Dear <B>${this.currentUser}</B>, <br>
-                      You do not have permissions to view this page. <br>
-                      If you feel you should have access to this page, Please contact administrator. <br>
-                      Thank you`;
-          }
+    forkJoin({
+      mainAccess: this._masterService.getUserAccessRights(userName, screenName),
+      staffAdminAccess: this._masterService.getUserAccessRights(userName, 'Payroll Staff Admin')
+    }).subscribe({
+      next: (res: any) => {
+        if (res.mainAccess) {
+          this.userAccessModel = {
+            readAccess: res.mainAccess.Read,
+            updateAccess: res.mainAccess.Update,
+            deleteAccess: res.mainAccess.Delete,
+            createAccess: res.mainAccess.Create
+          };
+        }
+        if (res.staffAdminAccess) {
+          this.staffAdminAccessModel = {
+            readAccess: res.staffAdminAccess.Read,
+            updateAccess: res.staffAdminAccess.Update,
+            deleteAccess: res.staffAdminAccess.Delete,
+            createAccess: res.staffAdminAccess.Create
+          };
+        }
+        if (this.userAccessModel.readAccess === true || this.userRole == 'superadmin') {
+          this.warningMessage = '';
+        } else {
+          this.warningMessage = `Dear <B>${this.currentUser}</B>, <br>
+                    You do not have permissions to view this page. <br>
+                    If you feel you should have access to this page, Please contact administrator. <br>
+                    Thank you`;
         }
         this.hideSpinner();
       },
-      (error) => {
-        this.handleErrors(error);
-      }
-    );
+      error: (error) => { this.handleErrors(error); }
+    });
   }
   changeAdvanceDate(type: string, event: MatDatepickerInputEvent<Date>) {
     this.frm.value.Period = this.formatDate(`${type}: ${event.value}`);

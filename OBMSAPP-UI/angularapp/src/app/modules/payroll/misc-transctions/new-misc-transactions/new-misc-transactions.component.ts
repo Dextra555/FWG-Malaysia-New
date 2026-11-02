@@ -3,7 +3,7 @@ import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDatepickerInputEvent } from '@angular/material/datepicker';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subject, debounceTime } from 'rxjs';
+import { Subject, debounceTime, forkJoin } from 'rxjs';
 import { BranchModel } from 'src/app/model/branchModel';
 import { EmployeeMonthlyAdvance } from 'src/app/model/employeeMonthlyAdvance';
 import { EmployeeAdvanceListModel } from 'src/app/model/empolyeeAdvanceListModel';
@@ -34,6 +34,7 @@ export class NewMiscTransactionsComponent implements OnInit {
   userRole: string = '';
   employeeListModel!: EmployeeAdvanceListModel[];
   userAccessModel!: UserAccessModel;
+  staffAdminAccessModel!: UserAccessModel;
   warningMessage: string = '';
   errorMessage: string = '';
   StartPeriod!: string;
@@ -90,6 +91,12 @@ export class NewMiscTransactionsComponent implements OnInit {
       deleteAccess: false,
       createAccess: false,
     }
+    this.staffAdminAccessModel = {
+      readAccess: false,
+      updateAccess: false,
+      deleteAccess: false,
+      createAccess: false,
+    }
   }
 
   ngOnInit(): void {
@@ -127,32 +134,45 @@ export class NewMiscTransactionsComponent implements OnInit {
   }
   getUserAccessRights(userName: string, screenName: string) {
     this.showLoadingSpinner = true;
-    this._masterService.getUserAccessRights(userName, screenName).subscribe(
-      (data) => {
-        if (data != null) {
-          this.userAccessModel.readAccess = data.Read
-          this.userAccessModel.deleteAccess = data.Delete;
-          this.userAccessModel.updateAccess = data.Update;
-          this.userAccessModel.createAccess = data.Create;
-
-          if (this.userAccessModel.readAccess === true) {
-            this.warningMessage = '';
-            this.showLoadingSpinner = false;
-            this.getBranchMasterListByUser(this.currentUser);
-          } else {
-            this.warningMessage = `Dear <B>${this.currentUser}</B>, <br>
-                      You do not have permissions to view this page. <br>
-                      If you feel you should have access to this page, Please contact administrator. <br>
-                      Thank you`;
-            this.showLoadingSpinner = false;
-          }
+    forkJoin({
+      miscAccess: this._masterService.getUserAccessRights(userName, screenName),
+      staffAdminAccess: this._masterService.getUserAccessRights(userName, 'Payroll Staff Admin')
+    }).subscribe({
+      next: (res: any) => {
+        if (res.miscAccess) {
+          this.userAccessModel = {
+            readAccess: res.miscAccess.Read,
+            updateAccess: res.miscAccess.Update,
+            deleteAccess: res.miscAccess.Delete,
+            createAccess: res.miscAccess.Create
+          };
         }
 
+        if (res.staffAdminAccess) {
+          this.staffAdminAccessModel = {
+            readAccess: res.staffAdminAccess.Read,
+            updateAccess: res.staffAdminAccess.Update,
+            deleteAccess: res.staffAdminAccess.Delete,
+            createAccess: res.staffAdminAccess.Create
+          };
+        }
+
+        if (this.userAccessModel.readAccess === true || this.userRole == 'superadmin') {
+          this.warningMessage = '';
+          this.showLoadingSpinner = false;
+          this.getBranchMasterListByUser(this.currentUser);
+        } else {
+          this.warningMessage = `Dear <B>${this.currentUser}</B>, <br>
+                    You do not have permissions to view this page. <br>
+                    If you feel you should have access to this page, Please contact administrator. <br>
+                    Thank you`;
+          this.showLoadingSpinner = false;
+        }
       },
-      (error) => {
+      error: (error) => {
         this.handleErrors(error);
       }
-    );
+    });
   }
   getEmployeeMasterList(): void {
     this.showLoadingSpinner = true;

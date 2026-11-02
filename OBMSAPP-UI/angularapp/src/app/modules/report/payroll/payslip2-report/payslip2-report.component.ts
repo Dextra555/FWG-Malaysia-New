@@ -31,6 +31,7 @@ export class Payslip2ReportComponent implements OnInit {
   errorMessage: string = '';
   warningMessage: string = '';
   userAccessModel!: UserAccessModel;
+  staffAdminAccessModel!: UserAccessModel;
   dtAdvanceDate!: string;
   StartPeriod!: string;
   EndPeriod!: string;
@@ -62,6 +63,12 @@ export class Payslip2ReportComponent implements OnInit {
       EmployeeType: ['Guard'],
     });
     this.userAccessModel = {
+      readAccess: false,
+      updateAccess: false,
+      deleteAccess: false,
+      createAccess: false,
+    }
+    this.staffAdminAccessModel = {
       readAccess: false,
       updateAccess: false,
       deleteAccess: false,
@@ -99,30 +106,40 @@ export class Payslip2ReportComponent implements OnInit {
   }
   getUserAccessRights(userName: string, screenName: string) {
     this.showLoadingSpinner = true;
-    this._masterService.getUserAccessRights(userName, screenName).subscribe(
-      (data) => {
-        if (data != null) {
-          this.userAccessModel.readAccess = data.Read
-          this.userAccessModel.deleteAccess = data.Delete;
-          this.userAccessModel.updateAccess = data.Update;
-          this.userAccessModel.createAccess = data.Create;
-          if (this.userAccessModel.readAccess === true || this.userRole == 'superadmin') {
-            this.warningMessage = '';
-            this.getBranchMasterListByUser(this.currentUser);
-          } else {
-            this.warningMessage = `Dear <B>${this.currentUser}</B>, <br>
-                      You do not have permissions to view this page. <br>
-                      If you feel you should have access to this page, Please contact administrator. <br>
-                      Thank you`;
-
-          }
+    forkJoin({
+      mainAccess: this._masterService.getUserAccessRights(userName, screenName),
+      staffAdminAccess: this._masterService.getUserAccessRights(userName, 'Payroll Staff Admin')
+    }).subscribe({
+      next: (res: any) => {
+        if (res.mainAccess) {
+          this.userAccessModel = {
+            readAccess: res.mainAccess.Read,
+            updateAccess: res.mainAccess.Update,
+            deleteAccess: res.mainAccess.Delete,
+            createAccess: res.mainAccess.Create
+          };
+        }
+        if (res.staffAdminAccess) {
+          this.staffAdminAccessModel = {
+            readAccess: res.staffAdminAccess.Read,
+            updateAccess: res.staffAdminAccess.Update,
+            deleteAccess: res.staffAdminAccess.Delete,
+            createAccess: res.staffAdminAccess.Create
+          };
+        }
+        if (this.userAccessModel.readAccess === true || this.userRole == 'superadmin') {
+          this.warningMessage = '';
+          this.getBranchMasterListByUser(this.currentUser);
+        } else {
+          this.warningMessage = `Dear <B>${this.currentUser}</B>, <br>
+                    You do not have permissions to view this page. <br>
+                    If you feel you should have access to this page, Please contact administrator. <br>
+                    Thank you`;
         }
         this.hideSpinner();
       },
-      (error) => {
-        this.handleErrors(error);
-      }
-    );
+      error: (error) => { this.handleErrors(error); }
+    });
   }
   changeAdvanceDate(type: string, event: MatDatepickerInputEvent<Date>) {
     this.payslipForm.value.AdvanceDate = this.formatDate(`${type}: ${event.value}`);
