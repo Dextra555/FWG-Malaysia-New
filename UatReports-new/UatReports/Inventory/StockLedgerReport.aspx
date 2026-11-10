@@ -9,10 +9,9 @@
 <script runat="server">
 
     // ════════════════════════════════════════════════════════════════════════
-    // OBMS Inventory Stock Ledger PDF Report
-    // Style: matches CurrentStockReport.aspx (company header, gold line, footer)
-    // Columns: Date | Type | Item Code | Item Name | UOM |
-    //          In Qty | Out Qty | Balance | Unit Cost | Ref No | Remarks
+    // OBMS Stock Ledger PDF Report — Part 9
+    // All logic inline (precompiled project — no CodeFile support).
+    // Uses iTextSharp 5.5.13.x from bin/ (add via NuGet in VS then rebuild).
     // ════════════════════════════════════════════════════════════════════════
 
     protected void Page_Load(object sender, EventArgs e)
@@ -27,6 +26,7 @@
         string categoryIDStr   = (Request.QueryString["CategoryID"]      ?? "0").Trim();
         string sizeFilter      = (Request.QueryString["Size"]            ?? "").Trim();
         string format          = (Request.QueryString["format"]          ?? "pdf").ToLower().Trim();
+
 
         if (string.IsNullOrWhiteSpace(startDateStr) || string.IsNullOrWhiteSpace(endDateStr))
         { SendError("Please select a valid date range."); return; }
@@ -63,6 +63,7 @@
         if (dt == null || dt.Rows.Count == 0)
         { SendError("No stock ledger data found for the selected filters."); return; }
 
+<<<<<<< HEAD
         // ── 3. Resolve display names ──────────────────────────────────────
         string whName      = Lookup("SELECT Name FROM WarehouseMaster WHERE ID=@p", warehouseID.ToString()) ?? warehouseIDStr;
         string itemName    = itemID > 0
@@ -74,10 +75,22 @@
         string typeLbl     = TypeLabel(transactionType);
         string sizeLbl     = string.IsNullOrEmpty(sizeFilter) ? "All Sizes" : sizeFilter;
         string period      = startDate.ToString("dd MMM yyyy") + " to " + endDate.ToString("dd MMM yyyy");
+=======
+        // ── 3. Resolve display names for filter header ────────────────────
+        string whName    = Lookup("SELECT Name FROM WarehouseMaster WHERE ID=@p", warehouseID.ToString()) ?? warehouseIDStr;
+        string itemName  = itemID > 0
+            ? (Lookup("SELECT Name FROM ItemMaster WHERE ID=@p", itemID.ToString()) ?? itemIDStr)
+            : "All Items";
+        string typeLbl   = TypeLabel(transactionType);
+        string period    = startDate.ToString("dd MMM yyyy") + " to " + endDate.ToString("dd MMM yyyy");
 
-        // ── 4. Excel or PDF ───────────────────────────────────────────────
+        // ── 4. Build PDF or Excel based on ?format= ──────────────────────
+        string format = (Request.QueryString["format"] ?? "html").ToLower().Trim();
+>>>>>>> 754e8b5 (Updated payslip changes)
+
         if (format == "excel")
         {
+            // ── Excel export ──────────────────────────────────────────────
             byte[] xlsx;
             try   { xlsx = BuildExcel(whName, itemName, catName, sizeLbl, typeLbl, period, dt); }
             catch (Exception ex)
@@ -86,6 +99,7 @@
                 SendError("Unable to generate Excel. Please try again.");
                 return;
             }
+
             Response.Clear();
             Response.Buffer      = false;
             Response.ContentType = "application/vnd.ms-excel";
@@ -99,44 +113,65 @@
             return;
         }
 
+<<<<<<< HEAD
         byte[] pdf;
         try   { pdf = BuildPdf(loginID, whName, itemName, catName, sizeLbl, typeLbl, period, dt); }
         catch (Exception ex)
+=======
+        if (format == "pdf")
+>>>>>>> 754e8b5 (Updated payslip changes)
         {
-            LogErr("BuildPdf", ex.Message);
-            SendError("Unable to generate PDF. Please try again.");
+            // ── PDF export ────────────────────────────────────────────────
+            byte[] pdf;
+            try   { pdf = BuildPdf(loginID, whName, itemName, typeLbl, period, dt); }
+            catch (Exception ex)
+            {
+                LogErr("BuildPdf", ex.Message);
+                SendError("Unable to generate PDF. Please try again.");
+                return;
+            }
+
+            Response.Clear();
+            Response.Buffer      = false;
+            Response.ContentType = "application/pdf";
+            Response.AddHeader("Content-Disposition",
+                "inline; filename=StockLedger_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".pdf");
+            Response.AddHeader("Content-Length", pdf.Length.ToString());
+            Response.AddHeader("Access-Control-Allow-Origin", "*");
+            Response.BinaryWrite(pdf);
+            Response.Flush();
+            Response.End();
             return;
         }
 
+        // ── 4c. Default: HTML table (clickable Ref No links work in iframe) ──
+        string appBaseUrl = (AppSettings("AppBaseUrl") ?? "http://localhost:4200").TrimEnd('/');
+        string htmlOut = BuildHtmlTable(whName, itemName, typeLbl, period, dt, appBaseUrl);
         Response.Clear();
         Response.Buffer      = false;
-        Response.ContentType = "application/pdf";
-        Response.AddHeader("Content-Disposition",
-            "inline; filename=StockLedger_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".pdf");
-        Response.AddHeader("Content-Length", pdf.Length.ToString());
+        Response.ContentType = "text/html; charset=utf-8";
         Response.AddHeader("Access-Control-Allow-Origin", "*");
-        Response.BinaryWrite(pdf);
+        Response.Write(htmlOut);
         Response.Flush();
         Response.End();
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    // PDF BUILDER  —  CurrentStockReport.aspx style
+    // PDF BUILDER
     // ════════════════════════════════════════════════════════════════════════
 
     private byte[] BuildPdf(string loginID, string whName, string itemName,
                             string catName, string sizeLbl,
                             string typeLbl, string period, DataTable dt)
     {
-        // ── Colours (identical to CurrentStockReport) ────────────────────
-        BaseColor navy     = new BaseColor(0x1a, 0x3a, 0x5c);
-        BaseColor headerBg = new BaseColor(0x1a, 0x3a, 0x5c);
-        BaseColor rowAlt   = new BaseColor(0xf4, 0xf7, 0xfb);
-        BaseColor totalBg  = new BaseColor(0xe8, 0xf0, 0xfe);
-        BaseColor border   = new BaseColor(0xcc, 0xcc, 0xcc);
-        BaseColor gold     = new BaseColor(0xD4, 0xA0, 0x17);
+        // Colours
+        BaseColor navy      = new BaseColor(0x1a, 0x3a, 0x5c);
+        BaseColor headerBg  = new BaseColor(0x1a, 0x3a, 0x5c);
+        BaseColor rowAlt    = new BaseColor(0xf4, 0xf7, 0xfb);
+        BaseColor totalBg   = new BaseColor(0xe8, 0xf0, 0xfe);
+        BaseColor border    = new BaseColor(0xcc, 0xcc, 0xcc);
 
-        // ── Fonts ─────────────────────────────────────────────────────────
+        // Fonts
         Font fTitle   = new Font(Font.FontFamily.HELVETICA, 11f, Font.BOLD,   navy);
         Font fFilter  = new Font(Font.FontFamily.HELVETICA,  8f, Font.NORMAL, new BaseColor(0x44,0x44,0x44));
         Font fFilterB = new Font(Font.FontFamily.HELVETICA,  8f, Font.BOLD,   new BaseColor(0x44,0x44,0x44));
@@ -150,10 +185,12 @@
         {
             var doc    = new Document(PageSize.A4.Rotate(), 25f, 25f, 30f, 30f);
             var writer = PdfWriter.GetInstance(doc, ms);
+
+            // Page footer event
             writer.PageEvent = new FooterEvent(loginID, fFoot, navy);
             doc.Open();
 
-            // ── Company header ────────────────────────────────────────────
+            // ── Company header (logo left + company details right + gold line) ─
             string coName = AppSettings("CompanyName");
             string addr1  = AppSettings("Address1");
             string addr2  = AppSettings("Address2");
@@ -162,13 +199,15 @@
             string phone  = AppSettings("Phone");
             string reg    = AppSettings("Registration");
 
+            // Logo
             string logoPath = Server.MapPath("~/images/logo-white.png");
 
+            // Header table: 2 columns — logo | company text
             var hdrTable = new PdfPTable(2) { WidthPercentage = 100f, SpacingAfter = 0f };
             hdrTable.SetWidths(new float[] { 1.2f, 8.8f });
             hdrTable.DefaultCell.Border = Rectangle.NO_BORDER;
 
-            // Logo cell
+            // Left cell — logo
             PdfPCell logoCell;
             if (System.IO.File.Exists(logoPath))
             {
@@ -184,35 +223,45 @@
             }
             else
             {
+                // Fallback if logo file missing
                 logoCell = new PdfPCell(new Phrase("")) { Border = Rectangle.NO_BORDER };
             }
             hdrTable.AddCell(logoCell);
 
+<<<<<<< HEAD
             // Company text cell
             Font fCoName = new Font(Font.FontFamily.HELVETICA, 11f, Font.BOLD,   BaseColor.DARK_GRAY);
             Font fCoReg  = new Font(Font.FontFamily.HELVETICA,  8f, Font.BOLD,   navy);
             Font fCoSub  = new Font(Font.FontFamily.HELVETICA,  8f, Font.NORMAL, BaseColor.DARK_GRAY);
+=======
+            // Right cell — company name + address stacked
+            Font fCoNameHdr = new Font(Font.FontFamily.HELVETICA, 11f, Font.BOLD,   navy);
+            Font fCoRegHdr  = new Font(Font.FontFamily.HELVETICA,  8f, Font.BOLD,   navy);
+            Font fCoSubHdr  = new Font(Font.FontFamily.HELVETICA,  8f, Font.NORMAL, BaseColor.DARK_GRAY);
+>>>>>>> 754e8b5 (Updated payslip changes)
 
             var textPhrase = new Phrase();
-            textPhrase.Add(new Chunk(coName + " ", fCoName));
-            textPhrase.Add(new Chunk(reg    + "\n", fCoReg));
-            textPhrase.Add(new Chunk(addr1  + "\n", fCoSub));
-            textPhrase.Add(new Chunk(addr2  + "\n", fCoSub));
-            textPhrase.Add(new Chunk(addr3  + "\n", fCoSub));
-            textPhrase.Add(new Chunk(state  + "\n", fCoSub));
-            textPhrase.Add(new Chunk(phone,          fCoSub));
+            textPhrase.Add(new Chunk(coName + " ", fCoNameHdr));
+            textPhrase.Add(new Chunk(reg + "\n",   fCoRegHdr));
+            textPhrase.Add(new Chunk(addr1 + "\n", fCoSubHdr));
+            textPhrase.Add(new Chunk(addr2 + "\n", fCoSubHdr));
+            textPhrase.Add(new Chunk(addr3 + "\n", fCoSubHdr));
+            textPhrase.Add(new Chunk(state + "\n", fCoSubHdr));
+            textPhrase.Add(new Chunk(phone,         fCoSubHdr));
 
-            hdrTable.AddCell(new PdfPCell(textPhrase)
+            var textCell = new PdfPCell(textPhrase)
             {
                 Border              = Rectangle.NO_BORDER,
                 VerticalAlignment   = Element.ALIGN_MIDDLE,
                 HorizontalAlignment = Element.ALIGN_LEFT,
                 Padding             = 4f,
                 PaddingLeft         = 8f
-            });
+            };
+            hdrTable.AddCell(textCell);
             doc.Add(hdrTable);
 
-            // ── Gold separator line ───────────────────────────────────────
+            // Gold separator line (matches UI theme)
+            BaseColor gold = new BaseColor(0xD4, 0xA0, 0x17);
             var goldSep = new iTextSharp.text.pdf.draw.LineSeparator(2.5f, 100f, gold, Element.ALIGN_CENTER, -2f);
             doc.Add(new Chunk(goldSep));
             doc.Add(Spacer(6f));
@@ -220,7 +269,7 @@
             // ── Report title ──────────────────────────────────────────────
             P(doc, "INVENTORY STOCK LEDGER REPORT", fTitle, Element.ALIGN_CENTER, 6f);
 
-            // ── Filter summary ────────────────────────────────────────────
+            // ── Filter summary (2-column table) ───────────────────────────
             var filters = new string[][]
             {
                 new[]{ "Warehouse:",        whName   },
@@ -230,20 +279,24 @@
                 new[]{ "Transaction Type:", typeLbl  },
                 new[]{ "Period:",           period   }
             };
+<<<<<<< HEAD
             var ft = new PdfPTable(3) { WidthPercentage = 100f, SpacingAfter = 8f };
             ft.SetWidths(new float[] { 1.5f, 3.5f, 5.0f });
+=======
+            var ft = new PdfPTable(4) { WidthPercentage = 100f, SpacingAfter = 8f };
+            ft.SetWidths(new float[] { 1.2f, 2.3f, 1.2f, 2.3f });
+>>>>>>> 754e8b5 (Updated payslip changes)
             ft.DefaultCell.Border = Rectangle.NO_BORDER;
             foreach (var f in filters)
             {
-                var ph = new Phrase();
-                ph.Add(new Chunk(f[0] + " ", fFilterB));
-                ph.Add(new Chunk(f[1], fFilter));
-                ft.AddCell(new PdfPCell(ph) { Border = Rectangle.NO_BORDER, Padding = 2f, NoWrap = true });
+                var ph = new Phrase(); ph.Add(new Chunk(f[0] + " ", fFilterB)); ph.Add(new Chunk(f[1], fFilter));
+                ft.AddCell(new PdfPCell(ph) { Border = Rectangle.NO_BORDER, Padding = 2f });
             }
             // pad to complete the last row if needed (6 items → 2 rows of 3)
             doc.Add(ft);
 
             // ── Data table ────────────────────────────────────────────────
+<<<<<<< HEAD
             // header text | field name | rel width | isNumeric | isDate
             // S.No is generated in the loop (not a DB field) — handled specially
             var cols = new object[][]
@@ -262,6 +315,22 @@
                 new object[]{ "Balance",    "RunningBalance",       1.5f, true,  false },
                 new object[]{ "Unit Cost",  "UnitCost",             1.5f, true,  false },
                 new object[]{ "Remarks",    "Remarks",              2.6f, false, false },
+=======
+            // Column definitions: header, fieldName, relWidth, isNumeric, isDate
+            var cols = new object[][]
+            {
+                new object[]{ "Date",         "TransactionDate",      2.2f, false, true  },
+                new object[]{ "Type",         "TransactionTypeLabel", 2.8f, false, false },
+                new object[]{ "Item Code",    "ItemCode",             2.0f, false, false },
+                new object[]{ "Item Name",    "ItemName",             4.5f, false, false },
+                new object[]{ "UOM",          "UOMName",              1.5f, false, false },
+                new object[]{ "In Qty",       "InQty",                1.8f, true,  false },
+                new object[]{ "Out Qty",      "OutQty",               1.8f, true,  false },
+                new object[]{ "Balance",      "RunningBalance",       1.8f, true,  false },
+                new object[]{ "Unit Cost",    "UnitCost",             1.8f, true,  false },
+                new object[]{ "Ref No",       "ReferenceNo",          2.0f, false, false },
+                new object[]{ "Remarks",      "Remarks",              3.0f, false, false },
+>>>>>>> 754e8b5 (Updated payslip changes)
             };
 
             float[] widths = new float[cols.Length];
@@ -274,18 +343,23 @@
             foreach (var c in cols)
             {
                 bool num = (bool)c[3];
-                tbl.AddCell(new PdfPCell(new Phrase((string)c[0], fTH))
+                var cell = new PdfPCell(new Phrase((string)c[0], fTH))
                 {
                     BackgroundColor     = headerBg,
                     HorizontalAlignment = num ? Element.ALIGN_RIGHT : Element.ALIGN_LEFT,
                     Padding = 5f, Border = Rectangle.BOX, BorderColor = border
-                });
+                };
+                tbl.AddCell(cell);
             }
 
             // Data rows
             int ri = 0;
             decimal totalIn = 0, totalOut = 0;
+<<<<<<< HEAD
             string pdfBaseUrl = GetAppBaseUrl();
+=======
+            string appBaseUrl = (AppSettings("AppBaseUrl") ?? "").TrimEnd('/');
+>>>>>>> 754e8b5 (Updated payslip changes)
             foreach (DataRow dr in dt.Rows)
             {
                 var rowBg = (ri % 2 == 0) ? BaseColor.WHITE : rowAlt;
@@ -302,6 +376,7 @@
                     bool   isNum  = (bool)c[3];
                     bool   isDate = (bool)c[4];
 
+<<<<<<< HEAD
                     // S.No — generated, not a DB field
                     string txt;
                     if (field == "SERNO")
@@ -342,6 +417,47 @@
                     }
 
                     tbl.AddCell(new PdfPCell(new Phrase(txt, fTD))
+=======
+                    // Red for negative numbers
+                    Font cf = fTD;
+                    if (isNum && raw != null && raw != DBNull.Value)
+                    { decimal dv; if (decimal.TryParse(raw.ToString(), out dv) && dv < 0) cf = fTDRed; }
+
+                    // Accumulate totals
+                    if (field == "InQty"  && raw != null && raw != DBNull.Value) { decimal v; if (decimal.TryParse(raw.ToString(), out v)) totalIn  += v; }
+                    if (field == "OutQty" && raw != null && raw != DBNull.Value) { decimal v; if (decimal.TryParse(raw.ToString(), out v)) totalOut += v; }
+
+                    // "Ref No" column: clickable link → navigates to the transaction's detail page
+                    if (field == "ReferenceNo" && !string.IsNullOrEmpty(txt))
+                    {
+                        string txType = dt.Columns.Contains("TransactionType")
+                            ? (dr["TransactionType"] == DBNull.Value ? "" : dr["TransactionType"].ToString().ToUpper())
+                            : "";
+                        object refIdRaw = dt.Columns.Contains("ReferenceID") ? dr["ReferenceID"] : null;
+                        string refId    = (refIdRaw != null && refIdRaw != DBNull.Value) ? refIdRaw.ToString() : "";
+
+                        // Use appBaseUrl from web.config; fall back to relative hash-route if missing
+                        string base64 = string.IsNullOrEmpty(appBaseUrl) ? "http://localhost:4200" : appBaseUrl;
+                        string navUrl = BuildNavUrl(base64, txType, refId);
+                        if (!string.IsNullOrEmpty(navUrl))
+                        {
+                            Font fLink     = new Font(Font.FontFamily.HELVETICA, 7.5f, Font.UNDERLINE, new BaseColor(0x0d, 0x6e, 0xfd));
+                            var chunk      = new Chunk(txt, fLink);
+                            chunk.SetAnchor(new System.Uri(navUrl));
+                            var linkPhrase = new Phrase();
+                            linkPhrase.Add(chunk);
+                            tbl.AddCell(new PdfPCell(linkPhrase)
+                            {
+                                BackgroundColor     = rowBg,
+                                HorizontalAlignment = Element.ALIGN_LEFT,
+                                Padding = 4f, Border = Rectangle.BOX, BorderColor = border
+                            });
+                            continue;
+                        }
+                    }
+
+                    tbl.AddCell(new PdfPCell(new Phrase(txt, cf))
+>>>>>>> 754e8b5 (Updated payslip changes)
                     {
                         BackgroundColor     = rowBg,
                         HorizontalAlignment = isNum ? Element.ALIGN_RIGHT : Element.ALIGN_LEFT,
@@ -351,6 +467,7 @@
                 ri++;
             }
 
+<<<<<<< HEAD
             // Totals row — first 8 cols merged, then In Qty, Out Qty, rest blank
             tbl.AddCell(new PdfPCell(new Phrase("TOTALS", fTotal))
             {
@@ -362,16 +479,26 @@
                 NoWrap  = true
             });
             for (int i = 8; i < cols.Length; i++)
+=======
+            // Totals row
+            for (int i = 0; i < cols.Length; i++)
+>>>>>>> 754e8b5 (Updated payslip changes)
             {
                 string field = (string)cols[i][1];
-                string txt   = field == "InQty"  ? totalIn.ToString("N2")
-                             : field == "OutQty" ? totalOut.ToString("N2") : "";
                 bool   isNum = (bool)cols[i][3];
+                string txt   = i == 0 ? "TOTALS"
+                             : field == "InQty"  ? totalIn.ToString("N2")
+                             : field == "OutQty" ? totalOut.ToString("N2")
+                             : "";
+                int align    = (i == 0) ? Element.ALIGN_LEFT
+                             : isNum   ? Element.ALIGN_RIGHT : Element.ALIGN_LEFT;
+
                 tbl.AddCell(new PdfPCell(new Phrase(txt, fTotal))
                 {
                     BackgroundColor     = totalBg,
-                    HorizontalAlignment = isNum ? Element.ALIGN_RIGHT : Element.ALIGN_LEFT,
-                    Padding = 5f, Border = Rectangle.BOX, BorderColor = navy, BorderWidth = 1.5f
+                    HorizontalAlignment = align,
+                    Padding = 5f, Border = Rectangle.BOX,
+                    BorderColor = navy, BorderWidth = 1.5f
                 });
             }
 
@@ -382,7 +509,182 @@
     }
 
     // ════════════════════════════════════════════════════════════════════════
+    // DATA ACCESS
+    // ════════════════════════════════════════════════════════════════════════
+    // HTML TABLE BUILDER
+    // Renders the stock ledger as a styled HTML page.
+    // Ref No cells use <a href target="_parent"> so clicking inside the iframe
+    // navigates the parent Angular window to the correct transaction page.
+    // ════════════════════════════════════════════════════════════════════════
+
+    private string BuildHtmlTable(string whName, string itemName,
+                                  string typeLbl, string period,
+                                  DataTable dt, string baseUrl)
+    {
+        var numFlds = new System.Collections.Generic.HashSet<string>
+            { "InQty", "OutQty", "RunningBalance", "UnitCost" };
+
+        var cols = new string[][]
+        {
+            new[]{ "Date",       "TransactionDate"       },
+            new[]{ "Type",       "TransactionTypeLabel"  },
+            new[]{ "Item Code",  "ItemCode"              },
+            new[]{ "Item Name",  "ItemName"              },
+            new[]{ "UOM",        "UOMName"               },
+            new[]{ "In Qty",     "InQty"                 },
+            new[]{ "Out Qty",    "OutQty"                },
+            new[]{ "Balance",    "RunningBalance"        },
+            new[]{ "Unit Cost",  "UnitCost"              },
+            new[]{ "Ref No",     "ReferenceNo"           },
+            new[]{ "Remarks",    "Remarks"               },
+        };
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("<!DOCTYPE html><html><head><meta charset='UTF-8'>");
+        sb.AppendLine("<style>");
+        sb.AppendLine("*{box-sizing:border-box;margin:0;padding:0;}");
+        sb.AppendLine("body{font-family:Arial,sans-serif;font-size:12px;background:#fff;padding:16px;}");
+        sb.AppendLine(".co-name{font-size:15px;font-weight:bold;color:#1a3a5c;}");
+        sb.AppendLine(".co-sub{font-size:11px;color:#555;margin-top:2px;}");
+        sb.AppendLine(".gold-line{border:none;border-top:2.5px solid #D4A017;margin:8px 0;}");
+        sb.AppendLine(".report-title{text-align:center;font-size:14px;font-weight:bold;color:#1a3a5c;margin:10px 0 6px;}");
+        sb.AppendLine(".filters{font-size:11px;margin-bottom:10px;color:#444;}");
+        sb.AppendLine(".filters span{margin-right:20px;}");
+        sb.AppendLine(".filters b{color:#1a3a5c;}");
+        sb.AppendLine("table{width:100%;border-collapse:collapse;font-size:11px;}");
+        sb.AppendLine("thead th{background:#1a3a5c;color:#fff;padding:6px 5px;text-align:left;border:1px solid #ccc;}");
+        sb.AppendLine("thead th.num{text-align:right;}");
+        sb.AppendLine("tbody tr:nth-child(even){background:#f4f7fb;}");
+        sb.AppendLine("tbody tr:hover{background:#e3eaf6;}");
+        sb.AppendLine("tbody td{padding:4px 5px;border:1px solid #ddd;vertical-align:middle;}");
+        sb.AppendLine("tbody td.num{text-align:right;}");
+        sb.AppendLine("tbody td.neg{text-align:right;color:#c62828;font-weight:bold;}");
+        sb.AppendLine("tfoot td{background:#e8f0fe;font-weight:bold;padding:5px;border:1.5px solid #1a3a5c;}");
+        sb.AppendLine("tfoot td.num{text-align:right;}");
+        sb.AppendLine("a.ref-link{color:#0d6efd;text-decoration:underline;cursor:pointer;font-weight:500;}");
+        sb.AppendLine("a.ref-link:hover{color:#0a58ca;}");
+        sb.AppendLine("</style></head><body>");
+
+        // ── Company header ─────────────────────────────────────────────────
+        string logoPath = Server.MapPath("~/images/logo-white.png");
+        string logoUrl  = ResolveUrl("~/images/logo-white.png");
+        sb.AppendLine("<table style='width:100%;border:none;margin-bottom:4px;'><tr>");
+        sb.AppendLine("<td style='width:60px;vertical-align:middle;border:none;'>");
+        if (System.IO.File.Exists(logoPath))
+            sb.AppendFormat("<img src='{0}' style='height:50px;'/>", logoUrl);
+        sb.AppendLine("</td>");
+        sb.AppendLine("<td style='vertical-align:middle;border:none;padding-left:10px;'>");
+        sb.AppendFormat("<div class='co-name'>{0} {1}</div>", H(AppSettings("CompanyName")), H(AppSettings("Registration")));
+        sb.AppendFormat("<div class='co-sub'>{0} {1}</div>", H(AppSettings("Address1")), H(AppSettings("Address2")));
+        sb.AppendFormat("<div class='co-sub'>{0} {1}, {2}</div>", H(AppSettings("PostCode")), H(AppSettings("City")), H(AppSettings("State")));
+        sb.AppendFormat("<div class='co-sub'>{0}</div>", H(AppSettings("Phone")));
+        sb.AppendLine("</td></tr></table>");
+        sb.AppendLine("<hr class='gold-line'>");
+
+        // ── Report title ───────────────────────────────────────────────────
+        sb.AppendLine("<div class='report-title'>INVENTORY STOCK LEDGER REPORT</div>");
+
+        // ── Filter summary ─────────────────────────────────────────────────
+        sb.AppendLine("<div class='filters'>");
+        sb.AppendFormat("<span><b>Warehouse:</b> {0}</span>", H(whName));
+        sb.AppendFormat("<span><b>Item:</b> {0}</span>", H(itemName));
+        sb.AppendFormat("<span><b>Transaction Type:</b> {0}</span>", H(typeLbl));
+        sb.AppendFormat("<span><b>Period:</b> {0}</span>", H(period));
+        sb.AppendLine("</div>");
+
+        // ── Data table ─────────────────────────────────────────────────────
+        sb.AppendLine("<table>");
+        sb.AppendLine("<thead><tr>");
+        foreach (var c in cols)
+        {
+            string cls = numFlds.Contains(c[1]) ? " class='num'" : "";
+            sb.AppendFormat("<th{0}>{1}</th>", cls, H(c[0]));
+        }
+        sb.AppendLine("</tr></thead>");
+
+        sb.AppendLine("<tbody>");
+        decimal totalIn = 0, totalOut = 0;
+        foreach (DataRow dr in dt.Rows)
+        {
+            // Get TransactionType + ReferenceID once per row
+            string rowTxType = dt.Columns.Contains("TransactionType")
+                ? (dr["TransactionType"] == DBNull.Value ? "" : dr["TransactionType"].ToString().ToUpper())
+                : "";
+            object rowRefIdRaw = dt.Columns.Contains("ReferenceID") ? dr["ReferenceID"] : null;
+            string rowRefId    = (rowRefIdRaw != null && rowRefIdRaw != DBNull.Value) ? rowRefIdRaw.ToString() : "";
+
+            sb.AppendLine("<tr>");
+            foreach (var c in cols)
+            {
+                string fld = c[1];
+                object raw = dt.Columns.Contains(fld) ? dr[fld] : null;
+                string txt = "";
+                if (raw != null && raw != DBNull.Value)
+                {
+                    if (fld == "TransactionDate")
+                    { DateTime d; txt = DateTime.TryParse(raw.ToString(), out d) ? d.ToString("dd MMM yyyy") : raw.ToString(); }
+                    else if (numFlds.Contains(fld))
+                    { decimal v; txt = decimal.TryParse(raw.ToString(), out v) ? v.ToString("N2") : raw.ToString(); }
+                    else txt = raw.ToString();
+                }
+
+                if (fld == "InQty")  { decimal v; if (decimal.TryParse(raw != null && raw != DBNull.Value ? raw.ToString() : "", out v)) totalIn  += v; }
+                if (fld == "OutQty") { decimal v; if (decimal.TryParse(raw != null && raw != DBNull.Value ? raw.ToString() : "", out v)) totalOut += v; }
+
+                // Ref No: clickable link using target="_parent" to navigate Angular app
+                if (fld == "ReferenceNo" && !string.IsNullOrEmpty(txt))
+                {
+                    string navUrl = BuildNavUrl(baseUrl, rowTxType, rowRefId);
+                    if (!string.IsNullOrEmpty(navUrl))
+                    {
+                        sb.AppendFormat("<td><a class='ref-link' href='{0}' target='_parent'>{1}</a></td>",
+                            H(navUrl), H(txt));
+                        continue;
+                    }
+                }
+
+                if (numFlds.Contains(fld))
+                {
+                    decimal dv; bool isNeg = decimal.TryParse(raw != null && raw != DBNull.Value ? raw.ToString() : "", out dv) && dv < 0;
+                    sb.AppendFormat("<td class='{0}'>{1}</td>", isNeg ? "neg" : "num", string.IsNullOrEmpty(txt) ? "&mdash;" : H(txt));
+                }
+                else
+                {
+                    sb.AppendFormat("<td>{0}</td>", H(txt));
+                }
+            }
+            sb.AppendLine("</tr>");
+        }
+        sb.AppendLine("</tbody>");
+
+        // ── Totals row ─────────────────────────────────────────────────────
+        sb.AppendLine("<tfoot><tr>");
+        foreach (var c in cols)
+        {
+            string fld = c[1];
+            string val = fld == "TransactionDate" ? "TOTALS"
+                       : fld == "InQty"           ? totalIn.ToString("N2")
+                       : fld == "OutQty"          ? totalOut.ToString("N2")
+                       : "";
+            string cls = numFlds.Contains(fld) ? " class='num'" : "";
+            sb.AppendFormat("<td{0}>{1}</td>", cls, H(val));
+        }
+        sb.AppendLine("</tr></tfoot>");
+        sb.AppendLine("</table>");
+
+        // ── Footer ─────────────────────────────────────────────────────────
+        sb.AppendFormat("<p style='font-size:10px;color:#888;margin-top:10px;'>Generated: {0}</p>",
+            DateTime.Now.ToString("dd MMM yyyy hh:mm tt"));
+
+        sb.AppendLine("</body></html>");
+        return sb.ToString();
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
     // EXCEL BUILDER
+    // Generates a simple .xlsx using HTML table — no extra library needed.
+    // ASP.NET serves it as Excel via content type override.
+    // Opens directly in Excel / LibreOffice Calc.
     // ════════════════════════════════════════════════════════════════════════
 
     private byte[] BuildExcel(string whName, string itemName,
@@ -391,6 +693,7 @@
     {
         var cols = new string[][]
         {
+<<<<<<< HEAD
             new[]{ "S.No",        "SERNO"                },
             new[]{ "Ref No",      "ReferenceNo"          },
             new[]{ "Date",        "TransactionDate"      },
@@ -405,13 +708,28 @@
             new[]{ "Balance",     "RunningBalance"       },
             new[]{ "Unit Cost",   "UnitCost"             },
             new[]{ "Remarks",     "Remarks"              },
+=======
+            new[]{ "Date",          "TransactionDate"      },
+            new[]{ "Type",          "TransactionTypeLabel" },
+            new[]{ "Item Code",     "ItemCode"             },
+            new[]{ "Item Name",     "ItemName"             },
+            new[]{ "UOM",           "UOMName"              },
+            new[]{ "In Qty",        "InQty"                },
+            new[]{ "Out Qty",       "OutQty"               },
+            new[]{ "Balance",       "RunningBalance"       },
+            new[]{ "Unit Cost",     "UnitCost"             },
+            new[]{ "Ref No",        "ReferenceNo"          },
+            new[]{ "Remarks",       "Remarks"              },
+>>>>>>> 754e8b5 (Updated payslip changes)
         };
 
-        var numFlds = new HashSet<string> { "InQty", "OutQty", "RunningBalance", "UnitCost" };
+        var numFlds = new System.Collections.Generic.HashSet<string>
+            { "InQty", "OutQty", "RunningBalance", "UnitCost" };
 
         int span = cols.Length;
         var sb   = new System.Text.StringBuilder();
 
+        // ── HTML header — Excel opens HTML tables with no errors ──────────
         sb.AppendLine("<html xmlns:o=\"urn:schemas-microsoft-com:office:office\" " +
                       "xmlns:x=\"urn:schemas-microsoft-com:office:excel\" " +
                       "xmlns=\"http://www.w3.org/TR/REC-html40\">");
@@ -438,7 +756,7 @@
         sb.AppendLine("</style></head><body>");
         sb.AppendLine("<table style=\"width:100%;border-collapse:collapse;\">");
 
-        // Company header
+        // ── Company header ────────────────────────────────────────────────
         sb.AppendFormat("<tr><td colspan=\"{0}\" class=\"co\">{1} <span style=\"font-size:9pt\">{2}</span></td></tr>\n",
             span, H(AppSettings("CompanyName")), H(AppSettings("Registration")));
         sb.AppendFormat("<tr><td colspan=\"{0}\" class=\"sub\">{1} {2}</td></tr>\n",
@@ -450,11 +768,11 @@
         sb.AppendFormat("<tr><td colspan=\"{0}\" class=\"gold\" style=\"padding:2px;\"></td></tr>\n", span);
         sb.AppendFormat("<tr><td colspan=\"{0}\" style=\"padding:3px;\"></td></tr>\n", span);
 
-        // Title
+        // ── Title ─────────────────────────────────────────────────────────
         sb.AppendFormat("<tr><td colspan=\"{0}\" class=\"ttl\">INVENTORY STOCK LEDGER REPORT</td></tr>\n", span);
         sb.AppendFormat("<tr><td colspan=\"{0}\" style=\"padding:2px;\"></td></tr>\n", span);
 
-        // Filters
+        // ── Filters ───────────────────────────────────────────────────────
         sb.AppendFormat("<tr><td colspan=\"{0}\">", span);
         sb.AppendFormat("<span class=\"fl\">Warehouse: </span><span class=\"fv\">{0}</span>&nbsp;&nbsp;&nbsp;", H(whName));
         sb.AppendFormat("<span class=\"fl\">Item: </span><span class=\"fv\">{0}</span>&nbsp;&nbsp;&nbsp;", H(itemName));
@@ -465,19 +783,28 @@
         sb.AppendLine("</td></tr>");
         sb.AppendFormat("<tr><td colspan=\"{0}\" style=\"padding:3px;\"></td></tr>\n", span);
 
-        // Column headers
+        // ── Column headers ────────────────────────────────────────────────
         sb.AppendLine("<tr>");
         foreach (var c in cols)
             sb.AppendFormat("<td class=\"th\">{0}</td>", H(c[0]));
         sb.AppendLine("</tr>");
 
-        // Data rows
+        // ── Data rows ─────────────────────────────────────────────────────
         decimal totalIn = 0, totalOut = 0;
         int ri = 0;
         foreach (DataRow dr in dt.Rows)
         {
+<<<<<<< HEAD
             string alt = (ri % 2 == 1) ? " alt" : "";
 
+=======
+            string alt = (ri++ % 2 == 1) ? " alt" : "";
+            string rowTxType = dt.Columns.Contains("TransactionType")
+                ? (dr["TransactionType"] == DBNull.Value ? "" : dr["TransactionType"].ToString().ToUpper())
+                : "";
+            object rowRefIdRaw = dt.Columns.Contains("ReferenceID") ? dr["ReferenceID"] : null;
+            string rowRefId    = (rowRefIdRaw != null && rowRefIdRaw != DBNull.Value) ? rowRefIdRaw.ToString() : "";
+>>>>>>> 754e8b5 (Updated payslip changes)
             sb.AppendLine("<tr>");
             foreach (var c in cols)
             {
@@ -501,47 +828,68 @@
                 if (fld == "InQty")  { decimal v; if (decimal.TryParse(txt, out v)) totalIn  += v; }
                 if (fld == "OutQty") { decimal v; if (decimal.TryParse(txt, out v)) totalOut += v; }
 
+<<<<<<< HEAD
                 // Ref No — plain text only in Excel (no hyperlink)
+=======
+                // Ref No column: render as hyperlink
+                if (fld == "ReferenceNo" && !string.IsNullOrEmpty(txt) && !string.IsNullOrEmpty(xlsBaseUrl))
+                {
+                    string navUrl = BuildNavUrl(xlsBaseUrl, rowTxType, rowRefId);
+                    if (!string.IsNullOrEmpty(navUrl))
+                    {
+                        sb.AppendFormat("<td class=\"td{0}\"><a href=\"{1}\" style=\"color:#0d6efd;text-decoration:underline;\">{2}</a></td>",
+                            alt, H(navUrl), H(txt));
+                        continue;
+                    }
+                }
+
+>>>>>>> 754e8b5 (Updated payslip changes)
                 if (numFlds.Contains(fld))
                 {
                     decimal num; bool ok = decimal.TryParse(txt, out num);
                     string cls = ok && num < 0 ? "tnr" + alt : "tn" + alt;
                     sb.AppendFormat("<td class=\"{0}\">{1}</td>", cls, ok ? num.ToString("N2") : "&mdash;");
                 }
-                else
-                {
-                    sb.AppendFormat("<td class=\"td{0}\">{1}</td>", alt, H(txt));
-                }
+                else sb.AppendFormat("<td class=\"td{0}\">{1}</td>", alt, H(txt));
             }
             sb.AppendLine("</tr>");
             ri++;
         }
 
-        // Totals row
+        // ── Totals row ────────────────────────────────────────────────────
         sb.AppendLine("<tr>");
+<<<<<<< HEAD
         sb.AppendFormat("<td class=\"tot td\" colspan=\"8\">TOTALS</td>");
         for (int i = 5; i < cols.Length; i++)
+=======
+        foreach (var c in cols)
+>>>>>>> 754e8b5 (Updated payslip changes)
         {
-            string fld   = cols[i][1];
+            string fld   = c[1];
             bool   isNum = numFlds.Contains(fld);
-            string val   = fld == "InQty"  ? totalIn.ToString("N2")
-                         : fld == "OutQty" ? totalOut.ToString("N2") : "";
+            string val   = fld == "TransactionDate" ? "TOTALS"
+                         : fld == "InQty"           ? totalIn.ToString("N2")
+                         : fld == "OutQty"          ? totalOut.ToString("N2") : "";
             string align = isNum ? " style=\"text-align:right;\"" : "";
             sb.AppendFormat("<td class=\"tot td\"{0}>{1}</td>", align, H(val));
         }
         sb.AppendLine("</tr>");
 
-        // Footer
+        // ── Footer ────────────────────────────────────────────────────────
         sb.AppendFormat("<tr><td colspan=\"{0}\" style=\"padding:4px;\"></td></tr>\n", span);
         sb.AppendFormat("<tr><td colspan=\"{0}\" class=\"ftr\">Generated: {1}</td></tr>\n",
             span, DateTime.Now.ToString("dd MMM yyyy hh:mm tt"));
-        sb.AppendLine("</table></body></html>");
 
+        sb.AppendLine("</table></body></html>");
         return System.Text.Encoding.UTF8.GetBytes(sb.ToString());
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    // DATA ACCESS
+    private static string H(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return "";
+        return s.Replace("&","&amp;").Replace("<","&lt;").Replace(">","&gt;").Replace("\"","&quot;");
+    }
+
     // ════════════════════════════════════════════════════════════════════════
 
     private DataTable RunSP(int whID, int itemID, string txType,
@@ -610,12 +958,6 @@
         return val.ToString();
     }
 
-    private static string H(string s)
-    {
-        if (string.IsNullOrEmpty(s)) return "";
-        return s.Replace("&","&amp;").Replace("<","&lt;").Replace(">","&gt;").Replace("\"","&quot;");
-    }
-
     private static string TypeLabel(string code)
     {
         switch ((code ?? "ALL").ToUpper())
@@ -634,6 +976,7 @@
         }
     }
 
+<<<<<<< HEAD
     // ── Dynamic base URL ──────────────────────────────────────────────────
     // Derives the Angular UI URL from the current HTTP request:
     //   scheme + host (no IP config needed) + AppUIPort from Web.config
@@ -655,6 +998,11 @@
     }
 
     // Navigation URL: TransactionType → Angular route
+=======
+    // ── Navigation URL builder ────────────────────────────────────────────
+    // Maps TransactionType code → Angular route with optional :ID segment.
+    // Returns empty string if no navigation is defined for that type.
+>>>>>>> 754e8b5 (Updated payslip changes)
     private static string BuildNavUrl(string baseUrl, string txType, string refId)
     {
         string seg = null;
@@ -672,7 +1020,12 @@
             case "DAMAGE_LOSS":  seg = "inventory/stock-damage-loss/new-stock-damage-loss";   break;
         }
         if (seg == null) return "";
-        if (!string.IsNullOrEmpty(refId)) return baseUrl + "/" + seg + "/" + refId;
+
+        // If ReferenceID available, go to detail page directly
+        if (!string.IsNullOrEmpty(refId))
+            return baseUrl + "/" + seg + "/" + refId;
+
+        // Fallback: go to list page for that transaction type
         string listSeg = seg.Contains("/") ? seg.Substring(0, seg.LastIndexOf('/')) : seg;
         return baseUrl + "/" + listSeg;
     }
@@ -698,6 +1051,7 @@
         catch { }
     }
 
+    // iTextSharp paragraph shortcut
     private static void P(Document doc, string text, Font font, int align, float spacingAfter)
     {
         doc.Add(new Paragraph(text, font) { Alignment = align, SpacingAfter = spacingAfter });
@@ -709,50 +1063,38 @@
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    // PAGE FOOTER EVENT  —  identical to CurrentStockReport
+    // PAGE FOOTER EVENT (page number + generated-by)
     // ════════════════════════════════════════════════════════════════════════
 
     private class FooterEvent : PdfPageEventHelper
     {
-        private readonly string    _user;
-        private readonly Font      _font;
-        private readonly BaseColor _navy;
+        private readonly string                _user;
+        private readonly iTextSharp.text.Font  _font;
+        private readonly BaseColor             _navy;
 
-        public FooterEvent(string user, Font font, BaseColor navy)
-        {
-            _user = user;
-            _font = font;
-            _navy = navy;
-        }
+        public FooterEvent(string user, iTextSharp.text.Font font, BaseColor navy)
+        { _user = user; _font = font; _navy = navy; }
 
         public override void OnEndPage(PdfWriter writer, Document doc)
         {
-            var cb = writer.DirectContent;
-            var pg = doc.PageSize;
+            var cb  = writer.DirectContent;
+            var pg  = doc.PageSize;
 
-            // Footer separator line
             cb.SetLineWidth(0.5f);
             cb.SetColorStroke(new BaseColor(0xcc, 0xcc, 0xcc));
             cb.MoveTo(doc.LeftMargin, doc.BottomMargin - 5f);
             cb.LineTo(pg.Width - doc.RightMargin, doc.BottomMargin - 5f);
             cb.Stroke();
 
-            // Left: generated by + date-time
             string left = "Generated by: " + _user + "   |   " +
                           DateTime.Now.ToString("dd MMM yyyy hh:mm tt");
             ColumnText.ShowTextAligned(cb, Element.ALIGN_LEFT,
                 new Phrase(left, _font), doc.LeftMargin, doc.BottomMargin - 15f, 0);
 
-            // Right: page number
-            string right = "Page " + writer.PageNumber;
             ColumnText.ShowTextAligned(cb, Element.ALIGN_RIGHT,
-                new Phrase(right, _font), pg.Width - doc.RightMargin, doc.BottomMargin - 15f, 0);
+                new Phrase("Page " + writer.PageNumber, _font),
+                pg.Width - doc.RightMargin, doc.BottomMargin - 15f, 0);
         }
     }
 
 </script>
-<!DOCTYPE html>
-<html>
-<head><title>Stock Ledger Report</title></head>
-<body></body>
-</html>

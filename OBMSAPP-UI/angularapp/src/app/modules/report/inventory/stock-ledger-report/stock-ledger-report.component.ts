@@ -31,11 +31,14 @@ export class StockLedgerReportComponent implements OnInit {
   loadingSizes: boolean = false;
   userAccessModel!: UserAccessModel;
 
+<<<<<<< HEAD
   /** Parent categories that have sub-categories — shown as optgroups */
   categoryGroups: { parent: any; children: any[] }[] = [];
   /** Standalone categories (no parent, no children) — shown flat */
   categoryFlat: any[] = [];
 
+=======
+>>>>>>> 754e8b5 (Updated payslip changes)
   transactionTypeOptions = [
     { value: 'ALL',          label: 'All Transaction Types' },
     { value: 'OPENING',      label: 'Opening Stock'         },
@@ -188,9 +191,41 @@ export class StockLedgerReportComponent implements OnInit {
       return;
     }
 
+<<<<<<< HEAD
     const categoryID = parseInt(raw.CategoryID, 10) || 0;
     const size       = (raw.Size || '').trim();
 
+=======
+    let localURL = '';
+    localURL += '&StartDate='       + this.returnDate(raw.StartDate);
+    localURL += '&EndDate='         + this.returnDate(raw.EndDate);
+    localURL += '&WarehouseID='     + (raw.WarehouseID     || '0');
+    localURL += '&ItemID='          + (raw.ItemID          || '0');
+    localURL += '&TransactionType=' + (raw.TransactionType || 'ALL');
+    localURL += '&format=html';
+
+    this.urlSafe = this.sanitizer.bypassSecurityTrustResourceUrl(this.url + localURL);
+  }
+
+  onExportExcel(): void {
+    if (this.frm.invalid) {
+      this.frm.markAllAsTouched();
+      return;
+    }
+
+    const raw = this.frm.value;
+
+    const from = new Date(raw.StartDate);
+    const to   = new Date(raw.EndDate);
+    if (from > to) {
+      this.errorMessage = "The 'From' date must be before the 'To' date.";
+      return;
+    }
+
+    this.errorMessage = '';
+
+    // Build same URL as PDF but with &format=excel — triggers download
+>>>>>>> 754e8b5 (Updated payslip changes)
     const params = new URLSearchParams();
     params.set('LoginID',         this.currentUser             || '');
     params.set('StartDate',       this.returnDate(raw.StartDate));
@@ -246,7 +281,10 @@ export class StockLedgerReportComponent implements OnInit {
     });
     this.urlSafe      = undefined;
     this.errorMessage = '';
+<<<<<<< HEAD
     this.loadSizes(0);
+=======
+>>>>>>> 754e8b5 (Updated payslip changes)
   }
 
   returnDate(date?: any): string {

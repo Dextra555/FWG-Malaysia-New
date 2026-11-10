@@ -4,6 +4,7 @@ import { MatPaginator } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
 import { MatSort, Sort } from '@angular/material/sort';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
+import { Router } from '@angular/router';
 
 import { InventoryService } from '../../../service/inventory.service';
 import { MastermoduleService } from '../../../service/mastermodule.service';
@@ -35,6 +36,7 @@ export interface IStockLedgerRow {
   OutQty: number;
   RunningBalance: number;
   UnitCost: number | null;
+  ReferenceID: number | null;
   ReferenceNo: string;
   Remarks: string;
 }
@@ -110,7 +112,8 @@ export class StockLedgerComponent implements OnInit, AfterViewInit {
     private _liveAnnouncer: LiveAnnouncer,
     private service: InventoryService,
     private _dataService: DatasharingService,
-    private _masterService: MastermoduleService
+    private _masterService: MastermoduleService,
+    private router: Router
   ) {
     this.userAccessModel = { readAccess: false, updateAccess: false, deleteAccess: false, createAccess: false };
 
@@ -316,6 +319,40 @@ export class StockLedgerComponent implements OnInit, AfterViewInit {
     if (err?.error?.message) return err.error.message;
     if (err?.message)        return err.message;
     return fallback;
+  }
+
+  // ── Ref No Navigation ────────────────────────────────────────────────────
+  // Click on Ref No → navigate to the corresponding transaction detail page.
+  // If ReferenceID is available, goes directly to detail; otherwise list page.
+  navigateToRefNo(row: IStockLedgerRow): void {
+    const id  = row.ReferenceID;
+    const seg = this.getRouteSegment(row.TransactionType);
+    if (!seg) return;
+
+    if (id) {
+      this.router.navigate([seg, id]);
+    } else {
+      // Fallback: list page (parent of detail route)
+      const listSeg = seg.split('/').slice(0, -1).join('/');
+      this.router.navigate([listSeg]);
+    }
+  }
+
+  /** Returns the Angular detail-route base path for a given TransactionType code */
+  getRouteSegment(txType: string): string | null {
+    switch ((txType || '').toUpperCase()) {
+      case 'OPENING':      return 'inventory/opening-stock/new-opening-stock';
+      case 'STOCK_IN':     return 'inventory/goods-receipt/new-grn';
+      case 'ISSUE':        return 'inventory/stock-issue/new-stock-issue';
+      case 'ISSUE_RETURN': return 'inventory/stock-issue-return/new-stock-issue-return';
+      case 'TRANSFER_IN':
+      case 'TRANSFER_OUT': return 'inventory/stock-transfer/new-stock-transfer';
+      case 'ADJ_PLUS':
+      case 'ADJ_MINUS':    return 'inventory/stock-adjustment/new-stock-adjustment';
+      case 'PURCHASE_RTN': return 'inventory/purchase-return/new-return';
+      case 'DAMAGE_LOSS':  return 'inventory/stock-damage-loss/new-stock-damage-loss';
+      default:             return null;
+    }
   }
 
   hideLoadingSpinner(): void { this.showLoadingSpinner = false; }
