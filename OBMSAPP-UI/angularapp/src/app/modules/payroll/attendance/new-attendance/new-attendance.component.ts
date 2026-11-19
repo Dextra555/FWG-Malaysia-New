@@ -56,6 +56,7 @@ export class NewAttendanceComponent implements OnInit {
   currentUser: string | null = '';
   warningMessage: string = '';
   userAccessModel!: UserAccessModel;
+  staffAdminAccessModel!: UserAccessModel;
   shift2StartTime: number = 0;
   shift2EndTime: number = 0;
   startTime: number = 0;
@@ -211,6 +212,12 @@ export class NewAttendanceComponent implements OnInit {
       deleteAccess: false,
       createAccess: false,
     }
+    this.staffAdminAccessModel = {
+      readAccess: false,
+      updateAccess: false,
+      deleteAccess: false,
+      createAccess: false,
+    }
     this.userRole = sessionStorage.getItem('userrole')!
     if (this.userRole == '1') {
       this.userRole = 'admin'
@@ -296,32 +303,45 @@ export class NewAttendanceComponent implements OnInit {
   }
   getUserAccessRights(userName: string, screenName: string) {
     this.showLoadingSpinner = true;
-    this._masterService.getUserAccessRights(userName, screenName).subscribe(
-      (data) => {
-        if (data != null) {
-          this.userAccessModel.readAccess = data.Read
-          this.userAccessModel.deleteAccess = data.Delete;
-          this.userAccessModel.updateAccess = data.Update;
-          this.userAccessModel.createAccess = data.Create;
-
-          if (this.userAccessModel.readAccess === true || this.userRole == 'superadmin') {
-            this.warningMessage = '';
-            this.hideloadingSpinner();
-            this.getBranchMasterListByUser(this.currentUser!);
-          } else {
-            this.warningMessage = `Dear <B>${this.currentUser}</B>, <br>
-                      You do not have permissions to view this page. <br>
-                      If you feel you should have access to this page, Please contact administrator. <br>
-                      Thank you`;
-            this.hideloadingSpinner();
-          }
+    forkJoin({
+      attendanceAccess: this._masterService.getUserAccessRights(userName, screenName),
+      staffAdminAccess: this._masterService.getUserAccessRights(userName, 'Payroll Staff Admin')
+    }).subscribe({
+      next: (res: any) => {
+        if (res.attendanceAccess) {
+          this.userAccessModel = {
+            readAccess: res.attendanceAccess.Read,
+            updateAccess: res.attendanceAccess.Update,
+            deleteAccess: res.attendanceAccess.Delete,
+            createAccess: res.attendanceAccess.Create
+          };
         }
 
+        if (res.staffAdminAccess) {
+          this.staffAdminAccessModel = {
+            readAccess: res.staffAdminAccess.Read,
+            updateAccess: res.staffAdminAccess.Update,
+            deleteAccess: res.staffAdminAccess.Delete,
+            createAccess: res.staffAdminAccess.Create
+          };
+        }
+
+        if (this.userAccessModel.readAccess === true || this.userRole == 'superadmin') {
+          this.warningMessage = '';
+          this.hideloadingSpinner();
+          this.getBranchMasterListByUser(this.currentUser!);
+        } else {
+          this.warningMessage = `Dear <B>${this.currentUser}</B>, <br>
+                    You do not have permissions to view this page. <br>
+                    If you feel you should have access to this page, Please contact administrator. <br>
+                    Thank you`;
+          this.hideloadingSpinner();
+        }
       },
-      (error) => {
+      error: (error) => {
         this.handleErrors(error);
       }
-    );
+    });
   }
 
   changeAdvanceDate(type: string, event: MatDatepickerInputEvent<Date>) {

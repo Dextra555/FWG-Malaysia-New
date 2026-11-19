@@ -18,6 +18,11 @@ namespace OBMS.WebAPI.Repositories.Interface
         Task<ActionResult<ClientMaster>> DeleteClientMasterByCode(string code);
         string GetNClientMasterCode();
 
+        // Client Breaks
+        Task<List<ClientMasterBreak>> GetClientBreakList(string clientCode);
+        Task SaveClientBreaks(string clientCode, List<ClientMasterBreak> breaks);
+        Task DeleteClientBreakById(int id);
+
         Task<List<ShiftTimeMaster>> GetShiftTimeMasterList();
         Task<ShiftTimeMaster> saveAndUpdateShiftTimeMaster(ShiftTimeMaster branchMaster);
         Task<ActionResult<ShiftTimeMaster>> DeleteShiftTimeMasterById(int Id);

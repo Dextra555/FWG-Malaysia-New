@@ -212,6 +212,47 @@
 
 
             </div>
+            <!-- ── Break Section ──────────────────────────────────────────── -->
+            <div class="row pt-3">
+                <div class="col-12 col-sm-12 col-md-12 col-lg-12 wlt-c-furg-profile">
+                    <h2><span>Break</span></h2>
+                </div>
+            </div>
+
+            <!-- + Break button — always visible, no limit -->
+            <div class="row">
+                <div class="col-12 col-sm-12 col-md-4 col-lg-3">
+                    <button type="button" class="btn wlt-c-furg-btn-gray" (click)="addBreak()">
+                        + Break
+                    </button>
+                </div>
+            </div>
+
+            <!-- Dynamic break rows — one per entry in clientBreaks[] -->
+            <div class="row pt-2 align-items-center" *ngFor="let brk of clientBreaks; let i = index">
+                <div class="col-12 col-sm-12 col-md-4 col-lg-2 wlt-c-furg-profile">
+                    <mat-label>Break {{ i + 1 }}</mat-label>
+                </div>
+                <div class="col-12 col-sm-12 col-md-4 col-lg-3">
+                    <mat-form-field appearance="outline">
+                        <mat-label>Break {{ i + 1 }} Duration</mat-label>
+                        <mat-select [(ngModel)]="brk.BreakHours" [ngModelOptions]="{standalone: true}"
+                            (ngModelChange)="onBreakHourChange(i, $event)">
+                            <mat-option *ngFor="let opt of breakHourOptions" [value]="opt.value">
+                                {{ opt.label }}
+                            </mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                </div>
+                <div class="col-12 col-sm-12 col-md-2 col-lg-1 d-flex align-items-center">
+                    <button type="button" class="btn btn-sm btn-outline-danger"
+                        (click)="removeBreak(i)" title="Remove Break {{ i + 1 }}">
+                        <mat-icon style="font-size:18px; line-height:18px;">remove_circle_outline</mat-icon>
+                    </button>
+                </div>
+            </div>
+            <!-- ────────────────────────────────────────────────────────────── -->
+
             <div class="row">
                 <div class="col-12">
                     <div class="text-right">

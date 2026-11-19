@@ -27,6 +27,7 @@
       <!-- ── Row 1: Category + Size ────────────────────────────────────── -->
       <div class="row">
 
+<<<<<<< HEAD
         <!-- Category -->
         <div class="col-12 col-sm-6 col-md-3 col-lg-3">
           <mat-form-field appearance="outline">
@@ -71,6 +72,10 @@
 
         <!-- Warehouse -->
         <div class="col-12 col-sm-6 col-md-3 col-lg-3">
+=======
+        <!-- Warehouse (required) -->
+        <div class="col-12 col-sm-12 col-md-3 col-lg-3">
+>>>>>>> 754e8b5 (Updated payslip changes)
           <mat-form-field appearance="outline">
             <mat-label>Warehouse <span style="color:red">*</span></mat-label>
             <mat-select formControlName="WarehouseID">
@@ -83,8 +88,13 @@
           </mat-form-field>
         </div>
 
+<<<<<<< HEAD
         <!-- Item -->
         <div class="col-12 col-sm-6 col-md-4 col-lg-4">
+=======
+        <!-- Item (optional) -->
+        <div class="col-12 col-sm-12 col-md-3 col-lg-3">
+>>>>>>> 754e8b5 (Updated payslip changes)
           <mat-form-field appearance="outline">
             <mat-label>Item</mat-label>
             <mat-select formControlName="ItemID">
@@ -94,6 +104,7 @@
           </mat-form-field>
         </div>
 
+<<<<<<< HEAD
       </div>
 
       <!-- ── Row 2: Transaction Type + Dates ──────────────────────────── -->
@@ -101,6 +112,10 @@
 
         <!-- Transaction Type -->
         <div class="col-12 col-sm-6 col-md-3 col-lg-3">
+=======
+        <!-- Transaction Type (optional) -->
+        <div class="col-12 col-sm-12 col-md-2 col-lg-2">
+>>>>>>> 754e8b5 (Updated payslip changes)
           <mat-form-field appearance="outline">
             <mat-label>Transaction Type</mat-label>
             <mat-select formControlName="TransactionType">
@@ -165,7 +180,16 @@
 
     <br />
 
+<<<<<<< HEAD
     <!-- PDF rendered inline in iframe (same as WarehouseStockReport) -->
+=======
+    <!-- Error from PDF -->
+    <div *ngIf="errorMessage !== ''">
+      <mat-label style="color:red" [innerHTML]="errorMessage"></mat-label>
+    </div>
+
+    <!-- PDF rendered inline in iframe — same pattern as HQStockLedger, BranchStockLedger -->
+>>>>>>> 754e8b5 (Updated payslip changes)
     <iframe class="report-wrapper fixed-height"
             *ngIf="warningMessage === '' && urlSafe"
             [src]="urlSafe">

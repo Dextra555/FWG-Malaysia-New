@@ -126,9 +126,20 @@ namespace OBMS.WebAPI.BusinessObjects
                         strSQL = strSQL + " AND EMP_BRANCH_CODE = @Branch ";
                     }
 
+                    // Filter by employee type
+                    if (EmployeeType == "Others")
+                    {
+                        // Other Guards only — exclude Guard, Staff, Foreign Guard
+                        strSQL = strSQL + " AND EMP_ROLE NOT IN ('Guard','Staff','Foreign Guard') ";
+                    }
+                    else if (EmployeeType == "Guard")
+                    {
+                        // Guard only — exclude Other Guards
+                        strSQL = strSQL + " AND EMP_ROLE IN ('Guard','Staff','Foreign Guard') ";
+                    }
+
                     strSQL = strSQL + " ORDER BY EMP_NAME";
                     cmd.CommandText = strSQL;
-                    //cmd.Parameters.AddWithValue("@EmployeeType", EmployeeType);
                     cmd.Parameters.AddWithValue("@Month", Period.Month);
                     cmd.Parameters.AddWithValue("@Year", Period.Year);
                     cmd.Parameters.AddWithValue("@Branch", Branch);
@@ -320,6 +331,11 @@ namespace OBMS.WebAPI.BusinessObjects
                     {
                         // Local guards/staff only — IC-based, passport short/empty
                         strSQL = strSQL + " AND B.EMP_ROLE IN ('Guard','Staff') AND LEN(B.EMP_PASSPORT_NO) <= 3  ";
+                    }
+                    else if (EmployeeType == "Others")
+                    {
+                        // Other Guards only — exclude Guard, Staff, Foreign Guard
+                        strSQL = strSQL + " AND B.EMP_ROLE NOT IN ('Guard','Staff','Foreign Guard') ";
                     }
                     // else "All" or empty — no passport/role filter, include everyone (matches Excel behaviour)
 

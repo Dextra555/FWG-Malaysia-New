@@ -98,6 +98,30 @@ export class MastermoduleService {
     return this.httpClient.get<any>(this.apiUrl + 'master/GetNClientMasterCode')
       .pipe(catchError(this.errorHandle));
   }
+
+  // ── Client Break methods ────────────────────────────────────────────────
+  getClientBreakList(clientCode: string): Observable<any> {
+    return this.httpClient.get<any[]>(this.apiUrl + 'master/GetClientBreakList', {
+      params: { clientCode: clientCode }
+    }).pipe(catchError(this.errorHandle));
+  }
+
+  saveClientBreaks(clientCode: string, breaks: any[]): Observable<any> {
+    return this.httpClient.post<any>(
+      `${this.apiUrl}master/SaveClientBreaks?clientCode=${encodeURIComponent(clientCode)}`,
+      JSON.stringify(breaks),
+      { headers: new HttpHeaders({ 'Content-type': 'application/json; charset=UTF-8' }) }
+    ).pipe(catchError(this.errorHandle));
+  }
+
+  deleteClientBreakById(id: number): Observable<any> {
+    return this.httpClient.post(
+      `${this.apiUrl}master/DeleteClientBreakById?id=${id}`,
+      null
+    ).pipe(catchError(this.errorHandle));
+  }
+  // ───────────────────────────────────────────────────────────────────────
+
   getShifthMasterList(): Observable<any> {
     return this.httpClient.get<BranchModel[]>(this.apiUrl + 'master/GetShiftMsterList'
     ).pipe(catchError(this.errorHandle));

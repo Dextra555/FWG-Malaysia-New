@@ -38,6 +38,7 @@ export class MiscTransctionsComponent implements OnInit {
   userRole: string = '';
   warningMessage: string = '';
   userAccessModel!: UserAccessModel;
+  staffAdminAccessModel!: UserAccessModel;
   pageSizeOptions: number[] = [];
   branchModel!: BranchModel[];
   employeeListModel!: EmployeeAdvanceListModel[];
@@ -76,6 +77,12 @@ export class MiscTransctionsComponent implements OnInit {
       EmployeeType: ['Guard']
     });
     this.userAccessModel = {
+      readAccess: false,
+      updateAccess: false,
+      deleteAccess: false,
+      createAccess: false,
+    }
+    this.staffAdminAccessModel = {
       readAccess: false,
       updateAccess: false,
       deleteAccess: false,
@@ -132,32 +139,45 @@ export class MiscTransctionsComponent implements OnInit {
 
   getUserAccessRights(userName: string, screenName: string) {
     this.showLoadingSpinner = true;
-    this._masterService.getUserAccessRights(userName, screenName).subscribe(
-      (data) => {
-        if (data != null) {
-          this.userAccessModel.readAccess = data.Read
-          this.userAccessModel.deleteAccess = data.Delete;
-          this.userAccessModel.updateAccess = data.Update;
-          this.userAccessModel.createAccess = data.Create;
-
-          if (this.userAccessModel.readAccess === true || this.userRole == 'superadmin') {
-            this.warningMessage = '';
-            this.getMiscTransList();
-            this.getBranchMasterListByUser(this.currentUser!);
-          } else {
-            this.warningMessage = `Dear <B>${this.currentUser}</B>, <br>
-                      You do not have permissions to view this page. <br>
-                      If you feel you should have access to this page, Please contact administrator. <br>
-                      Thank you`;
-            this.hideSpinner();
-          }
+    forkJoin({
+      miscAccess: this._masterService.getUserAccessRights(userName, screenName),
+      staffAdminAccess: this._masterService.getUserAccessRights(userName, 'Payroll Staff Admin')
+    }).subscribe({
+      next: (res: any) => {
+        if (res.miscAccess) {
+          this.userAccessModel = {
+            readAccess: res.miscAccess.Read,
+            updateAccess: res.miscAccess.Update,
+            deleteAccess: res.miscAccess.Delete,
+            createAccess: res.miscAccess.Create
+          };
         }
 
+        if (res.staffAdminAccess) {
+          this.staffAdminAccessModel = {
+            readAccess: res.staffAdminAccess.Read,
+            updateAccess: res.staffAdminAccess.Update,
+            deleteAccess: res.staffAdminAccess.Delete,
+            createAccess: res.staffAdminAccess.Create
+          };
+        }
+
+        if (this.userAccessModel.readAccess === true || this.userRole == 'superadmin') {
+          this.warningMessage = '';
+          this.getMiscTransList();
+          this.getBranchMasterListByUser(this.currentUser!);
+        } else {
+          this.warningMessage = `Dear <B>${this.currentUser}</B>, <br>
+                    You do not have permissions to view this page. <br>
+                    If you feel you should have access to this page, Please contact administrator. <br>
+                    Thank you`;
+          this.hideSpinner();
+        }
       },
-      (error) => {
+      error: (error) => {
         this.handleErrors(error);
       }
-    );
+    });
   }
 
   getMiscTransList(): void {

@@ -32,9 +32,9 @@ export class StockLedgerReportComponent implements OnInit {
   loadingSizes: boolean = false;
   userAccessModel!: UserAccessModel;
 
-  /** Parent categories that have sub-categories â€” shown as optgroups */
+  /** Parent categories that have sub-categories — shown as optgroups */
   categoryGroups: { parent: any; children: any[] }[] = [];
-  /** Standalone categories (no parent, no children) â€” shown flat */
+  /** Standalone categories (no parent, no children) — shown flat */
   categoryFlat: any[] = [];
 
   transactionTypeOptions = [
@@ -194,6 +194,7 @@ export class StockLedgerReportComponent implements OnInit {
     const categoryID = parseInt(raw.CategoryID, 10) || 0;
     const size       = (raw.Size || '').trim();
 
+
     const params = new URLSearchParams();
     params.set('LoginID',         this.currentUser             || '');
     params.set('StartDate',       this.returnDate(raw.StartDate));
@@ -250,6 +251,7 @@ export class StockLedgerReportComponent implements OnInit {
     this.urlSafe      = undefined;
     this.errorMessage = '';
     this.loadSizes(0);
+
   }
 
   returnDate(date?: any): string {

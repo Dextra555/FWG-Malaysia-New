@@ -1,11 +1,12 @@
 ﻿import { Component, OnInit } from '@angular/core';
-import { FormBuilder, FormControl, FormGroup, Validators } from '@angular/forms';
+import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatCheckboxChange } from '@angular/material/checkbox';
 import { MatDatepickerInputEvent } from '@angular/material/datepicker';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subject } from 'rxjs';
 import { debounceTime } from 'rxjs/operators';
 import { BranchModel } from 'src/app/model/branchModel';
+import { ClientBreakModel } from 'src/app/model/clientBreakModel';
 import { ClientModel } from 'src/app/model/clientModel';
 import { UserAccessModel } from 'src/app/model/userAccesModel';
 import { DatasharingService } from 'src/app/service/datasharing.service';
@@ -19,7 +20,6 @@ import Swal from 'sweetalert2';
 })
 export class NewClientMasterComponent implements OnInit {
   clientCodeStatus: string = 'new';
-  //clientModel!: ClientModel;
   clientModel: ClientModel = new ClientModel();
   clientModelDropdown!: ClientModel[];
   clientForm: FormGroup;
@@ -32,43 +32,39 @@ export class NewClientMasterComponent implements OnInit {
   userRole: string = '';
   userAccessModel!: UserAccessModel;
   branchSearchSubject = new Subject<string>();
-branchSearchString: string = '';
-filteredBranchList: any[] = [];
+  branchSearchString: string = '';
+  filteredBranchList: any[] = [];
 
-  private formatDate(date: any) {
+  // ── Break management (unlimited) ────────────────────────────────────────
+  clientBreaks: ClientBreakModel[] = [];
+  breakHourOptions: { label: string; value: number }[] = [
+    { label: '0.5 Hour',  value: 0.5 },
+    { label: '1 Hour',    value: 1   },
+    { label: '1.5 Hours', value: 1.5 },
+    { label: '2 Hours',   value: 2   },
+  ];
+  // ────────────────────────────────────────────────────────────────────────
+
+  private formatDate(date: any): string {
     const d = new Date(date);
     let month = '' + (d.getMonth() + 1);
-    let day = '' + d.getDate();
+    let day   = '' + d.getDate();
     const year = d.getFullYear();
     if (month.length < 2) month = '0' + month;
-    if (day.length < 2) day = '0' + day;
+    if (day.length   < 2) day   = '0' + day;
     return [year, month, day].join('-');
   }
-  private formatDateWithTime(date: any) {
-    const d = new Date(date);
-    let month = '' + (d.getMonth() + 1);
-    let day = '' + d.getDate();
-    const year = d.getFullYear();
-    let hours = '' + d.getHours();
-    let minutes = '' + d.getMinutes();
-    let seconds = '' + d.getSeconds();
-    if (month.length < 2) month = '0' + month;
-    if (day.length < 2) day = '0' + day;
-    if (hours.length < 2) hours = '0' + hours;
-    if (minutes.length < 2) minutes = '0' + minutes;
-    if (seconds.length < 2) seconds = '0' + seconds;
-    return [year, month, day].join('-') + ' ' + [hours, minutes, seconds].join(':');
-  }
+
   statesList: any[] = [
-    { id: 1, name: 'Johor' },
-    { id: 2, name: 'Kedah' },
-    { id: 3, name: 'Kuala Lumpur' },
-    { id: 4, name: 'Kelantan' },
-    { id: 5, name: 'Labuan' },
-    { id: 6, name: 'Melaka' },
-    { id: 7, name: 'Negeri Sembilan' },
-    { id: 8, name: 'Pahang' },
-    { id: 9, name: 'Perak' },
+    { id: 1,  name: 'Johor' },
+    { id: 2,  name: 'Kedah' },
+    { id: 3,  name: 'Kuala Lumpur' },
+    { id: 4,  name: 'Kelantan' },
+    { id: 5,  name: 'Labuan' },
+    { id: 6,  name: 'Melaka' },
+    { id: 7,  name: 'Negeri Sembilan' },
+    { id: 8,  name: 'Pahang' },
+    { id: 9,  name: 'Perak' },
     { id: 10, name: 'Perlis' },
     { id: 11, name: 'Pulau Pinang' },
     { id: 12, name: 'PutraJaya' },
@@ -77,279 +73,305 @@ filteredBranchList: any[] = [];
     { id: 15, name: 'Selangor' },
     { id: 16, name: 'Terengganu' },
     { id: 17, name: 'Wilayah Persekutuan' },
+  ];
 
-  ]
-
-
-  constructor(private fb: FormBuilder, private _masterService: MastermoduleService,
-    private _router: Router, private _activatedRoute: ActivatedRoute, private _dataService: DatasharingService) {
+  constructor(
+    private fb: FormBuilder,
+    private _masterService: MastermoduleService,
+    private _router: Router,
+    private _activatedRoute: ActivatedRoute,
+    private _dataService: DatasharingService
+  ) {
     this.clientForm = this.fb.group({
-      Id: this.fb.control(0),
-      Code: this.fb.control('', [Validators.required]),
-      Name: this.fb.control('', [Validators.required]),
-      Address1: this.fb.control('', [Validators.required]),
-      Address2: this.fb.control('', [Validators.required]),
-      PostCode: this.fb.control('', [Validators.required]),
-      City: this.fb.control('', [Validators.required]),
-      State: this.fb.control('', [Validators.required]),
-      Branch: this.fb.control('null', [Validators.required]),
-      Status: this.fb.control('Active'),
-      PersonIncharge: this.fb.control('', [Validators.required]),
-      ShortName: this.fb.control('', [Validators.required]),
-      Phone: this.fb.control('', [Validators.required]),
-      Fax: this.fb.control(''),
-      UserEmail: this.fb.control(''),
-      IsClientHeadQuarters: this.fb.control(false),
-      IsPatrol: this.fb.control(false),
-      AgreementStart: this.fb.control(''),
-      AgreementEnd: this.fb.control(''),
-      CreatedDate: this.fb.control(this.formatDate(new Date)),
-      LastUpdatedDate: this.fb.control(null),
-      LastUpdatedBy: this.fb.control('Admin'),
-      SuperClientCode: this.fb.control(''),
-      SpecialOTHours: this.fb.control(0),
-      KPIHours: this.fb.control(0)
+      Id:                    this.fb.control(0),
+      Code:                  this.fb.control('',     [Validators.required]),
+      Name:                  this.fb.control('',     [Validators.required]),
+      Address1:              this.fb.control('',     [Validators.required]),
+      Address2:              this.fb.control('',     [Validators.required]),
+      PostCode:              this.fb.control('',     [Validators.required]),
+      City:                  this.fb.control('',     [Validators.required]),
+      State:                 this.fb.control('',     [Validators.required]),
+      Branch:                this.fb.control('null', [Validators.required]),
+      Status:                this.fb.control('Active'),
+      PersonIncharge:        this.fb.control('',     [Validators.required]),
+      ShortName:             this.fb.control('',     [Validators.required]),
+      Phone:                 this.fb.control('',     [Validators.required]),
+      Fax:                   this.fb.control(''),
+      UserEmail:             this.fb.control(''),
+      IsClientHeadQuarters:  this.fb.control(false),
+      IsPatrol:              this.fb.control(false),
+      AgreementStart:        this.fb.control(''),
+      AgreementEnd:          this.fb.control(''),
+      CreatedDate:           this.fb.control(this.formatDate(new Date())),
+      LastUpdatedDate:       this.fb.control(null),
+      LastUpdatedBy:         this.fb.control('Admin'),
+      SuperClientCode:       this.fb.control(''),
+      SpecialOTHours:        this.fb.control(0),
+      KPIHours:              this.fb.control(0),
     });
     this.userAccessModel = {
-      readAccess: false,
-      updateAccess: false,
-      deleteAccess: false,
-      createAccess: false,
-    }
+      readAccess: false, updateAccess: false,
+      deleteAccess: false, createAccess: false,
+    };
   }
 
   ngOnInit(): void {
-    // Branch search debounce
-this.branchSearchSubject.pipe(debounceTime(3000)).subscribe(() => {
-  this.branchSearchString = '';
-  this.branchModel = [...this.filteredBranchList];
-});
-	
+    this.branchSearchSubject.pipe(debounceTime(3000)).subscribe(() => {
+      this.branchSearchString = '';
+      this.branchModel = [...this.filteredBranchList];
+    });
+
     this.currentUser = sessionStorage.getItem('username')!;
     const rawRole = sessionStorage.getItem('userrole');
-    if (rawRole == '1') { this.userRole = 'admin'; }
+    if (rawRole == '1')      { this.userRole = 'admin'; }
     else if (rawRole == '2') { this.userRole = 'superadmin'; }
-    else { this.userRole = 'user'; }
+    else                     { this.userRole = 'user'; }
+
     if (this.currentUser == 'null' || this.currentUser == undefined) {
-      this._dataService.getUsername().subscribe((username) => {
-        this.currentUser = username;
-      });
+      this._dataService.getUsername().subscribe(u => { this.currentUser = u; });
     }
+
     this.getUserAccessRights(this.currentUser, 'Client Master');
+
     this._activatedRoute.queryParams.subscribe((params) => {
       if (params['code'] != undefined) {
         this.getClientMasterList(params['code'], params['status']);
         this.getBranchMasterListByUser(this.currentUser);
         this.getAllClientMasterList('null', 'Active');
       } else {
-        //this.getAllClientMasterList(this.clientCode, 'Active');
         this.getBranchMasterListByUser(this.currentUser);
         this.getAllClientMasterList('null', 'Active');
         this.getNewVoucherNumber();
       }
     });
   }
-  getUserAccessRights(userName: string, screenName: string) {
+
+  getUserAccessRights(userName: string, screenName: string): void {
     this._masterService.getUserAccessRights(userName, screenName).subscribe(
       (data) => {
-        console.log(data);
         if (data != null) {
-          this.userAccessModel.readAccess = data.Read
+          this.userAccessModel.readAccess   = data.Read;
           this.userAccessModel.deleteAccess = data.Delete;
           this.userAccessModel.updateAccess = data.Update;
           this.userAccessModel.createAccess = data.Create;
         }
       },
-      (error) => {
-        this.handleErrors(error);
-      }
+      (error) => this.handleErrors(error)
     );
   }
+
   getNewVoucherNumber(): void {
     this._masterService.getNClientMasterCode().subscribe(
-      result => {
-        this.clientForm.patchValue({
-          Code: result.ClientCode
-        });
-      },
+      result => { this.clientForm.patchValue({ Code: result.ClientCode }); },
       (error) => this.handleErrors(error)
     );
   }
-  changeAgreementStart(type: string, event: MatDatepickerInputEvent<Date>) {
+
+  changeAgreementStart(type: string, event: MatDatepickerInputEvent<Date>): void {
     this.clientForm.value.AgreementStart = this.formatDate(`${type}: ${event.value}`);
   }
-  changeAgreementEnd(type: string, event: MatDatepickerInputEvent<Date>) {
+  changeAgreementEnd(type: string, event: MatDatepickerInputEvent<Date>): void {
     this.clientForm.value.AgreementEnd = this.formatDate(`${type}: ${event.value}`);
   }
-  getBranchMasterList() {
-    this._masterService.getBranchMaster(this.branchCode).subscribe((responseData) => {
-      if (responseData != null) {
-        this.branchModel = responseData
-        this.filteredBranchList = [...this.branchModel];
-      }
-    },
+
+  getBranchMasterList(): void {
+    this._masterService.getBranchMaster(this.branchCode).subscribe(
+      (data) => { if (data) { this.branchModel = data; this.filteredBranchList = [...data]; } },
       (error) => this.handleErrors(error)
     );
   }
-  getBranchMasterListByUser(userName: string) {
+
+  getBranchMasterListByUser(userName: string): void {
     this._masterService.GetBranchListByUserName(userName).subscribe(
-      (data) => {
-        this.branchModel = data
-        this.filteredBranchList = [...this.branchModel];
-      },
-      (error) => {
-        this.handleErrors(error);
-      }
+      (data) => { this.branchModel = data; this.filteredBranchList = [...data]; },
+      (error) => this.handleErrors(error)
     );
   }
+
   getAllClientMasterList(clientCode: string, status: string): void {
     this._masterService.getClienthMaster(clientCode, status, this.currentUser).subscribe(
-      (data) => {
-        this.clientModelDropdown = data;
-        //this.clientForm.patchValue(data); 
+      (data) => { this.clientModelDropdown = data; },
+      (error) => this.handleErrors(error)
+    );
+  }
+
+  getClientMasterList(clientCode: string, status: string): void {
+    this.showLoadingSpinner = true;
+    this._masterService.getClienthMaster(clientCode, status, this.currentUser).subscribe(
+      (responseData) => {
+        if (responseData != null) {
+          this.clientCodeStatus = 'edit';
+          this.clientForm.patchValue({
+            Id:                   responseData[0].ID,
+            Code:                 responseData[0].Code,
+            Branch:               responseData[0].Branch,
+            Name:                 responseData[0].Name,
+            ShortName:            responseData[0].Shortname,
+            Address1:             responseData[0].Address1,
+            Address2:             responseData[0].Address2,
+            PostCode:             responseData[0].PostCode,
+            City:                 responseData[0].City,
+            State:                responseData[0].State,
+            SuperClientCode:      responseData[0].SuperClientCode,
+            Status:               responseData[0].Status,
+            PersonIncharge:       responseData[0].PersonIncharge,
+            Phone:                responseData[0].Phone,
+            Fax:                  responseData[0].Fax,
+            UserEmail:            (responseData[0].Email != 'null' ? responseData[0].Email : ''),
+            LastUpdatedBy:        responseData[0].LastUpdatedBy,
+            IsClientHeadQuarters: responseData[0].IsClientHeadQuarters,
+            IsPatrol:             responseData[0].IsPatrol,
+            LastUpdatedDate:      this.formatDate(responseData[0].LastUpdatedDate),
+            CreatedDate:          this.formatDate(responseData[0].CreatedDate),
+            SpecialOTHours:       responseData[0].SpecialOTHours,
+            KPIHours:             responseData[0].KPIHours,
+          });
+
+          // Load saved breaks from the separate ClientBreak table
+          this.loadClientBreaks(responseData[0].Code);
+
+          // Agreement dates
+          this.clientForm.get('AgreementStart')?.setValue(
+            responseData[0].AgreementStart ?? ''
+          );
+          this.clientForm.get('AgreementEnd')?.setValue(
+            responseData[0].AgreementEnd ?? ''
+          );
+
+          // IsClientHeadQuarters
+          this.clientForm.get('IsClientHeadQuarters')?.setValue(responseData[0].IsClientHeadQuarters);
+          this.disableSelect = false;
+        }
+        this.showLoadingSpinner = false;
       },
       (error) => this.handleErrors(error)
     );
   }
 
-  getClientMasterList(clientCode: string, status: string) {
-    this.showLoadingSpinner = true;
-    this._masterService.getClienthMaster(clientCode, status, this.currentUser).subscribe((responseData) => {
-      if (responseData != null) {
-        this.clientCodeStatus = 'edit';
-        this.clientForm.patchValue({
-          Id: responseData[0].ID,
-          Code: responseData[0].Code,
-          Branch: responseData[0].Branch,
-          Name: responseData[0].Name,
-          ShortName: responseData[0].Shortname,
-          Address1: responseData[0].Address1,
-          Address2: responseData[0].Address2,
-          PostCode: responseData[0].PostCode,
-          City: responseData[0].City,
-          State: responseData[0].State,
-          SuperClientCode: responseData[0].SuperClientCode,
-          Status: responseData[0].Status,
-          PersonIncharge: responseData[0].PersonIncharge,
-          Phone: responseData[0].Phone,
-          Fax: responseData[0].Fax,
-          UserEmail: (responseData[0].Email != 'null' ? responseData[0].Email : ''),
-          LastUpdatedBy: responseData[0].LastUpdatedBy,
-          IsClientHeadQuarters: responseData[0].IsClientHeadQuarters,
-          IsPatrol: responseData[0].IsPatrol,
-          LastUpdatedDate: this.formatDate(responseData[0].LastUpdatedDate),
-          //AgreementStart: this.formatDate(responseData[0].AgreementStart),
-          //AgreementEnd: this.formatDate(responseData[0].AgreementEnd == null ? 'null' : responseData[0].AgreementEnd),
-          CreatedDate: this.formatDate(responseData[0].CreatedDate),
-          SpecialOTHours: responseData[0].SpecialOTHours,
-          KPIHours: responseData[0].KPIHours,
-        });
-      }
-      if (responseData[0].isClientHeadQuarters == false) {
-        this.clientForm.get('IsClientHeadQuarters')?.setValue(responseData[0].IsClientHeadQuarters);
-        this.disableSelect = false
-      } else {
-        this.clientForm.get('IsClientHeadQuarters')?.setValue(responseData[0].IsClientHeadQuarters);
-        this.disableSelect = false
-      }
-      if (responseData[0].AgreementStart == null) {
-        this.clientForm.get('AgreementStart')?.setValue('');
-      } else {
-        this.clientForm.get('AgreementStart')?.setValue(responseData[0].AgreementStart);
-      }
-      if (responseData[0].AgreementEnd == null) {
-        this.clientForm.get('AgreementEnd')?.setValue('');
-      } else {
-        this.clientForm.get('AgreementEnd')?.setValue(responseData[0].AgreementEnd);
-      }
-      this.showLoadingSpinner = false;
-    },
+  // ── Break management methods ─────────────────────────────────────────────
 
+  /** Load breaks from API for the given clientCode. */
+  loadClientBreaks(clientCode: string): void {
+    this._masterService.getClientBreakList(clientCode).subscribe(
+      (data: ClientBreakModel[]) => {
+        this.clientBreaks = data || [];
+      },
       (error) => this.handleErrors(error)
     );
   }
 
-  onCheckboxChange(e: MatCheckboxChange) {
+  /** Add a new blank break row (defaults to 0.5 Hour). */
+  addBreak(): void {
+    const newBreak = new ClientBreakModel({
+      ID:         0,
+      ClientCode: this.clientForm.get('Code')?.value || '',
+      BreakHours: 0.5,
+      SortOrder:  this.clientBreaks.length + 1,
+    });
+    this.clientBreaks = [...this.clientBreaks, newBreak];
+  }
+
+  /** Remove a break row by its index in the array. */
+  removeBreak(index: number): void {
+    this.clientBreaks = this.clientBreaks.filter((_, i) => i !== index);
+    // Re-assign SortOrder after removal
+    this.clientBreaks.forEach((b, i) => b.SortOrder = i + 1);
+  }
+
+  /** Called when user changes the hour dropdown for a break row. */
+  onBreakHourChange(index: number, value: number): void {
+    this.clientBreaks[index].BreakHours = value;
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
+
+  onCheckboxChange(e: MatCheckboxChange): void {
     if (e.checked) {
       this.disableSelect = true;
-      this.clientForm.patchValue({ SuperClientCode: '' }); // HQ-ஆ mark பண்ணும்போது SuperClientCode clear
+      this.clientForm.patchValue({ SuperClientCode: '' });
     } else {
       this.disableSelect = false;
     }
   }
 
   searchDropdown(searchString: string, list: any[], key: string): any[] {
-if (!searchString) return [...list]; // if empty, return full list
-return list.filter(item => item[key].toLowerCase().includes(searchString.toLowerCase()));
-}
+    if (!searchString) return [...list];
+    return list.filter(item => item[key].toLowerCase().includes(searchString.toLowerCase()));
+  }
 
-onKeyDropdown(
-event: KeyboardEvent,
-searchStringProp:  'branchSearchString',
-listProp:  'branchModel',
-filteredListProp: 'filteredBranchList',
-keyName: string,
-subject: Subject<string>
-) {
-const key = event.key;
+  onKeyDropdown(
+    event: KeyboardEvent,
+    searchStringProp: 'branchSearchString',
+    listProp: 'branchModel',
+    filteredListProp: 'filteredBranchList',
+    keyName: string,
+    subject: Subject<string>
+  ): void {
+    const key = event.key;
+    this[searchStringProp] = this[searchStringProp] || '';
+    if (key.length === 1)    { this[searchStringProp] += key.toLowerCase(); }
+    else if (key === 'Backspace') { this[searchStringProp] = this[searchStringProp].slice(0, -1); }
+    else if (key === 'Escape')    { this[searchStringProp] = ''; }
+    this[listProp] = this.searchDropdown(this[searchStringProp], this[filteredListProp], keyName);
+    subject.next(this[searchStringProp]);
+  }
 
-this[searchStringProp] = this[searchStringProp] || '';
-
-if (key.length === 1) {
-  this[searchStringProp] += key.toLowerCase();
-} else if (key === 'Backspace') {
-  this[searchStringProp] = this[searchStringProp].slice(0, -1);
-} else if (key === 'Escape') {
-  this[searchStringProp] = '';
-}
-
-// Apply filter immediately
-this[listProp] = this.searchDropdown(this[searchStringProp], this[filteredListProp], keyName);
-
-// Trigger debounce to reset after 2s of inactivity
-subject.next(this[searchStringProp]);
-}
   savebuttonClick(): void {
     this.showLoadingSpinner = true;
     this.clientModel = this.clientForm.value;
 
-    this.clientModel.AgreementStart = this.clientForm.value.AgreementStart == null ? null : this.clientForm.value.AgreementStart;
-    this.clientModel.AgreementEnd = this.clientForm.get('AgreementEnd')?.value ? this.clientForm.get('AgreementEnd')?.value : '1990-01-01';
-    this.clientModel.LastUpdatedDate = this.clientForm.get('LastUpdatedDate')?.value ? this.clientForm.get('LastUpdatedDate')?.value : '1990-01-01';
-    this.clientModel.Email = (this.clientForm.value.UserEmail == '' || this.clientForm.value.UserEmail == 'null') ? 'null' : this.clientForm.value.UserEmail;
-    this.clientModel.LastUpdatedBy = this.currentUser;
+    this.clientModel.AgreementStart  = this.clientForm.value.AgreementStart  ?? null;
+    this.clientModel.AgreementEnd    = this.clientForm.get('AgreementEnd')?.value  || '1990-01-01';
+    this.clientModel.LastUpdatedDate = this.clientForm.get('LastUpdatedDate')?.value || '1990-01-01';
+    this.clientModel.Email           = (this.clientForm.value.UserEmail == '' || this.clientForm.value.UserEmail == 'null')
+                                       ? 'null' : this.clientForm.value.UserEmail;
+    this.clientModel.LastUpdatedBy   = this.currentUser;
 
-    this._masterService.saveAndUpdateClientMaster(this.clientModel).subscribe((response) => {
-      if (response.Success == 'Success') {
-        this.clientModel = response.Client;
-        this._dataService.setUsername(this.currentUser);
-        this._router.navigate(['/master/client-master']);
-        Swal.fire({
-          toast: true,
-          position: 'top',
-          showConfirmButton: false,
-          title: 'Success',
-          text: 'Successfully save & update client master deatials',
-          icon: 'success',
-          showCloseButton: false,
-          timer: 3000,
-          width: '600px',
-          customClass: {
-            popup: 'swal-top-offset'
-          }
-        });
-      }
-    },
+    // Step 1: Save the client master record
+    this._masterService.saveAndUpdateClientMaster(this.clientModel).subscribe(
+      (response) => {
+        if (response.Success == 'Success') {
+          const savedCode = response.Client?.Code || this.clientForm.get('Code')?.value;
+
+          // Step 2: Save the breaks for this client
+          const breaksPayload = this.clientBreaks.map((b, idx) => ({
+            ID:         b.ID,
+            ClientCode: savedCode,
+            BreakHours: b.BreakHours,
+            SortOrder:  idx + 1,
+          }));
+
+          this._masterService.saveClientBreaks(savedCode, breaksPayload).subscribe(
+            () => {
+              this._dataService.setUsername(this.currentUser);
+              this._router.navigate(['/master/client-master']);
+              Swal.fire({
+                toast: true, position: 'top',
+                showConfirmButton: false,
+                title: 'Success',
+                text: 'Successfully saved client master details.',
+                icon: 'success',
+                showCloseButton: false,
+                timer: 3000, width: '600px',
+                customClass: { popup: 'swal-top-offset' }
+              });
+            },
+            (error) => this.handleErrors(error)
+          );
+        }
+      },
       (error) => this.handleErrors(error)
     );
   }
+
   clearClientDetails(): void {
     this.clientForm.reset();
+    this.clientBreaks = [];
   }
-  handleErrors(error: string) {
+
+  handleErrors(error: string): void {
     if (error != null && error != '') {
-      // this.errorMessage = error;
       this.showLoadingSpinner = false;
     }
-  };
+  }
 }

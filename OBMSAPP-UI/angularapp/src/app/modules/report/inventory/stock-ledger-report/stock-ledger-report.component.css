@@ -1,6 +1,12 @@
+<<<<<<< HEAD
 /* ── Inline "loading…" hint inside the Size dropdown label ──── */
 .sl-hint-loading {
   font-size: 0.72rem;
   color: #999999;
   font-style: italic;
 }
+=======
+/* No component-specific styles needed.
+   All layout is handled by the shared report-card, report-wrapper,
+   fixed-height, and wlt-c-furg-btn-primary classes from global styles. */
+>>>>>>> 754e8b5 (Updated payslip changes)

@@ -1,0 +1,311 @@
+-- ============================================================
+-- Update EMP_ROLE = 'Others' for specified employees
+-- Identified by PASSPORT NUMBER
+-- Date: 2026-10-21
+-- Total unique passport numbers: 89
+-- ============================================================
+
+-- STEP 1: Preview - verify before updating (run this first)
+SELECT
+    EMP_ID,
+    EMP_CODE,
+    EMP_NAME,
+    EMP_PASSPORT_NO,
+    EMP_ROLE
+FROM Employee
+WHERE EMP_PASSPORT_NO IN (
+    'PA0165234',   -- BISHWAKARMA MANOJ
+    '11342748',    -- RAI SANTA KUMAR
+    'PA1231441',   -- MAJHI RAJKUMAR
+    'PA2002428',   -- BASNET NARENDRA
+    'PA2564328',   -- TUDU JEETAN
+    'PA3660886',   -- MUKHIYA TEKINDRA PRAKASH
+    '10945832',    -- DIL BAHADUR THAPA (AURA)
+    '12366238',    -- LAL BAHADUR DARJI (AURA)
+    'PA0764361',   -- MOTI BAHADUR THAPA MAGAR (AURA)
+    '10739164',    -- SHRESTA BISHAL (AURA)
+    '11842688',    -- THAPA BIRENDRA (AURA)
+    'BA0062610',   -- YADAV PRAMOD PRASAD (AURA)
+    '12450242',    -- SHIVARAM LAMA (AURA)
+    '09780478',    -- SUMAN KUMAR SHRESTHA (AURA)
+    'PA0501499',   -- THAPA MOHAN
+    'PA0799712',   -- SHYAM GHISING (AURA)
+    '08260119',    -- RABIN KARKI (AURA)
+    'PA0277663',   -- RAJAK SANTOSH KUMAR (AURA)
+    'PA1181118',   -- SARKI KRISHNA BAHADUR (AURA)
+    'PA2690201',   -- DILARAM PANDAY
+    'PA0889133',   -- KAMI MIN BAHADUR (AURA)
+    'PA1006822',   -- SURENDRA BAHADUR SHAHI (AURA)
+    'BA0076219',   -- GURUNG RAJU
+    'PA3964870',   -- KEYAR BAHADUR THAPA (AURA)
+    'PA4448919',   -- GANGA BAHADUR THAPA (AURA)
+    'PA1335940',   -- INDRA PRASAD KAFLE (AURA)
+    'PA4420396',   -- RAM DILIP KUMAR
+    'PA4383786',   -- KOIRALA BIPLAP
+    'PA0254708',   -- REGMI DINESH
+    'PA3996354',   -- DHAMI BHIM KUMAR
+    'PA2410082',   -- TAMANG KRISHNA MAN
+    'PA4079643',   -- URAW ARUN
+    'PA1729568',   -- ACHARYA KEDARNATH
+    'PA1601259',   -- THAPA MOHAN (2nd)
+    'PA3199120',   -- RAWAT BUDDHI PRASAD
+    'PA1379429',   -- CHAUDHARY SUMAN KUMAR
+    'PA4559252',   -- BASKOTA MADAN
+    'PA2088271',   -- RAI DIL KUMAR
+    'PA2304953',   -- TAMANG RUPAK KUMAR
+    '12253527',    -- SHRESTHA MOHAN
+    'PA1516590',   -- KHADKA BISHNU KUMAR
+    'PA4417105',   -- RAI BASANTA KUMAR
+    'PA4399708',   -- CHAUDHARY JAY PRAKASH
+    'PA4322201',   -- RAI NOBAL
+    'PA2721501',   -- MAGAR DIL KUMAR
+    'PA4518584',   -- RAJBANSHI DILIP KUMAR
+    'PA4435135',   -- YADAV DEV KUMAR
+    'PA2882420',   -- SHRESTHA SURENDRA BAHADUR (AURA)
+    '11595265',    -- BOHORA SUKARAM (AURA)
+    'PA3735877',   -- PAKHRIN RODAN (AURA)
+    'PA3357708',   -- CHAUDHARY CHATUR LAL
+    'PA4560156',   -- RAI BIGYAN KUMAR
+    'PA4399992',   -- KARKI CHANDRA BAHADUR
+    'PA0882782',   -- GOBINDA HISKI (AURA)
+    '11949900',    -- MAHESH LAL SAH (AURA)
+    'PA4248712',   -- HARKA BAHADUR KAMI (AURA)
+    'PA3266444',   -- KHADGAJIT RAI (AURA)
+    '11085782',    -- SRAWAN TAJPURIYA (AURA)
+    'PA1571109',   -- KARKI JIBAN
+    'PA4785965',   -- RAI RAJU
+    'PA3101856',   -- GURUNG MUKTA BAHADUR
+    'PA4556821',   -- TAMANG KUSANG
+    '12489330',    -- TAMANG KRISHNA BAHADUR
+    'PA0623092',   -- SHERPA KISAN
+    'PA3741758',   -- A C YUBRAJ
+    'PA0253094',   -- THARU PREM BAHADUR
+    'PA4646880',   -- G T DIM BAHADUR
+    '11333126',    -- DARJI KRISHNA BAHADUR
+    'PA3124287',   -- B C KUSHAL
+    'PA1249550',   -- THAPA RAMAN
+    'PA2392740',   -- GURUNG RAJU (2nd)
+    'PA4039916',   -- SUBEDI KHAGENDRA
+    'PA3280892',   -- THAPA SANTOSH KUMAR
+    '11940160',    -- KAFLE RAJAN
+    'PA1766368',   -- GARANJA MAGAR SHER BAHADUR
+    '12221687',    -- KHATIWADA GOPAL
+    'BA0218367',   -- BHATTA INDRA BAHADUR
+    'PA1965669',   -- BASNET GOPAL
+    'PA0603734',   -- KHATIWADA ARJUN
+    '12362556',    -- NEPAL LAXMI
+    'PA1544145',   -- BARAL SHER BAHADUR
+    'PA0326525',   -- CHAUDHARY GOBINDA
+    '12486595',    -- RAI SABIT
+    'PA4669863',   -- THAPA TEK BAHADUR
+    'PA3034318',   -- PRALHAD CHUDAL
+    'PA0856141',   -- BHIM PRASAD BASTOLA
+    'PA0849948',   -- GURUNG KUMAR
+    'PA0138405',   -- RAY YADAV SANTOSH
+    'PA4271383'    -- KHATWE SURYA NARAYAN
+)
+ORDER BY EMP_NAME;
+
+-- ============================================================
+-- STEP 2: Run UPDATE after confirming STEP 1 shows correct employees
+-- ============================================================
+
+UPDATE Employee
+SET EMP_ROLE = 'Others'
+WHERE EMP_PASSPORT_NO IN (
+    'PA0165234',
+    '11342748',
+    'PA1231441',
+    'PA2002428',
+    'PA2564328',
+    'PA3660886',
+    '10945832',
+    '12366238',
+    'PA0764361',
+    '10739164',
+    '11842688',
+    'BA0062610',
+    '12450242',
+    '09780478',
+    'PA0501499',
+    'PA0799712',
+    '08260119',
+    'PA0277663',
+    'PA1181118',
+    'PA2690201',
+    'PA0889133',
+    'PA1006822',
+    'BA0076219',
+    'PA3964870',
+    'PA4448919',
+    'PA1335940',
+    'PA4420396',
+    'PA4383786',
+    'PA0254708',
+    'PA3996354',
+    'PA2410082',
+    'PA4079643',
+    'PA1729568',
+    'PA1601259',
+    'PA3199120',
+    'PA1379429',
+    'PA4559252',
+    'PA2088271',
+    'PA2304953',
+    '12253527',
+    'PA1516590',
+    'PA4417105',
+    'PA4399708',
+    'PA4322201',
+    'PA2721501',
+    'PA4518584',
+    'PA4435135',
+    'PA2882420',
+    '11595265',
+    'PA3735877',
+    'PA3357708',
+    'PA4560156',
+    'PA4399992',
+    'PA0882782',
+    '11949900',
+    'PA4248712',
+    'PA3266444',
+    '11085782',
+    'PA1571109',
+    'PA4785965',
+    'PA3101856',
+    'PA4556821',
+    '12489330',
+    'PA0623092',
+    'PA3741758',
+    'PA0253094',
+    'PA4646880',
+    '11333126',
+    'PA3124287',
+    'PA1249550',
+    'PA2392740',
+    'PA4039916',
+    'PA3280892',
+    '11940160',
+    'PA1766368',
+    '12221687',
+    'BA0218367',
+    'PA1965669',
+    'PA0603734',
+    '12362556',
+    'PA1544145',
+    'PA0326525',
+    '12486595',
+    'PA4669863',
+    'PA3034318',
+    'PA0856141',
+    'PA0849948',
+    'PA0138405',
+    'PA4271383'
+);
+
+SELECT @@ROWCOUNT AS RowsUpdated;
+
+-- ============================================================
+-- STEP 3: Post-update verification
+-- ============================================================
+
+SELECT
+    EMP_ID,
+    EMP_CODE,
+    EMP_NAME,
+    EMP_PASSPORT_NO,
+    EMP_ROLE
+FROM Employee
+WHERE EMP_PASSPORT_NO IN (
+    'PA0165234',
+    '11342748',
+    'PA1231441',
+    'PA2002428',
+    'PA2564328',
+    'PA3660886',
+    '10945832',
+    '12366238',
+    'PA0764361',
+    '10739164',
+    '11842688',
+    'BA0062610',
+    '12450242',
+    '09780478',
+    'PA0501499',
+    'PA0799712',
+    '08260119',
+    'PA0277663',
+    'PA1181118',
+    'PA2690201',
+    'PA0889133',
+    'PA1006822',
+    'BA0076219',
+    'PA3964870',
+    'PA4448919',
+    'PA1335940',
+    'PA4420396',
+    'PA4383786',
+    'PA0254708',
+    'PA3996354',
+    'PA2410082',
+    'PA4079643',
+    'PA1729568',
+    'PA1601259',
+    'PA3199120',
+    'PA1379429',
+    'PA4559252',
+    'PA2088271',
+    'PA2304953',
+    '12253527',
+    'PA1516590',
+    'PA4417105',
+    'PA4399708',
+    'PA4322201',
+    'PA2721501',
+    'PA4518584',
+    'PA4435135',
+    'PA2882420',
+    '11595265',
+    'PA3735877',
+    'PA3357708',
+    'PA4560156',
+    'PA4399992',
+    'PA0882782',
+    '11949900',
+    'PA4248712',
+    'PA3266444',
+    '11085782',
+    'PA1571109',
+    'PA4785965',
+    'PA3101856',
+    'PA4556821',
+    '12489330',
+    'PA0623092',
+    'PA3741758',
+    'PA0253094',
+    'PA4646880',
+    '11333126',
+    'PA3124287',
+    'PA1249550',
+    'PA2392740',
+    'PA4039916',
+    'PA3280892',
+    '11940160',
+    'PA1766368',
+    '12221687',
+    'BA0218367',
+    'PA1965669',
+    'PA0603734',
+    '12362556',
+    'PA1544145',
+    'PA0326525',
+    '12486595',
+    'PA4669863',
+    'PA3034318',
+    'PA0856141',
+    'PA0849948',
+    'PA0138405',
+    'PA4271383'
+)
+ORDER BY EMP_NAME;

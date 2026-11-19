@@ -911,7 +911,8 @@ export class NewEmployeeComponent implements OnInit {
 
     const role = this.frm.get('EMP_ROLE')?.value;
 
-    if (role === 'Guard') {
+    // 'Others' (Other Guards) uses the same access model as Guard
+    if (role === 'Guard' || role === 'Others') {
       return this.isEdit
         ? !!this.userAccessModel?.updateAccess
         : !!this.userAccessModel?.createAccess;
