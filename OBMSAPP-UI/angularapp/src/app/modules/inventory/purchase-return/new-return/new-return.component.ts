@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import Swal from 'sweetalert2';
@@ -26,7 +27,8 @@ export class NewReturnComponent implements OnInit {
   currentUser = ''; warningMessage = ''; errorMessage = ''; showLoadingSpinner = false;
 
   constructor(private fb: FormBuilder, private activatedRoute: ActivatedRoute, private route: Router,
-    private service: InventoryService, private _dataService: DatasharingService, private _masterService: MastermoduleService) {
+    private service: InventoryService, private _dataService: DatasharingService, private _masterService: MastermoduleService,
+    private titleService: Title) {
     this.userAccessModel = { readAccess: false, updateAccess: false, deleteAccess: false, createAccess: false };
     this.frm = this.fb.group({
       GRNID:      [0, [Validators.required, Validators.min(1)]],
@@ -37,6 +39,7 @@ export class NewReturnComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Purchase Return');
     this.ID = this.activatedRoute.snapshot.params['ID'];
     this.currentUser = sessionStorage.getItem('username')!;
     if (!this.currentUser || this.currentUser === 'null') this._dataService.getUsername().subscribe(u => this.currentUser = u);
@@ -136,7 +139,8 @@ export class NewReturnComponent implements OnInit {
   }
   hideSpinner(): void { this.showLoadingSpinner = false; }
 
-  // ── Searchable dropdown helpers ──────────────────────────────────────────
+  // â”€â”€ Searchable dropdown helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   onGRNOpen(opened: boolean) { if (opened) { this.grnSearch = ''; this.filteredGRNs = [...this.grns]; } }
   onGRNSearch(q: string) { this.grnSearch = q; const s = q.toLowerCase(); this.filteredGRNs = this.grns.filter(g => g.GRNNumber?.toLowerCase().includes(s) || g.SupplierName?.toLowerCase().includes(s)); }
 }
+

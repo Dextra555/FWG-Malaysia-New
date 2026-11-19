@@ -1,4 +1,4 @@
-<%@ page language="C#" autoeventwireup="true" inherits="PayRoll_PSheetForGuard2Report, App_Web_402qaw3v" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="PSheetForGuard2Report.aspx.cs" Inherits="PayRoll_PSheetForGuard2Report" %>
 
 <%@ Register Assembly="CrystalDecisions.Web, Version=13.0.4000.0, Culture=neutral, PublicKeyToken=692fbea5521e1304"
     Namespace="CrystalDecisions.Web" TagPrefix="CR" %>

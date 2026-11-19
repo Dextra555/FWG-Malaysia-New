@@ -160,7 +160,7 @@
         <!-- Add More Invoices / GRNs button - visible only in edit mode -->
         <div class="text-right mb-2" *ngIf="showAddInvoiceBtn">
           <button type="button" class="btn wlt-c-furg-btn-primary" (click)="addMoreSupplierInvoices()">
-            <i class="fas fa-plus mr-1"></i> {{ paymentRefType === 'G' ? 'Add More GRNs' : 'Add More Invoices' }}
+            <i class="fas fa-plus mr-1"></i> {{ paymentRefType === 'G' ? 'Add More GRNs / Installments' : 'Add More Invoices' }}
           </button>
         </div>
 
@@ -170,16 +170,23 @@
 
             <ng-container matColumnDef="InvoiceNo">
               <th mat-header-cell *matHeaderCellDef>
-                {{ paymentRefType === 'G' ? 'GRN No' : 'Invoice No' }}
+                {{ paymentRefType === 'G' ? 'GRN / Asset Ref' : 'Invoice No' }}
               </th>
               <td mat-cell *matCellDef="let element; let index = index" [formGroupName]="index">
                 <div>
                   <input type="text" matInput placeholder="" value="" formControlName="InvoiceNo" readonly />
-                  <!-- Show GRN Date + PO Number as supplementary info in GRN mode -->
+                  <!-- Show supplementary info in GRN mode -->
                   <ng-container *ngIf="paymentRefType === 'G'">
-                    <small class="text-muted d-block">
+                    <!-- GRN row: show date + PO -->
+                    <small class="text-muted d-block" *ngIf="element.get('RowType')?.value !== 'ASSET_INST'">
                       {{ element.get('GRNDate')?.value | date:'dd MMM yyyy' }}
                       &nbsp;|&nbsp; PO: {{ element.get('PONumber')?.value }}
+                    </small>
+                    <!-- Asset installment row: show due date + type badge -->
+                    <small class="d-block" *ngIf="element.get('RowType')?.value === 'ASSET_INST'"
+                      style="color:#1565c0;font-weight:500">
+                      <mat-icon style="font-size:11px;vertical-align:middle">account_balance</mat-icon>
+                      Asset Inst. · Due: {{ element.get('GRNDate')?.value | date:'dd MMM yyyy' }}
                     </small>
                   </ng-container>
                 </div>

@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace OBMS.WebAPI.Models.Domain
 {
@@ -14,7 +15,8 @@ namespace OBMS.WebAPI.Models.Domain
         public int? ParentCategoryID { get; set; }
         public string? LastUpdatedBy { get; set; }
 
+        [JsonIgnore]
         [ForeignKey("ParentCategoryID")]
-        public virtual InventoryCategory ParentCategory { get; set; }
+        public virtual InventoryCategory? ParentCategory { get; set; }
     }
 }

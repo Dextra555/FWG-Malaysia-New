@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import Swal from 'sweetalert2';
 import { InventoryService } from '../../../service/inventory.service';
@@ -26,11 +27,13 @@ export class AssetMovementHistoryComponent implements OnInit {
     private service: InventoryService,
     private _dataService: DatasharingService,
     private _masterService: MastermoduleService
-  ) {
+  ,
+    private titleService: Title) {
     this.userAccessModel = { readAccess: false, updateAccess: false, deleteAccess: false, createAccess: false };
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Asset Movement History');
     this.assetID = +this.activatedRoute.snapshot.params['assetID'];
     this.currentUser = sessionStorage.getItem('username')!;
     if (!this.currentUser || this.currentUser === 'null') this._dataService.getUsername().subscribe(u => { this.currentUser = u; });
@@ -98,10 +101,11 @@ export class AssetMovementHistoryComponent implements OnInit {
   }
 
   formatDate(v: any): string {
-    if (!v) return '—';
+    if (!v) return 'â€”';
     return new Date(v).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   }
 
   goBack(): void { this.route.navigate(['/inventory/asset-master']); }
   hideLoadingSpinner(): void { this.showLoadingSpinner = false; }
 }
+

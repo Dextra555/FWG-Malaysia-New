@@ -1,4 +1,5 @@
-import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
+﻿import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { AbstractControl, FormBuilder, FormGroup, ValidatorFn, Validators } from '@angular/forms';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
@@ -60,7 +61,8 @@ export class AssetAllocationComponent implements OnInit, AfterViewInit {
     private _payroll: PayrollModuleService,
     private _dataService: DatasharingService,
     private _masterService: MastermoduleService
-  ) {
+  ,
+    private titleService: Title) {
     this.userAccessModel = { readAccess: false, updateAccess: false, deleteAccess: false, createAccess: false };
     this.buildForm();
   }
@@ -78,6 +80,7 @@ export class AssetAllocationComponent implements OnInit, AfterViewInit {
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Asset Allocation');
     this.currentUser = sessionStorage.getItem('username')!;
     if (!this.currentUser || this.currentUser === 'null') this._dataService.getUsername().subscribe(u => { this.currentUser = u; });
     this.getUserAccessRights(this.currentUser, 'Asset Allocation');
@@ -131,7 +134,7 @@ export class AssetAllocationComponent implements OnInit, AfterViewInit {
   }
 
   onBranchSelect(branch: any): void {
-    this.frm.get('AllocatedToName')?.setValue(`${branch.Code} — ${branch.Name}`);
+    this.frm.get('AllocatedToName')?.setValue(`${branch.Code} â€” ${branch.Name}`);
     this.frm.get('BranchCode')?.setValue(branch.Code);
   }
 
@@ -179,7 +182,7 @@ export class AssetAllocationComponent implements OnInit, AfterViewInit {
       });
   }
 
-  formatDate(v: any): string { if (!v) return '—'; return new Date(v).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' }); }
+  formatDate(v: any): string { if (!v) return 'â€”'; return new Date(v).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' }); }
   private extractMsg(err: any, fb: string): string { return (err && typeof err === 'string') ? err : err?.error?.message || err?.message || fb; }
   private showMessage(msg: string, icon: 'success'|'error'|'warning'|'info', title: 'Success Message'|'Error Message'|'Warning Message'): void {
     Swal.fire({ toast: true, position: 'top', showConfirmButton: false, title, text: msg, icon, timer: 5000, width: '600px', customClass: { popup: 'swal-top-offset' } });
@@ -187,9 +190,10 @@ export class AssetAllocationComponent implements OnInit, AfterViewInit {
   }
   hideLoadingSpinner(): void { this.showLoadingSpinner = false; }
 
-  // ── Searchable dropdown helpers (Asset + Branch; Staff/Guard already have inline search) ──
+  // â”€â”€ Searchable dropdown helpers (Asset + Branch; Staff/Guard already have inline search) â”€â”€
   onAssetOpen(opened: boolean)  { if (opened) { this.assetSearch  = ''; this.filteredAssets   = [...this.assetList];  } }
   onBranchOpen(opened: boolean) { if (opened) { this.branchSearch = ''; this.filteredBranches = [...this.branchList]; } }
   onAssetSearch(q: string)  { this.assetSearch  = q; const s = q.toLowerCase(); this.filteredAssets   = this.assetList.filter(a  => a.Name?.toLowerCase().includes(s) || a.AssetCode?.toLowerCase().includes(s)); }
   onBranchSearch(q: string) { this.branchSearch = q; const s = q.toLowerCase(); this.filteredBranches = this.branchList.filter(b => b.Name?.toLowerCase().includes(s) || b.Code?.toLowerCase().includes(s)); }
 }
+

@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { MatDialog } from '@angular/material/dialog';
 import {
   ApexNonAxisChartSeries, ApexChart, ApexDataLabels, ApexLegend,
@@ -21,17 +22,17 @@ import {
 })
 export class InventoryDashboardComponent implements OnInit {
 
-  // ── Auth ─────────────────────────────────────────────────────────────────
+  // â”€â”€ Auth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   currentUser: string = '';
   userRole: string    = '';
   userAccessModel: UserAccessModel = new UserAccessModel();
   warningMessage: string = '';
 
-  // ── State ─────────────────────────────────────────────────────────────────
+  // â”€â”€ State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   showLoadingSpinner = false;
   lastUpdated: Date | null = null;
 
-  // ── KPI Cards ─────────────────────────────────────────────────────────────
+  // â”€â”€ KPI Cards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   totalItems       = 0;
   totalStockValue  = 0;
   totalStockQty    = 0;
@@ -39,10 +40,10 @@ export class InventoryDashboardComponent implements OnInit {
   pendingIssues    = 0;
   lowStockItems    = 0;
 
-  // ── Global Summary (right panel) ──────────────────────────────────────────
+  // â”€â”€ Global Summary (right panel) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   globalSummary: any = {};
 
-  // ── Donut Chart ───────────────────────────────────────────────────────────
+  // â”€â”€ Donut Chart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   donutSeries: ApexNonAxisChartSeries = [];
   donutLabels: string[] = [];
   donutValueLabels: string[] = [];   // RM-formatted labels for legend
@@ -79,7 +80,7 @@ export class InventoryDashboardComponent implements OnInit {
   donutColors = ['#1e88e5','#e53935','#43a047','#fb8c00','#8e24aa',
                  '#00acc1','#6d4c41','#546e7a','#d81b60','#00897b'];
 
-  // ── Bar Chart ─────────────────────────────────────────────────────────────
+  // â”€â”€ Bar Chart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   barSeries: ApexAxisChartSeries = [
     { name: 'Inward (Qty)', data: [] },
     { name: 'Outward (Qty)', data: [] }
@@ -103,21 +104,21 @@ export class InventoryDashboardComponent implements OnInit {
   barColors = ['#43a047', '#e53935'];
   barGrid: ApexGrid = { row: { colors: ['#f9f9f9', 'transparent'] } };
 
-  // ── Low Stock Alerts ──────────────────────────────────────────────────────
+  // â”€â”€ Low Stock Alerts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   lowStockAlerts: any[] = [];
 
-  // ── Pending Activities ────────────────────────────────────────────────────
+  // â”€â”€ Pending Activities â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   pendingActivities: any = {};
 
-  // ── Recent Transactions ───────────────────────────────────────────────────
+  // â”€â”€ Recent Transactions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   recentTransactions: any[] = [];
 
-  // ── Stock Qty by Warehouse ────────────────────────────────────────────────
+  // â”€â”€ Stock Qty by Warehouse â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   itemWarehouseRaw: any[] = [];
   whQtyHeaders: string[] = [];    // unique warehouse names
   whQtyRows: any[]       = [];    // pivoted rows: { ItemName, [wh]: qty, Total }
 
-  // ── Quick Access links ────────────────────────────────────────────────────
+  // â”€â”€ Quick Access links â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   quickLinks = [
     { label: 'Item Master',          icon: 'inventory_2',     route: '/inventory/item-master',           color: '#4D1220' },
     { label: 'Opening Stock',        icon: 'open_in_browser', route: '/inventory/opening-stock',         color: '#1976d2' },
@@ -133,9 +134,11 @@ export class InventoryDashboardComponent implements OnInit {
     private _inventoryService: InventoryService,
     private _masterService: MastermoduleService,
     private _dialog: MatDialog
-  ) {}
+  ,
+    private titleService: Title) {}
 
   ngOnInit(): void {
+    this.titleService.setTitle('Inventory Dashboard');
     this.currentUser = sessionStorage.getItem('username') ?? '';
     const rawRole    = sessionStorage.getItem('userrole');
     this.userRole    = rawRole === '2' ? 'superadmin' : rawRole === '1' ? 'admin' : 'user';
@@ -215,7 +218,7 @@ export class InventoryDashboardComponent implements OnInit {
     );
   }
 
-  // ── Pending Activities dialog ─────────────────────────────────────────────
+  // â”€â”€ Pending Activities dialog â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   openPendingActivity(type: PendingActivityType, title: string, count: number): void {
     this._dialog.open(PendingActivityDialogComponent, {
@@ -227,7 +230,7 @@ export class InventoryDashboardComponent implements OnInit {
     });
   }
 
-  // ── Pivot RS8 into cross-tab rows ──────────────────────────────────────────
+  // â”€â”€ Pivot RS8 into cross-tab rows â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   buildWhQtyPivot(raw: any[]): void {
     if (!raw.length) { this.whQtyHeaders = []; this.whQtyRows = []; return; }
 
@@ -247,7 +250,7 @@ export class InventoryDashboardComponent implements OnInit {
     this.whQtyRows = Array.from(itemMap.values());
   }
 
-  // ── Formatting ─────────────────────────────────────────────────────────────
+  // â”€â”€ Formatting â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   formatNum(v: number): string {
     if (!v) return '0';
     return v.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -280,3 +283,4 @@ export class InventoryDashboardComponent implements OnInit {
     return new Date().toLocaleString('en-GB', { month: 'long', year: 'numeric' });
   }
 }
+

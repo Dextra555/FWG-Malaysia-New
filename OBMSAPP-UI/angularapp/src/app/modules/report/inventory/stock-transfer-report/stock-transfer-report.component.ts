@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { environment } from '../../../../../environments/environment';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
@@ -33,7 +34,8 @@ export class StockTransferReportComponent implements OnInit {
     private service: InventoryService,
     private fb: FormBuilder,
     private _dataService: DatasharingService
-  ) {
+  ,
+    private titleService: Title) {
     this.currentUser = sessionStorage.getItem('username')!;
     this.url += this.currentUrl;
     this.url += 'LoginID=' + this.currentUser;
@@ -42,9 +44,9 @@ export class StockTransferReportComponent implements OnInit {
     const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
     this.frm = this.fb.group({
-      SourceWarehouseID: ['0'],                               // optional — 0 = All
-      DestWarehouseID:   ['0'],                               // optional — 0 = All
-      ItemID:            ['0'],                               // optional — 0 = All
+      SourceWarehouseID: ['0'],                               // optional â€” 0 = All
+      DestWarehouseID:   ['0'],                               // optional â€” 0 = All
+      ItemID:            ['0'],                               // optional â€” 0 = All
       StartDate:         [firstOfMonth, Validators.required],
       EndDate:           [today,        Validators.required]
     });
@@ -56,6 +58,7 @@ export class StockTransferReportComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Stock Transfer Report');
     this.currentUser = sessionStorage.getItem('username')!;
     if (!this.currentUser || this.currentUser === 'null') {
       this._dataService.getUsername().subscribe(u => this.currentUser = u);
@@ -175,3 +178,4 @@ export class StockTransferReportComponent implements OnInit {
     return `${year}-${month}-${day}`;
   }
 }
+

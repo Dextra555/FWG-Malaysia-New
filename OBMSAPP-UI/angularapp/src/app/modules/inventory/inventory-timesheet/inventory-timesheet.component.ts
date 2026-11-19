@@ -1,4 +1,5 @@
 ﻿import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { MatPaginator } from '@angular/material/paginator';
@@ -82,7 +83,8 @@ export class InventoryTimesheetComponent implements OnInit, AfterViewInit {
     public dialog: MatDialog,
     private _liveAnnouncer: LiveAnnouncer,
     private route: Router
-  ) {
+  ,
+    private titleService: Title) {
     this.userAccessModel = {
       readAccess: false,
       updateAccess: false,
@@ -97,6 +99,7 @@ export class InventoryTimesheetComponent implements OnInit, AfterViewInit {
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Inventory Timesheet');
     this.currentUser = sessionStorage.getItem('username')!;
     const rawRole = sessionStorage.getItem('userrole');
     if (rawRole == '1') { this.userRole = 'admin'; }
@@ -258,3 +261,4 @@ export class InventoryTimesheetComponent implements OnInit, AfterViewInit {
     this.showLoadingSpinner = false;
   }
 }
+

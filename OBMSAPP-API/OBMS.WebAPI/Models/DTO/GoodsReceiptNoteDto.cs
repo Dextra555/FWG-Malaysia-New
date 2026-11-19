@@ -56,7 +56,7 @@ namespace OBMS.WebAPI.Models.DTO
     {
         public int ID { get; set; }
         public int PODetailID { get; set; }
-        public int ItemID { get; set; }
+        public int? ItemID { get; set; }   // nullable — service lines have no ItemMaster
         public int? UOMID { get; set; }
         public decimal ReceivedQty { get; set; }
         public decimal UnitCost { get; set; }
@@ -97,7 +97,7 @@ namespace OBMS.WebAPI.Models.DTO
         public int ID { get; set; }
         public int GRNID { get; set; }
         public int PODetailID { get; set; }
-        public int ItemID { get; set; }
+        public int? ItemID { get; set; }   // nullable — service lines have no ItemMaster
         public string ItemCode { get; set; } = string.Empty;
         public string ItemName { get; set; } = string.Empty;
         public string CategoryName { get; set; } = string.Empty;
@@ -109,6 +109,12 @@ namespace OBMS.WebAPI.Models.DTO
         public decimal SSTPercent { get; set; }
         /// <summary>Stored SST amount = ReceivedQty × UnitCost × SSTPercent / 100.</summary>
         public decimal SSTAmount { get; set; }
+        /// <summary>True when this GRN line is a service / non-inventory charge.</summary>
+        public bool IsServiceLine { get; set; }
+        /// <summary>AssetMaster.ID auto-created during GRN save (null for stock items).</summary>
+        public int? AssetID { get; set; }
+        /// <summary>AssetMaster.AssetCode for quick display.</summary>
+        public string? AssetCode { get; set; }
     }
 
     /// <summary>
@@ -118,7 +124,7 @@ namespace OBMS.WebAPI.Models.DTO
     public class POLineForGRNDto
     {
         public int PODetailID { get; set; }
-        public int ItemID { get; set; }
+        public int? ItemID { get; set; }
         public string ItemCode { get; set; } = string.Empty;
         public string ItemName { get; set; } = string.Empty;
         public string CategoryName { get; set; } = string.Empty;
@@ -130,5 +136,9 @@ namespace OBMS.WebAPI.Models.DTO
         public decimal UnitCost { get; set; }      // from PO UnitPrice
         /// <summary>SST rate from the PO line — displayed read-only on GRN form.</summary>
         public decimal SSTPercent { get; set; }
+        /// <summary>True when this PO line is a service / non-inventory charge.</summary>
+        public bool IsServiceLine { get; set; }
+        /// <summary>Free-text description for service lines (ItemID is null).</summary>
+        public string? ServiceDescription { get; set; }
     }
 }

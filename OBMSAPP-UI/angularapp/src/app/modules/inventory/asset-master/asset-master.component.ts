@@ -1,4 +1,5 @@
-import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
+﻿import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
 import { MatSort, Sort } from '@angular/material/sort';
@@ -49,11 +50,13 @@ export class AssetMasterComponent implements OnInit, AfterViewInit {
     private route: Router,
     private _dataService: DatasharingService,
     private _masterService: MastermoduleService
-  ) {
+  ,
+    private titleService: Title) {
     this.userAccessModel = { readAccess: false, updateAccess: false, deleteAccess: false, createAccess: false };
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Asset Master');
     this.currentUser = sessionStorage.getItem('username')!;
     const rawRole = sessionStorage.getItem('userrole');
     if (rawRole == '1') { this.userRole = 'admin'; }
@@ -111,7 +114,7 @@ export class AssetMasterComponent implements OnInit, AfterViewInit {
 
   deleteClickButton(row: any): void {
     this.dialog.open(DialogConfirmationComponent, {
-      data: `Are you sure you want to delete asset <b>${row.AssetCode} — ${row.Name}</b>?`
+      data: `Are you sure you want to delete asset <b>${row.AssetCode} â€” ${row.Name}</b>?`
     }).afterClosed().subscribe((result: { confirmDialog: boolean }) => {
       if (result?.confirmDialog) {
         this.showLoadingSpinner = true;
@@ -166,3 +169,4 @@ export class AssetMasterComponent implements OnInit, AfterViewInit {
 
   hideLoadingSpinner(): void { this.showLoadingSpinner = false; }
 }
+

@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { AbstractControl, FormArray, FormBuilder, FormGroup, ValidatorFn, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
@@ -49,7 +50,8 @@ export class NewStockIssueReturnComponent implements OnInit {
     private service: InventoryService,
     private _dataService: DatasharingService,
     private _masterService: MastermoduleService
-  ) {
+  ,
+    private titleService: Title) {
     this.userAccessModel = { readAccess: false, updateAccess: false, deleteAccess: false, createAccess: false };
     this.buildForm();
   }
@@ -69,6 +71,7 @@ export class NewStockIssueReturnComponent implements OnInit {
   get details(): FormArray { return this.frm.get('Details') as FormArray; }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Stock Issue Return');
     this.ID = this.activatedRoute.snapshot.params['ID'];
     this.currentUser = sessionStorage.getItem('username')!;
     if (!this.currentUser || this.currentUser === 'null') {
@@ -196,13 +199,13 @@ export class NewStockIssueReturnComponent implements OnInit {
 
   get viewWarehouseName(): string {
     const id = this.frm.get('WarehouseID')?.value;
-    return this.warehouses.find((w: any) => w.ID === id)?.Name || '—';
+    return this.warehouses.find((w: any) => w.ID === id)?.Name || 'â€”';
   }
   get viewIssueDocLabel(): string {
     const id = this.frm.get('OriginalIssueDocID')?.value;
     const doc = this.issueDocs.find((d: any) => d.ID === id);
-    if (!doc) return '—';
-    return `${doc.IssueNo} — ${doc.IssueToName || doc.IssueToType}`;
+    if (!doc) return 'â€”';
+    return `${doc.IssueNo} â€” ${doc.IssueToName || doc.IssueToType}`;
   }
 
   onSubmit(): void {
@@ -263,7 +266,7 @@ export class NewStockIssueReturnComponent implements OnInit {
   onCancelClick(): void { this.route.navigate(['/inventory/stock-issue-return']); }
 
   /** Open the Issue Return PDF in a new browser tab for printing or downloading.
-   *  Only callable in view mode (existing saved document). Read-only — does not
+   *  Only callable in view mode (existing saved document). Read-only â€” does not
    *  modify any record, stock ledger, balance, or salary deduction. */
   onPrintPDF(): void {
     const docID = this.ID || this.frm.get('ID')?.value;
@@ -291,9 +294,10 @@ export class NewStockIssueReturnComponent implements OnInit {
 
   hideLoadingSpinner(): void { this.showLoadingSpinner = false; }
 
-  // ── Searchable dropdown helpers ──────────────────────────────────────────
+  // â”€â”€ Searchable dropdown helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   onIssueDocOpen(opened: boolean)  { if (opened) { this.issueDocSearch  = ''; this.filteredIssueDocs  = [...this.issueDocs];  } }
   onWarehouseOpen(opened: boolean) { if (opened) { this.warehouseSearch = ''; this.filteredWarehouses = [...this.warehouses]; } }
   onIssueDocSearch(q: string)  { this.issueDocSearch  = q; const s = q.toLowerCase(); this.filteredIssueDocs  = this.issueDocs.filter(d  => d.IssueNo?.toLowerCase().includes(s) || d.IssueToName?.toLowerCase().includes(s) || d.IssueToType?.toLowerCase().includes(s)); }
   onWarehouseSearch(q: string) { this.warehouseSearch = q; const s = q.toLowerCase(); this.filteredWarehouses = this.warehouses.filter(w => w.Name?.toLowerCase().includes(s)); }
 }
+

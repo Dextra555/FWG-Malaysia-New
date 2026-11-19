@@ -195,6 +195,18 @@ export class PaySheetComponent implements OnInit {
     this.reportPageName = "PaySheetReport" + (number == 0 ? "" : number) + ".aspx?"
     this.reportPageName += "LoginID=" + this.currentUser;
   }
+
+  clkBtnWithSalary() {
+    this.reportPageName = "PaySheetWithSalary.aspx?";
+    this.reportPageName += "LoginID=" + this.currentUser;
+    this.onSubmit();
+  }
+
+  clkBtnWithinSalary() {
+    this.reportPageName = "PaySheetWithinSalary.aspx?";
+    this.reportPageName += "LoginID=" + this.currentUser;
+    this.onSubmit();
+  }
   handleErrors(error: string) {
     if (error != null && error != '') {
       this.hideSpinner();

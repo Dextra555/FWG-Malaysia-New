@@ -1,4 +1,5 @@
-import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
+﻿import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { AbstractControl, FormBuilder, FormGroup, ValidatorFn, Validators } from '@angular/forms';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
@@ -43,7 +44,8 @@ export class AssetReturnComponent implements OnInit, AfterViewInit {
     private fb: FormBuilder, private _liveAnnouncer: LiveAnnouncer,
     private service: InventoryService,
     private _dataService: DatasharingService, private _masterService: MastermoduleService
-  ) {
+  ,
+    private titleService: Title) {
     this.userAccessModel = { readAccess: false, updateAccess: false, deleteAccess: false, createAccess: false };
     this.buildForm();
   }
@@ -61,6 +63,7 @@ export class AssetReturnComponent implements OnInit, AfterViewInit {
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Asset Return');
     this.currentUser = sessionStorage.getItem('username')!;
     if (!this.currentUser || this.currentUser === 'null') this._dataService.getUsername().subscribe(u => { this.currentUser = u; });
     this.getUserAccessRights(this.currentUser, 'Asset Return');
@@ -122,7 +125,7 @@ export class AssetReturnComponent implements OnInit, AfterViewInit {
     });
   }
 
-  formatDate(v: any): string { if (!v) return '—'; return new Date(v).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' }); }
+  formatDate(v: any): string { if (!v) return 'â€”'; return new Date(v).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' }); }
   private extractMsg(e: any, fb: string): string { return (e && typeof e === 'string') ? e : e?.error?.message || e?.message || fb; }
   private showMessage(msg: string, icon: 'success'|'error'|'warning'|'info', title: 'Success Message'|'Error Message'|'Warning Message'): void {
     Swal.fire({ toast: true, position: 'top', showConfirmButton: false, title, text: msg, icon, timer: 5000, width: '600px', customClass: { popup: 'swal-top-offset' } });
@@ -130,7 +133,8 @@ export class AssetReturnComponent implements OnInit, AfterViewInit {
   }
   hideLoadingSpinner(): void { this.showLoadingSpinner = false; }
 
-  // ── Searchable dropdown helpers ──────────────────────────────────────────
+  // â”€â”€ Searchable dropdown helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   onAssetOpen(opened: boolean) { if (opened) { this.assetSearch = ''; this.filteredAssets = [...this.allocatedAssets]; } }
   onAssetSearch(q: string) { this.assetSearch = q; const s = q.toLowerCase(); this.filteredAssets = this.allocatedAssets.filter(a => a.AssetName?.toLowerCase().includes(s) || a.AssetCode?.toLowerCase().includes(s) || a.AllocatedToName?.toLowerCase().includes(s)); }
 }
+

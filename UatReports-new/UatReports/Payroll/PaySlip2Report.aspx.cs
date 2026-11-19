@@ -70,8 +70,6 @@ public partial class PayRoll_PaySlip2Report : System.Web.UI.Page
             // Pass ClientCode to rpt parameter only if parameter exists in .rpt (avoids popup)
             TrySetParameter("ClientCode", Request.QueryString["ClientCode"] ?? "");
 
-            string connStr = System.Configuration.ConfigurationManager.ConnectionStrings["obms"] != null ? ConfigurationManager.ConnectionStrings["obms"].ConnectionString : string.Format("Server={0};Database={1};User Id={2};Password={3};", ConfigurationManager.AppSettings["Server"], ConfigurationManager.AppSettings["Database"], ConfigurationManager.AppSettings["UserID"], ConfigurationManager.AppSettings["Password"]);
-
             // Build record selection formula
             string formula = crptPaySlip.ReportDocument.RecordSelectionFormula ?? "";
 
@@ -81,28 +79,9 @@ public partial class PayRoll_PaySlip2Report : System.Web.UI.Page
             {
                 formula = BuildFormula(formula, "{Employee.EMP_CITIZEN} = 1");
             }
-            else if (!string.IsNullOrEmpty(employeeTypeCheck) && employeeTypeCheck != "Guard" && employeeTypeCheck != "Staff")
-            {
-                crptPaySlipList.ParameterFieldInfo["EmployeeType"].CurrentValues.Clear();
-                ParameterDiscreteValue paramEmpTypeOverride = new ParameterDiscreteValue();
-                paramEmpTypeOverride.Value = "Guard";
-                crptPaySlipList.ParameterFieldInfo["EmployeeType"].CurrentValues.Add(paramEmpTypeOverride);
-
-                var empIds = new System.Collections.Generic.List<string>();
-                using (var conn = new System.Data.SqlClient.SqlConnection(connStr))
-                {
-                    conn.Open();
-                    var cmd = new System.Data.SqlClient.SqlCommand(
-                        "SELECT EMP_ID FROM Employee WHERE EMP_ROLE = @role", conn);
-                    cmd.Parameters.AddWithValue("@role", employeeTypeCheck);
-                    using (var reader = cmd.ExecuteReader())
-                        while (reader.Read()) empIds.Add(reader.GetInt32(0).ToString());
-                }
-                string empIdCondition = empIds.Count > 0
-                    ? "{PaySlip.EmployeeID} IN (" + string.Join(",", empIds) + ")"
-                    : "{PaySlip.EmployeeID} = 0";
-                formula = BuildFormula(formula, empIdCondition);
-            }
+            // NOTE: For all other EmployeeType values (including "Others"), the {?EmployeeType}
+            // parameter already set above is sufficient — the .rpt base formula uses
+            // {vwPaySheet.EMP_ROLE} = {?EmployeeType} to filter. No extra IN-list needed.
 
             // Filter by specific Employee
             string employeeCode = Request.QueryString["Employee"];

@@ -194,6 +194,13 @@ export class UniformLoanStockLinkComponent implements OnInit, AfterViewInit {
       );
     }
 
+    // Employee Type filter
+    if (this.selectedIssueToType) {
+      filtered = filtered.filter(r =>
+        (r.IssueToType ?? '').toLowerCase() === this.selectedIssueToType.toLowerCase()
+      );
+    }
+
     // Employee filter
     if (this.selectedEmployeeID > 0) {
       filtered = filtered.filter(r => r.EmployeeID === +this.selectedEmployeeID);

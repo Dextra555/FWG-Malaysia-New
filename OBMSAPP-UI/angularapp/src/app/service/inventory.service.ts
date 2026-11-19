@@ -406,6 +406,11 @@ export class InventoryService {
       .pipe(catchError(this.errorHandle));
   }
 
+  bulkImportOpeningStock(body: any): Observable<any> {
+    return this.httpClient.post<any>(this.apiUrl + 'Inventory/BulkImportOpeningStock', body)
+      .pipe(catchError(this.errorHandle));
+  }
+
   deleteOpeningStock(id: number, currentUser: string): Observable<any> {
     return this.httpClient.post<any>(
       `${this.apiUrl}Inventory/DeleteOpeningStock/${id}?currentUser=${encodeURIComponent(currentUser)}`,
@@ -976,12 +981,17 @@ export class InventoryService {
   // ── Part 5: Employee Issue Register ───────────────────────────────────────
 
   getEmployeeIssueRegister(dateFrom: string, dateTo: string,
-    employeeID: number = 0, issueToType: string = 'ALL'): Observable<any[]> {
+    employeeID: number = 0, issueToType: string = 'ALL',
+    clientName: string = '', isDeduction: string = 'ALL',
+    clientID: number = 0): Observable<any[]> {
     let params = new HttpParams()
       .set('dateFrom', dateFrom)
       .set('dateTo', dateTo)
-      .set('issueToType', issueToType);
+      .set('issueToType', issueToType)
+      .set('isDeduction', isDeduction);
     if (employeeID > 0) params = params.set('employeeID', employeeID);
+    if (clientName && clientName.trim()) params = params.set('clientName', clientName.trim());
+    if (clientID > 0) params = params.set('clientID', clientID);
     return this.httpClient.get<any[]>(this.apiUrl + 'Inventory/GetEmployeeIssueRegister', { params })
       .pipe(catchError(this.errorHandle));
   }
@@ -1012,6 +1022,24 @@ export class InventoryService {
   deleteAssetRecord(id: number, currentUser: string): Observable<any> {
     return this.httpClient.post<any>(
       `${this.apiUrl}Inventory/DeleteAssetRecord/${id}?currentUser=${encodeURIComponent(currentUser)}`, null)
+      .pipe(catchError(this.errorHandle));
+  }
+
+  getAssetInstallments(assetID: number): Observable<any[]> {
+    return this.httpClient.get<any[]>(this.apiUrl + 'Inventory/GetAssetInstallments',
+      { params: new HttpParams().set('assetID', assetID) })
+      .pipe(catchError(this.errorHandle));
+  }
+
+  getAssetPaymentLockStatus(assetID: number): Observable<any> {
+    return this.httpClient.get<any>(this.apiUrl + 'Inventory/GetAssetPaymentLockStatus',
+      { params: new HttpParams().set('assetID', assetID) })
+      .pipe(catchError(this.errorHandle));
+  }
+
+  getAssetInstallmentsForPayment(supplierID: number, paymentId: number = 0): Observable<any[]> {
+    return this.httpClient.get<any[]>(this.apiUrl + 'Inventory/GetAssetInstallmentsForPayment',
+      { params: new HttpParams().set('supplierID', supplierID).set('paymentId', paymentId) })
       .pipe(catchError(this.errorHandle));
   }
 

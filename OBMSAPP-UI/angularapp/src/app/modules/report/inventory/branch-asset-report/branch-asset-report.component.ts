@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { environment } from '../../../../../environments/environment';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { FormBuilder, FormGroup } from '@angular/forms';
@@ -48,14 +49,15 @@ export class BranchAssetReportComponent implements OnInit {
     private service: InventoryService,
     private fb: FormBuilder,
     private _dataService: DatasharingService
-  ) {
+  ,
+    private titleService: Title) {
     this.currentUser = sessionStorage.getItem('username')!;
     this.url += this.currentUrl;
     this.url += 'LoginID=' + this.currentUser;
 
-    // No date filter — current snapshot only
+    // No date filter â€” current snapshot only
     this.frm = this.fb.group({
-      BranchID:    ['0'],    // optional — 0 = All Branches
+      BranchID:    ['0'],    // optional â€” 0 = All Branches
       AssetStatus: ['ALL'],  // default = All Statuses
       AssetType:   ['ALL'],  // default = All Types
     });
@@ -67,6 +69,7 @@ export class BranchAssetReportComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Branch Asset Report');
     this.currentUser = sessionStorage.getItem('username')!;
     if (!this.currentUser || this.currentUser === 'null') {
       this._dataService.getUsername().subscribe(u => this.currentUser = u);
@@ -137,3 +140,4 @@ export class BranchAssetReportComponent implements OnInit {
     this.errorMessage = '';
   }
 }
+

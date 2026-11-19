@@ -3,7 +3,7 @@ using System.Configuration;
 using CrystalDecisions.Shared;
 using CrystalDecisions.Web;
 
-public partial class _Default : System.Web.UI.Page 
+public partial class Payroll_EPFReport : System.Web.UI.Page 
 {
     protected void Page_Load(object sender, EventArgs e)
     {
@@ -11,16 +11,16 @@ public partial class _Default : System.Web.UI.Page
         {
             foreach (CrystalDecisions.CrystalReports.Engine.Table table in CrystalReportSourceData.ReportDocument.Database.Tables)
             {
+                // Optionally, ensure the Tool Panel is hidden
                 CrystalReportViewerView.ToolPanelView = ToolPanelViewType.None;
                 TableLogOnInfo logonInfo = table.LogOnInfo;
-                logonInfo.ConnectionInfo.ServerName   = ConfigurationManager.AppSettings["Server"];
+                logonInfo.ConnectionInfo.ServerName = ConfigurationManager.AppSettings["Server"];
                 logonInfo.ConnectionInfo.DatabaseName = ConfigurationManager.AppSettings["Database"];
-                logonInfo.ConnectionInfo.Password     = ConfigurationManager.AppSettings["Password"];
-                logonInfo.ConnectionInfo.UserID       = ConfigurationManager.AppSettings["UserID"];
+                logonInfo.ConnectionInfo.Password = ConfigurationManager.AppSettings["Password"];
+                logonInfo.ConnectionInfo.UserID = ConfigurationManager.AppSettings["UserID"];
                 table.ApplyLogOnInfo(logonInfo);
             }
 
-            // ── Company header parameters ──────────────────────────────────
             ParameterDiscreteValue paramCompanyName = new ParameterDiscreteValue();
             paramCompanyName.Value = ConfigurationManager.AppSettings["CompanyName"];
 
@@ -42,50 +42,101 @@ public partial class _Default : System.Web.UI.Page
             ParameterDiscreteValue paramPhone = new ParameterDiscreteValue();
             paramPhone.Value = ConfigurationManager.AppSettings["Phone"];
 
-            // ── Period ─────────────────────────────────────────────────────
+            ParameterDiscreteValue paramEmployeeType = new ParameterDiscreteValue();
+            paramEmployeeType.Value = Request.QueryString["EmployeeType"];
+
             string period = Request.QueryString["Period"];
             DateTime periodDate;
             ParameterDiscreteValue paramPeriod = new ParameterDiscreteValue();
+
             if (DateTime.TryParse(period, out periodDate))
+            {
+
                 paramPeriod.Value = periodDate;
+            }
             else
+            {
                 paramPeriod.Value = DateTime.Now;
+            }
 
-            // ── EmployeeType ───────────────────────────────────────────────
-            string employeeTypeCheck = Request.QueryString["EmployeeType"] ?? "";
-            ParameterDiscreteValue paramEmployeeType = new ParameterDiscreteValue();
-            paramEmployeeType.Value = employeeTypeCheck;
-
-            // ── Pass all parameters to the viewer ──────────────────────────
             CrystalReportViewerView.ParameterFieldInfo["CompanyName"].CurrentValues.Add(paramCompanyName);
             CrystalReportViewerView.ParameterFieldInfo["CompanyAddress1"].CurrentValues.Add(paramAddress1);
             CrystalReportViewerView.ParameterFieldInfo["CompanyAddress2"].CurrentValues.Add(paramAddress2);
             CrystalReportViewerView.ParameterFieldInfo["CompanyAddress3"].CurrentValues.Add(paramPostCodeCity);
             CrystalReportViewerView.ParameterFieldInfo["CompanyAddress4"].CurrentValues.Add(paramState);
             CrystalReportViewerView.ParameterFieldInfo["CompanyRegistration"].CurrentValues.Add(paramRegistration);
-            CrystalReportViewerView.ParameterFieldInfo["CompanyPhone"].CurrentValues.Add(paramPhone);
+            CrystalReportViewerView.ParameterFieldInfo["CompanyPhone"].CurrentValues.Add(paramPhone); 
             CrystalReportViewerView.ParameterFieldInfo["Period"].CurrentValues.Add(paramPeriod);
             CrystalReportViewerView.ParameterFieldInfo["EmployeeType"].CurrentValues.Add(paramEmployeeType);
 
-            // ── Branch filter (appended to the .rpt's own formula) ─────────
-            string branch = Request.QueryString["Branch"] ?? "";
-            if (!string.IsNullOrEmpty(branch))
-                CrystalReportSourceData.ReportDocument.RecordSelectionFormula += " AND {BranchMaster.Code} = '" + branch + "'";
-            else
-                CrystalReportSourceData.ReportDocument.RecordSelectionFormula += " AND {OBMSBranches.Name} = '" + Request.QueryString["LoginID"] + "'";
+            // ===== EMPLOYEE TYPE FILTER =====
+            string employeeType = (Request.QueryString["EmployeeType"] ?? "").Trim();
+            if (!string.IsNullOrEmpty(employeeType))
+            {
+                if (employeeType == "FGuard" || employeeType == "Foreign Guard")
+                {
+                    // Foreign Guard = citizen flag = 1
+                    CrystalReportSourceData.ReportDocument.RecordSelectionFormula +=
+                        " AND {Employee.EMP_CITIZEN} = 1";
+                }
+                else
+                {
+                    // Guard / Staff / Others — filter directly by EMP_ROLE
+                    CrystalReportSourceData.ReportDocument.RecordSelectionFormula +=
+                        " AND {Employee.EMP_ROLE} = '" + employeeType.Replace("'", "''") + "'";
+                }
+            }
 
-            // ── EPF No filter (ReportType 2 = has EPF, 3 = no EPF) ─────────
+            // Handle optional Branch parameter
+            string branch = Request.QueryString["Branch"];
+            ParameterDiscreteValue paramBranch = new ParameterDiscreteValue { Value = branch };
+            if (!string.IsNullOrEmpty(branch))
+            {
+                if (DoesParameterExist("Branch"))
+                {
+                    if (branch != "")
+                    {
+                        
+                        CrystalReportSourceData.ReportDocument.RecordSelectionFormula += " AND {BranchMaster.Code} = '" + Request.QueryString["Branch"] + "'";
+                    }
+                    else
+                    {
+                        CrystalReportSourceData.ReportDocument.RecordSelectionFormula += " And {OBMSBranches.Name} ='" + Request.QueryString["LoginID"] + "'";
+                    }
+                }
+                else
+                {
+                    if (branch != "")
+                    {
+                        CrystalReportSourceData.ReportDocument.RecordSelectionFormula += " AND {BranchMaster.Code} = '" + Request.QueryString["Branch"] + "'";
+                        //CrystalReportSourceData.ReportDocument.RecordSelectionFormula += " And {EmployeeSalaryDetails.EMPFL_BRANCHCODE} ='" + Request.QueryString["Branch"] + "'";
+                    }
+                    else
+                    {
+                        CrystalReportSourceData.ReportDocument.RecordSelectionFormula += " And {OBMSBranches.Name} ='" + Request.QueryString["LoginID"] + "'";
+                    }
+                }
+            }
+            //string employeeType = Request.QueryString["EmployeeType"];
+            //if (!string.IsNullOrEmpty(employeeType))
+            //{
+            //    if (employeeType != "")
+            //    {
+            //        ParameterDiscreteValue paramEmployeeType = new ParameterDiscreteValue { Value = employeeType };
+            //        CrystalReportSourceData.ReportDocument.RecordSelectionFormula += " AND {Employee.EMP_ROLE} = '" + Request.QueryString["EmployeeType"] + "'";
+            //    }
+            //}
+
             switch (Request.QueryString["ReportType"])
             {
                 case "3":
-                    CrystalReportSourceData.ReportDocument.RecordSelectionFormula +=
-                        " AND (ISNULL({EmployeeSalaryDetails.EMPFL_EPFNO})=true OR {EmployeeSalaryDetails.EMPFL_EPFNO}=\"\")";
+                    CrystalReportSourceData.ReportDocument.RecordSelectionFormula += " AND ( ISNULL({EmployeeSalaryDetails.EMPFL_EPFNO})=true OR {EmployeeSalaryDetails.EMPFL_EPFNO}=\"\" )";
                     break;
                 case "2":
-                    CrystalReportSourceData.ReportDocument.RecordSelectionFormula +=
-                        " AND ({EmployeeSalaryDetails.EMPFL_EPFNO}<>\"\" AND ISNULL({EmployeeSalaryDetails.EMPFL_EPFNO})=false)";
+                    CrystalReportSourceData.ReportDocument.RecordSelectionFormula += " AND ( {EmployeeSalaryDetails.EMPFL_EPFNO} <>\"\" AND ISNULL({EmployeeSalaryDetails.EMPFL_EPFNO})=false )";
                     break;
             }
+
         }
         catch (ArgumentNullException ex)
         {

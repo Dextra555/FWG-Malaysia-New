@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from "@angular/router";
 import { InventoryService } from "../../../../service/inventory.service";
@@ -26,7 +27,8 @@ export class NewWarehouseComponent implements OnInit {
   showLoadingSpinner: boolean = false;
 
   constructor(private fb: FormBuilder, private activatedRoute: ActivatedRoute, private service: InventoryService, private route: Router,
-    private _dataService: DatasharingService, private _masterService: MastermoduleService) {
+    private _dataService: DatasharingService, private _masterService: MastermoduleService,
+    private titleService: Title) {
     this.userAccessModel = {
       readAccess: false,
       updateAccess: false,
@@ -44,6 +46,7 @@ export class NewWarehouseComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Warehouse Master');
     this.ID = this.activatedRoute.snapshot.params['ID'];
     this.currentUser = sessionStorage.getItem('username')!;
     if (this.currentUser == 'null' || this.currentUser == undefined) {
@@ -94,7 +97,7 @@ export class NewWarehouseComponent implements OnInit {
   }
 
   loadBranches() {
-    // superadmin → all branches; normal user → only their allowed branches
+    // superadmin â†’ all branches; normal user â†’ only their allowed branches
     const userRole = sessionStorage.getItem('userrole') ?? '0';
     const isSuperAdmin = userRole === '2' || this.currentUser === 'superadmin';
 

@@ -1,4 +1,5 @@
 ﻿import { AfterViewInit, Component, ViewChild } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
 import { MatSort, Sort } from '@angular/material/sort';
@@ -52,7 +53,8 @@ export class SearchUtilityBillsComponent implements AfterViewInit {
 
   constructor(public fb: FormBuilder, private _liveAnnouncer: LiveAnnouncer, public dialog: MatDialog,
     private service: InventoryService,
-    private _dataService: DatasharingService, private router: Router) {
+    private _dataService: DatasharingService, private router: Router,
+    private titleService: Title) {
     this.currentUser = sessionStorage.getItem('username')!;
     const rawRole = sessionStorage.getItem('userrole');
     if (rawRole == '1') { this.userRole = 'admin'; }
@@ -171,4 +173,5 @@ export class SearchUtilityBillsComponent implements AfterViewInit {
     this.router.navigate(['/inventory/utility-bills']);
   }
 }
+
 

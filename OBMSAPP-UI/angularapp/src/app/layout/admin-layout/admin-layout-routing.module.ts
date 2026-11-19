@@ -55,6 +55,7 @@ import { PurchaseOrderComponent } from "../../modules/inventory/purchase-order/p
 import { NewPOComponent } from "../../modules/inventory/purchase-order/new-po/new-po.component";
 import { GoodsReceiptComponent } from "../../modules/inventory/goods-receipt/goods-receipt.component";
 import { NewGRNComponent } from "../../modules/inventory/goods-receipt/new-grn/new-grn.component";
+import { GrnSerialEntryComponent } from "../../modules/inventory/goods-receipt/grn-serial-entry/grn-serial-entry.component";
 import { PurchaseReturnComponent } from "../../modules/inventory/purchase-return/purchase-return.component";
 import { NewReturnComponent } from "../../modules/inventory/purchase-return/new-return/new-return.component";
 // Part 4: Stock Operations
@@ -305,6 +306,7 @@ const routes: Routes = [
   { path: 'inventory/goods-receipt', component: GoodsReceiptComponent, canActivate: [AuthGuard] },
   { path: 'inventory/goods-receipt/new-grn', component: NewGRNComponent, canActivate: [AuthGuard] },
   { path: 'inventory/goods-receipt/new-grn/:ID', component: NewGRNComponent, canActivate: [AuthGuard] },
+  { path: 'inventory/goods-receipt/serial-entry', component: GrnSerialEntryComponent, canActivate: [AuthGuard] },
   // Part 3: Purchase Return
   { path: 'inventory/purchase-return', component: PurchaseReturnComponent, canActivate: [AuthGuard] },
   { path: 'inventory/purchase-return/new-return', component: NewReturnComponent, canActivate: [AuthGuard] },

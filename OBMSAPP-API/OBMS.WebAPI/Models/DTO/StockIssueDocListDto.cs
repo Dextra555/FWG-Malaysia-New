@@ -14,6 +14,8 @@ namespace OBMS.WebAPI.Models.DTO
         public int? IssueToID { get; set; }
         public string? IssueToName { get; set; }
         public string? Remarks { get; set; }
+        /// <summary>true = salary deduction; false = non-deduction (default).</summary>
+        public bool IsDeduction { get; set; }
         public DateTime LASTUPDATE { get; set; }
         public string? LastUpdatedBy { get; set; }
         public List<StockIssueDocDetailListDto> Details { get; set; } = new();

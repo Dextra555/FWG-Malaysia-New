@@ -299,6 +299,18 @@ namespace OBMS.WebAPI.Repositories.Interface
         Task<(bool Success, string Message, AssetMaster? Record)> SaveAsset(AssetMasterRequestDto dto);
         Task<(bool Success, string Message)> DeleteAsset(int id, string currentUser);
 
+        // ── Part 6: Asset Installments ────────────────────────────────────────────
+
+        /// <summary>Returns installment schedule for a single asset.</summary>
+        Task<List<AssetInstallmentPaymentRowDto>> GetAssetInstallments(int assetID);
+
+        /// <summary>
+        /// Returns all pending (unpaid) asset installments for the given supplier,
+        /// shaped for the Finance Payment page (mirrors GRNPaymentRowDto shape).
+        /// Used by Finance → Payment → Purchase category.
+        /// </summary>
+        Task<List<AssetInstallmentPaymentRowDto>> GetAssetInstallmentsForPayment(int supplierID, int paymentId, DateTime? paymentDate = null);
+
         // ── Part 6: Asset Allocation ──────────────────────────────────────────────
 
         Task<List<AssetAllocationListDto>> GetAssetAllocationList(bool activeOnly, string userName);

@@ -20,7 +20,18 @@ namespace OBMS.WebAPI.Models.DTO
     public class PODetailRequestDto
     {
         public int ID { get; set; }
-        public int ItemID { get; set; }
+
+        /// <summary>
+        /// ItemMaster FK. Null for service lines (IsServiceLine = true).
+        /// </summary>
+        public int? ItemID { get; set; }
+
+        /// <summary>Free-text description used when IsServiceLine = true.</summary>
+        public string? ServiceDescription { get; set; }
+
+        /// <summary>True when this line is a service / non-inventory charge.</summary>
+        public bool IsServiceLine { get; set; } = false;
+
         public int? UOMID { get; set; }
         public decimal OrderedQty { get; set; }
         public decimal UnitPrice { get; set; }
@@ -80,7 +91,7 @@ namespace OBMS.WebAPI.Models.DTO
     {
         public int ID { get; set; }
         public int POID { get; set; }
-        public int ItemID { get; set; }
+        public int? ItemID { get; set; }
         public string ItemCode { get; set; } = string.Empty;
         public string ItemName { get; set; } = string.Empty;
         public string CategoryName { get; set; } = string.Empty;
@@ -96,6 +107,10 @@ namespace OBMS.WebAPI.Models.DTO
         /// <summary>Stored SST amount = OrderedQty × UnitPrice × SSTPercent / 100.</summary>
         public decimal SSTAmount { get; set; }
         public string? Remarks { get; set; }
+        /// <summary>True when this line is a service / non-inventory charge.</summary>
+        public bool IsServiceLine { get; set; }
+        /// <summary>Free-text description for service lines.</summary>
+        public string? ServiceDescription { get; set; }
     }
 
     /// <summary>

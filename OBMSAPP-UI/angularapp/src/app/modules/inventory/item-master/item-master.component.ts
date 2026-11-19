@@ -1,4 +1,5 @@
 ﻿import { AfterViewInit, Component, ViewChild } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
 import { MatSort, Sort } from '@angular/material/sort';
@@ -62,7 +63,8 @@ export class ItemMasterComponent implements AfterViewInit {
     private route: Router,
     private _dataService: DatasharingService,
     private _masterService: MastermoduleService
-  ) {
+  ,
+    private titleService: Title) {
     this.userAccessModel = {
       readAccess: false,
       updateAccess: false,
@@ -75,6 +77,7 @@ export class ItemMasterComponent implements AfterViewInit {
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Item Master');
     this.currentUser = sessionStorage.getItem('username')!;
     const rawRole = sessionStorage.getItem('userrole');
     if (rawRole == '1') { this.userRole = 'admin'; }
@@ -201,3 +204,4 @@ export class ItemMasterComponent implements AfterViewInit {
     this.showLoadingSpinner = false;
   }
 }
+

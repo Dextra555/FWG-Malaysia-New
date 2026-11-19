@@ -1520,14 +1520,19 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 return (false, $"Quantity for \"{badItem?.Name ?? "the item"}\" must be greater than zero.", null);
             }
 
-            // On edit: confirm it is still Draft
+            // On edit: confirm it is still Draft or Approved (no PO yet)
             if (dto.ID != 0)
             {
                 var existing = await _oBMSDbContext.PurchaseRequisitions.FindAsync(dto.ID);
                 if (existing == null)
                     return (false, "This requisition could not be found. It may have been removed.", null);
-                if (existing.Status != "Draft")
+                if (existing.Status != "Draft" && existing.Status != "Approved")
                     return (false, $"This purchase requisition has already been {existing.Status.ToLower()} and cannot be edited.", null);
+                // Block edit if a PO has already been created from this PR
+                bool hasPO = await _oBMSDbContext.PurchaseOrders
+                    .AnyAsync(po => po.PRID == dto.ID && po.IsActive == true);
+                if (hasPO)
+                    return (false, "This purchase requisition cannot be edited because a Purchase Order has already been created from it.", null);
             }
 
             // Generate code
@@ -1578,6 +1583,9 @@ namespace OBMS.WebAPI.Repositories.Implementation
                         pr.Remarks        = dto.Remarks;
                         pr.LASTUPDATE     = DateTime.Now;
                         pr.LastUpdatedBy  = dto.LastUpdatedBy;
+                        // If editing an Approved PR, reset to Draft so it goes through approval again
+                        if (pr.Status == "Approved")
+                            pr.Status = "Draft";
                         _oBMSDbContext.PurchaseRequisitions.Update(pr);
                         await _oBMSDbContext.SaveChangesAsync();
 
@@ -2052,30 +2060,33 @@ namespace OBMS.WebAPI.Repositories.Implementation
         {
             return await (
                 from d  in _oBMSDbContext.PurchaseOrderDetails
-                join im in _oBMSDbContext.ItemMasters on d.ItemID equals im.ID
-                join ic in _oBMSDbContext.InventoryCategories on im.CategoryID equals ic.ID into icJoin
+                join im in _oBMSDbContext.ItemMasters on d.ItemID equals im.ID into imJoin
+                from im in imJoin.DefaultIfEmpty()           // LEFT JOIN — null for service lines
+                join ic in _oBMSDbContext.InventoryCategories on (im != null ? im.CategoryID : -1) equals ic.ID into icJoin
                 from ic in icJoin.DefaultIfEmpty()
                 join um in _oBMSDbContext.UOMMasters on d.UOMID equals um.ID into umJoin
                 from um in umJoin.DefaultIfEmpty()
                 where d.POID == poID
                 select new PODetailListDto
                 {
-                    ID           = d.ID,
-                    POID         = d.POID,
-                    ItemID       = d.ItemID,
-                    ItemCode     = im.Code ?? "",
-                    ItemName     = im.Name,
-                    CategoryName = ic != null ? ic.Name : "",
-                    UOMID        = d.UOMID,
-                    UOMName      = um != null ? um.Name : "",
-                    OrderedQty   = d.OrderedQty,
-                    ReceivedQty  = d.ReceivedQty,
-                    PendingQty   = d.OrderedQty - d.ReceivedQty,
-                    UnitPrice    = d.UnitPrice,
-                    TotalPrice   = d.TotalPrice,
-                    SSTPercent   = d.SSTPercent,
-                    SSTAmount    = d.SSTAmount,
-                    Remarks      = d.Remarks
+                    ID                 = d.ID,
+                    POID               = d.POID,
+                    ItemID             = d.ItemID,
+                    ItemCode           = im != null ? (im.Code ?? "") : "",
+                    ItemName           = im != null ? im.Name : (d.ServiceDescription ?? ""),
+                    CategoryName       = ic != null ? ic.Name : "",
+                    UOMID              = d.UOMID,
+                    UOMName            = um != null ? um.Name : "",
+                    OrderedQty         = d.OrderedQty,
+                    ReceivedQty        = d.ReceivedQty,
+                    PendingQty         = d.OrderedQty - d.ReceivedQty,
+                    UnitPrice          = d.UnitPrice,
+                    TotalPrice         = d.TotalPrice,
+                    SSTPercent         = d.SSTPercent,
+                    SSTAmount          = d.SSTAmount,
+                    Remarks            = d.Remarks,
+                    IsServiceLine      = d.IsServiceLine,
+                    ServiceDescription = d.ServiceDescription
                 }
             ).ToListAsync();
         }
@@ -2098,11 +2109,30 @@ namespace OBMS.WebAPI.Repositories.Implementation
             if (!dto.Details.Any())
                 return (false, "Please add at least one item to the purchase order.", null);
 
+            // Validate each line: item lines need ItemID, service lines need ServiceDescription
+            foreach (var d in dto.Details)
+            {
+                if (d.IsServiceLine)
+                {
+                    if (string.IsNullOrWhiteSpace(d.ServiceDescription))
+                        return (false, "Please enter a description for all service lines.", null);
+                }
+                else
+                {
+                    if (!d.ItemID.HasValue || d.ItemID <= 0)
+                        return (false, "Please select an item for all item lines.", null);
+                }
+            }
+
             if (dto.Details.Any(d => d.OrderedQty <= 0))
             {
                 var bad = dto.Details.First(d => d.OrderedQty <= 0);
-                var badItem = await _oBMSDbContext.ItemMasters.FindAsync(bad.ItemID);
-                return (false, $"Quantity for \"{badItem?.Name ?? "the item"}\" must be greater than zero.", null);
+                string badLabel = bad.IsServiceLine
+                    ? (bad.ServiceDescription ?? "the service line")
+                    : (bad.ItemID.HasValue
+                        ? ((await _oBMSDbContext.ItemMasters.FindAsync(bad.ItemID.Value))?.Name ?? "the item")
+                        : "the item");
+                return (false, $"Quantity for \"{badLabel}\" must be greater than zero.", null);
             }
 
             if (dto.Details.Any(d => d.UnitPrice < 0))
@@ -2136,12 +2166,13 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 if (existing.PRID.HasValue && existing.PRID > 0)
                 {
                     var existingItems = await _oBMSDbContext.PurchaseOrderDetails
-                        .Where(x => x.POID == dto.ID)
-                        .Select(x => x.ItemID)
+                        .Where(x => x.POID == dto.ID && x.ItemID != null)
+                        .Select(x => x.ItemID!.Value)
                         .OrderBy(x => x)
                         .ToListAsync();
                     var incomingItems = dto.Details
-                        .Select(d => d.ItemID)
+                        .Where(d => !d.IsServiceLine && d.ItemID.HasValue)
+                        .Select(d => d.ItemID!.Value)
                         .OrderBy(x => x)
                         .ToList();
                     if (!existingItems.SequenceEqual(incomingItems))
@@ -2260,18 +2291,20 @@ namespace OBMS.WebAPI.Repositories.Implementation
                         decimal lineSSTAmount = d.OrderedQty * d.UnitPrice * (d.SSTPercent / 100m);
                         _oBMSDbContext.PurchaseOrderDetails.Add(new PurchaseOrderDetail
                         {
-                            POID          = po.ID,
-                            ItemID        = d.ItemID,
-                            UOMID         = d.UOMID == 0 ? null : d.UOMID,
-                            OrderedQty    = d.OrderedQty,
-                            ReceivedQty   = 0,
-                            UnitPrice     = d.UnitPrice,
-                            TotalPrice    = d.OrderedQty * d.UnitPrice,
-                            SSTPercent    = d.SSTPercent,
-                            SSTAmount     = lineSSTAmount,
-                            Remarks       = d.Remarks,
-                            LASTUPDATE    = DateTime.Now,
-                            LastUpdatedBy = d.LastUpdatedBy ?? dto.LastUpdatedBy
+                            POID               = po.ID,
+                            ItemID             = d.IsServiceLine ? null : d.ItemID,
+                            ServiceDescription = d.IsServiceLine ? d.ServiceDescription?.Trim() : null,
+                            IsServiceLine      = d.IsServiceLine,
+                            UOMID              = d.UOMID == 0 ? null : d.UOMID,
+                            OrderedQty         = d.OrderedQty,
+                            ReceivedQty        = 0,
+                            UnitPrice          = d.UnitPrice,
+                            TotalPrice         = d.OrderedQty * d.UnitPrice,
+                            SSTPercent         = d.SSTPercent,
+                            SSTAmount          = lineSSTAmount,
+                            Remarks            = d.Remarks,
+                            LASTUPDATE         = DateTime.Now,
+                            LastUpdatedBy      = d.LastUpdatedBy ?? dto.LastUpdatedBy
                         });
                     }
                     await _oBMSDbContext.SaveChangesAsync();
@@ -2548,11 +2581,15 @@ namespace OBMS.WebAPI.Repositories.Implementation
         {
             return await (
                 from d  in _oBMSDbContext.GoodsReceiptNoteDetails
-                join im in _oBMSDbContext.ItemMasters on d.ItemID equals im.ID
-                join ic in _oBMSDbContext.InventoryCategories on im.CategoryID equals ic.ID into icJoin
+                join im in _oBMSDbContext.ItemMasters on d.ItemID equals im.ID into imJoin
+                from im in imJoin.DefaultIfEmpty()           // LEFT JOIN — service lines have no ItemMaster
+                join ic in _oBMSDbContext.InventoryCategories on (im != null ? im.CategoryID : -1) equals ic.ID into icJoin
                 from ic in icJoin.DefaultIfEmpty()
                 join um in _oBMSDbContext.UOMMasters on d.UOMID equals um.ID into umJoin
                 from um in umJoin.DefaultIfEmpty()
+                // Get service description from PO detail for display
+                join pod in _oBMSDbContext.PurchaseOrderDetails on d.PODetailID equals pod.ID into podJoin
+                from pod in podJoin.DefaultIfEmpty()
                 where d.GRNID == grnID
                 select new GRNDetailListDto
                 {
@@ -2560,15 +2597,16 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     GRNID        = d.GRNID,
                     PODetailID   = d.PODetailID,
                     ItemID       = d.ItemID,
-                    ItemCode     = im.Code ?? "",
-                    ItemName     = im.Name,
-                    CategoryName = ic != null ? ic.Name : "",
+                    ItemCode     = im != null ? (im.Code ?? "") : "SVC",
+                    ItemName     = im != null ? im.Name : (pod != null ? pod.ServiceDescription ?? "Service" : "Service"),
+                    CategoryName = ic != null ? ic.Name : (pod != null && pod.IsServiceLine ? "Service" : ""),
                     UOMID        = d.UOMID,
                     UOMName      = um != null ? um.Name : "",
                     ReceivedQty  = d.ReceivedQty,
                     UnitCost     = d.UnitCost,
                     SSTPercent   = d.SSTPercent,
-                    SSTAmount    = d.SSTAmount
+                    SSTAmount    = d.SSTAmount,
+                    IsServiceLine = pod != null && pod.IsServiceLine
                 }
             ).ToListAsync();
         }
@@ -2585,26 +2623,29 @@ namespace OBMS.WebAPI.Repositories.Implementation
         {
             return await (
                 from d  in _oBMSDbContext.PurchaseOrderDetails
-                join im in _oBMSDbContext.ItemMasters on d.ItemID equals im.ID
-                join ic in _oBMSDbContext.InventoryCategories on im.CategoryID equals ic.ID into icJoin
+                join im in _oBMSDbContext.ItemMasters on d.ItemID equals im.ID into imJoin
+                from im in imJoin.DefaultIfEmpty()           // LEFT JOIN — service lines have no ItemMaster
+                join ic in _oBMSDbContext.InventoryCategories on (im != null ? im.CategoryID : -1) equals ic.ID into icJoin
                 from ic in icJoin.DefaultIfEmpty()
                 join um in _oBMSDbContext.UOMMasters on d.UOMID equals um.ID into umJoin
                 from um in umJoin.DefaultIfEmpty()
                 where d.POID == poID && (d.OrderedQty - d.ReceivedQty) > 0
                 select new POLineForGRNDto
                 {
-                    PODetailID   = d.ID,
-                    ItemID       = d.ItemID,
-                    ItemCode     = im.Code ?? "",
-                    ItemName     = im.Name,
-                    CategoryName = ic != null ? ic.Name : "",
-                    UOMID        = d.UOMID,
-                    UOMName      = um != null ? um.Name : "",
-                    OrderedQty   = d.OrderedQty,
-                    ReceivedQty  = d.ReceivedQty,
-                    PendingQty   = d.OrderedQty - d.ReceivedQty,
-                    UnitCost     = d.UnitPrice,
-                    SSTPercent   = d.SSTPercent
+                    PODetailID         = d.ID,
+                    ItemID             = d.ItemID,
+                    ItemCode           = im != null ? (im.Code ?? "") : "SVC",
+                    ItemName           = im != null ? im.Name : (d.ServiceDescription ?? "Service"),
+                    CategoryName       = ic != null ? ic.Name : (d.IsServiceLine ? "Service" : ""),
+                    UOMID              = d.UOMID,
+                    UOMName            = um != null ? um.Name : "",
+                    OrderedQty         = d.OrderedQty,
+                    ReceivedQty        = d.ReceivedQty,
+                    PendingQty         = d.OrderedQty - d.ReceivedQty,
+                    UnitCost           = d.UnitPrice,
+                    SSTPercent         = d.SSTPercent,
+                    IsServiceLine      = d.IsServiceLine,
+                    ServiceDescription = d.ServiceDescription
                 }
             ).ToListAsync();
         }
@@ -2631,9 +2672,14 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 var pending = poDetail.OrderedQty - poDetail.ReceivedQty;
                 if (line.ReceivedQty > pending)
                 {
-                    var item = await _oBMSDbContext.ItemMasters.FindAsync(line.ItemID);
+                    // Use ServiceDescription for service lines, ItemMaster name otherwise
+                    string lineLabel = poDetail.IsServiceLine
+                        ? (poDetail.ServiceDescription ?? "the service line")
+                        : (poDetail.ItemID.HasValue
+                            ? ((await _oBMSDbContext.ItemMasters.FindAsync(poDetail.ItemID.Value))?.Name ?? "the item")
+                            : "the item");
                     return (false,
-                        $"Received quantity is more than the remaining quantity for \"{item?.Name ?? "the item"}\".\n" +
+                        $"Received quantity is more than the remaining quantity for \"{lineLabel}\".\n" +
                         $"Ordered: {poDetail.OrderedQty}   Already Received: {poDetail.ReceivedQty}   Remaining: {pending}\n" +
                         $"Please enter {pending} or less.", null);
                 }
@@ -2684,6 +2730,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                         var poDetailForSST = await _oBMSDbContext.PurchaseOrderDetails.FindAsync(line.PODetailID);
                         decimal lineSSTPercent = poDetailForSST?.SSTPercent ?? line.SSTPercent;
                         decimal lineSSTAmount  = line.ReceivedQty * line.UnitCost * (lineSSTPercent / 100m);
+                        bool    isServiceLine  = poDetailForSST?.IsServiceLine ?? false;
 
                         grnSubTotal += line.ReceivedQty * line.UnitCost;
                         grnSSTTotal += lineSSTAmount;
@@ -2692,7 +2739,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                         {
                             GRNID         = grn.ID,
                             PODetailID    = line.PODetailID,
-                            ItemID        = line.ItemID,
+                            ItemID        = isServiceLine ? null : line.ItemID,   // service lines have no item
                             UOMID         = line.UOMID == 0 ? null : line.UOMID,
                             ReceivedQty   = line.ReceivedQty,
                             UnitCost      = line.UnitCost,
@@ -2712,24 +2759,27 @@ namespace OBMS.WebAPI.Repositories.Implementation
                             _oBMSDbContext.PurchaseOrderDetails.Update(poDetail);
                         }
 
-                        // StockLedger STOCK_IN entry
-                        _oBMSDbContext.StockLedgers.Add(new StockLedger
+                        // Create StockLedger entry ONLY for real inventory lines (not service lines)
+                        if (!isServiceLine && line.ItemID.HasValue)
                         {
-                            TransactionNo   = await GenerateStockLedgerNo(),
-                            TransactionDate = dto.GRNDate,
-                            TransactionType = "STOCK_IN",
-                            WarehouseID     = dto.WarehouseID,
-                            ItemID          = line.ItemID,
-                            InQty           = line.ReceivedQty,
-                            OutQty          = 0,
-                            UnitCost        = line.UnitCost,
-                            ReferenceType   = "Goods Receipt",
-                            ReferenceID     = grn.ID,
-                            ReferenceNo     = grnNumber,
-                            Remarks         = dto.Remarks,
-                            LASTUPDATE      = DateTime.Now,
-                            LastUpdatedBy   = dto.LastUpdatedBy
-                        });
+                            _oBMSDbContext.StockLedgers.Add(new StockLedger
+                            {
+                                TransactionNo   = await GenerateStockLedgerNo(),
+                                TransactionDate = dto.GRNDate,
+                                TransactionType = "STOCK_IN",
+                                WarehouseID     = dto.WarehouseID,
+                                ItemID          = line.ItemID!.Value,
+                                InQty           = line.ReceivedQty,
+                                OutQty          = 0,
+                                UnitCost        = line.UnitCost,
+                                ReferenceType   = "Goods Receipt",
+                                ReferenceID     = grn.ID,
+                                ReferenceNo     = grnNumber,
+                                Remarks         = dto.Remarks,
+                                LASTUPDATE      = DateTime.Now,
+                                LastUpdatedBy   = dto.LastUpdatedBy
+                            });
+                        }
                     }
                     await _oBMSDbContext.SaveChangesAsync();
 
@@ -2783,11 +2833,14 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     await tx.CommitAsync();
                     savedRecord = grn;
 
-                    // Part 7: low-stock check for each received item
+                    // Part 7: low-stock check for each received item (skip service lines)
                     if (_notif != null)
                     {
                         foreach (var line in linesWithQty)
-                            _ = _notif.CheckAndNotifyLowStock(dto.WarehouseID, line.ItemID, dto.LastUpdatedBy ?? "system");
+                        {
+                            if (line.ItemID.HasValue)
+                                _ = _notif.CheckAndNotifyLowStock(dto.WarehouseID, line.ItemID.Value, dto.LastUpdatedBy ?? "system");
+                        }
                     }
                 }
                 catch { await tx.RollbackAsync(); throw; }
@@ -3194,10 +3247,10 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 decimal returnable = row.ReceivedQty - alreadyReturned;
                 if (returnable > 0)
                 {
-                    result.Add(new GRNLineForReturnDto
+                result.Add(new GRNLineForReturnDto
                     {
                         GRNDetailID        = row.ID,
-                        ItemID             = row.ItemID,
+                        ItemID             = row.ItemID ?? 0,
                         ItemCode           = row.Code ?? "",
                         ItemName           = row.Name,
                         CategoryName       = row.Cat,
@@ -3400,6 +3453,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     IssueToID     = sid.IssueToID,
                     IssueToName   = sid.IssueToName,
                     Remarks       = sid.Remarks,
+                    IsDeduction   = sid.IsDeduction,
                     LASTUPDATE    = sid.LASTUPDATE,
                     LastUpdatedBy = sid.LastUpdatedBy,
                     Details       = new List<StockIssueDocDetailListDto>()
@@ -3535,6 +3589,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     doc.IssueToID     = dto.IssueToID;
                     doc.IssueToName   = dto.IssueToName;
                     doc.Remarks       = dto.Remarks;
+                    doc.IsDeduction   = dto.IsDeduction;
                     doc.IsActive      = true;
                     doc.LASTUPDATE    = DateTime.Now;
                     doc.LastUpdatedBy = dto.LastUpdatedBy;
@@ -3598,6 +3653,12 @@ namespace OBMS.WebAPI.Repositories.Implementation
         {
             var doc = await _oBMSDbContext.StockIssueDocs.FindAsync(id);
             if (doc == null) return (false, "Stock issue not found.");
+
+            // Block delete if linked to an active Uniform Loan
+            bool hasLoanLink = await _oBMSDbContext.StockIssueUniformLoanLinks
+                .AnyAsync(l => l.StockIssueDocID == id && l.IsActive);
+            if (hasLoanLink)
+                return (false, "This stock issue cannot be deleted because it is linked to an Employee Uniform Loan. Please delete the Uniform Loan entry first.");
 
             // Block delete if any returns exist against this issue
             bool hasReturns = await _oBMSDbContext.StockIssueReturns
@@ -4815,6 +4876,8 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 from ic     in icJoin.DefaultIfEmpty()
                 join um     in _oBMSDbContext.UOMMasters on item.UOMID equals um.ID into umJoin
                 from um     in umJoin.DefaultIfEmpty()
+                join cl     in _oBMSDbContext.ClientMasters on detail.ClientID equals cl.ID into clJoin
+                from cl     in clJoin.DefaultIfEmpty()
                 where doc.IsActive == true
                    && (doc.IssueToType == "Staff" || doc.IssueToType == "Guard")
                 select new
@@ -4832,7 +4895,8 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     UOMName      = um != null ? um.Name : "",
                     UOMShort     = um != null ? um.ShortName : "",
                     detail.IssueQty,
-                    detail.UnitCost
+                    detail.UnitCost,
+                    ClientName   = cl != null ? cl.Name : ""
                 };
 
             // Optional filters
@@ -4892,7 +4956,11 @@ namespace OBMS.WebAPI.Repositories.Implementation
                         UnitCost      = unitCost,
                         TotalValue    = netHolding * unitCost,
                         LastIssueDate = g.Max(x => (DateTime?)x.IssueDate),
-                        LastIssueNo   = g.OrderByDescending(x => x.IssueDate).First().IssueNo
+                        LastIssueNo   = g.OrderByDescending(x => x.IssueDate).First().IssueNo,
+                        // Most recent client name for this employee × item combination
+                        ClientName    = g.OrderByDescending(x => x.IssueDate)
+                                         .Select(x => x.ClientName)
+                                         .FirstOrDefault(n => !string.IsNullOrEmpty(n)) ?? ""
                     };
                 })
                 .ToList();
@@ -5028,8 +5096,10 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 from ic     in icJoin.DefaultIfEmpty()
                 join um     in _oBMSDbContext.UOMMasters on item.UOMID equals um.ID into umJoin
                 from um     in umJoin.DefaultIfEmpty()
+                join cl     in _oBMSDbContext.ClientMasters on detail.ClientID equals cl.ID into clJoin
+                from cl     in clJoin.DefaultIfEmpty()
                 where doc.IsActive == true
-                   && (doc.IssueToType == "Staff" || doc.IssueToType == "Guard")
+                   && (doc.IssueToType == "Staff" || doc.IssueToType == "Guard" || doc.IssueToType == "Other Guards")
                    && doc.IssueDate >= dateFrom.Date
                    && doc.IssueDate <= dateTo.Date
                 select new
@@ -5042,15 +5112,18 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     doc.IssueToID,
                     doc.IssueToName,
                     doc.LastUpdatedBy,
+                    doc.IsDeduction,
                     DetailID     = detail.ID,
                     detail.ItemID,
+                    detail.ClientID,
                     ItemCode     = item.Code ?? "",
                     ItemName     = item.Name,
                     CategoryName = ic != null ? ic.Name : "",
                     UOMName      = um != null ? um.Name : "",
                     detail.IssueQty,
                     detail.UnitCost,
-                    detail.Remarks
+                    detail.Remarks,
+                    ClientName   = cl != null ? cl.Name : ""
                 };
 
             if (employeeID.HasValue && employeeID > 0)
@@ -5103,7 +5176,10 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     ReturnedQty  = returned,
                     NetQty       = x.IssueQty - returned,
                     Remarks      = x.Remarks,
-                    IssuedBy     = x.LastUpdatedBy
+                    IssuedBy     = x.LastUpdatedBy,
+                    ClientName   = x.ClientName,
+                    ClientID     = x.ClientID,
+                    IsDeduction  = x.IsDeduction
                 };
             }).ToList();
         }
@@ -5154,7 +5230,8 @@ namespace OBMS.WebAPI.Repositories.Implementation
         private string NextAssetCode()
         {
             var maxRow = _oBMSDbContext.AssetMasters
-                .Where(x => x.AssetCode != null && x.AssetCode.StartsWith("AST") && x.IsActive)
+                .Where(x => x.AssetCode != null && x.AssetCode.StartsWith("AST"))
+                // Include ALL records (active + inactive) — unique index covers all
                 .OrderByDescending(x => x.AssetCode)
                 .FirstOrDefault();
             return (maxRow == null || string.IsNullOrEmpty(maxRow.AssetCode))
@@ -5188,34 +5265,46 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 from a in _oBMSDbContext.AssetMasters
                 join sup in _oBMSDbContext.Suppliers on a.SupplierID equals sup.Id into supJoin
                 from sup in supJoin.DefaultIfEmpty()
-                where allowedBranches == null || (a.Branch != null && allowedBranches.Contains(a.Branch))
+                where a.IsActive
+                   && (allowedBranches == null || (a.Branch != null && allowedBranches.Contains(a.Branch)))
                 orderby a.AssetCode
                 select new AssetListDto
                 {
-                    ID                  = a.ID,
-                    AssetCode           = a.AssetCode ?? "",
-                    Name                = a.Name,
-                    AssetType           = a.AssetType,
-                    SerialNumber        = a.SerialNumber,
-                    Description         = a.Description,
-                    ModelNo             = a.ModelNo,
-                    BrandName           = a.BrandName,
-                    SupplierID          = a.SupplierID,
-                    SupplierName        = sup != null ? sup.Name : "",
-                    Branch              = a.Branch,
-                    PurchaseAmount      = a.PurchaseAmount,
-                    PurchaseDate        = a.PurchaseDate,
-                    WarrantyExpiryDate  = a.WarrantyExpiryDate,
-                    AssetStatus         = a.AssetStatus,
-                    AssetCondition      = a.AssetCondition,
-                    Remarks             = a.Remarks,
-                    IsActive            = a.IsActive,
-                    LASTUPDATE          = a.LASTUPDATE,
-                    LastUpdatedBy       = a.LastUpdatedBy,
-                    CurrentLocation     = a.CurrentLocation,
-                    LocationStatus      = a.LocationStatus,
-                    LocationUpdatedBy   = a.LocationUpdatedBy,
-                    LocationUpdatedDate = a.LocationUpdatedDate
+                    ID                       = a.ID,
+                    AssetCode                = a.AssetCode ?? "",
+                    Name                     = a.Name,
+                    AssetType                = a.AssetType,
+                    SerialNumber             = a.SerialNumber,
+                    Description              = a.Description,
+                    ModelNo                  = a.ModelNo,
+                    BrandName                = a.BrandName,
+                    SupplierID               = a.SupplierID,
+                    SupplierName             = sup != null ? sup.Name : "",
+                    Branch                   = a.Branch,
+                    PurchaseAmount           = a.PurchaseAmount,
+                    PurchaseDate             = a.PurchaseDate,
+                    WarrantyExpiryDate       = a.WarrantyExpiryDate,
+                    AssetStatus              = a.AssetStatus,
+                    AssetCondition           = a.AssetCondition,
+                    Remarks                  = a.Remarks,
+                    IsActive                 = a.IsActive,
+                    LASTUPDATE               = a.LASTUPDATE,
+                    LastUpdatedBy            = a.LastUpdatedBy,
+                    CurrentLocation          = a.CurrentLocation,
+                    LocationStatus           = a.LocationStatus,
+                    LocationUpdatedBy        = a.LocationUpdatedBy,
+                    LocationUpdatedDate      = a.LocationUpdatedDate,
+                    // ── Deposit & Installment fields ──────────────────────────
+                    DepositAmount            = a.DepositAmount,
+                    PaymentTermType          = a.PaymentTermType,
+                    InstallmentStartDate     = a.InstallmentStartDate,
+                    MonthlyInstallmentAmount = a.MonthlyInstallmentAmount,
+                    InstallmentMonths        = a.InstallmentMonths,
+                    SupplierInvoiceNo        = a.SupplierInvoiceNo,
+                    // ── Preclosing ────────────────────────────────────────────
+                    IsPreClosing             = a.IsPreClosing,
+                    PreClosingDate           = a.PreClosingDate,
+                    PreClosingAmount         = a.PreClosingAmount
                 }
             ).ToListAsync();
 
@@ -5243,29 +5332,41 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 join sup in _oBMSDbContext.Suppliers on a.SupplierID equals sup.Id into supJoin
                 from sup in supJoin.DefaultIfEmpty()
                 where a.ID == id
+                   && a.IsActive
                    && (allowedBranches == null || (a.Branch != null && allowedBranches.Contains(a.Branch)))
                 select new AssetListDto
                 {
-                    ID                  = a.ID,
-                    AssetCode           = a.AssetCode ?? "",
-                    Name                = a.Name,
-                    AssetType           = a.AssetType,
-                    SerialNumber        = a.SerialNumber,
-                    Description         = a.Description,
-                    ModelNo             = a.ModelNo,
-                    BrandName           = a.BrandName,
-                    SupplierID          = a.SupplierID,
-                    SupplierName        = sup != null ? sup.Name : "",
-                    Branch              = a.Branch,
-                    PurchaseAmount      = a.PurchaseAmount,
-                    PurchaseDate        = a.PurchaseDate,
-                    WarrantyExpiryDate  = a.WarrantyExpiryDate,
-                    AssetStatus         = a.AssetStatus,
-                    AssetCondition      = a.AssetCondition,
-                    Remarks             = a.Remarks,
-                    IsActive            = a.IsActive,
-                    LASTUPDATE          = a.LASTUPDATE,
-                    LastUpdatedBy       = a.LastUpdatedBy
+                    ID                       = a.ID,
+                    AssetCode                = a.AssetCode ?? "",
+                    Name                     = a.Name,
+                    AssetType                = a.AssetType,
+                    SerialNumber             = a.SerialNumber,
+                    Description              = a.Description,
+                    ModelNo                  = a.ModelNo,
+                    BrandName                = a.BrandName,
+                    SupplierID               = a.SupplierID,
+                    SupplierName             = sup != null ? sup.Name : "",
+                    Branch                   = a.Branch,
+                    PurchaseAmount           = a.PurchaseAmount,
+                    PurchaseDate             = a.PurchaseDate,
+                    WarrantyExpiryDate       = a.WarrantyExpiryDate,
+                    AssetStatus              = a.AssetStatus,
+                    AssetCondition           = a.AssetCondition,
+                    Remarks                  = a.Remarks,
+                    IsActive                 = a.IsActive,
+                    LASTUPDATE               = a.LASTUPDATE,
+                    LastUpdatedBy            = a.LastUpdatedBy,
+                    // ── Deposit & Installment fields ──────────────────────────
+                    DepositAmount            = a.DepositAmount,
+                    PaymentTermType          = a.PaymentTermType,
+                    InstallmentStartDate     = a.InstallmentStartDate,
+                    MonthlyInstallmentAmount = a.MonthlyInstallmentAmount,
+                    InstallmentMonths        = a.InstallmentMonths,
+                    SupplierInvoiceNo        = a.SupplierInvoiceNo,
+                    // ── Preclosing ────────────────────────────────────────────
+                    IsPreClosing             = a.IsPreClosing,
+                    PreClosingDate           = a.PreClosingDate,
+                    PreClosingAmount         = a.PreClosingAmount
                 }
             ).FirstOrDefaultAsync();
 
@@ -5286,6 +5387,140 @@ namespace OBMS.WebAPI.Repositories.Implementation
         public async Task<(bool Success, string Message, AssetMaster? Record)> SaveAsset(
             AssetMasterRequestDto dto)
         {
+            // ── Payment lock check (edit mode only) ──────────────────────────
+            // Block edit only if a Finance Payment has been recorded against
+            // any CreditorInvoice row linked to this asset (InvoiceType='A').
+            // EXCEPTION: allow saving IsPreClosing toggle even when locked.
+            if (dto.ID > 0)
+            {
+                var hasPayment = await (
+                    from ci in _oBMSDbContext.CreditorInvoices
+                    join bpd in _oBMSDbContext.BranchPaymentDetails
+                        on (decimal)ci.ID equals bpd.InvoiceID
+                    where ci.RecID       == dto.ID
+                       && ci.InvoiceType == "A"
+                       && ci.IsDeleted   == false
+                       && bpd.IsDeleted  != true
+                    select bpd.ID
+                ).AnyAsync();
+
+                if (hasPayment)
+                {
+                    // If this is a preclosing-only save (IsPreClosing field changed),
+                    // allow it — only update the three preclosing columns and return.
+                    if (dto.IsPreClosingOnly)
+                    {
+                        var assetForPC = await _oBMSDbContext.AssetMasters.FindAsync(dto.ID)
+                            ?? throw new InvalidOperationException("Asset not found.");
+
+                        assetForPC.IsPreClosing      = dto.IsPreClosing;
+                        assetForPC.PreClosingDate    = dto.IsPreClosing ? dto.PreClosingDate : null;
+                        assetForPC.PreClosingAmount  = dto.IsPreClosing ? dto.PreClosingAmount : null;
+                        assetForPC.LASTUPDATE        = DateTime.Now;
+                        assetForPC.LastUpdatedBy     = dto.LastUpdatedBy;
+                        await _oBMSDbContext.SaveChangesAsync();
+
+                        if (dto.IsPreClosing && dto.PreClosingAmount > 0)
+                        {
+                            // ── Preclosing ON ─────────────────────────────────────────────
+                            // 1. Soft-delete existing unpaid installment CreditorInvoice rows
+                            var unpaidInstCIs = await (
+                                from inst in _oBMSDbContext.AssetInstallments
+                                join ci in _oBMSDbContext.CreditorInvoices
+                                    on inst.CreditorInvoiceID equals ci.ID
+                                join bpdCheck in _oBMSDbContext.BranchPaymentDetails
+                                    on (decimal)ci.ID equals bpdCheck.InvoiceID into bpdJoin
+                                from bpdCheck in bpdJoin.DefaultIfEmpty()
+                                where inst.AssetID  == assetForPC.ID
+                                   && inst.IsActive == true
+                                   && ci.IsDeleted  == false
+                                   && (bpdCheck == null || bpdCheck.IsDeleted == true)
+                                select ci
+                            ).Distinct().ToListAsync();
+
+                            foreach (var ci in unpaidInstCIs)
+                            {
+                                ci.IsDeleted     = true;
+                                ci.LASTUPDATE    = DateTime.Now;
+                                ci.LastUpdatedBy = dto.LastUpdatedBy ?? "";
+                            }
+
+                            // 2. Check if a preclosing CI already exists (avoid duplicate)
+                            bool pcCIExists = await _oBMSDbContext.CreditorInvoices
+                                .AnyAsync(ci => ci.RecID       == assetForPC.ID
+                                             && ci.InvoiceType == "P"
+                                             && ci.IsDeleted   == false);
+
+                            if (!pcCIExists)
+                            {
+                                // 3. Create one dedicated preclosing CI (InvoiceType='P')
+                                var pcCI = new CreditorInvoice
+                                {
+                                    Branch        = assetForPC.Branch ?? "",
+                                    Supplier      = assetForPC.SupplierID ?? 0,
+                                    RecID         = assetForPC.ID,
+                                    InvoiceNo     = $"{assetForPC.AssetCode}-PRECLOSING",
+                                    InvoiceType   = "P",             // Preclosing
+                                    InvoiceDate   = dto.PreClosingDate ?? DateTime.Today,
+                                    Total         = dto.PreClosingAmount!.Value,
+                                    PaymentDate   = dto.PreClosingDate ?? DateTime.Today,
+                                    LASTUPDATE    = DateTime.Now,
+                                    LastUpdatedBy = dto.LastUpdatedBy ?? "",
+                                    ItemCategory  = null,
+                                    IsDeleted     = false
+                                };
+                                _oBMSDbContext.CreditorInvoices.Add(pcCI);
+                            }
+                        }
+                        else if (!dto.IsPreClosing)
+                        {
+                            // ── Preclosing OFF ────────────────────────────────────────────
+                            // Soft-delete the preclosing CI
+                            var pcCIs = await _oBMSDbContext.CreditorInvoices
+                                .Where(ci => ci.RecID       == assetForPC.ID
+                                          && ci.InvoiceType == "P"
+                                          && ci.IsDeleted   == false)
+                                .ToListAsync();
+                            foreach (var ci in pcCIs)
+                            {
+                                ci.IsDeleted     = true;
+                                ci.LASTUPDATE    = DateTime.Now;
+                                ci.LastUpdatedBy = dto.LastUpdatedBy ?? "";
+                            }
+
+                            // Restore individual installment CIs (unpaid ones)
+                            var instCIs = await (
+                                from inst in _oBMSDbContext.AssetInstallments
+                                join ci in _oBMSDbContext.CreditorInvoices
+                                    on inst.CreditorInvoiceID equals ci.ID
+                                where inst.AssetID  == assetForPC.ID
+                                   && inst.IsActive == true
+                                   && ci.IsDeleted  == true
+                                select ci
+                            ).ToListAsync();
+                            foreach (var ci in instCIs)
+                            {
+                                ci.IsDeleted     = false;
+                                ci.LASTUPDATE    = DateTime.Now;
+                                ci.LastUpdatedBy = dto.LastUpdatedBy ?? "";
+                            }
+                        }
+
+                        await _oBMSDbContext.SaveChangesAsync();
+                        return (true,
+                            dto.IsPreClosing
+                                ? $"Preclosing enabled for {assetForPC.AssetCode}. Total remaining: RM {dto.PreClosingAmount:N2}"
+                                : $"Preclosing cancelled for {assetForPC.AssetCode}. Individual installments restored.",
+                            assetForPC);
+                    }
+
+                    return (false,
+                        "This asset cannot be edited because a payment has already been recorded against it. " +
+                        "Please contact your administrator if changes are required.",
+                        null);
+                }
+            }
+
             // Duplicate serial number check
             if (!string.IsNullOrWhiteSpace(dto.SerialNumber))
             {
@@ -5299,6 +5534,18 @@ namespace OBMS.WebAPI.Repositories.Implementation
                         null);
             }
 
+            // Validate installment fields when MONTHLY is selected
+            bool isMonthly = string.Equals(dto.PaymentTermType, "MONTHLY", StringComparison.OrdinalIgnoreCase);
+            if (isMonthly)
+            {
+                if (dto.InstallmentStartDate == null)
+                    return (false, "Please select the Installment Start Date for monthly payment.", null);
+                if (dto.MonthlyInstallmentAmount == null || dto.MonthlyInstallmentAmount <= 0)
+                    return (false, "Please enter a valid Monthly Installment Amount.", null);
+                if (dto.PurchaseAmount == null || dto.PurchaseAmount <= 0)
+                    return (false, "Please enter the Purchase Amount before setting up installments.", null);
+            }
+
             AssetMaster? saved = null;
             var strategy = _oBMSDbContext.Database.CreateExecutionStrategy();
             await strategy.ExecuteAsync(async () =>
@@ -5306,8 +5553,9 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 using var tx = await _oBMSDbContext.Database.BeginTransactionAsync();
                 try
                 {
+                    bool isNew = dto.ID == 0;
                     AssetMaster asset;
-                    if (dto.ID > 0)
+                    if (!isNew)
                     {
                         asset = await _oBMSDbContext.AssetMasters.FindAsync(dto.ID)
                                 ?? throw new InvalidOperationException("Asset not found.");
@@ -5319,24 +5567,213 @@ namespace OBMS.WebAPI.Repositories.Implementation
                         _oBMSDbContext.AssetMasters.Add(asset);
                     }
 
-                    asset.Name               = dto.Name;
-                    asset.AssetType          = dto.AssetType;
-                    asset.SerialNumber       = dto.SerialNumber;
-                    asset.Description        = dto.Description;
-                    asset.ModelNo            = dto.ModelNo;
-                    asset.BrandName          = dto.BrandName;
-                    asset.SupplierID         = dto.SupplierID;
-                    asset.Branch             = dto.Branch;
-                    asset.PurchaseAmount     = dto.PurchaseAmount;
-                    asset.PurchaseDate       = dto.PurchaseDate;
-                    asset.WarrantyExpiryDate = dto.WarrantyExpiryDate;
-                    asset.AssetCondition     = dto.AssetCondition;
-                    asset.Remarks            = dto.Remarks;
-                    asset.LASTUPDATE         = DateTime.Now;
-                    asset.LastUpdatedDate    = DateTime.Now;
-                    asset.LastUpdatedBy      = dto.LastUpdatedBy;
+                    asset.Name                      = dto.Name;
+                    asset.AssetType                 = dto.AssetType;
+                    asset.SerialNumber              = dto.SerialNumber;
+                    asset.Description               = dto.Description;
+                    asset.ModelNo                   = dto.ModelNo;
+                    asset.BrandName                 = dto.BrandName;
+                    asset.SupplierID                = dto.SupplierID;
+                    asset.Branch                    = dto.Branch;
+                    asset.PurchaseAmount            = dto.PurchaseAmount;
+                    asset.PurchaseDate              = dto.PurchaseDate;
+                    asset.WarrantyExpiryDate        = dto.WarrantyExpiryDate;
+                    asset.AssetCondition            = dto.AssetCondition;
+                    asset.Remarks                   = dto.Remarks;
+                    asset.SupplierInvoiceNo         = dto.SupplierInvoiceNo?.Trim();
+                    asset.LASTUPDATE                = DateTime.Now;
+                    asset.LastUpdatedDate           = DateTime.Now;
+                    asset.LastUpdatedBy             = dto.LastUpdatedBy;
+
+                    // ── Deposit & Installment fields ──────────────────────────────────
+                    asset.DepositAmount             = dto.DepositAmount;
+                    asset.PaymentTermType           = string.IsNullOrWhiteSpace(dto.PaymentTermType) ? "FULL" : dto.PaymentTermType.ToUpper();
+                    asset.InstallmentStartDate      = isMonthly ? dto.InstallmentStartDate : null;
+                    asset.MonthlyInstallmentAmount  = isMonthly ? dto.MonthlyInstallmentAmount : null;
+                    asset.IsPreClosing              = dto.IsPreClosing;
+                    asset.PreClosingDate            = dto.IsPreClosing ? dto.PreClosingDate : null;
+                    asset.PreClosingAmount          = dto.IsPreClosing ? dto.PreClosingAmount : null;
+
+                    // Calculate installment months: CEILING((Purchase - Deposit) / Monthly)
+                    if (isMonthly && dto.PurchaseAmount > 0 && dto.MonthlyInstallmentAmount > 0)
+                    {
+                        decimal balance = (decimal)(dto.PurchaseAmount ?? 0) - (dto.DepositAmount ?? 0);
+                        if (balance < 0) balance = 0;
+                        int months = (int)Math.Ceiling((double)balance / (double)dto.MonthlyInstallmentAmount!.Value);
+                        asset.InstallmentMonths = months;
+                    }
+                    else
+                    {
+                        asset.InstallmentMonths = null;
+                    }
 
                     await _oBMSDbContext.SaveChangesAsync();
+                    // asset.ID is now populated (EF auto-increments on new)
+
+                    // ── Generate installment rows (MONTHLY) ───────────────────────
+                    // Rules:
+                    // 1. No existing installments → generate fresh (new asset or first time)
+                    // 2. All existing installments unpaid → delete old, regenerate (deposit changed etc.)
+                    // 3. Any paid installment exists → skip (preserve payment history)
+                    bool hasExistingInstallments = isMonthly && await _oBMSDbContext.AssetInstallments
+                        .AnyAsync(x => x.AssetID == asset.ID && x.IsActive);
+
+                    bool hasPaidInstallments = false;
+                    if (hasExistingInstallments)
+                    {
+                        // Check if any installment has been paid via BranchPaymentDetails
+                        hasPaidInstallments = await (
+                            from inst in _oBMSDbContext.AssetInstallments
+                            join ci  in _oBMSDbContext.CreditorInvoices
+                                on inst.CreditorInvoiceID equals ci.ID
+                            join bpd in _oBMSDbContext.BranchPaymentDetails
+                                on (decimal)ci.ID equals bpd.InvoiceID
+                            where inst.AssetID  == asset.ID
+                               && inst.IsActive == true
+                               && ci.IsDeleted  == false
+                               && bpd.IsDeleted != true
+                            select bpd.ID
+                        ).AnyAsync();
+
+                        if (!hasPaidInstallments)
+                        {
+                            // All unpaid — safe to delete old rows and CreditorInvoices, then regenerate
+                            var oldInsts = await _oBMSDbContext.AssetInstallments
+                                .Where(x => x.AssetID == asset.ID && x.IsActive)
+                                .ToListAsync();
+
+                            var oldCiIds = oldInsts
+                                .Where(x => x.CreditorInvoiceID.HasValue)
+                                .Select(x => x.CreditorInvoiceID!.Value)
+                                .ToList();
+
+                            // Soft-delete old CreditorInvoice rows
+                            if (oldCiIds.Any())
+                            {
+                                var oldCIs = await _oBMSDbContext.CreditorInvoices
+                                    .Where(x => oldCiIds.Contains(x.ID))
+                                    .ToListAsync();
+                                foreach (var ci in oldCIs)
+                                {
+                                    ci.IsDeleted     = true;
+                                    ci.LASTUPDATE    = DateTime.Now;
+                                    ci.LastUpdatedBy = dto.LastUpdatedBy ?? "";
+                                }
+                            }
+
+                            // Soft-delete old installment rows
+                            foreach (var inst in oldInsts)
+                            {
+                                inst.IsActive      = false;
+                                inst.LASTUPDATE    = DateTime.Now;
+                                inst.LastUpdatedBy = dto.LastUpdatedBy;
+                            }
+                            await _oBMSDbContext.SaveChangesAsync();
+
+                            // Reset flag so generation block runs below
+                            hasExistingInstallments = false;
+                        }
+                    }
+
+                    if (isMonthly && asset.InstallmentMonths > 0 && !hasExistingInstallments)
+                    {
+                        // Resolve branch code for CreditorInvoice
+                        string branchCode = asset.Branch ?? "";
+
+                        decimal monthlyAmt  = dto.MonthlyInstallmentAmount!.Value;
+                        decimal remaining   = (decimal)(dto.PurchaseAmount ?? 0) - (dto.DepositAmount ?? 0);
+                        if (remaining < 0) remaining = 0;
+
+                        DateTime dueDate = new DateTime(
+                            dto.InstallmentStartDate!.Value.Year,
+                            dto.InstallmentStartDate!.Value.Month, 1);  // always 1st of month
+
+                        for (int i = 1; i <= asset.InstallmentMonths; i++)
+                        {
+                            // Last installment gets the remainder to avoid rounding drift
+                            decimal thisAmt = (i == asset.InstallmentMonths)
+                                ? remaining
+                                : monthlyAmt;
+                            if (thisAmt <= 0) thisAmt = monthlyAmt;
+
+                            // Create a CreditorInvoice row (InvoiceType='AI') so the
+                            // installment appears in Finance → Payment → Purchase category.
+                            var ci = new CreditorInvoice
+                            {
+                                Branch        = branchCode,
+                                Supplier      = dto.SupplierID ?? 0,
+                                RecID         = asset.ID,           // link back to AssetMaster
+                                InvoiceNo     = $"{asset.AssetCode}-INST-{i:D2}",
+                                InvoiceType   = "A",                // Asset Installment (1 char — column is NVARCHAR(1))
+                                InvoiceDate   = dueDate,
+                                Total         = thisAmt,
+                                PaymentDate   = dueDate,
+                                LASTUPDATE    = DateTime.Now,
+                                LastUpdatedBy = dto.LastUpdatedBy ?? "",
+                                ItemCategory  = null,
+                                IsDeleted     = false
+                            };
+                            _oBMSDbContext.CreditorInvoices.Add(ci);
+                            await _oBMSDbContext.SaveChangesAsync(); // get ci.ID
+
+                            var installment = new AssetInstallment
+                            {
+                                AssetID           = asset.ID,
+                                InstallmentNo     = i,
+                                DueDate           = dueDate,
+                                Amount            = thisAmt,
+                                Status            = "Pending",
+                                CreditorInvoiceID = ci.ID,
+                                IsActive          = true,
+                                LASTUPDATE        = DateTime.Now,
+                                LastUpdatedBy     = dto.LastUpdatedBy
+                            };
+                            _oBMSDbContext.AssetInstallments.Add(installment);
+
+                            remaining -= thisAmt;
+                            dueDate    = dueDate.AddMonths(1);
+                        }
+                        await _oBMSDbContext.SaveChangesAsync();
+                    }
+
+                    // ── FULL payment: create one CreditorInvoice row ──────────
+                    // So it appears in Finance → Payment → Purchase category.
+                    // Only create when: FULL term AND no existing CI row for this asset.
+                    bool isFull = string.Equals(asset.PaymentTermType, "FULL", StringComparison.OrdinalIgnoreCase);
+                    if (isFull && asset.SupplierID.HasValue && asset.PurchaseAmount > 0)
+                    {
+                        bool hasExistingCI = await _oBMSDbContext.CreditorInvoices
+                            .AnyAsync(ci => ci.InvoiceType == "A"
+                                        && ci.RecID == asset.ID
+                                        && ci.IsDeleted == false);
+                        if (!hasExistingCI)
+                        {
+                            string branchCodeFull = asset.Branch ?? "";
+                            decimal fullAmt = (decimal)(asset.PurchaseAmount ?? 0);
+                            DateTime purchaseDate = asset.PurchaseDate ?? DateTime.Today;
+
+                            var ci = new CreditorInvoice
+                            {
+                                Branch        = branchCodeFull,
+                                Supplier      = asset.SupplierID.Value,
+                                RecID         = asset.ID,
+                                InvoiceNo     = string.IsNullOrWhiteSpace(asset.SupplierInvoiceNo)
+                                                    ? $"{asset.AssetCode}-FULL"
+                                                    : asset.SupplierInvoiceNo,
+                                InvoiceType   = "A",
+                                InvoiceDate   = purchaseDate,
+                                Total         = fullAmt,
+                                PaymentDate   = purchaseDate,
+                                LASTUPDATE    = DateTime.Now,
+                                LastUpdatedBy = dto.LastUpdatedBy ?? "",
+                                ItemCategory  = null,
+                                IsDeleted     = false
+                            };
+                            _oBMSDbContext.CreditorInvoices.Add(ci);
+                            await _oBMSDbContext.SaveChangesAsync();
+                        }
+                    }
+
                     await tx.CommitAsync();
                     saved = asset;
                 }
@@ -5345,6 +5782,318 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
             var action = dto.ID > 0 ? "updated" : "created";
             return (true, $"Asset {saved!.AssetCode} {action} successfully.", saved);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // Asset Installment methods
+        // ─────────────────────────────────────────────────────────────────────
+
+        public async Task<List<AssetInstallmentPaymentRowDto>> GetAssetInstallments(int assetID)
+        {
+            var asset = await _oBMSDbContext.AssetMasters
+                .Where(a => a.ID == assetID && a.IsActive)
+                .Select(a => new { a.ID, a.AssetCode, a.Name, a.SupplierID, a.Branch })
+                .FirstOrDefaultAsync();
+            if (asset == null) return new List<AssetInstallmentPaymentRowDto>();
+
+            string? supplierName = null;
+            if (asset.SupplierID.HasValue)
+            {
+                supplierName = await _oBMSDbContext.Suppliers
+                    .Where(s => s.Id == asset.SupplierID.Value)
+                    .Select(s => s.Name).FirstOrDefaultAsync();
+            }
+
+            var rows = await _oBMSDbContext.AssetInstallments
+                .Where(i => i.AssetID == assetID && i.IsActive)
+                .OrderBy(i => i.InstallmentNo)
+                .ToListAsync();
+
+            // Get paid amounts from BranchPaymentDetails via CreditorInvoice
+            var ciIds = rows.Where(r => r.CreditorInvoiceID.HasValue)
+                            .Select(r => (decimal)r.CreditorInvoiceID!.Value).ToList();
+            var paidMap = ciIds.Any()
+                ? await _oBMSDbContext.BranchPaymentDetails
+                    .Where(d => d.InvoiceID != null && ciIds.Contains(d.InvoiceID.Value) && d.IsDeleted != true)
+                    .GroupBy(d => d.InvoiceID!.Value)
+                    .Select(g => new { InvoiceID = g.Key, Paid = g.Sum(x => x.Amount) })
+                    .ToDictionaryAsync(x => (int)x.InvoiceID, x => x.Paid)
+                : new Dictionary<int, decimal>();
+
+            return rows.Select(r =>
+            {
+                decimal paid = r.CreditorInvoiceID.HasValue && paidMap.ContainsKey(r.CreditorInvoiceID.Value)
+                    ? paidMap[r.CreditorInvoiceID.Value]
+                    : 0m;
+                return new AssetInstallmentPaymentRowDto
+                {
+                    InstallmentID     = r.ID,
+                    PaymentDetailID   = 0,
+                    PaymentID         = 0,
+                    CreditorInvoiceID = r.CreditorInvoiceID,
+                    AssetID           = asset.ID,
+                    AssetCode         = asset.AssetCode ?? "",
+                    AssetName         = asset.Name ?? "",
+                    SupplierID        = asset.SupplierID,
+                    SupplierName      = supplierName,
+                    BranchCode        = asset.Branch,
+                    InstallmentNo     = r.InstallmentNo,
+                    DueDate           = r.DueDate,
+                    InstallmentRef    = $"{asset.AssetCode} – Inst. {r.InstallmentNo}",
+                    TotalAmount       = r.Amount,
+                    PaidAmount        = paid,
+                    Balance           = r.Amount - paid,
+                    Amount            = 0,
+                    Status            = r.Status
+                };
+            }).ToList();
+        }
+
+        public async Task<List<AssetInstallmentPaymentRowDto>> GetAssetInstallmentsForPayment(
+            int supplierID, int paymentId, DateTime? paymentDate = null)
+        {
+            var result = new List<AssetInstallmentPaymentRowDto>();
+
+            // ── PART 1: MONTHLY installment rows from AssetInstallment table ──
+            // Use payment date to determine which installments are due.
+            // If no payment date provided, default to today.
+            var refDate        = paymentDate ?? DateTime.Today;
+            var endOfRefMonth  = new DateTime(refDate.Year, refDate.Month,
+                                    DateTime.DaysInMonth(refDate.Year, refDate.Month));
+
+            var monthlyQuery = from inst in _oBMSDbContext.AssetInstallments
+                               join a   in _oBMSDbContext.AssetMasters on inst.AssetID equals a.ID
+                               join sup in _oBMSDbContext.Suppliers on a.SupplierID equals sup.Id into supJoin
+                               from sup in supJoin.DefaultIfEmpty()
+                               where inst.IsActive
+                                  && a.IsActive
+                                  && a.SupplierID == supplierID
+                                  && !a.IsPreClosing                   // ← skip individual rows for preclosing assets
+                                  && inst.DueDate <= endOfRefMonth     // ← up to selected payment month
+                               select new
+                               {
+                                   inst.ID,
+                                   inst.AssetID,
+                                   inst.InstallmentNo,
+                                   inst.DueDate,
+                                   inst.Amount,
+                                   inst.Status,
+                                   inst.CreditorInvoiceID,
+                                   AssetCode  = a.AssetCode ?? "",
+                                   AssetName  = a.Name ?? "",
+                                   SupID      = a.SupplierID,
+                                   SupName    = sup != null ? sup.Name : "",
+                                   BranchCode = a.Branch ?? "",
+                                   IsFullPay  = false
+                               };
+
+            // ── PART 2: FULL payment assets — via CreditorInvoice (InvoiceType='A') ──
+            var fullQuery = from ci in _oBMSDbContext.CreditorInvoices
+                            join a   in _oBMSDbContext.AssetMasters on ci.RecID equals a.ID
+                            join sup in _oBMSDbContext.Suppliers on a.SupplierID equals sup.Id into supJoin
+                            from sup in supJoin.DefaultIfEmpty()
+                            where ci.InvoiceType == "A"
+                               && ci.IsDeleted == false
+                               && a.IsActive
+                               && a.SupplierID == supplierID
+                               && (a.PaymentTermType == "FULL" || a.PaymentTermType == null)
+                            select new
+                            {
+                                ID            = 0,              // no AssetInstallment row
+                                AssetID       = a.ID,
+                                InstallmentNo = 1,
+                                DueDate       = ci.PaymentDate ?? ci.InvoiceDate,
+                                Amount        = ci.Total,
+                                Status        = "Pending",
+                                CreditorInvoiceID = (int?)ci.ID,
+                                AssetCode     = a.AssetCode ?? "",
+                                AssetName     = a.Name ?? "",
+                                SupID         = a.SupplierID,
+                                SupName       = sup != null ? sup.Name : "",
+                                BranchCode    = a.Branch ?? "",
+                                IsFullPay     = true
+                            };
+
+            var monthlyRows = await monthlyQuery.OrderBy(i => i.DueDate).ThenBy(i => i.AssetCode).ToListAsync();
+            var fullRows    = await fullQuery.OrderBy(i => i.AssetCode).ToListAsync();
+
+            // ── PART 3: PRECLOSING assets — one merged row with PreClosingAmount ──
+            // Assets where IsPreClosing=true: show a single row for the total remaining.
+            // These assets are excluded from PART 1 (individual installments).
+            // Note: works for both MONTHLY and FULL payment term types.
+            var preClosingQuery = from a in _oBMSDbContext.AssetMasters
+                                  join sup in _oBMSDbContext.Suppliers on a.SupplierID equals sup.Id into supJoin
+                                  from sup in supJoin.DefaultIfEmpty()
+                                  where a.IsActive
+                                     && a.SupplierID == supplierID      // supplier match
+                                     && a.IsPreClosing == true
+                                     && a.PreClosingAmount != null
+                                     && a.PreClosingAmount > 0
+                                  select new
+                                  {
+                                      ID            = 0,
+                                      AssetID       = a.ID,
+                                      InstallmentNo = 0,
+                                      DueDate       = a.PreClosingDate ?? DateTime.Today,
+                                      Amount        = a.PreClosingAmount ?? 0m,
+                                      Status        = "Preclosing",
+                                      CreditorInvoiceID = (int?)null,
+                                      AssetCode     = a.AssetCode ?? "",
+                                      AssetName     = a.Name ?? "",
+                                      SupID         = a.SupplierID,
+                                      SupName       = sup != null ? sup.Name : "",
+                                      BranchCode    = a.Branch ?? "",
+                                      IsFullPay     = false,
+                                      IsPreClosing  = true
+                                  };
+
+            var preClosingRows = await preClosingQuery.ToListAsync();
+
+            // Combine all rows
+            var allRows = monthlyRows.Cast<dynamic>()
+                .Concat(fullRows.Cast<dynamic>())
+                .ToList();
+
+            // Resolve preclosing rows — find dedicated preclosing CI (InvoiceType='P')
+            foreach (var pc in preClosingRows)
+            {
+                int assetId = (int)pc.AssetID;
+
+                // Find dedicated preclosing CI (InvoiceType='P')
+                var pcCI = await _oBMSDbContext.CreditorInvoices
+                    .Where(ci => ci.RecID       == assetId
+                              && ci.InvoiceType == "P"
+                              && ci.IsDeleted   == false)
+                    .FirstOrDefaultAsync();
+
+                if (pcCI == null) continue; // preclosing CI not created yet
+
+                decimal ciKey  = (decimal)pcCI.ID;
+                decimal pcPaid = await _oBMSDbContext.BranchPaymentDetails
+                    .Where(d => d.InvoiceID == ciKey && d.IsDeleted != true)
+                    .SumAsync(d => (decimal?)d.Amount) ?? 0m;
+
+                decimal pcAmount  = (decimal)pc.Amount;
+                decimal pcBalance = pcAmount - pcPaid;
+
+                if (paymentId == 0 && pcBalance <= 0) continue; // fully paid
+
+                int pcDetailID  = 0;
+                decimal pcThisAmt = 0m;
+                bool linkedToThisPayment = false;
+
+                if (paymentId > 0)
+                {
+                    var detail = await _oBMSDbContext.BranchPaymentDetails
+                        .Where(d => d.InvoiceID == ciKey
+                                 && d.PaymentID == (decimal)paymentId
+                                 && d.IsDeleted != true)
+                        .FirstOrDefaultAsync();
+                    if (detail != null)
+                    {
+                        linkedToThisPayment = true;
+                        pcDetailID  = detail.ID;
+                        pcThisAmt   = detail.Amount;
+                    }
+                    if (!linkedToThisPayment) continue;
+                }
+
+                result.Add(new AssetInstallmentPaymentRowDto
+                {
+                    InstallmentID     = 0,
+                    PaymentDetailID   = pcDetailID,
+                    PaymentID         = paymentId,
+                    CreditorInvoiceID = pcCI.ID,
+                    AssetID           = assetId,
+                    AssetCode         = (string)pc.AssetCode,
+                    AssetName         = (string)pc.AssetName,
+                    SupplierID        = pc.SupID != null ? (int?)((int)pc.SupID) : null,
+                    SupplierName      = (string)pc.SupName,
+                    BranchCode        = (string)pc.BranchCode,
+                    InstallmentNo     = 0,
+                    DueDate           = (DateTime)pc.DueDate,
+                    InstallmentRef    = $"{(string)pc.AssetCode} – Preclosing (RM {pcAmount:N2})",
+                    TotalAmount       = pcAmount,
+                    PaidAmount        = pcPaid,
+                    Balance           = pcBalance,
+                    Amount            = paymentId > 0 ? pcThisAmt : 0m,
+                    Status            = "Preclosing"
+                });
+            }
+            if (!allRows.Any()) return result;
+
+            // Collect all CreditorInvoice IDs
+            var allCiIds = allRows
+                .Where(r => r.CreditorInvoiceID != null)
+                .Select(r => (decimal)(int)r.CreditorInvoiceID)
+                .Distinct().ToList();
+
+            // Get paid amounts per CreditorInvoice
+            var paidMap = allCiIds.Any()
+                ? await _oBMSDbContext.BranchPaymentDetails
+                    .Where(d => d.InvoiceID != null && allCiIds.Contains(d.InvoiceID.Value) && d.IsDeleted != true)
+                    .GroupBy(d => d.InvoiceID!.Value)
+                    .Select(g => new { InvoiceID = g.Key, Paid = g.Sum(x => x.Amount) })
+                    .ToDictionaryAsync(x => (int)x.InvoiceID, x => x.Paid)
+                : new Dictionary<int, decimal>();
+
+            // In edit mode: get amounts already entered for THIS payment
+            Dictionary<int, (int DetailID, decimal Amt)> thisPaymentMap = new();
+            if (paymentId > 0 && allCiIds.Any())
+            {
+                var details = await _oBMSDbContext.BranchPaymentDetails
+                    .Where(d => d.InvoiceID != null
+                             && allCiIds.Contains(d.InvoiceID.Value)
+                             && d.PaymentID == (decimal)paymentId
+                             && d.IsDeleted != true)
+                    .ToListAsync();
+                thisPaymentMap = details.ToDictionary(
+                    d => (int)d.InvoiceID!.Value,
+                    d => (d.ID, d.Amount));
+            }
+
+            foreach (var r in allRows)
+            {
+                int?    ciID    = r.CreditorInvoiceID != null ? (int?)((int)r.CreditorInvoiceID) : null;
+                decimal paid    = ciID.HasValue && paidMap.ContainsKey(ciID.Value) ? paidMap[ciID.Value] : 0m;
+                decimal amount  = (decimal)r.Amount;
+                decimal balance = amount - paid;
+
+                bool linkedToThisPayment = paymentId > 0 && ciID.HasValue && thisPaymentMap.ContainsKey(ciID.Value);
+
+                if (paymentId > 0 && !linkedToThisPayment) continue;
+                if (paymentId == 0 && balance <= 0) continue;
+
+                var (detailID, thisAmt) = linkedToThisPayment ? thisPaymentMap[ciID!.Value] : (0, 0m);
+
+                bool isFullPay = (bool)r.IsFullPay;
+                string instRef = isFullPay
+                    ? $"{(string)r.AssetCode} – Full Payment"
+                    : $"{(string)r.AssetCode} – Inst. {(int)r.InstallmentNo}";
+
+                result.Add(new AssetInstallmentPaymentRowDto
+                {
+                    InstallmentID     = (int)r.ID,
+                    PaymentDetailID   = detailID,
+                    PaymentID         = paymentId,
+                    CreditorInvoiceID = ciID,
+                    AssetID           = (int)r.AssetID,
+                    AssetCode         = (string)r.AssetCode,
+                    AssetName         = (string)r.AssetName,
+                    SupplierID        = r.SupID != null ? (int?)((int)r.SupID) : null,
+                    SupplierName      = (string)r.SupName,
+                    BranchCode        = (string)r.BranchCode,
+                    InstallmentNo     = (int)r.InstallmentNo,
+                    DueDate           = (DateTime)r.DueDate,
+                    InstallmentRef    = instRef,
+                    TotalAmount       = amount,
+                    PaidAmount        = paid,
+                    Balance           = balance,
+                    Amount            = paymentId > 0 ? thisAmt : 0m,
+                    Status            = (string)r.Status
+                });
+            }
+            return result;
         }
 
         public async Task<(bool Success, string Message)> DeleteAsset(int id, string currentUser)
@@ -6535,9 +7284,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 from sup in supJoin.DefaultIfEmpty()
                 where a.IsActive == true
                    && (allowedBranches == null || (a.Branch != null && allowedBranches.Contains(a.Branch)))
-                   && (a.LocationStatus == "Defect_Location"
-                    || a.LocationStatus == "Parked_Away"
-                    || a.LocationStatus == "Unknown")
+                   && a.CurrentLocation != null && a.CurrentLocation != ""
                 orderby a.LocationUpdatedDate descending
                 select new AssetListDto
                 {
@@ -6717,10 +7464,10 @@ namespace OBMS.WebAPI.Repositories.Implementation
             if (dto.ID > 0)
             {
                 var existing = await _oBMSDbContext.StockRequests.FindAsync(dto.ID);
-                if (existing != null && existing.Status != "Draft")
+                if (existing != null && existing.Status != "Draft" && existing.Status != "Approved")
                     return (false,
                         $"This stock request cannot be edited because it has already been " +
-                        $"{existing.Status.ToLower()}. Only Draft requests can be modified.", null);
+                        $"{existing.Status.ToLower()}. Only Draft or Approved requests can be modified.", null);
             }
 
             // ── Generate request number ────────────────────────────────────────
@@ -6756,6 +7503,10 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 record.Remarks             = dto.Remarks;
                 record.LASTUPDATE          = DateTime.Now;
                 record.LastUpdatedBy       = currentUser;
+                // If editing an Approved BSR, reset back to Draft so it goes
+                // through approval again before a new Stock Transfer can be raised.
+                if (record.Status == "Approved")
+                    record.Status = "Draft";
                 await _oBMSDbContext.SaveChangesAsync();
                 saved = record;
             }
@@ -6832,6 +7583,14 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     sr.LASTUPDATE    = DateTime.Now;
                     sr.LastUpdatedBy = currentUser;
                     await _oBMSDbContext.SaveChangesAsync();
+
+                    // Notify Purchase department even on direct-approve (no approval setup)
+                    if (_notif != null)
+                        await _notif.SendApprovalNotificationToDepartment(
+                            "APPROVED", "BRANCH_STOCK_REQUEST", sr.RequestNo, sr.ID,
+                            "Purchase", currentUser, null,
+                            excludeUsers: new[] { currentUser });
+
                     return (true,
                         $"Stock Request {sr.RequestNo} has been approved directly. " +
                         "You can now create a Stock Transfer.");
@@ -6850,6 +7609,14 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     sr.LASTUPDATE    = DateTime.Now;
                     sr.LastUpdatedBy = currentUser;
                     await _oBMSDbContext.SaveChangesAsync();
+
+                    // Notify Purchase department even when no approver is configured
+                    if (_notif != null)
+                        await _notif.SendApprovalNotificationToDepartment(
+                            "APPROVED", "BRANCH_STOCK_REQUEST", sr.RequestNo, sr.ID,
+                            "Purchase", currentUser, null,
+                            excludeUsers: new[] { currentUser });
+
                     return (true,
                         $"Stock Request {sr.RequestNo} has been approved directly. " +
                         "You can now create a Stock Transfer.");
@@ -7183,8 +7950,9 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
             var docs = await _oBMSDbContext.StockIssueDocs
                 .Where(d => d.IsActive
-                    && (d.IssueToType == "Guard" || d.IssueToType == "Staff")
+                    && (d.IssueToType == "Guard" || d.IssueToType == "Staff" || d.IssueToType == "Other Guards")
                     && d.IssueToID == employeeID
+                    && d.IsDeduction == true
                     && !linkedIDs.Contains(d.ID))
                 .OrderByDescending(d => d.IssueDate)
                 .ToListAsync();
@@ -7253,6 +8021,8 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     EmployeeBranchCode  = doc.IssueToID.HasValue
                                           ? empBranchCodes.GetValueOrDefault(doc.IssueToID.Value, "")
                                           : "",
+                    IssueToType         = doc.IssueToType,
+                    IsDeduction         = doc.IsDeduction,
                     Lines               = lines
                 };
             }).ToList();
@@ -7273,7 +8043,8 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
             var docs = await _oBMSDbContext.StockIssueDocs
                 .Where(d => d.IsActive
-                    && (d.IssueToType == "Guard" || d.IssueToType == "Staff")
+                    && (d.IssueToType == "Guard" || d.IssueToType == "Staff" || d.IssueToType == "Other Guards")
+                    && d.IsDeduction == true
                     && !linkedIDs.Contains(d.ID))
                 .OrderByDescending(d => d.IssueDate)
                 .ToListAsync();
@@ -7339,6 +8110,8 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     EmployeeBranchCode = doc.IssueToID.HasValue
                                          ? empBranchCodes2.GetValueOrDefault(doc.IssueToID.Value, "")
                                          : "",
+                    IssueToType        = doc.IssueToType,
+                    IsDeduction        = doc.IsDeduction,
                     Lines              = lines
                 };
             }).ToList();

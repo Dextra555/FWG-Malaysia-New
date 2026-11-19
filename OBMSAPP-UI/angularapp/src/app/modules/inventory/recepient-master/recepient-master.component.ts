@@ -1,4 +1,5 @@
 ﻿import { AfterViewInit, Component, ViewChild } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
 import { MatSort, Sort } from '@angular/material/sort';
@@ -51,7 +52,8 @@ export class RecepientMasterComponent implements AfterViewInit {
   pageSizeOptions: number[] = [];
 
   constructor(private _liveAnnouncer: LiveAnnouncer, public dialog: MatDialog, private service: InventoryService, private route: Router,
-    private _dataService: DatasharingService, private _masterService: MastermoduleService) {
+    private _dataService: DatasharingService, private _masterService: MastermoduleService,
+    private titleService: Title) {
     this.userAccessModel = {
       readAccess: false,
       updateAccess: false,
@@ -63,6 +65,7 @@ export class RecepientMasterComponent implements AfterViewInit {
     }
   }
   ngOnInit(): void {
+    this.titleService.setTitle('Recipient Master');
     this.currentUser = sessionStorage.getItem('username')!;
     const rawRole = sessionStorage.getItem('userrole');
     if (rawRole == '1') { this.userRole = 'admin'; }
@@ -199,3 +202,4 @@ export class RecepientMasterComponent implements AfterViewInit {
     this.showLoadingSpinner = false
   }
 }
+

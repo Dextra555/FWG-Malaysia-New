@@ -14,7 +14,10 @@ namespace OBMS.WebAPI.Models.Domain
 
         public int PODetailID { get; set; }
 
-        public int ItemID { get; set; }
+        /// <summary>
+        /// FK to ItemMaster. NULL when the PO line is a service / non-inventory line.
+        /// </summary>
+        public int? ItemID { get; set; }
 
         public int? UOMID { get; set; }
 
@@ -48,7 +51,7 @@ namespace OBMS.WebAPI.Models.Domain
         public virtual PurchaseOrderDetail? PODetail { get; set; }
 
         [ForeignKey("ItemID")]
-        public virtual ItemMaster? Item { get; set; }
+        public virtual ItemMaster? Item { get; set; }   // null for service lines
 
         [ForeignKey("UOMID")]
         public virtual UOMMaster? UOM { get; set; }

@@ -97,9 +97,12 @@ ELSE
     PRINT 'ItemMaster.Code already exists. Skipping.';
 
 -- Backfill Code for rows that do not have one yet
-UPDATE ItemMaster
-SET    Code = 'ITM' + RIGHT('0000' + CAST(ID AS VARCHAR(4)), 4)
-WHERE  Code IS NULL;
+-- (Dynamic SQL used to avoid batch-compile error on fresh databases where Code column was just added)
+EXEC sp_executesql N'
+    UPDATE ItemMaster
+    SET    Code = ''ITM'' + RIGHT(''0000'' + CAST(ID AS VARCHAR(4)), 4)
+    WHERE  Code IS NULL;
+';
 PRINT 'ItemMaster.Code backfill done (rows without code updated).';
 
 -- BrandID  (FK -> BrandMaster)

@@ -1,4 +1,5 @@
 ﻿import { Component, OnInit } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import {
   AbstractControl, FormArray, FormBuilder,
   FormGroup, ValidatorFn, Validators
@@ -84,7 +85,8 @@ export class NewBSRComponent implements OnInit {
     private service:         InventoryService,
     private _dataService:    DatasharingService,
     private _masterService:  MastermoduleService
-  ) {
+  ,
+    private titleService: Title) {
     this.userAccessModel = {
       readAccess: false, updateAccess: false,
       deleteAccess: false, createAccess: false
@@ -105,6 +107,7 @@ export class NewBSRComponent implements OnInit {
   // â”€â”€ Lifecycle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   ngOnInit(): void {
+    this.titleService.setTitle('Branch Stock Request');
     this.ID = this.activatedRoute.snapshot.params['ID'];
     this.currentUser = sessionStorage.getItem('username')!;
     // Load role from sessionStorage 'userrole' (set at login from OBMSUsers.IsAdmin)
@@ -146,6 +149,14 @@ export class NewBSRComponent implements OnInit {
           this.userAccessModel.createAccess = data.Create;
           this.userAccessModel.updateAccess = data.Update;
           this.userAccessModel.deleteAccess = data.Delete;
+        }
+        // Re-evaluate edit mode for Approved BSR after access rights are resolved
+        // (loadExisting may have already run and set isViewMode prematurely)
+        if (this.currentStatus === 'Approved' && this.isViewMode &&
+            (this.userAccessModel.updateAccess || this.userRole === 'superadmin')) {
+          this.isViewMode = false;
+          this.isEditMode = true;
+          this.frm.enable();
         }
       }, () => {}
     );
@@ -262,6 +273,10 @@ export class NewBSRComponent implements OnInit {
 
         // Determine view vs edit mode
         if (d.Status === 'Draft') {
+          this.isEditMode = true;
+        } else if (d.Status === 'Approved' &&
+                   (this.userAccessModel.updateAccess || this.userRole === 'superadmin')) {
+          // updateAccess users can edit an Approved BSR (e.g. to update after Stock Transfer)
           this.isEditMode = true;
         } else {
           this.isViewMode = true;
@@ -720,3 +735,4 @@ export class NewBSRComponent implements OnInit {
 
   hideSpinner(): void { this.showLoadingSpinner = false; }
 }
+

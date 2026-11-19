@@ -108,6 +108,7 @@ import { PurchaseOrderComponent } from "./inventory/purchase-order/purchase-orde
 import { NewPOComponent } from "./inventory/purchase-order/new-po/new-po.component";
 import { GoodsReceiptComponent } from "./inventory/goods-receipt/goods-receipt.component";
 import { NewGRNComponent } from "./inventory/goods-receipt/new-grn/new-grn.component";
+import { GrnSerialEntryComponent } from "./inventory/goods-receipt/grn-serial-entry/grn-serial-entry.component";
 import { PurchaseReturnComponent } from "./inventory/purchase-return/purchase-return.component";
 import { NewReturnComponent } from "./inventory/purchase-return/new-return/new-return.component";
 // Part 4: Stock Operations
@@ -348,6 +349,7 @@ import { SumFieldPipe } from '../shared/sum-field.pipe';
     NewPOComponent,
     GoodsReceiptComponent,
     NewGRNComponent,
+    GrnSerialEntryComponent,
     PurchaseReturnComponent,
     NewReturnComponent,
     // Part 4: Stock Operations

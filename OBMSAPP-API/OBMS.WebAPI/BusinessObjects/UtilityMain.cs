@@ -2094,7 +2094,7 @@ namespace OBMS.WebAPI.BusinessObjects
             }
         }
 
-        public static List<BankStatementExcelDto> GetSalaryList(DateTime Period, string Branch, string Client, string Bank, string PaymentType, string EmployeeType, string EmpTempType, string Source)
+        public static List<BankStatementExcelDto> GetSalaryList(DateTime Period, string Branch, string Client, string Bank, string PaymentType, string EmployeeType, string EmpTempType, string Source, string PaymentMode = "Bank")
         {
             try
             {
@@ -2125,7 +2125,7 @@ namespace OBMS.WebAPI.BusinessObjects
                         commandText += "INNER JOIN Employee ON SalaryAdvance.EmployeeID=Employee.EMP_ID  ";
                         commandText += "INNER JOIN EmployeeSalaryDetails ON EmployeeSalaryDetails.EMPFL_CODE=Employee.EMP_CODE  ";
                         commandText += "WHERE SalaryAdvance.TransType=1  ";
-                        commandText += "AND SalaryAdvance.PaymentType='BANK'  ";
+                        commandText += "AND SalaryAdvance.PaymentType='" + (PaymentMode.Equals("Cash", StringComparison.OrdinalIgnoreCase) ? "CASH" : "BANK") + "'  ";
                         commandText += "AND SalaryAdvance.IsDeleted=0  ";
                         commandText += "AND EMP_ROLE=@EmployeeType  ";
                         commandText += "AND Month(AdvanceDate)=@Month ";
@@ -2173,7 +2173,10 @@ namespace OBMS.WebAPI.BusinessObjects
 
                         commandText += "EMP_NAME AS EmployeeName,  ";
                         commandText += "EMP_SecurityNo, ";
-                        commandText += "EMP_BK_ACCNO ";
+                        commandText += "EMP_BK_ACCNO, ";
+                        commandText += "(CASE WHEN EMP_IC_NEW IS NOT NULL AND EMP_IC_NEW <> '' THEN '01' ";
+                        commandText += "WHEN EMP_IC_OLD IS NOT NULL AND EMP_IC_OLD <> '' THEN '02' ";
+                        commandText += "ELSE '03' END) AS IcType ";
                         commandText += "FROM ";
                         commandText += "( ";
                         commandText += "SELECT Distinct ";
@@ -2204,7 +2207,7 @@ namespace OBMS.WebAPI.BusinessObjects
                         commandText += "EMP_IC_OLD, EMP_IC_NEW, EMP_PASSPORT_NO, ";
                         commandText += "REPLACE(EMPFL_BK_ACCNO,'-','') AS EMP_BK_ACCNO ";
                         commandText += "FROM VWBankSalaryStatement ";
-                        commandText += "WHERE SalaryPayMode ='BANK' ";
+                        commandText += "WHERE SalaryPayMode ='" + (PaymentMode.Equals("Cash", StringComparison.OrdinalIgnoreCase) ? "CASH" : "BANK") + "' ";
                         commandText += "AND Month(Period) = @Month ";
                         commandText += "AND Year(Period) = @Year ";
                         if (!(Bank == "0") && !(Bank == ""))
@@ -2240,7 +2243,7 @@ namespace OBMS.WebAPI.BusinessObjects
                         }
 
                         commandText += ") A ";
-                        commandText += "Group By EMP_NAME,EMP_SecurityNo,EMP_BK_ACCNO ";
+                        commandText += "Group By EMP_NAME,EMP_SecurityNo,EMP_BK_ACCNO,EMP_IC_OLD,EMP_IC_NEW,EMP_PASSPORT_NO ";
                         commandText += "HAVING SUM( ";
                         if (Source == "SalaryGuard1")
                         {
@@ -2285,7 +2288,9 @@ namespace OBMS.WebAPI.BusinessObjects
                         empty6 = ((sqlDataReader["EmployeeName"] == DBNull.Value) ? string.Empty : sqlDataReader.GetString(1));
                         empty5 = ((sqlDataReader["EMP_SecurityNo"] == DBNull.Value) ? string.Empty : ("'" + sqlDataReader.GetString(2)));
                         empty8 = ((sqlDataReader["EMP_BK_ACCNO"] == DBNull.Value) ? string.Empty : ("'" + sqlDataReader.GetString(3)));
-                        list.Add(new BankStatementExcelDto(empty6, empty8.ToString(), num.ToString("F2"), empty5));
+                        string icType = "01";
+                        try { icType = sqlDataReader["IcType"] == DBNull.Value ? "01" : sqlDataReader["IcType"].ToString()!; } catch { }
+                        list.Add(new BankStatementExcelDto(empty6, empty8.ToString(), num.ToString("F2"), empty5, icType));
                     }
                 }
 

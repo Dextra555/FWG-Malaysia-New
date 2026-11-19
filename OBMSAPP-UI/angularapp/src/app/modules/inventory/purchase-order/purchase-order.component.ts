@@ -1,4 +1,5 @@
-import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
+﻿import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
 import { MatSort, Sort } from '@angular/material/sort';
@@ -30,12 +31,14 @@ export class PurchaseOrderComponent implements OnInit, AfterViewInit {
   pageSizeOptions: number[] = [];
 
   constructor(private _liveAnnouncer: LiveAnnouncer, public dialog: MatDialog, private service: InventoryService,
-    private route: Router, private _dataService: DatasharingService, private _masterService: MastermoduleService) {
+    private route: Router, private _dataService: DatasharingService, private _masterService: MastermoduleService,
+    private titleService: Title) {
     this.userAccessModel = { readAccess: false, updateAccess: false, deleteAccess: false, createAccess: false };
     for (let i = 10; i <= 50; i += 10) this.pageSizeOptions.push(i);
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Purchase Order');
     this.currentUser = sessionStorage.getItem('username')!;
     const raw = sessionStorage.getItem('userrole') ?? '0';
     this.userRole = raw === '2' ? 'superadmin' : raw === '1' ? 'admin' : 'user';
@@ -109,3 +112,4 @@ export class PurchaseOrderComponent implements OnInit, AfterViewInit {
   }
   hideSpinner(): void { this.showLoadingSpinner = false; }
 }
+

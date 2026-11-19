@@ -408,7 +408,7 @@
           <button *ngIf="canEdit() && (userAccessModel.createAccess || userAccessModel.updateAccess || userRole === 'superadmin')"
             type="button" class="btn wlt-c-furg-btn-primary mr-2" [disabled]="showLoadingSpinner" (click)="onSave()">
             <mat-icon style="vertical-align:middle;font-size:18px">save</mat-icon>
-            {{isEdit ? 'Update Draft' : 'Save Draft'}}
+            {{currentStatus === 'Approved' ? 'Save & Re-submit' : (isEdit ? 'Update Draft' : 'Save Draft')}}
           </button>
 
           <!-- Reference-field edit controls (view mode only) -->

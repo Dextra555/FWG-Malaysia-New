@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { environment } from '../../../../../environments/environment';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
@@ -34,7 +35,8 @@ export class StockInGRNReportComponent implements OnInit {
     private service: InventoryService,
     private fb: FormBuilder,
     private _dataService: DatasharingService
-  ) {
+  ,
+    private titleService: Title) {
     this.currentUser = sessionStorage.getItem('username')!;
     this.url += this.currentUrl;
     this.url += 'LoginID=' + this.currentUser;
@@ -43,9 +45,9 @@ export class StockInGRNReportComponent implements OnInit {
     const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
     this.frm = this.fb.group({
-      WarehouseID: ['0'],                               // optional — 0 = All
-      SupplierID:  ['0'],                               // optional — 0 = All
-      ItemID:      ['0'],                               // optional — 0 = All
+      WarehouseID: ['0'],                               // optional â€” 0 = All
+      SupplierID:  ['0'],                               // optional â€” 0 = All
+      ItemID:      ['0'],                               // optional â€” 0 = All
       StartDate:   [firstOfMonth, Validators.required],
       EndDate:     [today,        Validators.required]
     });
@@ -57,6 +59,7 @@ export class StockInGRNReportComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Stock In (GRN) Report');
     this.currentUser = sessionStorage.getItem('username')!;
     if (!this.currentUser || this.currentUser === 'null') {
       this._dataService.getUsername().subscribe(u => this.currentUser = u);
@@ -181,3 +184,4 @@ export class StockInGRNReportComponent implements OnInit {
     return `${year}-${month}-${day}`;
   }
 }
+

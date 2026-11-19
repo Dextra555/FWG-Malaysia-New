@@ -1,4 +1,4 @@
-﻿<%@ page language="C#" autoeventwireup="true" inherits="Payroll_PayHistoryReport, App_Web_402qaw3v" %>
+﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="PayHistoryReport.aspx.cs" Inherits="Payroll_PayHistoryReport" %>
 
 <%@ Register TagPrefix="CR" Namespace="CrystalDecisions.Web" Assembly="CrystalDecisions.Web, Version=13.0.4000.0, Culture=neutral, PublicKeyToken=692fbea5521e1304" %>
 

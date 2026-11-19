@@ -1,4 +1,5 @@
-import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
+﻿import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
 import { MatSort, Sort } from '@angular/material/sort';
@@ -28,7 +29,7 @@ export class PurchaseRequisitionComponent implements OnInit, AfterViewInit {
 
   userAccessModel!: UserAccessModel;
   currentUser = '';
-  userRole    = '';   // '0'→'user', '1'→'admin', '2'→'superadmin'
+  userRole    = '';   // '0'â†’'user', '1'â†’'admin', '2'â†’'superadmin'
   warningMessage = '';
   errorMessage = '';
   showLoadingSpinner = false;
@@ -45,12 +46,14 @@ export class PurchaseRequisitionComponent implements OnInit, AfterViewInit {
     private route: Router,
     private _dataService: DatasharingService,
     private _masterService: MastermoduleService
-  ) {
+  ,
+    private titleService: Title) {
     this.userAccessModel = { readAccess: false, updateAccess: false, deleteAccess: false, createAccess: false };
     for (let i = 10; i <= 50; i += 10) this.pageSizeOptions.push(i);
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Purchase Requisition');
     this.currentUser = sessionStorage.getItem('username')!;
     const raw = sessionStorage.getItem('userrole') ?? '0';
     this.userRole = raw === '2' ? 'superadmin' : raw === '1' ? 'admin' : 'user';
@@ -145,7 +148,7 @@ export class PurchaseRequisitionComponent implements OnInit, AfterViewInit {
       return;
     }
     // Frontend pre-check: if DisplayStatus shows a linked PO or GRN, warn immediately
-    // (backend also enforces this — this is a UX convenience only)
+    // (backend also enforces this â€” this is a UX convenience only)
     if (row.DisplayStatus === 'PO Posted' || row.DisplayStatus === 'GRN Posted') {
       this.showMsg(`Purchase Requisition ${row.PRNumber} cannot be deleted because a Purchase Order has already been created from it. Please cancel the related Purchase Order first.`, 'warning', 'Warning Message');
       return;
@@ -182,3 +185,4 @@ export class PurchaseRequisitionComponent implements OnInit, AfterViewInit {
 
   hideSpinner(): void { this.showLoadingSpinner = false; }
 }
+

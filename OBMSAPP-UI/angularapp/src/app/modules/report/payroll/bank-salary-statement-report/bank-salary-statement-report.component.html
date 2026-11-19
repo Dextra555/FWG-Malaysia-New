@@ -53,8 +53,16 @@
                     </mat-radio-group>
                 </div>
                 <div class="col-12 col-sm-12 col-md-4 col-lg-2">
-                    <button class="btn wlt-c-furg-btn-primary m-1" (click)="generateExcelFileClick()">Generate Excel
-                        File</button>
+                    <!-- Bank mode: existing Generate Excel File -->
+                    <button class="btn wlt-c-furg-btn-primary m-1"
+                        *ngIf="frm.get('PaymentMode')?.value !== 'Cash'"
+                        (click)="generateExcelFileClick()">Generate Excel File</button>
+                    <!-- Cash mode: new RHB Smart Payroll format button -->
+                    <button class="btn btn-success m-1"
+                        *ngIf="frm.get('PaymentMode')?.value === 'Cash'"
+                        (click)="generateCashExcelFileClick()">
+                        <i class="fa fa-file-excel-o mr-1"></i>Generate Excel File (Cash)
+                    </button>
                 </div>
                 <div class="col-12 col-sm-12 col-md-4 col-lg-8">
                     <mat-label class="mr-3"></mat-label>
@@ -81,6 +89,16 @@
             </div>
             <div class="row" *ngIf="warningMessage ===''">
                 <div class="col-12 col-sm-12 col-md-4 col-lg-3">
+                    <mat-label class="mr-3"><strong>Payment Mode</strong></mat-label>
+                    <br />
+                    <mat-radio-group aria-label="Payment Mode" formControlName="PaymentMode"
+                        (change)="onPaymentModeChange()">
+                        <mat-radio-button value="Bank">Bank</mat-radio-button>
+                        <mat-radio-button value="Cash">Cash</mat-radio-button>
+                    </mat-radio-group>
+                </div>
+                <div class="col-12 col-sm-12 col-md-4 col-lg-3"
+                    *ngIf="frm.get('PaymentMode')?.value !== 'Cash'">
                     <mat-form-field appearance="outline">
                         <mat-label>Bank</mat-label>
                         <mat-select formControlName="BankCode"
@@ -93,16 +111,19 @@
                         </mat-select>
                     </mat-form-field>
                 </div>
-                <div class="col-12 col-sm-12 col-md-4 col-lg-9">
+            </div>
+            <div class="row" *ngIf="warningMessage ===''">
+                <div class="col-12">
                     <div class="btn-group" role="group">
                         <button class="btn wlt-c-furg-btn-primary m-1" (click)="clkBtn(1)"> Show</button>
                         <button class="btn wlt-c-furg-btn-primary m-1" (click)="clkBtn(2)" hidden> Show Guard1</button>
                         <button class="btn wlt-c-furg-btn-primary m-1" (click)="clkBtn(3)" hidden> Show Guard2</button>
-                        <button class="btn wlt-c-furg-btn-primary m-1" (click)="clkBtn(4)"> Generate File</button>
-                        <button class="btn wlt-c-furg-btn-primary m-1" (click)="clkBtn(5)"> Generate File(Guard
-                            1)</button>
-                        <button class="btn wlt-c-furg-btn-primary m-1" (click)="clkBtn(6)"> Generate File(Guard
-                            2)</button>
+                        <button class="btn wlt-c-furg-btn-primary m-1" (click)="clkBtn(4)"
+                            *ngIf="frm.get('PaymentMode')?.value !== 'Cash'"> Generate File</button>
+                        <button class="btn wlt-c-furg-btn-primary m-1" (click)="clkBtn(5)"
+                            *ngIf="frm.get('PaymentMode')?.value !== 'Cash'"> Generate File(Guard 1)</button>
+                        <button class="btn wlt-c-furg-btn-primary m-1" (click)="clkBtn(6)"
+                            *ngIf="frm.get('PaymentMode')?.value !== 'Cash'"> Generate File(Guard 2)</button>
                     </div>
                 </div>
             </div>

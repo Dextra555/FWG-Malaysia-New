@@ -53,6 +53,10 @@ BEGIN TRY
     DELETE FROM AssetAllocation;
     PRINT 'AssetAllocation          : ' + CAST(@@ROWCOUNT AS VARCHAR) + ' rows deleted';
 
+    -- AssetInstallment → CreditorInvoice FK உடையது, முதல்ல delete
+    DELETE FROM AssetInstallment;
+    PRINT 'AssetInstallment         : ' + CAST(@@ROWCOUNT AS VARCHAR) + ' rows deleted';
+
     DELETE FROM AssetMaster;
     PRINT 'AssetMaster              : ' + CAST(@@ROWCOUNT AS VARCHAR) + ' rows deleted';
 
@@ -124,6 +128,13 @@ BEGIN TRY
     DELETE FROM GoodsReceiptNote;
     PRINT 'GoodsReceiptNote         : ' + CAST(@@ROWCOUNT AS VARCHAR) + ' rows deleted';
 
+    -- CreditorInvoice — inventory-related rows only:
+    --   InvoiceType = 'G'  → GRN payment rows (created by SaveGRN)
+    --   InvoiceType = 'A'  → Asset full/installment payment rows
+    -- Finance expense/utility rows (other InvoiceTypes) are NOT touched.
+    DELETE FROM CreditorInvoice WHERE InvoiceType IN ('G', 'A');
+    PRINT 'CreditorInvoice (G+A)    : ' + CAST(@@ROWCOUNT AS VARCHAR) + ' rows deleted (GRN + Asset rows only)';
+
     DELETE FROM PurchaseOrderDetail;
     PRINT 'PurchaseOrderDetail      : ' + CAST(@@ROWCOUNT AS VARCHAR) + ' rows deleted';
 
@@ -163,6 +174,7 @@ BEGIN TRY
     DBCC CHECKIDENT ('AssetTransfer',             RESEED, 0);
     DBCC CHECKIDENT ('AssetReturn',               RESEED, 0);
     DBCC CHECKIDENT ('AssetAllocation',           RESEED, 0);
+    DBCC CHECKIDENT ('AssetInstallment',          RESEED, 0);
     DBCC CHECKIDENT ('AssetMaster',               RESEED, 0);
     DBCC CHECKIDENT ('StockIssueUniformLoanLink', RESEED, 0);
     DBCC CHECKIDENT ('StockIssueReturnDetail',    RESEED, 0);

@@ -34,6 +34,9 @@ namespace OBMS.WebAPI.Models.Domain
         public DateTime? PurchaseDate { get; set; }
         public DateTime? WarrantyExpiryDate { get; set; }
 
+        /// <summary>Supplier's own invoice number for this asset purchase.</summary>
+        public string? SupplierInvoiceNo { get; set; }
+
         /// <summary>
         /// Current lifecycle status.
         /// Values: Available | Allocated | In_Transit | Under_Maintenance | Damaged | Disposed | Lost
@@ -63,8 +66,46 @@ namespace OBMS.WebAPI.Models.Domain
 
         public DateTime? LocationUpdatedDate { get; set; }
 
+        // ── Deposit & Installment Payment fields ─────────────────────────────
+
+        /// <summary>
+        /// Deposit / advance amount paid upfront.
+        /// Reference / display field only — not tracked via CreditorInvoice.
+        /// </summary>
+        public decimal? DepositAmount { get; set; }
+
+        /// <summary>
+        /// FULL = single payment (no installments generated).
+        /// MONTHLY = split purchase amount (minus deposit) into monthly installments.
+        /// </summary>
+        public string? PaymentTermType { get; set; }
+
+        /// <summary>First month of the installment schedule.</summary>
+        public DateTime? InstallmentStartDate { get; set; }
+
+        /// <summary>Amount to pay each month.</summary>
+        public decimal? MonthlyInstallmentAmount { get; set; }
+
+        /// <summary>
+        /// Total number of installment months.
+        /// Auto-calculated: CEILING((PurchaseAmount - DepositAmount) / MonthlyInstallmentAmount).
+        /// </summary>
+        public int? InstallmentMonths { get; set; }
+
+        // ── Preclosing ────────────────────────────────────────────────────────
+        /// <summary>True when owner opts to close all remaining installments early.</summary>
+        public bool IsPreClosing { get; set; } = false;
+
+        /// <summary>Date when preclosing was initiated.</summary>
+        public DateTime? PreClosingDate { get; set; }
+
+        /// <summary>Total remaining amount at time of preclosing.</summary>
+        public decimal? PreClosingAmount { get; set; }
+
         // Navigation
         [ForeignKey("SupplierID")]
         public virtual Supplier? Supplier { get; set; }
+
+        public virtual ICollection<AssetInstallment> Installments { get; set; } = new List<AssetInstallment>();
     }
 }

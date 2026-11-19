@@ -28,7 +28,7 @@
       <!-- Filters -->
       <div class="row mb-3 align-items-end">
         <div class="col-12 col-md-2">
-          <mat-form-field appearance="outline">
+          <mat-form-field appearance="outline" class="w-100">
             <mat-label>From Date</mat-label>
             <input matInput [matDatepicker]="pickerFrom" [(ngModel)]="dateFrom" placeholder="" autocomplete="off">
             <mat-datepicker-toggle matSuffix [for]="pickerFrom"></mat-datepicker-toggle>
@@ -36,7 +36,7 @@
           </mat-form-field>
         </div>
         <div class="col-12 col-md-2">
-          <mat-form-field appearance="outline">
+          <mat-form-field appearance="outline" class="w-100">
             <mat-label>To Date</mat-label>
             <input matInput [matDatepicker]="pickerTo" [(ngModel)]="dateTo" placeholder="" autocomplete="off">
             <mat-datepicker-toggle matSuffix [for]="pickerTo"></mat-datepicker-toggle>
@@ -44,17 +44,18 @@
           </mat-form-field>
         </div>
         <div class="col-12 col-md-2">
-          <mat-form-field appearance="outline">
+          <mat-form-field appearance="outline" class="w-100">
             <mat-label>Type</mat-label>
-            <mat-select [(ngModel)]="issueToTypeFilter">
+            <mat-select [(ngModel)]="issueToTypeFilter" (selectionChange)="onTypeFilterChange()">
               <mat-option value="ALL">All</mat-option>
-              <mat-option value="Employee">Staff</mat-option>
+              <mat-option value="Staff">Staff</mat-option>
               <mat-option value="Guard">Guard</mat-option>
+              <mat-option value="Other Guards">Other Guards</mat-option>
             </mat-select>
           </mat-form-field>
         </div>
         <div class="col-12 col-md-3">
-          <mat-form-field appearance="outline">
+          <mat-form-field appearance="outline" class="w-100">
             <mat-label>Staff / Guard</mat-label>
             <mat-select [(ngModel)]="selectedEmployeeID" (openedChange)="onEmployeeSearch('')">
               <!-- inline search -->
@@ -68,10 +69,12 @@
               </mat-option>
               <mat-option [value]="0">All Staff / Guards</mat-option>
               <mat-option *ngFor="let e of filteredEmployeeList" [value]="e.EMP_ID">
-                {{e.EMP_NAME}} ({{e.EMP_ID}})
+                {{e.EMP_NAME}}
               </mat-option>
               <mat-option disabled *ngIf="filteredEmployeeList.length === 0 && employeeSearch">No results.</mat-option>
             </mat-select>
+            <mat-hint *ngIf="employeeList.length > 0">{{employeeList.length}} employee(s) in this result</mat-hint>
+            <mat-hint *ngIf="employeeList.length === 0">Search first to populate</mat-hint>
           </mat-form-field>
         </div>
         <div class="col-12 col-md-2" style="padding-bottom:20px">
@@ -79,16 +82,54 @@
             <mat-icon style="font-size:16px; vertical-align:middle">search</mat-icon> Search
           </button>
         </div>
+
+        <!-- Deduction filter -->
+        <div class="col-12 col-md-2">
+          <mat-form-field appearance="outline" class="w-100">
+            <mat-label>Deduction</mat-label>
+            <mat-select [(ngModel)]="isDeductionFilter">
+              <mat-option value="ALL">All</mat-option>
+              <mat-option value="true">Deduction</mat-option>
+              <mat-option value="false">Non-Deduction</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <!-- Client dropdown filter -->
         <div class="col-12 col-md-3">
-          <mat-form-field appearance="outline">
+          <mat-form-field appearance="outline" class="w-100">
+            <mat-label>Client</mat-label>
+            <mat-select [(ngModel)]="selectedClientID"
+                        (selectionChange)="onClientFilterChange()"
+                        (openedChange)="onClientSearch('')">
+              <mat-option disabled style="position:sticky; top:0; background:#fff; z-index:1; padding:0">
+                <div style="padding:4px 10px">
+                  <input type="text" placeholder="Search client…" [value]="clientSearch"
+                    (input)="onClientSearch($any($event.target).value)"
+                    (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()"
+                    style="width:100%; border:1px solid #ccc; border-radius:4px; padding:6px 8px; font-size:13px; outline:none">
+                </div>
+              </mat-option>
+              <mat-option [value]="0">All Clients</mat-option>
+              <mat-option *ngFor="let c of filteredClientList" [value]="c.ID">{{c.Name}}</mat-option>
+              <mat-option disabled *ngIf="filteredClientList.length === 0 && clientSearch">No results.</mat-option>
+            </mat-select>
+            <mat-hint *ngIf="clientList.length > 0">{{clientList.length}} client(s) in this result</mat-hint>
+            <mat-hint *ngIf="clientList.length === 0">Search first to populate</mat-hint>
+          </mat-form-field>
+        </div>
+
+        <!-- Free-text search -->
+        <div class="col-12 col-md-3">
+          <mat-form-field appearance="outline" class="w-100">
             <mat-label>Filter results</mat-label>
             <input matInput (keyup)="applyFilter($event)" placeholder="Name, item, issue no…">
           </mat-form-field>
         </div>
       </div>
 
-      <!-- Totals bar -->
-      <div class="row mb-3" *ngIf="dataSource.data.length > 0">
+      <!-- Totals bar + Export Excel button -->
+      <div class="row mb-3 align-items-center" *ngIf="dataSource.data.length > 0">
         <div class="col-6 col-md-3">
           <div class="p-2" style="background:#e8f5e9; border-radius:6px; border-left:4px solid #43a047">
             <small class="text-muted d-block">Total Issued</small>
@@ -112,6 +153,13 @@
             <small class="text-muted d-block">Total Value (RM)</small>
             <strong>{{formatNumber(totalValue)}}</strong>
           </div>
+        </div>
+
+        <!-- Export Excel — right side of totals row -->
+        <div class="col-12 col-md-12 text-right mt-2">
+          <button class="btn btn-success" (click)="exportExcel()">
+            <mat-icon style="font-size:16px; vertical-align:middle">table_view</mat-icon> Export Excel
+          </button>
         </div>
       </div>
 
@@ -147,6 +195,28 @@
           <ng-container matColumnDef="EmployeeName">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>Name</th>
             <td mat-cell *matCellDef="let row"><strong>{{row.EmployeeName}}</strong></td>
+          </ng-container>
+
+          <ng-container matColumnDef="ClientName">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Client</th>
+            <td mat-cell *matCellDef="let row">
+              <span *ngIf="row.ClientName" style="font-size:12px">{{row.ClientName}}</span>
+              <span *ngIf="!row.ClientName" class="text-muted">—</span>
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="IsDeduction">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Deduction</th>
+            <td mat-cell *matCellDef="let row">
+              <span *ngIf="row.IsDeduction"
+                style="font-size:11px; font-weight:600; color:#c62828;">
+                <mat-icon style="font-size:13px; vertical-align:middle;">monetization_on</mat-icon> Deduction
+              </span>
+              <span *ngIf="!row.IsDeduction"
+                style="font-size:11px; color:#388e3c; font-weight:600;">
+                <mat-icon style="font-size:13px; vertical-align:middle;">money_off</mat-icon> Non-Deduction
+              </span>
+            </td>
           </ng-container>
 
           <ng-container matColumnDef="ItemCode">

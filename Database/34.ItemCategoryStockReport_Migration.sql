@@ -40,6 +40,7 @@ BEGIN
         im.ID                                AS ItemID,
         im.Code                              AS ItemCode,
         im.Name                              AS ItemName,
+        ISNULL(im.Size, '')                  AS Size,
         ISNULL(um.Name, '')                  AS UOMName,
         ISNULL(wh.Name, '')                  AS WarehouseName,
 
@@ -77,6 +78,7 @@ BEGIN
         im.ID,
         im.Code,
         im.Name,
+        im.Size,
         um.Name,
         wh.Name
     HAVING

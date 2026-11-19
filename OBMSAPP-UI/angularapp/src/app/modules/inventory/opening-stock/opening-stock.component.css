@@ -1,1 +1,119 @@
-/* Opening Stock list — no custom styles needed beyond the shared wlt-table styles */
+/* ── Import Panel ──────────────────────────────────────────── */
+
+.import-panel {
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.import-panel-header {
+  background: #7b1e3b;
+  color: #fff;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.close-import-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+.close-import-btn mat-icon { font-size: 20px; vertical-align: middle; }
+
+.import-panel-body {
+  padding: 16px;
+  background: #fff;
+}
+
+.import-instructions {
+  background: #f0f4ff;
+  border: 1px solid #c5d8f5;
+  border-radius: 4px;
+  padding: 10px 14px;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+
+.import-upload-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.import-upload-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px dashed #999;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #555;
+  background: #fafafa;
+  min-width: 260px;
+}
+.import-upload-label mat-icon { font-size: 18px; color: #7b1e3b; }
+.import-upload-label:hover { background: #f0f0f0; border-color: #7b1e3b; }
+
+/* Summary bar */
+.import-summary-bar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+.badge-total  { background:#e3e3e3; color:#333;    padding:3px 10px; border-radius:12px; }
+.badge-valid  { background:#e8f5e9; color:#2e7d32; padding:3px 10px; border-radius:12px; font-weight:600; }
+.badge-error  { background:#ffebee; color:#c62828; padding:3px 10px; border-radius:12px; font-weight:600; }
+.badge-done   { background:#e3f2fd; color:#1565c0; padding:3px 10px; border-radius:12px; font-weight:600; }
+
+/* Preview table */
+.import-preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.import-preview-table th {
+  background: #5a5a5a;
+  color: #fff;
+  padding: 7px 10px;
+  text-align: left;
+  font-weight: 600;
+}
+.import-preview-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid #f0f0f0;
+}
+.import-preview-table tr:hover td { background: #fafafa; }
+
+.import-row-success td { background: #f1fff4 !important; }
+.import-row-error   td { background: #fff5f5 !important; }
+
+/* Status badges */
+.imp-badge    { border-radius: 10px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
+.imp-pending  { background: #e8f4ff; color: #1565c0; }
+.imp-success  { background: #e8f5e9; color: #2e7d32; }
+.imp-error    { background: #ffebee; color: #c62828; cursor: help; }
+
+.import-actions { display: flex; align-items: center; }
+
+/* File error message */
+.import-file-error {
+  background: #ffebee;
+  border: 1px solid #ef9a9a;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #c62828;
+  display: flex;
+  align-items: center;
+}

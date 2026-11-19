@@ -369,6 +369,21 @@ export class PayHistoryComponent implements OnInit {
     this.urlSafe = this.sanitizer.bypassSecurityTrustResourceUrl(this.url + localURL);
   }
 
+  onSubmitShift2() {
+    if (this.frm.invalid) {
+      return;
+    }
+    let shift2URL = environment.baseReportUrl;
+    shift2URL += 'Payroll/PayHistoryReportShift2.aspx?';
+    shift2URL += "LoginID=" + this.currentUser;
+    shift2URL += "&StartDate=" + this.returnDate(this.frm.get("StartDate")?.value);
+    shift2URL += "&EndDate=" + this.returnDate(this.frm.get("EndDate")?.value);
+    shift2URL += "&EmployeeType=" + this.frm.get("EmployeeType")?.value;
+    shift2URL += "&Employee=" + this.frm.get("Employee")?.value;
+    shift2URL += "&Branch=" + this.frm.get("Branch")?.value;
+    this.urlSafe = this.sanitizer.bypassSecurityTrustResourceUrl(shift2URL);
+  }
+
   changeData() {
     this.empList = this.empListDummy.filter((d: any) => { return d.EMP_ROLE === this.frm.get("EmployeeType")?.value });
   }

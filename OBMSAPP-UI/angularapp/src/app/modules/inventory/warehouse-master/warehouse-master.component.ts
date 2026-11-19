@@ -1,4 +1,5 @@
-import { AfterViewInit, Component, ViewChild } from '@angular/core';
+﻿import { AfterViewInit, Component, ViewChild } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
 import { MatSort, Sort } from '@angular/material/sort';
@@ -45,7 +46,8 @@ export class WarehouseMasterComponent implements AfterViewInit {
   pageSizeOptions: number[] = [];
 
   constructor(private _liveAnnouncer: LiveAnnouncer, public dialog: MatDialog, private service: InventoryService, private route: Router,
-    private _dataService: DatasharingService, private _masterService: MastermoduleService) {
+    private _dataService: DatasharingService, private _masterService: MastermoduleService,
+    private titleService: Title) {
     this.userAccessModel = {
       readAccess: false,
       updateAccess: false,
@@ -57,6 +59,7 @@ export class WarehouseMasterComponent implements AfterViewInit {
     }
   }
   ngOnInit(): void {
+    this.titleService.setTitle('Warehouse Master');
     this.currentUser = sessionStorage.getItem('username')!;
     if (this.currentUser == 'null' || this.currentUser == undefined) {
       this._dataService.getUsername().subscribe((username) => {

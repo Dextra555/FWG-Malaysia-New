@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { AbstractControl, FormArray, FormBuilder, FormGroup, ValidatorFn, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
@@ -75,7 +76,8 @@ export class NewStockIssueComponent implements OnInit {
     private service: InventoryService,
     private _dataService: DatasharingService,
     private _masterService: MastermoduleService
-  ) {
+  ,
+    private titleService: Title) {
     this.userAccessModel = { readAccess: false, updateAccess: false, deleteAccess: false, createAccess: false };
     this.buildForm();
   }
@@ -89,6 +91,7 @@ export class NewStockIssueComponent implements OnInit {
       IssueToType: ['', [Validators.required]],
       IssueToID:   [null],
       IssueToName: [''],
+      IsDeduction: [false],   // Guard/Staff only â€” true = salary deduction
       Remarks:     [''],
       Details:     this.fb.array([])
     });
@@ -96,7 +99,14 @@ export class NewStockIssueComponent implements OnInit {
 
   get details(): FormArray { return this.frm.get('Details') as FormArray; }
 
+  /** true when Guard, Staff or Other Guards is selected â€” shows the Deduction toggle */
+  get showDeductionToggle(): boolean {
+    const t = this.frm.get('IssueToType')?.value;
+    return t === 'Guard' || t === 'Staff' || t === 'Other Guards';
+  }
+
   ngOnInit(): void {
+    this.titleService.setTitle('Stock Issue');
     this.ID = this.activatedRoute.snapshot.params['ID'];
     this.currentUser = sessionStorage.getItem('username')!;
     if (!this.currentUser || this.currentUser === 'null') {
@@ -172,7 +182,7 @@ export class NewStockIssueComponent implements OnInit {
     }
   }
 
-  // ── Called when Warehouse selection changes ────────────────────────────────
+  // â”€â”€ Called when Warehouse selection changes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   onWarehouseChange(): void {
     // Reset item stock map
     this.availableStockMap = {};
@@ -185,12 +195,17 @@ export class NewStockIssueComponent implements OnInit {
     this.reloadEmployeesByWarehouseAndType();
   }
 
-  // ── Called when Issue To Type changes ─────────────────────────────────────
+  // â”€â”€ Called when Issue To Type changes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   onIssueToTypeChange(): void {
     this.frm.get('IssueToID')?.setValue(null);
     this.frm.get('IssueToName')?.setValue('');
     this.recipientSearch   = '';
     this.filteredRecipients = [];
+    // Reset deduction flag when switching away from Guard/Staff/Other Guards
+    const type = this.frm.get('IssueToType')?.value;
+    if (type !== 'Guard' && type !== 'Staff' && type !== 'Other Guards') {
+      this.frm.get('IsDeduction')?.setValue(false);
+    }
     this.reloadEmployeesByWarehouseAndType();
   }
 
@@ -241,13 +256,13 @@ export class NewStockIssueComponent implements OnInit {
   getRecipientLabel(item: any): string {
     const type = this.frm.get('IssueToType')?.value;
     if (type === 'Branch') {
-      return `${item.Code || ''} — ${item.Name || ''}`.trim().replace(/^—\s*/, '');
+      return `${item.Code || ''} â€” ${item.Name || ''}`.trim().replace(/^â€”\s*/, '');
     }
     // Staff / Guard
-    return `${item.EMP_NAME || ''} (${item.EMP_ROLE || ''} — ID: ${item.EMP_ID || ''})`;
+    return `${item.EMP_NAME || ''} (${item.EMP_ROLE || ''} â€” ID: ${item.EMP_ID || ''})`;
   }
 
-  // ── Search filter ──────────────────────────────────────────────────────────
+  // â”€â”€ Search filter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   onRecipientSearch(searchVal: string): void {
     this.recipientSearch = searchVal;
     const lower  = searchVal.trim().toLowerCase();
@@ -262,7 +277,7 @@ export class NewStockIssueComponent implements OnInit {
     }
   }
 
-  // ── Called when user selects a recipient from the dropdown ────────────────
+  // â”€â”€ Called when user selects a recipient from the dropdown â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   onRecipientSelect(item: any): void {
     const type = this.frm.get('IssueToType')?.value;
     if (type === 'Branch') {
@@ -275,7 +290,7 @@ export class NewStockIssueComponent implements OnInit {
     }
   }
 
-  // ── Load existing record (view mode) ──────────────────────────────────────
+  // â”€â”€ Load existing record (view mode) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   loadExistingRecord(): void {
     this.showLoadingSpinner = true;
     this.service.getStockIssueByID(this.ID).subscribe({
@@ -289,6 +304,7 @@ export class NewStockIssueComponent implements OnInit {
           IssueToType: d.IssueToType,
           IssueToID:   d.IssueToID,
           IssueToName: d.IssueToName,
+          IsDeduction: d.IsDeduction ?? false,
           Remarks:     d.Remarks
         });
         this.warningMessage = '';   // clear any stale default-warehouse warning
@@ -319,7 +335,7 @@ export class NewStockIssueComponent implements OnInit {
     });
   }
 
-  // ── Detail rows ────────────────────────────────────────────────────────────
+  // â”€â”€ Detail rows â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   addDetailRow(): void {
     const i = this.details.length;
     this.details.push(this.fb.group({
@@ -360,7 +376,7 @@ export class NewStockIssueComponent implements OnInit {
     this.filteredClientsMap = newFiltered;
   }
 
-  // ── Client dropdown helpers ────────────────────────────────────────────────
+  // â”€â”€ Client dropdown helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   onClientOpen(i: number, opened: boolean): void {
     if (opened) {
       this.clientSearchMap[i]    = '';
@@ -388,10 +404,10 @@ export class NewStockIssueComponent implements OnInit {
     row.get('_ItemName')?.setValue(item?.Name || '');
     row.get('UnitCost')?.setValue(item?.Price ?? 0);
 
-    // ── Default Warehouse auto-fill ──────────────────────────────────────────
+    // â”€â”€ Default Warehouse auto-fill â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // Only populate when header warehouse is not yet selected (new document).
     // Never overwrite a warehouse the user has already chosen.
-    // View mode (isViewMode=true) cannot reach here — form is disabled.
+    // View mode (isViewMode=true) cannot reach here â€” form is disabled.
     const currentWarehouse = this.frm.get('WarehouseID')?.value;
     if ((!currentWarehouse || +currentWarehouse === 0) && item?.WarehouseID) {
       const whExists = this.warehouses.find((w: any) => w.ID === item.WarehouseID);
@@ -400,7 +416,7 @@ export class NewStockIssueComponent implements OnInit {
         // Re-trigger employee list reload now that warehouse is known
         this.reloadEmployeesByWarehouseAndType();
       } else {
-        // Default warehouse is inactive — warn user, leave field empty
+        // Default warehouse is inactive â€” warn user, leave field empty
         this.warningMessage =
           'The default warehouse for this item is inactive. Please select another warehouse.';
       }
@@ -415,7 +431,7 @@ export class NewStockIssueComponent implements OnInit {
     if (warehouseID <= 0 || itemID <= 0) return;
     this.service.getCurrentStock(warehouseID, itemID).subscribe({
       next: (d: any) => {
-        // API returns { currentStock: number } — fall back through all known shapes
+        // API returns { currentStock: number } â€” fall back through all known shapes
         this.availableStockMap[i] =
           typeof d === 'number'
             ? d
@@ -433,7 +449,7 @@ export class NewStockIssueComponent implements OnInit {
   get issueToName(): string  { return this.frm.get('IssueToName')?.value || ''; }
   get viewWarehouseName(): string {
     const id = this.frm.get('WarehouseID')?.value;
-    return this.warehouses.find((w: any) => w.ID === id)?.Name || '—';
+    return this.warehouses.find((w: any) => w.ID === id)?.Name || 'â€”';
   }
   get showRecipientDropdown(): boolean {
     return ['Staff', 'Guard', 'Other Guards', 'Branch'].includes(this.issueToType);
@@ -470,6 +486,9 @@ export class NewStockIssueComponent implements OnInit {
       IssueToType:   raw.IssueToType,
       IssueToID:     raw.IssueToID ? +raw.IssueToID : null,
       IssueToName:   raw.IssueToName,
+      IsDeduction:   (raw.IssueToType === 'Guard' || raw.IssueToType === 'Staff' || raw.IssueToType === 'Other Guards')
+                       ? raw.IsDeduction === true
+                       : false,
       Remarks:       raw.Remarks,
       LastUpdatedBy: this.currentUser,
       Details: raw.Details.map((d: any) => ({
@@ -501,11 +520,11 @@ export class NewStockIssueComponent implements OnInit {
   onCancelClick(): void { this.route.navigate(['/inventory/stock-issue']); }
 
   /** Open the Stock Issue PDF in a new browser tab for printing or downloading.
-   *  Only callable in view mode (existing saved document). Read-only — does not
+   *  Only callable in view mode (existing saved document). Read-only â€” does not
    *  modify any record, stock ledger, or salary deduction. */
   onPrintPDF(): void {
     // Guard: this.ID is the route param; frm.get('ID') holds the DB id after patchValue.
-    // Both are the same value when isViewMode is true — use this.ID as primary.
+    // Both are the same value when isViewMode is true â€” use this.ID as primary.
     const docID = this.ID || this.frm.get('ID')?.value;
     if (!docID || +docID === 0) return;
     const url = environment.baseReportUrl
@@ -531,3 +550,4 @@ export class NewStockIssueComponent implements OnInit {
 
   hideLoadingSpinner(): void { this.showLoadingSpinner = false; }
 }
+

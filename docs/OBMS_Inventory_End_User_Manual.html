@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OBMS Inventory Module — End User Manual</title>
+<style>
+  /* ══════════════════════════════════════════════════════════════
+     OBMS Inventory Manual — Theme matched to actual Angular app
+     Colors sourced from styles.css :root variables:
+       --primary-color      #4D1220  (maroon)
+       --primary-color-hover #662333
+       --secondary-color     #822839
+       --body-bg             #f9f9f9
+       --table-border        #E8E8E8
+       --form-control-border #E1E1E1
+     Font: 'Poppins' (same as Angular app)
+     ══════════════════════════════════════════════════════════════ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Poppins', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; background: #f9f9f9; color: #363636; line-height: 1.6; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 20px; }
+
+  /* ── Cover Page ── */
+  .cover { background: linear-gradient(135deg, #4D1220 0%, #822839 50%, #4D1220 100%); color: #fff; padding: 80px 40px; text-align: center; border-radius: 0 0 12px 12px; margin-bottom: 40px; }
+  .cover .logo { width: 90px; height: 90px; background: #822839; border-radius: 14px; display: inline-flex; align-items: center; justify-content: center; font-size: 36px; font-weight: 900; color: #fff; margin-bottom: 24px; border: 2px solid rgba(255,255,255,0.25); }
+  .cover h1 { font-size: 36px; font-weight: 800; margin-bottom: 10px; letter-spacing: 1px; }
+  .cover .gold-line { width: 140px; height: 4px; background: rgba(255,255,255,0.3); border-radius: 2px; margin: 16px auto; }
+  .cover h3 { font-size: 20px; font-weight: 400; opacity: 0.85; }
+  .cover .meta { margin-top: 30px; font-size: 14px; opacity: 0.7; line-height: 1.8; }
+
+  /* ── Section ── */
+  .section { background: #fff; border-radius: 10px; padding: 30px 36px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #E8E8E8; }
+  .section h2 { font-size: 24px; color: #4D1220; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 3px solid #4D1220; }
+  .section h3 { font-size: 18px; color: #822839; margin: 20px 0 10px; }
+  .section h4 { font-size: 15px; color: #4D1220; margin: 14px 0 8px; }
+  .section p { margin-bottom: 10px; }
+  .section ul, .section ol { margin: 8px 0 12px 24px; }
+  .section li { margin-bottom: 5px; }
+
+  /* ── Tables ── */
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+  th { background: #4D1220; color: #fff; padding: 8px 10px; text-align: left; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #E8E8E8; color: #5a5a5a; }
+  tr:nth-child(even) td { background: #fafafa; }
+  tr:hover td { background: #fdf4f5; }
+  .req { color: #c62828; font-weight: 700; }
+
+  /* ── Notes ── */
+  .note { background: #fdf4f5; border-left: 4px solid #4D1220; padding: 12px 16px; border-radius: 4px; margin: 12px 0; font-size: 13px; color: #4D1220; }
+  .info { background: #f5f0f1; border-left: 4px solid #822839; padding: 12px 16px; border-radius: 4px; margin: 12px 0; font-size: 13px; color: #4D1220; }
+  .warn { background: #fce4ec; border-left: 4px solid #c62828; padding: 12px 16px; border-radius: 4px; margin: 12px 0; font-size: 13px; color: #9b1c1c; }
+
+  /* ── Illustration ── */
+  .illustration { background: #fafafa; border: 2px dashed #E1E1E1; border-radius: 8px; padding: 20px; margin: 16px 0; }
+  .illustration .label { font-size: 11px; color: #8e8e8e; font-style: italic; margin-bottom: 10px; text-align: center; }
+  .mock-form { background: #fff; border: 1px solid #E8E8E8; border-radius: 8px; padding: 16px; }
+  .mock-header { background: #4D1220; color: #fff; padding: 10px 16px; border-radius: 6px 6px 0 0; font-size: 14px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+  .mock-header .badge { background: #822839; color: #fff; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+  .mock-body { padding: 16px; border: 1px solid #E1E1E1; border-top: none; border-radius: 0 0 6px 6px; }
+  .mock-field { margin-bottom: 14px; }
+  .mock-field label { font-size: 11px; font-weight: 600; color: #5a5a5a; display: block; margin-bottom: 3px; }
+  .mock-field .star { color: #c62828; }
+  .mock-input { border: 1px solid #E1E1E1; border-radius: 4px; padding: 8px 10px; font-size: 12px; background: #fafafa; color: #2c2c2c; display: block; width: 100%; }
+  .mock-input.disabled { background: #E8E8E8; color: #8e8e8e; }
+  .mock-select { border: 1px solid #E1E1E1; border-radius: 4px; padding: 8px 10px; font-size: 12px; background: #fff; color: #2c2c2c; display: block; width: 100%; position: relative; }
+  .mock-select::after { content: "▾"; position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: #8e8e8e; font-size: 10px; }
+  .mock-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .mock-grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .mock-grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+
+  /* ── Material Outline Form Field Mock (matches mat-form-field appearance="outline") ── */
+  .mat-mock-field { position: relative; margin-bottom: 16px; }
+  .mat-mock-field .outline-box { border: 1.5px solid #E1E1E1; border-radius: 5px; padding: 12px 10px 6px; min-height: 38px; background: #fff; transition: border-color .15s; }
+  .mat-mock-field .outline-box.disabled { background: #E8E8E8; }
+  .mat-mock-field .outline-label { position: absolute; top: -7px; left: 10px; background: #fff; padding: 0 4px; font-size: 11px; font-weight: 500; color: #8e8e8e; z-index: 1; }
+  .mat-mock-field .outline-label .req-star { color: #c62828; }
+  .mat-mock-field .outline-value { font-size: 13px; color: #2c2c2c; }
+  .mat-mock-field .outline-value.muted { color: #8e8e8e; font-style: italic; }
+  .mat-mock-field .outline-hint { font-size: 10px; color: #aaa; margin-top: 3px; }
+  .mat-mock-field .outline-arrow { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: #8e8e8e; font-size: 12px; }
+
+  /* ── Section Label (matches wlt-c-section-label in app) ── */
+  .mock-section-label { font-size: 14px; font-weight: 700; color: #4D1220; margin: 8px 0 4px; }
+  .mock-section-hr { border: none; border-top: 1px solid #E8E8E8; margin: 2px 0 12px; }
+
+  /* ── Item Detail Box (matches the auto-populated detail in app) ── */
+  .mock-detail-box { background: #f8f9fa; border-left: 4px solid #4D1220; border-radius: 4px; padding: 12px; margin: 8px 0 12px; font-size: 11px; color: #6a6a6a; display: flex; flex-wrap: wrap; gap: 16px; }
+  .mock-detail-box .det-item { }
+  .mock-detail-box .det-label { font-size: 10px; color: #aaa; display: block; }
+  .mock-detail-box .det-value { font-weight: 600; color: #2c2c2c; }
+  .mock-btn { display: inline-block; padding: 6px 16px; border-radius: 5px; font-size: 12px; font-weight: 600; border: none; cursor: default; margin-right: 6px; }
+  .mock-btn.primary { background: #4D1220; color: #fff; }
+  .mock-btn.gold { background: #822839; color: #fff; }
+  .mock-btn.outline { background: transparent; color: #4D1220; border: 1px solid #4D1220; }
+  .mock-btns { margin-top: 14px; text-align: right; }
+
+  /* ── Mock table ── */
+  .mock-table { width: 100%; border-collapse: collapse; font-size: 11px; margin: 8px 0; }
+  .mock-table th { background: #4D1220; color: #fff; padding: 6px 8px; text-align: left; }
+  .mock-table td { padding: 5px 8px; border-bottom: 1px solid #E8E8E8; color: #5a5a5a; }
+  .mock-table tr:nth-child(even) td { background: #fafafa; }
+
+  /* ── Flow ── */
+  .flow { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 4px; margin: 16px 0; }
+  .flow-step { background: #f9f9f9; border: 2px solid #4D1220; border-radius: 8px; padding: 10px 14px; text-align: center; min-width: 110px; }
+  .flow-step h5 { font-size: 12px; color: #4D1220; }
+  .flow-step p { font-size: 10px; color: #6a6a6a; margin: 0; }
+  .flow-arrow { font-size: 20px; color: #822839; font-weight: 900; }
+
+  /* ── Dashboard Mock (matches actual inv-* classes from Angular app) ── */
+  .dsh-kpi { background:#fff; border:1px solid #E8E8E8; border-radius:10px; padding:14px 12px 12px; display:flex; align-items:flex-start; gap:12px; min-height:92px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  .dsh-kpi-icon { width:48px; height:48px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:26px; }
+  .dsh-kpi-body { flex:1; min-width:0; }
+  .dsh-kpi-label { font-size:9.5px; color:#8e8e8e; text-transform:uppercase; letter-spacing:.5px; font-weight:600; margin:0 0 2px; }
+  .dsh-kpi-val { font-size:24px; font-weight:700; color:#2c2c2c; line-height:1.15; margin:0 0 2px; }
+  .dsh-kpi-val-currency { font-size:16px; font-weight:700; }
+  .dsh-kpi-val-alert { color:#c62828 !important; }
+  .dsh-kpi-sub { font-size:10px; color:#aaa; margin:0; }
+  .dsh-kpi-row { display:grid; grid-template-columns:repeat(6,1fr); gap:8px; margin-bottom:8px; }
+  @media (max-width:1000px) { .dsh-kpi-row { grid-template-columns:repeat(3,1fr); } }
+  @media (max-width:600px) { .dsh-kpi-row { grid-template-columns:repeat(2,1fr); } }
+  @media (max-width:1100px) { .dsh-row2 { grid-template-columns:1fr 1fr !important; } .dsh-row2 > div:last-child { grid-column:1 / -1; } }
+  @media (max-width:800px) { .dsh-row2 { grid-template-columns:1fr !important; } }
+  @media (max-width:1000px) { .dsh-row3 { grid-template-columns:1fr 1fr !important; } .dsh-row3 > div:first-child { grid-column:1 / -1; } }
+  @media (max-width:700px) { .dsh-row3 { grid-template-columns:1fr !important; } }
+  @media (max-width:800px) { .dsh-row4 { grid-template-columns:1fr !important; } }
+
+  .dsh-panel { background:#fff; border:1px solid #E8E8E8; border-radius:10px; box-shadow:0 1px 3px rgba(0,0,0,.05); display:flex; flex-direction:column; overflow:hidden; }
+  .dsh-panel-head { padding:12px 16px 10px; border-bottom:1px solid #f0f0f0; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; }
+  .dsh-panel-title { font-size:13px; font-weight:600; color:#4D1220; display:flex; align-items:center; gap:4px; }
+  .dsh-panel-body { padding:12px 16px 14px; flex:1; }
+  .dsh-panel-body--notop { padding-top:0; }
+
+  .dsh-legend-chips { display:flex; gap:10px; font-size:11px; font-weight:500; }
+  .dsh-chip-green { color:#2e7d32; } .dsh-chip-red { color:#c62828; }
+
+  .dsh-stat-row { display:flex; justify-content:space-between; align-items:center; padding:11px 0; border-bottom:1px solid #f5f5f5; font-size:12.5px; }
+  .dsh-stat-row-total { border-bottom:none; border-top:2px solid #4D1220; margin-top:4px; padding-bottom:0; font-weight:700; }
+  .dsh-stat-label { color:#6a6a6a; }
+  .dsh-stat-val { font-weight:600; color:#2c2c2c; }
+  .dsh-stat-val-green { color:#2e7d32 !important; font-weight:700; }
+  .dsh-stat-val-red { color:#c62828 !important; font-weight:700; }
+
+  .dsh-act-row { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid #f3f3f3; }
+  .dsh-act-row:last-child { border-bottom:none; }
+  .dsh-act-left { display:flex; align-items:center; gap:8px; font-size:12px; color:#555; }
+  .dsh-act-icon { font-size:18px; width:18px; }
+  .dsh-act-num { font-size:20px; font-weight:700; min-width:32px; text-align:right; }
+
+  .dsh-tbl { width:100%; border-collapse:collapse; font-size:12px; }
+  .dsh-tbl thead th { background:#4D1220; color:#fff; padding:8px 10px; font-weight:600; font-size:11px; text-align:left; }
+  .dsh-tbl tbody tr { border-bottom:1px solid #f3f3f3; }
+  .dsh-tbl tbody tr:hover td { background:#fdf4f5; }
+  .dsh-tbl tbody td { padding:7px 10px; color:#5a5a5a; vertical-align:middle; }
+  .dsh-item-code { font-size:11px; background:#fdf4f5; color:#4D1220; padding:2px 6px; border-radius:4px; font-weight:500; }
+  .dsh-td-muted { color:#8e8e8e; }
+  .dsh-qty-in { color:#2e7d32; font-weight:700; }
+  .dsh-qty-out { color:#c62828; font-weight:700; }
+  .dsh-qty-low { color:#c62828; font-weight:600; }
+  .dsh-badge-low { display:inline-block; background:#fce4ec; color:#c62828; border-radius:4px; padding:2px 9px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; }
+  .dsh-view-more { display:inline-block; margin-top:10px; font-size:12px; font-weight:600; color:#4D1220; text-decoration:none; }
+
+  .dsh-qa-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .dsh-qa-tile { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:10px 6px; border-radius:8px; border:1px solid #eee; text-align:center; }
+  .dsh-qa-icon { width:38px; height:38px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:20px; }
+  .dsh-qa-label { font-size:10px; color:#555; line-height:1.35; }
+
+  .dsh-donut-legend-row { display:flex; align-items:center; gap:7px; padding:4px 0; border-bottom:1px solid #f5f5f5; font-size:12px; }
+  .dsh-donut-legend-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+  .dsh-donut-legend-name { flex:1; color:#555; }
+  .dsh-donut-legend-amt { font-weight:600; color:#2c2c2c; font-size:11.5px; }
+  .dsh-donut-legend-footer { display:flex; justify-content:space-between; font-weight:700; font-size:13px; color:#4D1220; padding-top:6px; margin-top:4px; border-top:2px solid #4D1220; }
+
+  .dsh-footer { display:flex; align-items:center; gap:5px; background:#f5f5f5; border:1px solid #e4e4e4; border-radius:6px; padding:7px 14px; font-size:11px; color:#888; }
+  .dsh-footer-refresh { margin-left:auto; background:none; border:1px solid #4D1220; border-radius:4px; color:#4D1220; font-size:11px; font-weight:600; padding:3px 9px; }
+
+  /* ── Page Header Mock (matches wlt-c-furg-content-header) ── */
+  .dsh-page-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:6px; }
+  .dsh-page-header h1 { font-size:18px; font-weight:600; color:#4D1220; margin:0; }
+  .dsh-breadcrumb { font-size:12px; color:#8e8e8e; }
+  .dsh-breadcrumb a { color:#822839; }
+
+  /* ── TOC ── */
+  .toc { background: #fff; border-radius: 10px; padding: 30px 36px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #E8E8E8; }
+  .toc h2 { font-size: 22px; color: #4D1220; margin-bottom: 14px; border-bottom: 2px solid #4D1220; padding-bottom: 8px; }
+  .toc ol { list-style: none; counter-reset: toc; }
+  .toc ol li { counter-increment: toc; margin-bottom: 8px; font-size: 14px; }
+  .toc ol li::before { content: counter(toc) ". "; font-weight: 700; color: #822839; }
+
+  /* ── Footer ── */
+  .footer { text-align: center; padding: 30px; font-size: 12px; color: #8e8e8e; }
+
+  /* ── Code blocks ── */
+  pre { background: #363636; color: #e8e8e8; padding: 14px; border-radius: 6px; font-size: 12px; overflow-x: auto; margin: 10px 0; }
+  code { background: #E8E8E8; padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+  pre code { background: none; padding: 0; }
+</style>
+</head>
+<body>
+
+<!-- ═══ COVER PAGE ═══ -->
+<div class="cover">
+  <div class="logo">FWG</div>
+  <h1>OBMS Inventory Module</h1>
+  <div class="gold-line"></div>
+  <h3>End User Manual</h3>
+  <div class="meta">
+    <p><strong>Company:</strong> Freightwatch G Patomotoh Security Services Sdn. Bhd.</p>
+    <p><strong>System:</strong> OBMS (Online Business Management System)</p>
+    <p><strong>Module:</strong> Inventory Management</p>
+    <p><strong>Version:</strong> 1.0 &nbsp;|&nbsp; <strong>Date:</strong> November 2026</p>
+  </div>
+</div>
+
+<div class="container">
+
+<!-- ═══ TABLE OF CONTENTS ═══ -->
+<div class="toc">
+  <h2>Table of Contents</h2>
+  <ol>
+    <li><a href="#s1">Getting Started</a></li>
+    <li><a href="#s2">Master Data Entry Guide</a></li>
+    <li><a href="#s3">Opening Stock Entry</a></li>
+    <li><a href="#s4">Purchase Process — Step by Step</a></li>
+    <li><a href="#s5">Stock Management</a></li>
+    <li><a href="#s6">Asset Management User Guide</a></li>
+    <li><a href="#s7">Reports User Guide</a></li>
+    <li><a href="#s8">Approval and Notifications</a></li>
+    <li><a href="#s9">Daily Inventory User Workflow</a></li>
+    <li><a href="#s10">Troubleshooting Guide</a></li>
+    <li><a href="#s11">Glossary</a></li>
+  </ol>
+</div>
+
+<!-- ═══ 1. GETTING STARTED ═══ -->
+<div class="section" id="s1">
+  <h2>1. Getting Started</h2>
+
+  <h3>1.1 How to Log In to OBMS</h3>
+  <ol>
+    <li>Open your web browser (Google Chrome or Microsoft Edge recommended).</li>
+    <li>Enter the OBMS web address provided by your administrator.</li>
+    <li>On the login page, enter your <strong>Username</strong> and <strong>Password</strong>.</li>
+    <li>Click the <strong>Login</strong> button.</li>
+    <li>If your credentials are correct, you will see the main dashboard.</li>
+  </ol>
+  <div class="note">If you see "Access Denied" or cannot log in, contact your system administrator to verify your user account and permissions.</div>
+
+  <h3>1.2 How to Open the Inventory Module</h3>
+  <p>After logging in, the left sidebar shows all available modules. Find the <strong>Inventory</strong> menu heading and click it to expand the sub-menu.</p>
+
+  <h3>1.3 Inventory Menu Navigation</h3>
+  <table>
+    <tr><th>Main Menu Item</th><th>Purpose</th></tr>
+    <tr><td>Item Master</td><td>Manage all inventory items</td></tr>
+    <tr><td>Brand Master</td><td>Manage item brands</td></tr>
+    <tr><td>UOM Master</td><td>Manage units of measure</td></tr>
+    <tr><td>Warehouse Master</td><td>Manage warehouses</td></tr>
+    <tr><td>Opening Stock</td><td>Record initial stock quantities</td></tr>
+    <tr><td>Purchase Requisition</td><td>Create purchase requests</td></tr>
+    <tr><td>Purchase Order</td><td>Create and manage purchase orders</td></tr>
+    <tr><td>Goods Receipt</td><td>Receive goods against purchase orders</td></tr>
+    <tr><td>Purchase Return</td><td>Return goods to suppliers</td></tr>
+    <tr><td>Branch Stock Request</td><td>Branch requests for stock from HQ</td></tr>
+    <tr><td>Stock Transfer</td><td>Move stock between warehouses</td></tr>
+    <tr><td>Stock Issue</td><td>Issue stock to staff, guards, or branches</td></tr>
+    <tr><td>Issue Return</td><td>Record returns of issued stock</td></tr>
+    <tr><td>Stock Adjustment</td><td>Adjust stock for count discrepancies</td></tr>
+    <tr><td>Damage / Loss</td><td>Record damaged or lost items</td></tr>
+    <tr><td>Asset Master → Asset Location</td><td>Full asset management lifecycle (8 screens)</td></tr>
+  </table>
+
+  <h3>1.4 Dashboard Overview</h3>
+  <p>The Inventory Dashboard provides a quick overview of your inventory status with KPI cards, charts, alerts, and recent transactions.</p>
+
+  <div class="illustration">
+    <div class="label">Illustration — Layout matches actual application screen</div>
+
+    <!-- Page Header -->
+    <div class="dsh-page-header">
+      <h1>Inventory Dashboard</h1>
+      <div class="dsh-breadcrumb"><a>Dashboard</a> / Inventory Dashboard</div>
+    </div>
+
+    <!-- ROW 1 — 6 KPI Cards -->
+    <div class="dsh-kpi-row">
+      <div class="dsh-kpi">
+        <div class="dsh-kpi-icon" style="background:#dff0ff;color:#1a73e8;">📦</div>
+        <div class="dsh-kpi-body">
+          <p class="dsh-kpi-label">Total Items</p>
+          <h3 class="dsh-kpi-val">1,248</h3>
+          <p class="dsh-kpi-sub">Active Items</p>
+        </div>
+      </div>
+      <div class="dsh-kpi">
+        <div class="dsh-kpi-icon" style="background:#ede7f6;color:#7b1fa2;">💰</div>
+        <div class="dsh-kpi-body">
+          <p class="dsh-kpi-label">Total Stock Value</p>
+          <h3 class="dsh-kpi-val dsh-kpi-val-currency">RM 2.4M</h3>
+          <p class="dsh-kpi-sub">All Warehouses</p>
+        </div>
+      </div>
+      <div class="dsh-kpi">
+        <div class="dsh-kpi-icon" style="background:#e8f5e9;color:#2e7d32;">🚚</div>
+        <div class="dsh-kpi-body">
+          <p class="dsh-kpi-label">Total Stock Quantity</p>
+          <h3 class="dsh-kpi-val">45,820</h3>
+          <p class="dsh-kpi-sub">All Items</p>
+        </div>
+      </div>
+      <div class="dsh-kpi">
+        <div class="dsh-kpi-icon" style="background:#fff8e1;color:#f57c00;">🔄</div>
+        <div class="dsh-kpi-body">
+          <p class="dsh-kpi-label">Pending Transfers</p>
+          <h3 class="dsh-kpi-val">8</h3>
+          <p class="dsh-kpi-sub">In-Transit</p>
+        </div>
+      </div>
+      <div class="dsh-kpi">
+        <div class="dsh-kpi-icon" style="background:#fce4ec;color:#c62828;">📋</div>
+        <div class="dsh-kpi-body">
+          <p class="dsh-kpi-label">Pending Approvals</p>
+          <h3 class="dsh-kpi-val dsh-kpi-val-alert">15</h3>
+        </div>
+      </div>
+      <div class="dsh-kpi">
+        <div class="dsh-kpi-icon" style="background:#fce4ec;color:#c62828;">⚠️</div>
+        <div class="dsh-kpi-body">
+          <p class="dsh-kpi-label">Low Stock Items</p>
+          <h3 class="dsh-kpi-val dsh-kpi-val-alert">23</h3>
+          <p class="dsh-kpi-sub">Below Reorder Level</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROW 2 — Donut + Bar Chart + Stock Summary -->
+    <div style="display:grid; grid-template-columns:4fr 5fr 3fr; gap:8px; margin-bottom:8px;" class="dsh-row2">
+      <!-- Donut Panel -->
+      <div class="dsh-panel">
+        <div class="dsh-panel-head"><span class="dsh-panel-title">Stock Value by Warehouse</span></div>
+        <div class="dsh-panel-body">
+          <div style="width:100px;height:100px;border-radius:50%;background:conic-gradient(#4D1220 40%,#822839 25%,#2e7d32 20%,#f57c00 15%);margin:0 auto 8px;position:relative;">
+            <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:55px;height:55px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#4D1220;">RM 2.4M</div>
+          </div>
+          <div class="dsh-donut-legend-row"><span class="dsh-donut-legend-dot" style="background:#4D1220;"></span><span class="dsh-donut-legend-name">Main Store</span><span class="dsh-donut-legend-amt">RM 960K</span></div>
+          <div class="dsh-donut-legend-row"><span class="dsh-donut-legend-dot" style="background:#822839;"></span><span class="dsh-donut-legend-name">KL Branch</span><span class="dsh-donut-legend-amt">RM 600K</span></div>
+          <div class="dsh-donut-legend-row"><span class="dsh-donut-legend-dot" style="background:#2e7d32;"></span><span class="dsh-donut-legend-name">JB Branch</span><span class="dsh-donut-legend-amt">RM 480K</span></div>
+          <div class="dsh-donut-legend-row"><span class="dsh-donut-legend-dot" style="background:#f57c00;"></span><span class="dsh-donut-legend-name">Penang</span><span class="dsh-donut-legend-amt">RM 360K</span></div>
+          <div class="dsh-donut-legend-footer"><span>Total</span><span>RM 2.4M</span></div>
+        </div>
+      </div>
+
+      <!-- Bar Chart Panel -->
+      <div class="dsh-panel">
+        <div class="dsh-panel-head">
+          <span class="dsh-panel-title">Stock Inward vs Outward (This Month)</span>
+          <div class="dsh-legend-chips">
+            <span class="dsh-chip-green">● Inward (Qty)</span>
+            <span class="dsh-chip-red">● Outward (Qty)</span>
+          </div>
+        </div>
+        <div class="dsh-panel-body">
+          <div style="display:flex;align-items:flex-end;gap:6px;height:100px;padding:0 4px;">
+            <div style="flex:1;display:flex;gap:3px;align-items:flex-end;"><div style="flex:1;background:#2e7d32;height:60%;border-radius:3px 3px 0 0;"></div><div style="flex:1;background:#c62828;height:40%;border-radius:3px 3px 0 0;"></div></div>
+            <div style="flex:1;display:flex;gap:3px;align-items:flex-end;"><div style="flex:1;background:#2e7d32;height:80%;border-radius:3px 3px 0 0;"></div><div style="flex:1;background:#c62828;height:50%;border-radius:3px 3px 0 0;"></div></div>
+            <div style="flex:1;display:flex;gap:3px;align-items:flex-end;"><div style="flex:1;background:#2e7d32;height:45%;border-radius:3px 3px 0 0;"></div><div style="flex:1;background:#c62828;height:70%;border-radius:3px 3px 0 0;"></div></div>
+            <div style="flex:1;display:flex;gap:3px;align-items:flex-end;"><div style="flex:1;background:#2e7d32;height:90%;border-radius:3px 3px 0 0;"></div><div style="flex:1;background:#c62828;height:55%;border-radius:3px 3px 0 0;"></div></div>
+            <div style="flex:1;display:flex;gap:3px;align-items:flex-end;"><div style="flex:1;background:#2e7d32;height:70%;border-radius:3px 3px 0 0;"></div><div style="flex:1;background:#c62828;height:65%;border-radius:3px 3px 0 0;"></div></div>
+            <div style="flex:1;display:flex;gap:3px;align-items:flex-end;"><div style="flex:1;background:#2e7d32;height:55%;border-radius:3px 3px 0 0;"></div><div style="flex:1;background:#c62828;height:80%;border-radius:3px 3px 0 0;"></div></div>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:4px;font-size:9px;color:#8e8e8e;text-align:center;">
+            <span style="flex:1;">01 Nov</span><span style="flex:1;">05 Nov</span><span style="flex:1;">10 Nov</span><span style="flex:1;">15 Nov</span><span style="flex:1;">20 Nov</span><span style="flex:1;">25 Nov</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stock Summary Panel -->
+      <div class="dsh-panel">
+        <div class="dsh-panel-head"><span class="dsh-panel-title">Stock Summary (All Warehouses)</span></div>
+        <div class="dsh-panel-body">
+          <div class="dsh-stat-row"><span class="dsh-stat-label">Opening Stock</span><span class="dsh-stat-val dsh-stat-val-green">12,500</span></div>
+          <div class="dsh-stat-row"><span class="dsh-stat-label">Stock Inward</span><span class="dsh-stat-val dsh-stat-val-green">18,320</span></div>
+          <div class="dsh-stat-row"><span class="dsh-stat-label">Stock Outward</span><span class="dsh-stat-val dsh-stat-val-red">15,000</span></div>
+          <div class="dsh-stat-row"><span class="dsh-stat-label">Closing Stock</span><span class="dsh-stat-val dsh-stat-val-green">45,820</span></div>
+          <div class="dsh-stat-row dsh-stat-row-total"><span class="dsh-stat-label">Stock Value</span><span class="dsh-stat-val">RM 2.4M</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROW 3 — Quick Access + Low Stock + Pending Activities -->
+    <div style="display:grid; grid-template-columns:3fr 6fr 3fr; gap:8px; margin-bottom:8px;" class="dsh-row3">
+      <!-- Quick Access -->
+      <div class="dsh-panel">
+        <div class="dsh-panel-head"><span class="dsh-panel-title">Quick Access</span></div>
+        <div class="dsh-panel-body">
+          <div class="dsh-qa-grid">
+            <div class="dsh-qa-tile"><div class="dsh-qa-icon" style="background:#1a73e818;border:1px solid #1a73e830;color:#1a73e8;">🛒</div><span class="dsh-qa-label">New Purchase</span></div>
+            <div class="dsh-qa-tile"><div class="dsh-qa-icon" style="background:#2e7d3218;border:1px solid #2e7d3230;color:#2e7d32;">📥</div><span class="dsh-qa-label">Goods Receipt</span></div>
+            <div class="dsh-qa-tile"><div class="dsh-qa-icon" style="background:#f57c0018;border:1px solid #f57c0030;color:#f57c00;">📤</div><span class="dsh-qa-label">Stock Issue</span></div>
+            <div class="dsh-qa-tile"><div class="dsh-qa-icon" style="background:#7b1fa218;border:1px solid #7b1fa230;color:#7b1fa2;">🔄</div><span class="dsh-qa-label">Transfer</span></div>
+            <div class="dsh-qa-tile"><div class="dsh-qa-icon" style="background:#4D122018;border:1px solid #4D122030;color:#4D1220;">📊</div><span class="dsh-qa-label">Reports</span></div>
+            <div class="dsh-qa-tile"><div class="dsh-qa-icon" style="background:#c6282818;border:1px solid #c6282830;color:#c62828;">⚠️</div><span class="dsh-qa-label">Low Stock</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Low Stock Alert -->
+      <div class="dsh-panel">
+        <div class="dsh-panel-head"><span class="dsh-panel-title">⚠️ Low Stock Alert</span></div>
+        <div class="dsh-panel-body dsh-panel-body--notop">
+          <table class="dsh-tbl">
+            <thead><tr><th>Item Code</th><th>Item Name</th><th>Warehouse</th><th style="text-align:right;">Available</th><th style="text-align:right;">Reorder Lvl</th><th style="text-align:center;">Status</th></tr></thead>
+            <tbody>
+              <tr><td><span class="dsh-item-code">ITM0042</span></td><td>Uniform Shirt (L)</td><td class="dsh-td-muted">Main Store</td><td style="text-align:right;" class="dsh-qty-low">15</td><td style="text-align:right;" class="dsh-td-muted">50</td><td style="text-align:center;"><span class="dsh-badge-low">Low</span></td></tr>
+              <tr><td><span class="dsh-item-code">ITM0051</span></td><td>Safety Boots (42)</td><td class="dsh-td-muted">Main Store</td><td style="text-align:right;" class="dsh-qty-low">8</td><td style="text-align:right;" class="dsh-td-muted">30</td><td style="text-align:center;"><span class="dsh-badge-low">Low</span></td></tr>
+              <tr><td><span class="dsh-item-code">ITM0063</span></td><td>Flashlight LED</td><td class="dsh-td-muted">KL Branch</td><td style="text-align:right;" class="dsh-qty-low">3</td><td style="text-align:right;" class="dsh-td-muted">20</td><td style="text-align:center;"><span class="dsh-badge-low">Low</span></td></tr>
+            </tbody>
+          </table>
+          <a class="dsh-view-more">View All Low Stock Items →</a>
+        </div>
+      </div>
+
+      <!-- Pending Activities -->
+      <div class="dsh-panel">
+        <div class="dsh-panel-head"><span class="dsh-panel-title">Pending Activities</span></div>
+        <div class="dsh-panel-body dsh-panel-body--notop">
+          <div class="dsh-act-row"><div class="dsh-act-left"><span class="dsh-act-icon" style="color:#1a73e8;">🛒</span>Purchase Orders Pending</div><span class="dsh-act-num" style="color:#1a73e8;">5</span></div>
+          <div class="dsh-act-row"><div class="dsh-act-left"><span class="dsh-act-icon" style="color:#2e7d32;">📥</span>GRN Pending</div><span class="dsh-act-num" style="color:#2e7d32;">3</span></div>
+          <div class="dsh-act-row"><div class="dsh-act-left"><span class="dsh-act-icon" style="color:#f57c00;">🔄</span>Stock Transfers Pending</div><span class="dsh-act-num" style="color:#f57c00;">8</span></div>
+          <div class="dsh-act-row"><div class="dsh-act-left"><span class="dsh-act-icon" style="color:#e65100;">⏳</span>Pending Approvals</div><span class="dsh-act-num" style="color:#e65100;">6</span></div>
+          <div class="dsh-act-row"><div class="dsh-act-left"><span class="dsh-act-icon" style="color:#7b1fa2;">🔧</span>Stock Adjustments Pending</div><span class="dsh-act-num" style="color:#7b1fa2;">2</span></div>
+          <a class="dsh-view-more">View All Pending Activities →</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROW 4 — Recent Transactions + Stock by Warehouse -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;" class="dsh-row4">
+      <!-- Recent Transactions -->
+      <div class="dsh-panel">
+        <div class="dsh-panel-head"><span class="dsh-panel-title">Recent Stock Transactions</span></div>
+        <div class="dsh-panel-body dsh-panel-body--notop">
+          <table class="dsh-tbl">
+            <thead><tr><th>Date</th><th>Type</th><th>Ref No</th><th>Item</th><th style="text-align:right;">Qty</th></tr></thead>
+            <tbody>
+              <tr><td class="dsh-td-muted">12 Nov</td><td>STOCK_IN</td><td><span class="dsh-item-code">GRN0008</span></td><td>Uniform Shirt (L)</td><td style="text-align:right;" class="dsh-qty-in">+50</td></tr>
+              <tr><td class="dsh-td-muted">12 Nov</td><td>ISSUE</td><td><span class="dsh-item-code">SI0015</span></td><td>Uniform Pants (L)</td><td style="text-align:right;" class="dsh-qty-out">-2</td></tr>
+              <tr><td class="dsh-td-muted">11 Nov</td><td>TRANSFER</td><td><span class="dsh-item-code">ST0012</span></td><td>Safety Boots</td><td style="text-align:right;" class="dsh-qty-out">-10</td></tr>
+              <tr><td class="dsh-td-muted">11 Nov</td><td>OPENING</td><td><span class="dsh-item-code">OS0001</span></td><td>Flashlight LED</td><td style="text-align:right;" class="dsh-qty-in">+100</td></tr>
+            </tbody>
+          </table>
+          <a class="dsh-view-more">View All Transactions →</a>
+        </div>
+      </div>
+
+      <!-- Stock by Warehouse -->
+      <div class="dsh-panel">
+        <div class="dsh-panel-head"><span class="dsh-panel-title">Stock Quantity by Warehouse (Top 5 Items)</span></div>
+        <div class="dsh-panel-body dsh-panel-body--notop">
+          <table class="dsh-tbl">
+            <thead><tr><th>Item Name</th><th style="text-align:right;">Main Store</th><th style="text-align:right;">KL Branch</th><th style="text-align:right;">JB Branch</th><th style="text-align:right;">Total</th></tr></thead>
+            <tbody>
+              <tr><td>Uniform Shirt (L)</td><td style="text-align:right;" class="dsh-td-muted">415</td><td style="text-align:right;" class="dsh-td-muted">120</td><td style="text-align:right;" class="dsh-td-muted">80</td><td style="text-align:right;"><strong>615</strong></td></tr>
+              <tr><td>Uniform Pants (L)</td><td style="text-align:right;" class="dsh-td-muted">498</td><td style="text-align:right;" class="dsh-td-muted">100</td><td style="text-align:right;" class="dsh-td-muted">70</td><td style="text-align:right;"><strong>668</strong></td></tr>
+              <tr><td>Safety Boots (42)</td><td style="text-align:right;" class="dsh-td-muted">42</td><td style="text-align:right;" class="dsh-td-muted">30</td><td style="text-align:right;" class="dsh-td-muted">15</td><td style="text-align:right;"><strong>87</strong></td></tr>
+              <tr><td>Flashlight LED</td><td style="text-align:right;" class="dsh-td-muted">97</td><td style="text-align:right;" class="dsh-td-muted">50</td><td style="text-align:right;" class="dsh-td-muted">25</td><td style="text-align:right;"><strong>172</strong></td></tr>
+            </tbody>
+          </table>
+          <a class="dsh-view-more">View Full Stock Summary Report →</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="dsh-footer">
+      <span>ℹ️</span>
+      <span>All values are calculated based on current data. Last updated on 12 Nov 2026 14:30</span>
+      <button class="dsh-footer-refresh">🔄 Refresh</button>
+    </div>
+  </div>
+
+  <h3>1.5 Button Styles</h3>
+  <table>
+    <tr><th>Button Style</th><th>Appearance</th><th>Action</th></tr>
+    <tr><td>Primary</td><td>Dark maroon (#4D1220)</td><td>Save, Submit</td></tr>
+    <tr><td>Secondary</td><td>Burgundy (#822839)</td><td>Submit for Approval, Print PDF</td></tr>
+    <tr><td>Outline</td><td>Maroon border, white background</td><td>Cancel, Export Excel</td></tr>
+    <tr><td>Delete</td><td>Red text or icon</td><td>Delete (with confirmation)</td></tr>
+    <tr><td>Edit</td><td>Pencil icon</td><td>Open record for editing</td></tr>
+  </table>
+</div>
+
+<!-- ═══ 2. MASTER DATA ═══ -->
+<div class="section" id="s2">
+  <h2>2. Master Data Entry Guide</h2>
+  <p>Before recording any stock transactions, you must set up your master data in this order:</p>
+  <div class="flow">
+    <div class="flow-step"><h5>1. Category</h5></div><span class="flow-arrow">→</span>
+    <div class="flow-step"><h5>2. Brand</h5></div><span class="flow-arrow">→</span>
+    <div class="flow-step"><h5>3. UOM</h5></div><span class="flow-arrow">→</span>
+    <div class="flow-step"><h5>4. Warehouse</h5></div><span class="flow-arrow">→</span>
+    <div class="flow-step"><h5>5. Item Master</h5></div><span class="flow-arrow">→</span>
+    <div class="flow-step"><h5>6. Supplier</h5></div>
+  </div>
+
+  <div class="note">Category Master and Supplier Master appear under the <strong>Finance</strong> section in the sidebar, not under Inventory.</div>
+
+  <h3>2.1 Category Master</h3>
+  <p><strong>Path:</strong> Sidebar → Finance → Category Master → + New</p>
+  <table>
+    <tr><th>Field</th><th>Required?</th><th>Description</th><th>Sample</th></tr>
+    <tr><td>Code</td><td>Auto</td><td>System-generated (read-only)</td><td>CAT0001</td></tr>
+    <tr><td>Name</td><td class="req">Yes</td><td>Category name</td><td>Uniform</td></tr>
+    <tr><td>Type</td><td class="req">Yes</td><td>"P" for Product or "A" for Asset</td><td>P</td></tr>
+    <tr><td>Parent Category</td><td>No</td><td>For sub-categories</td><td>—</td></tr>
+  </table>
+  <p><strong>Delete:</strong> Blocked if items reference this category.</p>
+
+  <h3>2.2 Brand Master</h3>
+  <p><strong>Path:</strong> Sidebar → Inventory → Brand Master → + New</p>
+  <table>
+    <tr><th>Field</th><th>Required?</th><th>Sample</th></tr>
+    <tr><td>Code</td><td>Auto</td><td>BR0001</td></tr>
+    <tr><td>Name</td><td class="req">Yes</td><td>FWG Standard</td></tr>
+    <tr><td>Description</td><td>No</td><td>Standard uniform brand</td></tr>
+  </table>
+
+  <h3>2.3 UOM Master</h3>
+  <p><strong>Path:</strong> Sidebar → Inventory → UOM Master → + New</p>
+  <table>
+    <tr><th>Field</th><th>Required?</th><th>Sample</th></tr>
+    <tr><td>Code</td><td>Auto</td><td>UM0010</td></tr>
+    <tr><td>Name</td><td class="req">Yes</td><td>Pairs</td></tr>
+    <tr><td>Short Name</td><td>No</td><td>Pr</td></tr>
+  </table>
+  <p><em>Pre-loaded: Nos, Pairs, Boxes, Sets, Rolls, Bottles, Units, Packs, Cartons</em></p>
+
+  <h3>2.4 Warehouse Master</h3>
+  <p><strong>Path:</strong> Sidebar → Inventory → Warehouse Master → + New</p>
+  <table>
+    <tr><th>Field</th><th>Required?</th><th>Sample</th></tr>
+    <tr><td>Code</td><td>Auto</td><td>WH0001</td></tr>
+    <tr><td>Name</td><td class="req">Yes</td><td>Main Store — Seremban</td></tr>
+    <tr><td>Address</td><td>No</td><td>No. 24, Taman Bukit Emas</td></tr>
+    <tr><td>Branch</td><td class="req">Yes</td><td>Seremban HQ</td></tr>
+    <tr><td>IsActive</td><td>Yes</td><td>Checked</td></tr>
+  </table>
+  <div class="note">Only active warehouses appear in dropdowns. Deactivate instead of deleting.</div>
+
+  <h3>2.5 Item Master</h3>
+  <p><strong>Path:</strong> Sidebar → Inventory → Item Master → + New</p>
+  <table>
+    <tr><th>Field</th><th>Required?</th><th>Description</th><th>Sample</th></tr>
+    <tr><td>Code</td><td>Auto</td><td>System-generated (read-only)</td><td>ITM0042</td></tr>
+    <tr><td>Category</td><td class="req">Yes</td><td>Select item category</td><td>Uniform</td></tr>
+    <tr><td>Brand</td><td>No</td><td>Select brand</td><td>FWG Standard</td></tr>
+    <tr><td>UOM</td><td class="req">Yes</td><td>Unit of measure</td><td>Nos</td></tr>
+    <tr><td>Default Warehouse</td><td>No</td><td>Default warehouse for this item</td><td>Main Store</td></tr>
+    <tr><td>Item Name</td><td class="req">Yes</td><td>Name of the item</td><td>Security Uniform Shirt (L)</td></tr>
+    <tr><td>Price</td><td class="req">Yes</td><td>Cost/buying price</td><td>45.00</td></tr>
+    <tr><td>Reorder Level</td><td>No</td><td>Low-stock alert trigger</td><td>50</td></tr>
+    <tr><td>Reorder Quantity</td><td>No</td><td>Suggested reorder qty</td><td>200</td></tr>
+    <tr><td>Size</td><td>No</td><td>Size designation</td><td>L</td></tr>
+  </table>
+  <div class="note">SellPrice and Quantity fields exist in the database but are excluded from the UI. Stock is always calculated from the Stock Ledger.</div>
+
+  <div class="illustration">
+    <div class="label">Illustration — Layout matches actual application screen</div>
+    <div class="mock-form">
+      <div class="mock-header"><span>Add Item</span><span class="badge">ITM0042</span></div>
+      <div class="mock-body">
+
+        <!-- Section: Item Details -->
+        <div class="mock-section-label">Item Details</div>
+        <hr class="mock-section-hr">
+        <div class="mock-grid4">
+          <div class="mat-mock-field">
+            <span class="outline-label">Item Code</span>
+            <div class="outline-box disabled"><span class="outline-value muted">AUTO (ITM0042)</span></div>
+            <div class="outline-hint">Auto-generated</div>
+          </div>
+          <div class="mat-mock-field">
+            <span class="outline-label">Item Name <span class="req-star">*</span></span>
+            <div class="outline-box"><span class="outline-value">Security Uniform Shirt (L)</span></div>
+          </div>
+          <div class="mat-mock-field">
+            <span class="outline-label">Category <span class="req-star">*</span></span>
+            <div class="outline-box"><span class="outline-value">Uniform</span><span class="outline-arrow">▾</span></div>
+          </div>
+          <div class="mat-mock-field">
+            <span class="outline-label">Brand</span>
+            <div class="outline-box"><span class="outline-value">FWG Standard</span><span class="outline-arrow">▾</span></div>
+          </div>
+          <div class="mat-mock-field">
+            <span class="outline-label">UOM <span class="req-star">*</span></span>
+            <div class="outline-box"><span class="outline-value">Nos</span><span class="outline-arrow">▾</span></div>
+          </div>
+          <div class="mat-mock-field">
+            <span class="outline-label">Default Warehouse</span>
+            <div class="outline-box"><span class="outline-value">Main Store — Seremban</span><span class="outline-arrow">▾</span></div>
+            <div class="outline-hint">Auto-fills warehouse in stock forms</div>
+          </div>
+          <div class="mat-mock-field">
+            <span class="outline-label">Size</span>
+            <div class="outline-box"><span class="outline-value">L</span></div>
+            <div class="outline-hint">Optional — each size is a separate item</div>
+          </div>
+        </div>
+        <div class="mat-mock-field">
+          <span class="outline-label">Remarks</span>
+          <div class="outline-box"><span class="outline-value">For new recruits</span></div>
+        </div>
+
+        <!-- Section: Pricing -->
+        <div class="mock-section-label">Pricing</div>
+        <hr class="mock-section-hr">
+        <div class="mock-grid4" style="grid-template-columns:1fr 1fr 1fr;">
+          <div class="mat-mock-field">
+            <span class="outline-label">Buying Price <span class="req-star">*</span></span>
+            <div class="outline-box"><span class="outline-value">45.00</span></div>
+            <div class="outline-hint">Used as default cost in Material Issue</div>
+          </div>
+        </div>
+
+        <!-- Section: Reorder Settings -->
+        <div class="mock-section-label">Reorder Settings</div>
+        <hr class="mock-section-hr">
+        <div class="mock-grid4" style="grid-template-columns:1fr 1fr 1fr;">
+          <div class="mat-mock-field">
+            <span class="outline-label">Reorder Level</span>
+            <div class="outline-box"><span class="outline-value">50</span></div>
+            <div class="outline-hint">Trigger when stock falls below</div>
+          </div>
+          <div class="mat-mock-field">
+            <span class="outline-label">Reorder Quantity</span>
+            <div class="outline-box"><span class="outline-value">200</span></div>
+            <div class="outline-hint">Quantity to order when replenishing</div>
+          </div>
+        </div>
+
+        <div class="mock-btns">
+          <span class="mock-btn outline">Cancel</span>
+          <span class="mock-btn primary">Save</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3>2.6 Supplier Master</h3>
+  <p><strong>Path:</strong> Sidebar → Finance → Supplier Master → + New</p>
+  <table>
+    <tr><th>Field</th><th>Required?</th><th>Sample</th></tr>
+    <tr><td>Code</td><td>Auto</td><td>SUP001</td></tr>
+    <tr><td>Name</td><td class="req">Yes</td><td>ABC Uniform Supplier Sdn Bhd</td></tr>
+    <tr><td>Category</td><td>No</td><td>Uniform</td></tr>
+  </table>
+</div>
+
+<!-- ═══ 3. OPENING STOCK ═══ -->
+<div class="section" id="s3">
+  <h2>3. Opening Stock Entry</h2>
+  <p>Opening Stock records the initial quantity of each item in each warehouse. Every entry creates an OPENING record in the Stock Ledger.</p>
+  <div class="info"><strong>Rule:</strong> Only one opening stock entry per item per warehouse. Edit the existing entry to change it — do not create a duplicate.</div>
+
+  <h3>3.1 How to Create</h3>
+  <p><strong>Path:</strong> Sidebar → Inventory → Opening Stock → + New</p>
+  <ol>
+    <li>Reference No is auto-generated (e.g., OS0001) — read-only.</li>
+    <li>Select <strong>Opening Date</strong> (defaults to today).</li>
+    <li>Select <strong>Warehouse</strong> (required).</li>
+    <li>Select <strong>Item</strong> (required) — item details auto-display below.</li>
+    <li>Unit Cost auto-fills from the item's Price — you can override.</li>
+    <li>Enter <strong>Opening Qty</strong> (must be > 0).</li>
+    <li>Total Value auto-calculates as Qty × Unit Cost.</li>
+    <li>Click <strong>Save</strong>.</li>
+  </ol>
+
+  <div class="illustration">
+    <div class="label">Illustration — Layout matches actual application screen</div>
+    <div class="mock-form">
+      <div class="mock-header"><span>Add Opening Stock</span><span class="badge">OS0001</span></div>
+      <div class="mock-body">
+
+        <!-- Section: Stock Location & Item -->
+        <div class="mock-section-label">Stock Location &amp; Item</div>
+        <hr class="mock-section-hr">
+        <div class="mock-grid4" style="grid-template-columns:1fr 1fr;">
+          <div class="mat-mock-field">
+            <span class="outline-label">Reference No</span>
+            <div class="outline-box disabled"><span class="outline-value muted">AUTO (OS0001)</span></div>
+            <div class="outline-hint">Auto-generated</div>
+          </div>
+          <div class="mat-mock-field">
+            <span class="outline-label">Opening Date <span class="req-star">*</span></span>
+            <div class="outline-box"><span class="outline-value">01-Nov-2026</span><span class="outline-arrow">📅</span></div>
+          </div>
+          <div class="mat-mock-field">
+            <span class="outline-label">Warehouse <span class="req-star">*</span></span>
+            <div class="outline-box"><span class="outline-value">Main Store — Seremban</span><span class="outline-arrow">▾</span></div>
+          </div>
+          <div class="mat-mock-field">
+            <span class="outline-label">Item <span class="req-star">*</span></span>
+            <div class="outline-box"><span class="outline-value">ITM0042 — Security Uniform Shirt (L)</span><span class="outline-arrow">▾</span></div>
+          </div>
+        </div>
+
+        <!-- Item Details (auto-populated) -->
+        <div class="mock-detail-box">
+          <div class="det-item"><span class="det-label">Item Code</span><span class="det-value">ITM0042</span></div>
+          <div class="det-item"><span class="det-label">Category</span><span class="det-value">Uniform</span></div>
+          <div class="det-item"><span class="det-label">Brand</span><span class="det-value">FWG Standard</span></div>
+          <div class="det-item"><span class="det-label">Unit of Measure</span><span class="det-value">Nos</span></div>
+        </div>
+
+        <!-- Section: Quantity & Cost -->
+        <div class="mock-section-label">Quantity &amp; Cost</div>
+        <hr class="mock-section-hr">
+        <div class="mock-grid3">
+          <div class="mat-mock-field">
+            <span class="outline-label">Opening Quantity <span class="req-star">*</span></span>
+            <div class="outline-box"><span class="outline-value">500</span></div>
+            <div class="outline-hint">Enter the quantity you have on hand</div>
+          </div>
+          <div class="mat-mock-field">
+            <span class="outline-label">Unit Cost (RM) <span class="req-star">*</span></span>
+            <div class="outline-box"><span class="outline-value">45.00</span></div>
+            <div class="outline-hint">Auto-filled from item master · editable</div>
+          </div>
+          <div class="mat-mock-field">
+            <span class="outline-label">Total Value (RM)</span>
+            <div class="outline-box disabled"><span class="outline-value muted">22,500.00</span></div>
+            <div class="outline-hint">Calculated automatically (Qty × Unit Cost)</div>
+          </div>
+        </div>
+
+        <!-- Section: Additional Information -->
+        <div class="mock-section-label">Additional Information</div>
+        <hr class="mock-section-hr">
+        <div class="mat-mock-field" style="max-width:66%;">
+          <span class="outline-label">Remarks</span>
+          <div class="outline-box"><span class="outline-value">Initial stock for 2026</span></div>
+        </div>
+
+        <div class="mock-btns">
+          <span class="mock-btn outline">Cancel</span>
+          <span class="mock-btn primary">Save Opening Stock</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3>3.2 Bulk Import</h3>
+  <p>The list screen has a <strong>Bulk Import</strong> button for importing multiple entries from Excel. Required columns: Item Code, Warehouse Code, Opening Qty, Unit Cost, Opening Date.</p>
+</div>
+
+</div>
+
+<div class="footer">
+  <p>OBMS Inventory Module — End User Manual v1.0 — November 2026</p>
+  <p>Freightwatch G Patomotoh Security Services Sdn. Bhd.</p>
+</div>
+
+</body>
+</html>
+
+<!-- ═══ 4. PURCHASE PROCESS ═══ -->
+<div class="container">
+<div class="section" id="s4">
+  <h2>4. Purchase Process — Step by Step</h2>
+  <div class="flow">
+    <div class="flow-step"><h5>1. PR (Requisition)</h5><p>Draft → Submit</p></div><span class="flow-arrow">→</span>
+    <div class="flow-step"><h5>2. Approval</h5><p>Approver reviews</p></div><span class="flow-arrow">→</span>
+    <div class="flow-step"><h5>3. PO (Order)</h5><p>From approved PR</p></div><span class="flow-arrow">→</span>
+    <div class="flow-step"><h5>4. Approval</h5><p>Approver reviews</p></div><span class="flow-arrow">→</span>
+    <div class="flow-step"><h5>5. GRN (Receive)</h5><p>Stock increases</p></div>
+  </div>
+
+  <h3>4.1 Purchase Requisition (PR)</h3>
+  <p><strong>Path:</strong> Inventory → Purchase Requisition → + New</p>
+
+  <h4>Creating a PR</h4>
+  <ol>
+    <li>PR Number is auto-generated (e.g., PR0012).</li>
+    <li>Select <strong>PR Date</strong> and <strong>Required By Date</strong>.</li>
+    <li>Enter Remarks if needed.</li>
+    <li>Click <strong>Add Item</strong> to add line items.</li>
+    <li>Select an Item — Buying Price auto-fills from the item's Price.</li>
+    <li>Enter <strong>Required Qty</strong> (must be > 0).</li>
+    <li>Click <strong>Add</strong> to save the line.</li>
+    <li>Repeat for additional items.</li>
+  </ol>
+
+  <div class="illustration">
+    <div class="label">Illustration — Layout matches actual application screen</div>
+    <div class="mock-form">
+      <div class="mock-header"><span>New Purchase Requisition</span><span class="badge">PR0012 — Draft</span></div>
+      <div class="mock-body">
+
+        <!-- Section: PR Details -->
+        <div class="mock-section-label">PR Details</div>
+        <hr class="mock-section-hr">
+        <div class="mock-grid3">
+          <div class="mat-mock-field">
+            <span class="outline-label">PR Number</span>
+            <div class="outline-box disabled"><span class="outline-value muted">AUTO (PR0012)</span></div>
+            <div class="outline-hint">Auto-generated</div>
+          </div>
+          <div class="mat-mock-field">
+            <span class="outline-label">PR Date <span class="req-star">*</span></span>
+            <div class="outline-box"><span class="outline-value">10-Nov-2026</span><span class="outline-arrow">📅</span></div>
+          </div>
+          <div class="mat-mock-field">
+            <span class="outline-label">Required By Date <span class="req-star">*</span></span>
+            <div class="outline-box"><span class="outline-value">20-Nov-2026</span><span class="outline-arrow">📅</span></div>
+          </div>
+        </div>
+
+        <!-- Section: Line Items -->
+        <div class="mock-section-label">Line Items</div>
+        <hr class="mock-section-hr">
+        <table class="mock-table">
+          <tr><th>#</th><th>Item Code</th><th>Item Name</th><th>UOM</th><th>Required Qty</th><th>Buying Price</th><th>Amount</th></tr>
+          <tr><td>1</td><td><span class="dsh-item-code">ITM0042</span></td><td>Uniform Shirt (L)</td><td>Nos</td><td>100</td><td>45.00</td><td>4,500.00</td></tr>
+          <tr><td>2</td><td><span class="dsh-item-code">ITM0043</span></td><td>Uniform Pants (L)</td><td>Nos</td><td>100</td><td>55.00</td><td>5,500.00</td></tr>
+          <tr><td>3</td><td><span class="dsh-item-code">ITM0050</span></td><td>Safety Boots (42)</td><td>Pairs</td><td>50</td><td>120.00</td><td>6,000.00</td></tr>
+          <tr style="background:#fdf4f5;font-weight:700;"><td colspan="6" style="text-align:right;">TOTAL</td><td>16,000.00</td></tr>
+        </table>
+        <div style="text-align:left; margin:8px 0;">
+          <span class="mock-btn outline" style="font-size:11px;">+ Add Item</span>
+        </div>
+
+        <div class="mock-btns">
+          <span class="mock-btn outline">Cancel</span>
+          <span class="mock-btn primary">Save Draft</span>
+          <span class="mock-btn gold">Submit for Approval</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <table>
+    <tr><th>Status</th><th>Meaning</th><th>Can Edit?</th></tr>
+    <tr><td>Draft</td><td>Saved, not submitted</td><td>Yes — all fields</td></tr>
+    <tr><td>Submitted</td><td>Waiting for approver</td><td>No</td></tr>
+    <tr><td>Approved</td><td>Ready for PO creation</td><td>Reference edit only</td></tr>
+    <tr><td>Rejected</td><td>Rejected — check remarks</td><td>Yes (resubmit)</td></tr>
+  </table>
+
+  <h3>4.2 Purchase Order (PO)</h3>
+  <p><strong>Path:</strong> Inventory → Purchase Order → + New</p>
+  <p>Can be created from an approved PR (items auto-fill, item list locked) or directly (all fields editable).</p>
+
+  <table>
+    <tr><th>Field</th><th>Required?</th><th>Sample</th></tr>
+    <tr><td>PO Number</td><td>Auto</td><td>PO0010</td></tr>
+    <tr><td>PR Link</td><td>No</td><td>PR0012</td></tr>
+    <tr><td>Supplier</td><td class="req">Yes</td><td>ABC Uniform Sdn Bhd</td></tr>
+    <tr><td>Warehouse</td><td class="req">Yes</td><td>Main Store</td></tr>
+    <tr><td>PO Date</td><td class="req">Yes</td><td>10-Nov-2026</td></tr>
+    <tr><td>Expected Date</td><td class="req">Yes</td><td>20-Nov-2026</td></tr>
+  </table>
+
+  <table>
+    <tr><th>Status</th><th>Can Edit?</th></tr>
+    <tr><td>Draft (no PR)</td><td>Yes — all fields</td></tr>
+    <tr><td>Draft (PR-linked)</td><td>Qty/Price/SST only — item list locked</td></tr>
+    <tr><td>Submitted</td><td>No</td></tr>
+    <tr><td>Approved (no GRN)</td><td>Reference edit only</td></tr>
+    <tr><td>Partially/Fully Received</td><td>No</td></tr>
+    <tr><td>Cancelled / Rejected</td><td>No</td></tr>
+  </table>
+
+  <h3>4.3 Goods Receipt Note (GRN)</h3>
+  <p><strong>Path:</strong> Inventory → Goods Receipt → + New</p>
+  <div class="warn"><strong>Important:</strong> GRN is the only inventory transaction that creates a Finance record (CreditorInvoice). Deleting is blocked if a payment exists.</div>
+
+  <ol>
+    <li>GRN Number is auto-generated (e.g., GRN0008).</li>
+    <li>Select an <strong>Approved PO</strong> — line items auto-load.</li>
+    <li>Enter <strong>Supplier Invoice No</strong> and <strong>Delivery Note Ref</strong>.</li>
+    <li>For each line, enter the <strong>Receiving Now</strong> quantity (cannot exceed Pending Qty).</li>
+    <li>Click <strong>Save GRN</strong>.</li>
+  </ol>
+
+  <div class="illustration">
+    <div class="label">Illustration — Layout matches actual application screen</div>
+    <div class="mock-form">
+      <div class="mock-header"><span>New Goods Receipt Note</span><span class="badge">GRN0008 — From PO0010</span></div>
+      <div class="mock-body">
+
+        <!-- Section: GRN Details -->
+        <div class="mock-section-label">GRN Details</div>
+        <hr class="mock-section-hr">
+        <div class="mock-grid4">
+          <div class="mat-mock-field">
+            <span class="outline-label">GRN Number</span>
+            <div class="outline-box disabled"><span class="outline-value muted">AUTO (GRN0008)</span></div>
+            <div class="outline-hint">Auto-generated</div>
+          </div>
+          <div class="mat-mock-field">
+            <span class="outline-label">GRN Date <span class="req-star">*</span></span>
+            <div class="outline-box"><span class="outline-value">12-Nov-2026</span><span class="outline-arrow">📅</span></div>
+          </div>
+          <div class="mat-mock-field">
+            <span class="outline-label">From PO</span>
+            <div class="outline-box disabled"><span class="outline-value muted">PO0010</span></div>
+          </div>
+          <div class="mat-mock-field">
+            <span class="outline-label">Warehouse</span>
+            <div class="outline-box disabled"><span class="outline-value muted">Main Store</span></div>
+          </div>
+          <div class="mat-mock-field">
+            <span class="outline-label">Supplier Invoice No</span>
+            <div class="outline-box"><span class="outline-value">INV-2026-0432</span></div>
+          </div>
+          <div class="mat-mock-field">
+            <span class="outline-label">Delivery Note Ref</span>
+            <div class="outline-box"><span class="outline-value">DN-8841</span></div>
+          </div>
+        </div>
+
+        <!-- Section: Line Items -->
+        <div class="mock-section-label">Received Items</div>
+        <hr class="mock-section-hr">
+        <table class="mock-table">
+          <tr><th>#</th><th>Item</th><th>Ordered</th><th>Already Recv</th><th>Pending</th><th>Receiving Now</th><th>Unit Cost</th><th>Amount</th></tr>
+          <tr><td>1</td><td>Uniform Shirt (L)</td><td>100</td><td>0</td><td>100</td><td style="background:#e8f5e9;font-weight:700;color:#2e7d32;">50</td><td>45.00</td><td>2,250.00</td></tr>
+          <tr><td>2</td><td>Uniform Pants (L)</td><td>100</td><td>0</td><td>100</td><td style="background:#e8f5e9;font-weight:700;color:#2e7d32;">50</td><td>55.00</td><td>2,750.00</td></tr>
+          <tr><td>3</td><td>Safety Boots (42)</td><td>50</td><td>0</td><td>50</td><td style="background:#e8f5e9;font-weight:700;color:#2e7d32;">50</td><td>120.00</td><td>6,000.00</td></tr>
+          <tr style="background:#fdf4f5;font-weight:700;"><td colspan="7" style="text-align:right;">GRAND TOTAL</td><td>11,000.00</td></tr>
+        </table>
+        <div class="note" style="margin-top:8px;">On save → STOCK_IN ledger entries created + CreditorInvoice created in Finance</div>
+        <div class="mock-btns">
+          <span class="mock-btn outline">Cancel</span>
+          <span class="mock-btn gold">Save GRN</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p><strong>Partial GRN:</strong> If you receive 50 of 100 ordered, the PO status changes to "Partially Received." The remaining 50 can be received in a second GRN.</p>
+</div>
+</div>
+
+<!-- ═══ 5. STOCK MANAGEMENT ═══ -->
+<div class="container">
+<div class="section" id="s5">
+  <h2>5. Stock Management</h2>
+
+  <h3>5.1 Stock Issue</h3>
+  <p><strong>Path:</strong> Inventory → Stock Issue → + New</p>
+  <ol>
+    <li>Issue No is auto-generated (e.g., SI0015).</li>
+    <li>Select <strong>Warehouse</strong> and <strong>Issue To Type</strong> (Staff/Guard/Other Guards/Branch/Other).</li>
+    <li>Select the recipient from the dropdown (filtered by warehouse branch).</li>
+    <li>For Guard/Staff: optionally check <strong>Salary Deduction</strong> (links to Payroll Uniform Loan).</li>
+    <li>Add items: select Item, enter Issue Qty (≤ available stock), select Client (required).</li>
+    <li>Click <strong>Save</strong>, then <strong>Print PDF</strong>.</li>
+  </ol>
+
+  <div class="illustration">
+    <div class="label">Illustration — Layout matches actual application screen</div>
+    <div class="mock-form">
+      <div class="mock-header"><span>New Stock Issue</span><span class="badge">SI0015</span></div>
+      <div class="mock-body">
+
+        <!-- Section: Issue Details -->
+        <div class="mock-section-label">Issue Details</div>
+        <hr class="mock-section-hr">
+        <div class="mock-grid4">
+          <div class="mat-mock-field">
+            <span class="outline-label">Issue No</span>
+            <div class="outline-box disabled"><span class="outline-value muted">AUTO (SI0015)</span></div>
+            <div class="outline-hint">Auto-generated</div>
+          </div>
+          <div class="mat-mock-field">
+            <span class="outline-label">Issue Date <span class="req-star">*</span></span>
+            <div class="outline-box"><span class="outline-value">12-Nov-2026</span><span class="outline-arrow">📅</span></div>
+          </div>
+          <div class="mat-mock-field">
+            <span class="outline-label">Warehouse <span class="req-star">*</span></span>
+            <div class="outline-box"><span class="outline-value">Main Store</span><span class="outline-arrow">▾</span></div>
+          </div>
+          <div class="mat-mock-field">
+            <span class="outline-label">Issue To Type <span class="req-star">*</span></span>
+            <div class="outline-box"><span class="outline-value">Guard</span><span class="outline-arrow">▾</span></div>
+          </div>
+        </div>
+        <div class="mock-grid2">
+          <div class="mat-mock-field">
+            <span class="outline-label">Recipient</span>
+            <div class="outline-box"><span class="outline-value">Ahmad Bin Ali (Guard — EMP0042)</span><span class="outline-arrow">▾</span></div>
+          </div>
+          <div class="mat-mock-field">
+            <span class="outline-label">Salary Deduction?</span>
+            <div class="outline-box"><span class="outline-value">☑ Yes (IsDeduction = true)</span></div>
+            <div class="outline-hint">Links to Payroll Uniform Loan</div>
+          </div>
+        </div>
+
+        <!-- Section: Line Items -->
+        <div class="mock-section-label">Issue Items</div>
+        <hr class="mock-section-hr">
+        <table class="mock-table">
+          <tr><th>#</th><th>Item</th><th>UOM</th><th>Available</th><th>Issue Qty</th><th>Unit Cost</th><th>Client</th><th>Amount</th></tr>
+          <tr><td>1</td><td><span class="dsh-item-code">ITM0042</span> — Uniform Shirt (L)</td><td>Nos</td><td style="color:#2e7d32;font-weight:700;">500</td><td style="background:#fdf4f5;font-weight:700;color:#4D1220;">2</td><td>45.00</td><td>FWG HQ</td><td>90.00</td></tr>
+          <tr><td>2</td><td><span class="dsh-item-code">ITM0043</span> — Uniform Pants (L)</td><td>Nos</td><td style="color:#2e7d32;font-weight:700;">500</td><td style="background:#fdf4f5;font-weight:700;color:#4D1220;">2</td><td>55.00</td><td>FWG HQ</td><td>110.00</td></tr>
+          <tr><td>3</td><td><span class="dsh-item-code">ITM0050</span> — Safety Boots (42)</td><td>Pairs</td><td style="color:#2e7d32;font-weight:700;">50</td><td style="background:#fdf4f5;font-weight:700;color:#4D1220;">1</td><td>120.00</td><td>FWG HQ</td><td>120.00</td></tr>
+        </table>
+        <div style="text-align:left; margin:8px 0;">
+          <span class="mock-btn outline" style="font-size:11px;">+ Add Row</span>
+        </div>
+        <div class="mock-btns">
+          <span class="mock-btn outline">Cancel</span>
+          <span class="mock-btn primary">Save Issue</span>
+          <span class="mock-btn gold">Print PDF</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3>5.2 Stock Issue Return</h3>
+  <p><strong>Path:</strong> Inventory → Issue Return → + New</p>
+  <ol>
+    <li>Select the <strong>Original Issue</strong> from the dropdown.</li>
+    <li>Line items load with Issued Qty, Already Returned, and Returnable Qty.</li>
+    <li>Enter <strong>Return Qty</strong> per line (cannot exceed Returnable Qty).</li>
+    <li>Click <strong>Save</strong>.</li>
+  </ol>
+  <div class="warn"><strong>Cannot be deleted or edited after saving.</strong> Verify quantities carefully.</div>
+
+  <h3>5.3 Stock Transfer</h3>
+  <p><strong>Path:</strong> Inventory → Stock Transfer → + New</p>
+  <ol>
+    <li>Select <strong>Source Warehouse</strong> and <strong>Destination Warehouse</strong> (must be different).</li>
+    <li>Add items: Item, Transfer Qty (≤ available stock in source).</li>
+    <li>Click <strong>Save</strong>.</li>
+  </ol>
+  <p>Creates paired ledger entries: TRANSFER_OUT (source) + TRANSFER_IN (destination).</p>
+
+  <h3>5.4 Stock Adjustment</h3>
+  <p><strong>Path:</strong> Inventory → Stock Adjustment → + New</p>
+  <div class="info"><strong>Key Rule:</strong> Stock Ledger entries are created ONLY on <strong>Approval</strong>, not on Save. Single item per document.</div>
+  <ol>
+    <li>Select Warehouse, Item, and Adjustment Type (PLUS or MINUS).</li>
+    <li>Enter Adjustment Qty and Reason (required).</li>
+    <li>Save Draft → Submit for Approval → Approver approves → Stock changes.</li>
+  </ol>
+  <table>
+    <tr><th>Status</th><th>Ledger Applied?</th><th>Can Edit?</th><th>Can Delete?</th></tr>
+    <tr><td>Draft</td><td>No</td><td>Yes</td><td>Yes</td></tr>
+    <tr><td>Submitted</td><td>No</td><td>No</td><td>No</td></tr>
+    <tr><td>Approved</td><td>Yes (on approval)</td><td>No</td><td>No</td></tr>
+    <tr><td>Rejected</td><td>No</td><td>Yes (resubmit)</td><td>Yes</td></tr>
+  </table>
+
+  <h3>5.5 Stock Damage / Loss</h3>
+  <p><strong>Path:</strong> Inventory → Damage / Loss → + New</p>
+  <ol>
+    <li>Select Warehouse, Item, and Loss Type (Damage or Loss).</li>
+    <li>Enter Quantity (≤ available stock) and Reason (required).</li>
+    <li>Click <strong>Save</strong> — stock reduces immediately (DAMAGE_LOSS ledger entry).</li>
+  </ol>
+
+  <h3>5.6 Branch Stock Request (BSR)</h3>
+  <p><strong>Path:</strong> Inventory → Branch Stock Request → + New</p>
+  <ol>
+    <li>Select Requesting Branch and Source Warehouse.</li>
+    <li>Add items: Item, Requested Qty, Client.</li>
+    <li>Save Draft → Submit for Approval.</li>
+    <li>When Approved: click <strong>Create Transfer</strong> — navigates to New Transfer with items pre-filled.</li>
+  </ol>
+  <table>
+    <tr><th>Status</th><th>Meaning</th><th>Action Available</th></tr>
+    <tr><td>Draft</td><td>Saved, not submitted</td><td>Edit, Delete, Submit</td></tr>
+    <tr><td>Submitted</td><td>Waiting for approval</td><td>(wait)</td></tr>
+    <tr><td>Approved</td><td>Ready for transfer</td><td>Create Transfer</td></tr>
+    <tr><td>Rejected</td><td>Rejected</td><td>View rejection reason</td></tr>
+  </table>
+</div>
+</div>
+
+<!-- ═══ 6. ASSET MANAGEMENT ═══ -->
+<div class="container">
+<div class="section" id="s6">
+  <h2>6. Asset Management User Guide</h2>
+  <div class="flow">
+    <div class="flow-step"><h5>Register</h5></div><span class="flow-arrow">→</span>
+    <div class="flow-step"><h5>Allocate</h5></div><span class="flow-arrow">→</span>
+    <div class="flow-step"><h5>Transfer</h5></div><span class="flow-arrow">↔</span>
+    <div class="flow-step"><h5>Return</h5></div><span class="flow-arrow">→</span>
+    <div class="flow-step"><h5>Maintenance</h5></div><span class="flow-arrow">→</span>
+    <div class="flow-step"><h5>Damage</h5></div><span class="flow-arrow">→</span>
+    <div class="flow-step"><h5>Disposal</h5></div>
+  </div>
+
+  <table>
+    <tr><th>Screen</th><th>Purpose</th><th>Key Action</th></tr>
+    <tr><td>Asset Master</td><td>Register assets</td><td>Save (status: Available)</td></tr>
+    <tr><td>Asset Allocation</td><td>Assign to person/branch</td><td>Save (status: Allocated)</td></tr>
+    <tr><td>Asset Transfer</td><td>Move between holders</td><td>Save (event record — immutable)</td></tr>
+    <tr><td>Asset Return</td><td>Return to pool</td><td>Save (status: Available)</td></tr>
+    <tr><td>Asset Maintenance</td><td>Schedule repair</td><td>Save → Complete when done</td></tr>
+    <tr><td>Asset Damage</td><td>Record damage</td><td>Save (status: Damaged)</td></tr>
+    <tr><td>Asset Disposal</td><td>Dispose asset</td><td>Save Draft → Submit → Approve (permanent)</td></tr>
+    <tr><td>Asset Location</td><td>Track physical location</td><td>Save (logs change)</td></tr>
+    <tr><td>Movement History</td><td>View full lifecycle</td><td>Read-only</td></tr>
+  </table>
+
+  <h3>6.1 Asset Disposal Workflow</h3>
+  <div class="flow">
+    <div class="flow-step"><h5>Draft</h5><p>Create disposal record</p></div><span class="flow-arrow">→</span>
+    <div class="flow-step"><h5>Submitted</h5><p>Send for approval</p></div><span class="flow-arrow">→</span>
+    <div class="flow-step"><h5>Approved</h5><p>Asset → Disposed (permanent)</p></div>
+  </div>
+  <div class="warn"><strong>Disposal is irreversible.</strong> Once approved, the asset cannot be reactivated. Verify all details before submitting.</div>
+
+  <h3>6.2 Asset Statuses</h3>
+  <table>
+    <tr><th>Status</th><th>Meaning</th></tr>
+    <tr><td>Available</td><td>In stock, ready for allocation</td></tr>
+    <tr><td>Allocated</td><td>Assigned to a person or branch</td></tr>
+    <tr><td>In_Transit</td><td>Being transferred</td></tr>
+    <tr><td>Under_Maintenance</td><td>Undergoing repair</td></tr>
+    <tr><td>Damaged</td><td>Reported as damaged</td></tr>
+    <tr><td>Disposed</td><td>Disposed — permanent, cannot change</td></tr>
+    <tr><td>Lost</td><td>Reported as lost</td></tr>
+  </table>
+</div>
+</div>
+
+<!-- ═══ 7. REPORTS ═══ -->
+<div class="container">
+<div class="section" id="s7">
+  <h2>7. Reports User Guide</h2>
+  <p>All reports are accessible from Inventory → Reports. Reports open as PDF (inline viewer) or Excel download.</p>
+
+  <h3>7.1 List/Summary Reports</h3>
+  <table>
+    <tr><th>Report</th><th>Filters</th><th>Output</th><th>Key Columns</th></tr>
+    <tr><td>Stock Ledger Report</td><td>Warehouse*, Date Range*, Item, Type, Category, Size</td><td>PDF + Excel</td><td>Date, Type, Item, In Qty, Out Qty, Balance, Unit Cost</td></tr>
+    <tr><td>Current Stock Report</td><td>Warehouse, Item, Category, Size</td><td>PDF + Excel</td><td>Warehouse, Item, Current Stock, Reorder Level, Stock Value, Status</td></tr>
+    <tr><td>Stock Movement Report</td><td>Warehouse, Item, Date Range, Client</td><td>PDF + Excel</td><td>Opening, Total In, Total Out, Closing, Unit Cost</td></tr>
+    <tr><td>Low Stock Report</td><td>Warehouse, Category</td><td>PDF + Excel</td><td>Item, Current Stock, Reorder Level, Shortage Qty, Status</td></tr>
+    <tr><td>Inventory Valuation</td><td>Warehouse, Category, As Of Date</td><td>PDF + Excel</td><td>Category, Item, Current Stock, Avg Cost, Valuation</td></tr>
+    <tr><td>Stock In (GRN) Report</td><td>Warehouse, Date Range</td><td>PDF + Excel</td><td>GRN details</td></tr>
+    <tr><td>Stock Issue Report</td><td>Warehouse, Date Range</td><td>PDF + Excel</td><td>Issue details</td></tr>
+    <tr><td>Stock Transfer Report</td><td>Date Range</td><td>PDF + Excel</td><td>Transfer details</td></tr>
+    <tr><td>Stock Adj & Damage Loss</td><td>Date Range</td><td>PDF + Excel</td><td>Adjustment/damage summary</td></tr>
+    <tr><td>Purchase & Issue Return</td><td>Warehouse, Date Range, Return Type</td><td>PDF + Excel</td><td>Return summary</td></tr>
+    <tr><td>Item & Category Stock</td><td>Warehouse, Category, Item, Date</td><td>PDF + Excel</td><td>Stock by item/category</td></tr>
+    <tr><td>Warehouse Stock Report</td><td>Warehouse, Date</td><td>PDF + Excel</td><td>Stock by warehouse</td></tr>
+    <tr><td>Supplier Purchase Report</td><td>Date Range</td><td>PDF + Excel</td><td>Purchases by supplier</td></tr>
+    <tr><td>Branch Asset Report</td><td>Branch, Asset Status, Asset Type</td><td>PDF + Excel</td><td>Assets by branch</td></tr>
+    <tr><td>Asset Movement Report</td><td>Asset, Movement Type, Date Range</td><td>PDF + Excel</td><td>Asset allocation/transfer history</td></tr>
+  </table>
+
+  <h3>7.2 Voucher Reports (Single Document PDF)</h3>
+  <p>Accessed from the "Print PDF" button on each transaction screen:</p>
+  <table>
+    <tr><th>Voucher</th><th>Source Screen</th></tr>
+    <tr><td>GRN Report</td><td>Goods Receipt (view)</td></tr>
+    <tr><td>PR Report</td><td>Purchase Requisition (view)</td></tr>
+    <tr><td>PO Report</td><td>Purchase Order (view)</td></tr>
+    <tr><td>BSR Report</td><td>Branch Stock Request (view)</td></tr>
+    <tr><td>Stock Issue Report</td><td>Stock Issue (view)</td></tr>
+    <tr><td>Issue Return Report</td><td>Issue Return (view)</td></tr>
+    <tr><td>Stock Transfer Report</td><td>Stock Transfer (view)</td></tr>
+    <tr><td>Stock Adjustment Report</td><td>Stock Adjustment (view)</td></tr>
+    <tr><td>Asset Allocation Report</td><td>Asset Allocation (print icon)</td></tr>
+    <tr><td>Asset Master/Transfer/Return/Maintenance/Damage/Disposal Reports</td><td>Respective asset screens</td></tr>
+  </table>
+</div>
+</div>
+
+<!-- ═══ 8. APPROVAL ═══ -->
+<div class="container">
+<div class="section" id="s8">
+  <h2>8. Approval and Notifications</h2>
+
+  <table>
+    <tr><th>Document Type</th><th>Approval Required?</th><th>Default</th></tr>
+    <tr><td>Purchase Requisition</td><td>Yes</td><td>Required</td></tr>
+    <tr><td>Purchase Order</td><td>Yes</td><td>Required</td></tr>
+    <tr><td>Branch Stock Request</td><td>Yes</td><td>Required</td></tr>
+    <tr><td>Stock Adjustment</td><td>Configurable</td><td>Optional (off)</td></tr>
+    <tr><td>Stock Transfer</td><td>Configurable</td><td>Optional (off)</td></tr>
+    <tr><td>Damage / Loss</td><td>Configurable</td><td>Optional (off)</td></tr>
+    <tr><td>Asset Disposal</td><td>Configurable</td><td>Optional (off)</td></tr>
+  </table>
+
+  <h3>How to Submit</h3>
+  <ol>
+    <li>Create the document and save as Draft.</li>
+    <li>Click <strong>Submit for Approval</strong>.</li>
+    <li>If routing is configured, the approver receives a real-time notification via SignalR.</li>
+    <li>If no routing is configured, the document auto-approves immediately.</li>
+  </ol>
+
+  <h3>How to Approve/Reject</h3>
+  <ol>
+    <li>Go to Administration → Pending Approvals.</li>
+    <li>Open the submitted document.</li>
+    <li>Click <strong>Approve</strong> (optionally enter remarks) or <strong>Reject</strong> (rejection reason is mandatory).</li>
+    <li>The requester receives a notification of the decision.</li>
+  </ol>
+  <div class="info">SuperAdmin users can self-approve any document. The system uses your logged-in identity — you cannot approve on behalf of another user.</div>
+</div>
+</div>
+
+<!-- ═══ 9. DAILY WORKFLOW ═══ -->
+<div class="container">
+<div class="section" id="s9">
+  <h2>9. Daily Inventory User Workflow</h2>
+  <div class="flow">
+    <div class="flow-step"><h5>Create Item</h5></div><span class="flow-arrow">→</span>
+    <div class="flow-step"><h5>Opening Stock</h5></div><span class="flow-arrow">→</span>
+    <div class="flow-step"><h5>PR</h5></div><span class="flow-arrow">→</span>
+    <div class="flow-step"><h5>PO</h5></div><span class="flow-arrow">→</span>
+    <div class="flow-step"><h5>GRN</h5></div><span class="flow-arrow">→</span>
+    <div class="flow-step"><h5>Check Stock</h5></div>
+  </div>
+  <div class="flow">
+    <div class="flow-step"><h5>Issue</h5></div><span class="flow-arrow">→</span>
+    <div class="flow-step"><h5>Return</h5></div><span class="flow-arrow">→</span>
+    <div class="flow-step"><h5>Transfer</h5></div><span class="flow-arrow">→</span>
+    <div class="flow-step"><h5>Damage/Loss</h5></div><span class="flow-arrow">→</span>
+    <div class="flow-step"><h5>Reports</h5></div>
+  </div>
+
+  <table>
+    <tr><th>Step</th><th>Action</th><th>Prerequisite</th></tr>
+    <tr><td>1. Create Item</td><td>Item Master → + New → fill fields → Save</td><td>Category, UOM, Warehouse exist</td></tr>
+    <tr><td>2. Opening Stock</td><td>Opening Stock → + New → enter qty → Save</td><td>Step 1</td></tr>
+    <tr><td>3. Raise PR</td><td>Purchase Requisition → + New → add items → Submit</td><td>Step 1, Supplier exists</td></tr>
+    <tr><td>4. Create & Approve PO</td><td>PO → + New from PR → Submit → Approver approves</td><td>Step 3 (PR approved)</td></tr>
+    <tr><td>5. Receive GRN</td><td>Goods Receipt → + New → enter received qty → Save</td><td>Step 4 (PO approved)</td></tr>
+    <tr><td>6. Check Stock</td><td>Stock Ledger → select warehouse → Search</td><td>Steps 2 & 5</td></tr>
+    <tr><td>7. Issue Items</td><td>Stock Issue → + New → select recipient → add items → Save</td><td>Step 6</td></tr>
+    <tr><td>8. Process Returns</td><td>Issue Return → + New → select issue → enter qty → Save</td><td>Step 7</td></tr>
+    <tr><td>9. Transfer Stock</td><td>Stock Transfer → + New → select warehouses → add items → Save</td><td>Step 6</td></tr>
+    <tr><td>10. Record Damage</td><td>Damage/Loss → + New → enter qty & reason → Save</td><td>Step 6</td></tr>
+    <tr><td>11. Reports</td><td>Reports → select report → set filters → Search</td><td>Any time</td></tr>
+  </table>
+</div>
+</div>
+
+<!-- ═══ 10. TROUBLESHOOTING ═══ -->
+<div class="container">
+<div class="section" id="s10">
+  <h2>10. Troubleshooting Guide</h2>
+  <table>
+    <tr><th>Problem</th><th>Possible Reason</th><th>User Solution</th></tr>
+    <tr><td>Cannot save a record</td><td>Required field is empty</td><td>Fill all fields marked with * and try again</td></tr>
+    <tr><td>Item not in dropdown</td><td>Item inactive or wrong category type</td><td>Verify item exists in Item Master; check category type (P/A)</td></tr>
+    <tr><td>Warehouse not in dropdown</td><td>Warehouse inactive or no branch access</td><td>Contact admin to verify IsActive and branch access</td></tr>
+    <tr><td>"Insufficient stock"</td><td>Trying to issue/transfer more than available</td><td>Check Available Stock column; reduce qty or receive via GRN</td></tr>
+    <tr><td>Cannot submit document</td><td>Already submitted or approved</td><td>Only Draft documents can be submitted</td></tr>
+    <tr><td>Approval pending too long</td><td>Approver hasn't reviewed</td><td>Check Pending Approvals; verify routing is configured</td></tr>
+    <tr><td>GRN quantity error</td><td>Entered more than pending quantity</td><td>Check Pending Qty; enter equal or less</td></tr>
+    <tr><td>Report not opening</td><td>Report server down or SP missing</td><td>Contact admin; check ReportParamLog.txt</td></tr>
+    <tr><td>PDF download fails</td><td>BouncyCastle.Crypto.dll missing</td><td>Contact admin to verify DLLs in report server bin/</td></tr>
+    <tr><td>Cannot delete GRN</td><td>Payment or return exists</td><td>Reverse payment or delete return first</td></tr>
+    <tr><td>Cannot delete Stock Issue</td><td>Issue Return exists against it</td><td>The issue has been returned — cannot delete</td></tr>
+    <tr><td>Cannot delete Purchase Order</td><td>GRN exists against it</td><td>Delete GRN first (if no payment)</td></tr>
+    <tr><td>Asset not in allocation dropdown</td><td>Already allocated/disposed/maintenance</td><td>Only Available assets can be allocated</td></tr>
+    <tr><td>Stock Adjustment didn't change stock</td><td>Still in Draft/Submitted</td><td>Stock changes only on Approval</td></tr>
+    <tr><td>No permission to view page</td><td>Lacks Read access for screen</td><td>Contact admin to grant access via User Access Rights</td></tr>
+    <tr><td>Duplicate opening stock error</td><td>Already exists for this item/warehouse</td><td>Edit existing entry instead</td></tr>
+  </table>
+</div>
+</div>
+
+<!-- ═══ 11. GLOSSARY ═══ -->
+<div class="container">
+<div class="section" id="s11">
+  <h2>11. Glossary</h2>
+  <table>
+    <tr><th>Term</th><th>Definition</th></tr>
+    <tr><td>Approval Routing</td><td>Configuration mapping a document type + requester to a specific approver</td></tr>
+    <tr><td>BSR</td><td>Branch Stock Request — a formal request from a branch to HQ for stock</td></tr>
+    <tr><td>CreditorInvoice</td><td>Finance record representing money owed to a supplier; created by GRN</td></tr>
+    <tr><td>Draft</td><td>A document saved but not yet submitted for approval; can still be edited</td></tr>
+    <tr><td>GRN</td><td>Goods Receipt Note — confirms receipt of goods against a Purchase Order</td></tr>
+    <tr><td>IsActive</td><td>Flag marking a record as active (visible in dropdowns) or inactive (hidden)</td></tr>
+    <tr><td>Opening Stock</td><td>Initial quantity of an item recorded before regular transactions begin</td></tr>
+    <tr><td>PR</td><td>Purchase Requisition — a formal request to purchase items</td></tr>
+    <tr><td>PO</td><td>Purchase Order — the official order sent to a supplier</td></tr>
+    <tr><td>Reorder Level</td><td>Stock level at which a low-stock alert is triggered</td></tr>
+    <tr><td>Running Balance</td><td>Cumulative stock after each transaction = SUM(InQty) - SUM(OutQty)</td></tr>
+    <tr><td>SignalR</td><td>Real-time notification technology for approval and low-stock alerts</td></tr>
+    <tr><td>Soft Delete</td><td>Marking a record as inactive rather than removing it from the database</td></tr>
+    <tr><td>Stock Ledger</td><td>Master record of all stock movements (in and out)</td></tr>
+    <tr><td>SuperAdmin</td><td>User with IsAdmin=2; can access all screens and approve any document</td></tr>
+    <tr><td>UOM</td><td>Unit of Measure (Nos, Pairs, Boxes, etc.)</td></tr>
+  </table>
+</div>
+</div>
+
+<div class="footer">
+  <p>OBMS Inventory Module — End User Manual v1.0 — November 2026</p>
+  <p>Freightwatch G Patomotoh Security Services Sdn. Bhd.</p>
+  <p><em>This manual is based on the actual OBMS implementation. Features marked as "Known Limitation" are documented gaps that may be addressed in future updates.</em></p>
+</div>
+
+</body>
+</html>

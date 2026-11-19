@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { AbstractControl, FormBuilder, FormGroup, ValidatorFn, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
@@ -39,31 +40,31 @@ export class NewPRComponent implements OnInit {
   currentStatus   = 'Draft';
   approvalRemarks = '';
   approvedBy      = '';
-  submittedBy     = '';   // who submitted — used to check approver routing
+  submittedBy     = '';   // who submitted â€” used to check approver routing
   sstTotal        = 0;
   grandTotal      = 0;
 
-  // ── Approver visibility flag ─────────────────────────────────────────────
-  // true  = current user is the configured approver → show Approve / Reject
-  // false = current user is the requester / other   → hide Approve / Reject
+  // â”€â”€ Approver visibility flag â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // true  = current user is the configured approver â†’ show Approve / Reject
+  // false = current user is the requester / other   â†’ hide Approve / Reject
   isApprover        = false;
   approverCheckDone = false;   // prevents flicker before API responds
-  approverName      = '';      // configured approver username — shown in the pending banner
+  approverName      = '';      // configured approver username â€” shown in the pending banner
 
-  // ── Reference-field inline edit (view mode) ──────────────────────────────
+  // â”€â”€ Reference-field inline edit (view mode) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   isEditingRef    = false;   // toggles the edit inputs in view mode
   refSaving       = false;   // disables Save button while API call is in flight
   refRemarks      = '';
 
-  // ── Role (from sessionStorage 'userrole', set at login from OBMSUsers.IsAdmin) ──
-  // '0'→'user', '1'→'admin', '2'→'superadmin'
+  // â”€â”€ Role (from sessionStorage 'userrole', set at login from OBMSUsers.IsAdmin) â”€â”€
+  // '0'â†’'user', '1'â†’'admin', '2'â†’'superadmin'
   // Used so SuperAdmin (any username) sees Approve/Reject without routing config.
   userRole = '';
 
-  // ── Linked PO (set after loadExisting when status = Approved) ─────────────
+  // â”€â”€ Linked PO (set after loadExisting when status = Approved) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   linkedPO: any = null;   // holds PO info if a PO has already been created for this PR
 
-  // ── PR Processing Task (Purchase dept claim state) ───────────────────────
+  // â”€â”€ PR Processing Task (Purchase dept claim state) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   processingTask: any = null;    // null = no task yet (PR not approved / task not loaded)
   claimLoading   = false;        // prevents double-click on Claim button
 
@@ -81,7 +82,8 @@ export class NewPRComponent implements OnInit {
     private service: InventoryService,
     private _dataService: DatasharingService,
     private _masterService: MastermoduleService
-  ) {
+  ,
+    private titleService: Title) {
     this.userAccessModel = {
       readAccess: false, updateAccess: false,
       deleteAccess: false, createAccess: false
@@ -104,17 +106,18 @@ export class NewPRComponent implements OnInit {
       Remarks:        [''],
       _index:         [-1],
       _WarehouseID:   [0],    // default warehouse of the selected item
-      _WarehouseName: [''],   // default warehouse name — shown in the table
+      _WarehouseName: [''],   // default warehouse name â€” shown in the table
       _CurrentStock:  [null], // current stock in that warehouse
       _BSRPendingQty: [null]  // total pending BSR qty across Submitted + Approved requests
     });
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Purchase Requisition');
     this.ID = this.activatedRoute.snapshot.params['ID'];
     this.currentUser = sessionStorage.getItem('username') || '';
     // Load role from sessionStorage 'userrole' (set at login from OBMSUsers.IsAdmin)
-    // '0'→'user', '1'→'admin', '2'→'superadmin'
+    // '0'â†’'user', '1'â†’'admin', '2'â†’'superadmin'
     const rawRole = sessionStorage.getItem('userrole') ?? '0';
     this.userRole = rawRole === '2' ? 'superadmin' : rawRole === '1' ? 'admin' : 'user';
     if (!this.currentUser || this.currentUser === 'null') {
@@ -146,6 +149,12 @@ export class NewPRComponent implements OnInit {
           this.userAccessModel.deleteAccess = data.Delete;
           this.userAccessModel.updateAccess = data.Update;
           this.userAccessModel.createAccess = data.Create;
+        }
+        // Race condition fix: if loadExisting() already ran and disabled the form
+        // for an Approved PR, re-enable it now that we know the user has updateAccess
+        if (this.currentStatus === 'Approved' &&
+            (this.userAccessModel.updateAccess || this.currentUser === 'superadmin')) {
+          this.frm.enable();
         }
       },
       () => { this.errorMessage = 'Unable to load page permissions. Please try again.'; }
@@ -200,12 +209,16 @@ export class NewPRComponent implements OnInit {
         // Fetch current stock + pending BSR qty for each loaded line
         this.loadStockInfoForLines();
         this.calcTotal();
-        if (d.Status !== 'Draft') { this.frm.disable(); }
+        if (d.Status !== 'Draft' &&
+            !(d.Status === 'Approved' &&
+              (this.userAccessModel.updateAccess || this.currentUser === 'superadmin'))) {
+          this.frm.disable();
+        }
         this.hideSpinner();
 
         // Once we know the status and submitter, check whether current user is the approver
         if (d.Status === 'Submitted') {
-          // Part 7 fix: use this.submittedBy (already set above) — not d.LastUpdatedBy directly
+          // Part 7 fix: use this.submittedBy (already set above) â€” not d.LastUpdatedBy directly
           this.checkIsApprover(this.submittedBy);
         } else {
           this.approverCheckDone = true;
@@ -230,7 +243,7 @@ export class NewPRComponent implements OnInit {
     });
   }
 
-  // ── Ask backend: "Is the currently logged-in user the configured approver?" ──
+  // â”€â”€ Ask backend: "Is the currently logged-in user the configured approver?" â”€â”€
   private checkIsApprover(requesterUser: string): void {
     // Guard: if already confirmed as approver, don't let a second call override it.
     // Double-call can happen when loadExisting() fires twice (route + access rights).
@@ -240,7 +253,7 @@ export class NewPRComponent implements OnInit {
     this.service.isCurrentUserApprover('PURCHASE_REQUISITION', requesterUser || '').subscribe({
       next: (res: any) => {
         console.log('[checkIsApprover] response=', res);
-        // Only update if not already confirmed — prevents false override from
+        // Only update if not already confirmed â€” prevents false override from
         // a racing second call that arrives after the first true result.
         if (!this.isApprover) {
           this.isApprover   = res?.IsApprover === true;
@@ -259,17 +272,29 @@ export class NewPRComponent implements OnInit {
     });
   }
 
-  // ── State helpers ────────────────────────────────────────────────────────
-  canEdit():   boolean { return !this.isEdit || this.currentStatus === 'Draft'; }
+  // â”€â”€ State helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  canEdit(): boolean {
+    if (!this.isEdit) return true;
+    if (this.currentStatus === 'Draft') return true;
+    // Approved + updateAccess/superadmin + no PO yet â†’ allow edit
+    if (this.currentStatus === 'Approved' &&
+        (this.userAccessModel.updateAccess || this.currentUser === 'superadmin')) return true;
+    return false;
+  }
   // Submit is available on a new (unsaved) form with at least one line,
-  // OR on an existing Draft — Draft is no longer a mandatory pre-step.
-  canSubmit(): boolean { return this.lines.length > 0 && (!this.isEdit || this.currentStatus === 'Draft'); }
+  // OR on an existing Draft â€” Draft is no longer a mandatory pre-step.
+  canSubmit(): boolean {
+    return this.lines.length > 0 &&
+      (!this.isEdit || this.currentStatus === 'Draft' ||
+       (this.currentStatus === 'Approved' &&
+        (this.userAccessModel.updateAccess || this.currentUser === 'superadmin')));
+  }
 
   // Approve/Reject: configured approver OR SuperAdmin
   canApproveAction(): boolean {
     if (!this.isEdit || this.currentStatus !== 'Submitted') return false;
 
-    // SuperAdmin (IsAdmin='2') has global approval authority — including their own submissions.
+    // SuperAdmin (IsAdmin='2') has global approval authority â€” including their own submissions.
     if (this.userRole === 'superadmin') return true;
 
     // Normal users: configured approver only, self-approval blocked
@@ -278,7 +303,7 @@ export class NewPRComponent implements OnInit {
 
   canCreatePO(): boolean { return this.isEdit && this.currentStatus === 'Approved'; }
 
-  // ── Line management ──────────────────────────────────────────────────────
+  // â”€â”€ Line management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /** Fetches CurrentStock + PendingBSRQty for every line in this.lines[].
    *  Called after loadExisting() populates lines from the saved PR.
@@ -388,7 +413,7 @@ export class NewPRComponent implements OnInit {
     this.grandTotal = sub + sst;
   }
 
-  /** Sub-Total (ex-SST) of all displayed lines — used by template */
+  /** Sub-Total (ex-SST) of all displayed lines â€” used by template */
   get subTotal(): number {
     return this.lines.reduce((s, l) => {
       const qty = parseFloat(l.RequiredQty) || 0;
@@ -397,7 +422,7 @@ export class NewPRComponent implements OnInit {
     }, 0);
   }
 
-  // ── Actions ──────────────────────────────────────────────────────────────
+  // â”€â”€ Actions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   onSave(): void {
     if (this.frm.invalid) { this.frm.markAllAsTouched(); return; }
     if (this.lines.length === 0) {
@@ -444,7 +469,7 @@ export class NewPRComponent implements OnInit {
     }).afterClosed().subscribe((result: any) => {
       if (result?.confirmDialog) {
         this.showLoadingSpinner = true;
-        // The controller reads identity from JWT — currentUser param is redundant but kept for compat
+        // The controller reads identity from JWT â€” currentUser param is redundant but kept for compat
         this.service.submitPR(this.ID, this.currentUser).subscribe({
           next: (res: any) => {
             this.showMsg(res?.message || 'Submitted for approval.', 'success', 'Success Message');
@@ -459,7 +484,7 @@ export class NewPRComponent implements OnInit {
     });
   }
 
-  // ── Direct Submit (New form → save as Draft → immediately submit) ────────
+  // â”€â”€ Direct Submit (New form â†’ save as Draft â†’ immediately submit) â”€â”€â”€â”€â”€â”€â”€â”€
   // Allows the user to click [Submit] on a brand-new form without first saving a Draft.
   // If the PR is already a saved Draft (isEdit=true), this skips the save step.
   onSubmitDirect(): void {
@@ -484,7 +509,7 @@ export class NewPRComponent implements OnInit {
       this.showLoadingSpinner = true;
 
       if (this.isEdit) {
-        // Already a saved Draft — just submit
+        // Already a saved Draft â€” just submit
         this.service.submitPR(this.ID, this.currentUser).subscribe({
           next: (res: any) => {
             this.showMsg(res?.message || 'Submitted for approval.', 'success', 'Success Message');
@@ -496,7 +521,7 @@ export class NewPRComponent implements OnInit {
           }
         });
       } else {
-        // New form — save as Draft first, then immediately submit
+        // New form â€” save as Draft first, then immediately submit
         const raw = this.frm.getRawValue();
         const payload = {
           ID: 0, PRNumber: raw.PRNumber,
@@ -520,7 +545,7 @@ export class NewPRComponent implements OnInit {
               this.hideSpinner();
               return;
             }
-            // Draft saved — now submit
+            // Draft saved â€” now submit
             this.service.submitPR(newID, this.currentUser).subscribe({
               next: (submitRes: any) => {
                 this.showMsg(submitRes?.message || 'Submitted for approval.', 'success', 'Success Message');
@@ -529,7 +554,7 @@ export class NewPRComponent implements OnInit {
                   .then(() => this.route.navigate(['/inventory/purchase-requisition/new-pr', newID]));
               },
               error: (err: any) => {
-                // Save succeeded but submit failed — navigate to draft so user can retry submit
+                // Save succeeded but submit failed â€” navigate to draft so user can retry submit
                 this.showMsg(this.extractMsg(err, 'Saved as Draft, but submit failed. Please open the draft and try submitting again.'), 'error', 'Error Message');
                 this.route.navigateByUrl('/dummy', { skipLocationChange: true })
                   .then(() => this.route.navigate(['/inventory/purchase-requisition/new-pr', newID]));
@@ -551,7 +576,7 @@ export class NewPRComponent implements OnInit {
     }).afterClosed().subscribe((result: any) => {
       if (result?.confirmDialog) {
         this.showLoadingSpinner = true;
-        // Backend reads approver identity from JWT — ApprovedBy body is overridden server-side
+        // Backend reads approver identity from JWT â€” ApprovedBy body is overridden server-side
         this.service.approvePR(this.ID, { ApprovedBy: this.currentUser, ApprovalRemarks: '' }).subscribe({
           next: (res: any) => {
             this.showMsg(res?.message || 'Approved successfully.', 'success', 'Success Message');
@@ -571,7 +596,7 @@ export class NewPRComponent implements OnInit {
       title: 'Reject Purchase Requisition',
       text: 'Please enter the reason for rejection:',
       input: 'textarea',
-      inputPlaceholder: 'Enter rejection reason here…',
+      inputPlaceholder: 'Enter rejection reason hereâ€¦',
       inputAttributes: { rows: '3' },
       showCancelButton: true,
       confirmButtonText: 'Reject',
@@ -611,20 +636,20 @@ export class NewPRComponent implements OnInit {
     }
   }
 
-  // ── PR Processing Task helpers ───────────────────────────────────────────
+  // â”€â”€ PR Processing Task helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /** Loads the claim/processing state for this PR. Called when status is Approved. */
   private loadProcessingTask(prid: number): void {
     this.service.getPRProcessingTaskByPR(prid).subscribe({
       next:  (task: any) => { this.processingTask = task ?? null; },
-      // 404 = no task yet (PR approved but task not created — treat as Pending-like)
+      // 404 = no task yet (PR approved but task not created â€” treat as Pending-like)
       error: ()          => { this.processingTask = null; }
     });
   }
 
   /**
    * Sends a ClaimPR request to the backend.
-   * The backend enforces atomic ownership — only one user can claim per PR.
+   * The backend enforces atomic ownership â€” only one user can claim per PR.
    * On success: processingTask is refreshed from the server response.
    * On conflict (409): a clear message is shown; processingTask is reloaded.
    */
@@ -641,7 +666,7 @@ export class NewPRComponent implements OnInit {
       },
       error: (err: any) => {
         this.claimLoading = false;
-        // 409 Conflict = someone else already claimed it — reload task to show who
+        // 409 Conflict = someone else already claimed it â€” reload task to show who
         this.loadProcessingTask(+this.ID);
         this.showMsg(this.extractMsg(err, 'Unable to claim this PR right now. Please try again.'), 'error', 'Error Message');
       }
@@ -667,7 +692,7 @@ export class NewPRComponent implements OnInit {
 
   onCancel(): void { this.route.navigate(['/inventory/purchase-requisition']); }
 
-  // ── Reference-field inline edit (view mode) ─────────────────────────────
+  // â”€â”€ Reference-field inline edit (view mode) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /** Enter edit mode for remarks only. */
   startEditRef(): void {
@@ -713,7 +738,7 @@ export class NewPRComponent implements OnInit {
     window.open(url, '_blank');
   }
 
-  // ── Helpers ──────────────────────────────────────────────────────────────
+  // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   private extractMsg(err: any, fallback: string): string {
     if (typeof err === 'string') return err;
     return err?.error?.message || err?.message || fallback;
@@ -735,7 +760,8 @@ export class NewPRComponent implements OnInit {
 
   hideSpinner(): void { this.showLoadingSpinner = false; }
 
-  // ── Searchable dropdown helpers ──────────────────────────────────────────
+  // â”€â”€ Searchable dropdown helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   onItemOpen(opened: boolean) { if (opened) { this.itemSearch = ''; this.filteredItems = [...this.items]; } }
   onItemSearch(q: string) { this.itemSearch = q; const s = q.toLowerCase(); this.filteredItems = this.items.filter(i => i.Name?.toLowerCase().includes(s) || i.Code?.toLowerCase().includes(s)); }
 }
+

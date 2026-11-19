@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { environment } from '../../../../../environments/environment';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
@@ -39,7 +40,8 @@ export class AssetMovementReportComponent implements OnInit {
     private service: InventoryService,
     private fb: FormBuilder,
     private _dataService: DatasharingService
-  ) {
+  ,
+    private titleService: Title) {
     this.currentUser = sessionStorage.getItem('username')!;
     this.url += this.currentUrl;
     this.url += 'LoginID=' + this.currentUser;
@@ -48,7 +50,7 @@ export class AssetMovementReportComponent implements OnInit {
     const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
     this.frm = this.fb.group({
-      AssetID:      ['0'],                               // optional — 0 = All Assets
+      AssetID:      ['0'],                               // optional â€” 0 = All Assets
       MovementType: ['ALL'],                             // default = All Movements
       StartDate:    [firstOfMonth, Validators.required],
       EndDate:      [today,        Validators.required]
@@ -61,6 +63,7 @@ export class AssetMovementReportComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Asset Movement Report');
     this.currentUser = sessionStorage.getItem('username')!;
     if (!this.currentUser || this.currentUser === 'null') {
       this._dataService.getUsername().subscribe(u => this.currentUser = u);
@@ -81,7 +84,7 @@ export class AssetMovementReportComponent implements OnInit {
           if (this.userAccessModel.readAccess === true || this.currentUser === 'superadmin') {
             this.warningMessage = '';
 
-            // Load asset dropdown using getAssetList() — returns enriched asset objects
+            // Load asset dropdown using getAssetList() â€” returns enriched asset objects
             this.service.getAssetList().subscribe((d: any[]) => {
               // Filter only active assets
               this.assetList = (d || []).filter((a: any) => a.isActive !== false);
@@ -174,3 +177,4 @@ export class AssetMovementReportComponent implements OnInit {
     return `${year}-${month}-${day}`;
   }
 }
+

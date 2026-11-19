@@ -1,4 +1,5 @@
 ﻿import { AfterViewInit, Component, ViewChild } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { FormBuilder, FormGroup } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { MatTableDataSource } from '@angular/material/table';
@@ -51,7 +52,8 @@ export class MaterialIssueComponent implements AfterViewInit {
   warningMessage: string = '';
   errorMessage: string = '';
   showLoadingSpinner: boolean = false;
-  constructor(private fb: FormBuilder, public dialog: MatDialog, private _liveAnnouncer: LiveAnnouncer, private service: InventoryService, private _dataService: DatasharingService, private route: Router, private _masterService: MastermoduleService) {
+  constructor(private fb: FormBuilder, public dialog: MatDialog, private _liveAnnouncer: LiveAnnouncer, private service: InventoryService, private _dataService: DatasharingService, private route: Router, private _masterService: MastermoduleService,
+    private titleService: Title) {
     this.userAccessModel = {
       readAccess: false,
       updateAccess: false,
@@ -348,4 +350,5 @@ export class MaterialIssueComponent implements AfterViewInit {
     this.showLoadingSpinner = false
   }
 }
+
 

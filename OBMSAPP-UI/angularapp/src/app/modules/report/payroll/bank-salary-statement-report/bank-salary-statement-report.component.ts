@@ -75,7 +75,8 @@ export class BankSalaryStatementReportComponent implements OnInit {
       Period: ["", Validators.required],
       EmployeeType: ["Guard", Validators.required],
       EmpTempType: ['8'],
-      PaymentType: ['Salary']
+      PaymentType: ['Salary'],
+      PaymentMode: ['Bank']
     })
     this.userAccessModel = {
       readAccess: false,
@@ -92,8 +93,8 @@ export class BankSalaryStatementReportComponent implements OnInit {
       this.branchList = [...this.filteredBranchList];
     });
 
-    // Branch search debounce
-    this.branchSearchSubject.pipe(debounceTime(3000)).subscribe(() => {
+    // Bank search debounce
+    this.bankSearchSubject.pipe(debounceTime(3000)).subscribe(() => {
       this.bankSearchString = '';
       this.bankList = [...this.filteredBankList];
     });
@@ -160,6 +161,11 @@ export class BankSalaryStatementReportComponent implements OnInit {
       new Date(dtAdvanceDate.getFullYear(), dtAdvanceDate.getMonth() + 1, 0)
     );
   }
+  onPaymentModeChange() {
+    if (this.frm.get('PaymentMode')?.value === 'Cash') {
+      this.frm.patchValue({ BankCode: '0' });
+    }
+  }
   returnDate(date?: any) {
     let currentDate = new Date();
     if (date) {
@@ -183,6 +189,7 @@ export class BankSalaryStatementReportComponent implements OnInit {
       localURL += "&Period=" + this.dtAdvanceDate
       localURL += "&EmployeeType=" + this.frm.get("EmployeeType")?.value
       localURL += "&Bank=" + this.frm.get("BankCode")?.value
+      localURL += "&PaymentMode=" + this.frm.get("PaymentMode")?.value
       this.urlSafe = this.sanitizer.bypassSecurityTrustResourceUrl(this.url + this.reportPageName + localURL);
     } else if (this.reportType == 2) {
       localURL += "Branch=" + this.frm.get("Branch")?.value
@@ -190,6 +197,7 @@ export class BankSalaryStatementReportComponent implements OnInit {
       localURL += "&Period=" + this.dtAdvanceDate
       localURL += "&EmployeeType=" + this.frm.get("EmployeeType")?.value
       localURL += "&Bank=" + this.frm.get("BankCode")?.value
+      localURL += "&PaymentMode=" + this.frm.get("PaymentMode")?.value
       this.urlSafe = this.sanitizer.bypassSecurityTrustResourceUrl(this.url + this.reportPageName + localURL);
     } else if (this.reportType == 3) {
       localURL += "Branch=" + this.frm.get("Branch")?.value
@@ -197,6 +205,7 @@ export class BankSalaryStatementReportComponent implements OnInit {
       localURL += "&Period=" + this.dtAdvanceDate
       localURL += "&EmployeeType=" + this.frm.get("EmployeeType")?.value
       localURL += "&Bank=" + this.frm.get("BankCode")?.value
+      localURL += "&PaymentMode=" + this.frm.get("PaymentMode")?.value
       this.urlSafe = this.sanitizer.bypassSecurityTrustResourceUrl(this.url + this.reportPageName + localURL);
     } else if (this.reportType == undefined) {
 
@@ -215,9 +224,14 @@ export class BankSalaryStatementReportComponent implements OnInit {
 
   generateDataToTextFile(source: string): void {
     try {
-      // Parse the attendance date to get the last day of the month
-      //const inputDate = new Date(this.txtAttendanceDate);
-      //const dtPeriod = new Date(inputDate.getFullYear(), inputDate.getMonth() + 1, 0); // Last day of the month
+      const paymentMode = this.frm.get('PaymentMode')?.value || 'Bank';
+
+      // Text file (bank upload format) is only applicable for Bank payment mode
+      if (paymentMode === 'Cash') {
+        this.showMessage('Text file generation is only available for Bank payment mode. Please use Generate Excel File for Cash employees.', 'warning');
+        return;
+      }
+
       let dtAdvanceDate = new Date(this.frm.value.Period);
       this.dtPeriod = this.formatDate(
         new Date(dtAdvanceDate.getFullYear(), dtAdvanceDate.getMonth() + 1, 0)
@@ -369,9 +383,10 @@ export class BankSalaryStatementReportComponent implements OnInit {
     const empTempType = this.frm.get('EmpTempType')?.value;
     const bank = this.frm.get('BankCode')?.value == '' ? '0' : this.frm.get('BankCode')?.value;
     const paymentType = this.frm.get('PaymentType')?.value;
+    const paymentMode = this.frm.get('PaymentMode')?.value || 'Bank';
     const source = '';
     forkJoin({
-      salaryList: this._payrollService.getSalaryList(this.dtPeriod, branch, client, bank, paymentType, employeeType, empTempType, source),
+      salaryList: this._payrollService.getSalaryList(this.dtPeriod, branch, client, bank, paymentType, employeeType, empTempType, source, paymentMode),
 
     }).subscribe({
       next: (results) => {
@@ -383,6 +398,135 @@ export class BankSalaryStatementReportComponent implements OnInit {
       }
     });
 
+  }
+
+  // ─── Cash employees: RHB Smart Payroll Excel format ───────────────────────
+  generateCashExcelFileClick() {
+    let dtAdvanceDate = new Date(this.frm.value.Period);
+    this.dtPeriod = this.formatDate(
+      new Date(dtAdvanceDate.getFullYear(), dtAdvanceDate.getMonth() + 1, 0)
+    );
+    const branch = this.frm.get('Branch')?.value == '' ? '0' : this.frm.get('Branch')?.value;
+    const employeeType = this.frm.get('EmployeeType')?.value;
+    const empTempType = this.frm.get('EmpTempType')?.value;
+    const paymentType = this.frm.get('PaymentType')?.value;
+    const source = '';
+
+    forkJoin({
+      salaryList: this._payrollService.getSalaryList(
+        this.dtPeriod, branch, '', '0', paymentType, employeeType, empTempType, source, 'Cash'
+      )
+    }).subscribe({
+      next: (results) => {
+        this.salaryList = results.salaryList;
+        this.downloadCashExcel();
+      },
+      error: (err) => {
+        console.error('Error loading cash salary data', err);
+        this.showMessage('Error loading cash salary data: ' + err.message, 'error');
+      }
+    });
+  }
+
+  downloadCashExcel(): void {
+    if (!this.salaryList || this.salaryList.length === 0) {
+      this.showMessage('No cash salary data found.', 'warning');
+      return;
+    }
+
+    // RHB Smart Payroll Format — columns A to M, No Header & Footer
+    // Col A: Record Type       — 20 (Rentas)
+    // Col B: Trans Record No   — sequential 1-based
+    // Col C: Crediting Amount  — net salary (2 decimal)
+    // Col D: Receiving Member Bank (BIC) — blank for Rentas same-bank
+    // Col E: RENTAS Trx Code   — SALA
+    // Col F: BOP Indicator     — 1 (Resident to Resident)
+    // Col G: Beneficiary Name
+    // Col H: Beneficiary Acct No (no dashes, no apostrophe)
+    // Col I: I/D Number (no dashes, no apostrophe)
+    // Col J: Address 1 (blank — not in DB)
+    // Col K: Address 2 (blank)
+    // Col L: Address 3 (blank)
+    // Col M: ID Indicator      — 01=New IC, 02=Old IC, 03=Passport
+
+    let rowNum = 1;
+    const rows = this.salaryList.map((item: any) => {
+      const acctNo = item.AccountNo
+        ? item.AccountNo.replace(/'/g, '').replace(/-/g, '').trim()
+        : '';
+      const idNo = item.SecurityNo
+        ? item.SecurityNo.replace(/'/g, '').replace(/-/g, '').trim()
+        : '';
+      const amount = parseFloat(item.Salary) || 0;
+      // IcType: "01"=New IC, "02"=Old IC, "03"=Passport — from API
+      const idIndicator = item.IcType || '01';
+
+      return {
+        'A': 20,              // Record Type: Rentas
+        'B': rowNum++,        // Transaction Record Number (sequential)
+        'C': amount,          // Crediting Amount
+        'D': '',              // Receiving Member Bank (BIC) — blank for RENTAS
+        'E': 'SALA',          // RENTAS Transaction Code
+        'F': 1,               // BOP Indicator: Resident to Resident
+        'G': item.Name || '', // Beneficiary Name
+        'H': acctNo,          // Beneficiary Account Number
+        'I': idNo,            // I/D Number
+        'J': '',              // Address 1
+        'K': '',              // Address 2
+        'L': '',              // Address 3
+        'M': idIndicator      // ID Indicator
+      };
+    });
+
+    // Build worksheet — skipHeader:true (no header row per spec: "No Header & Footer")
+    const worksheet: XLSX.WorkSheet = XLSX.utils.json_to_sheet(rows, { skipHeader: true });
+
+    // Column widths
+    worksheet['!cols'] = [
+      { wch: 6 },   // A: Record Type
+      { wch: 8 },   // B: Trans Record No
+      { wch: 14 },  // C: Amount
+      { wch: 12 },  // D: BIC
+      { wch: 8 },   // E: RENTAS code
+      { wch: 5 },   // F: BOP
+      { wch: 40 },  // G: Name
+      { wch: 20 },  // H: Account No
+      { wch: 16 },  // I: IC/Passport
+      { wch: 30 },  // J: Address 1
+      { wch: 30 },  // K: Address 2
+      { wch: 30 },  // L: Address 3
+      { wch: 5 },   // M: ID Indicator
+    ];
+
+    // Force text format on key columns (account no, IC, ID indicator)
+    const textCols = ['H', 'I', 'M'];
+    for (let r = 0; r < rows.length; r++) {
+      textCols.forEach(col => {
+        const ref = `${col}${r + 1}`;
+        if (worksheet[ref]) {
+          worksheet[ref].t = 's';
+          worksheet[ref].z = '@';
+        }
+      });
+    }
+
+    const workbook: XLSX.WorkBook = { Sheets: { Sheet1: worksheet }, SheetNames: ['Sheet1'] };
+    const excelBuffer: any = XLSX.write(workbook, { bookType: 'xlsx', type: 'array', cellStyles: true });
+
+    // Filename
+    const safePeriod = this.dtPeriod.replace(/[\/,:]/g, '_');
+    const now = new Date();
+    let hours = now.getHours();
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12;
+    const currentTime = `${String(hours).padStart(2, '0')}_${minutes}_${seconds}_${ampm}`;
+    const fileName = `Cash_SmartPayroll_${safePeriod} ${currentTime}.xlsx`;
+
+    const blob = new Blob([excelBuffer], { type: 'application/vnd.ms-excel' });
+    FileSaver.saveAs(blob, fileName);
+    this.showMessage(`Cash Excel (Smart Payroll Format) generated: ${fileName}`, 'success');
   }
   generateAndDownloadFile(bank: string, fileName: string, filePath: string): void {
     let fileContent = '';
@@ -528,7 +672,7 @@ export class BankSalaryStatementReportComponent implements OnInit {
     hours = hours % 12 || 12;
     const currentTime = `${String(hours).padStart(2, '0')}_${minutes}_${seconds}_${ampm}`;
 
-    const fileName = `${this.frm.get('PaymentType')?.value}_${this.frm.get('BankCode')?.value}_${safePeriod} ${currentTime}.xlsx`;
+    const fileName = `${this.frm.get('PaymentType')?.value}_${this.frm.get('PaymentMode')?.value === 'Cash' ? 'Cash' : this.frm.get('BankCode')?.value}_${safePeriod} ${currentTime}.xlsx`;
 
     // Save file
     const data: Blob = new Blob([excelBuffer], { type: 'application/vnd.ms-excel' });

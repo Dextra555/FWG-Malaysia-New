@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import Swal from 'sweetalert2';
@@ -26,9 +27,9 @@ export class NewGRNComponent implements OnInit {
   viewSSTTotalAmt  = 0;
   viewGrandTotalAmt = 0;
 
-  // ── Reference-field inline edit (view mode only) ─────────────────────────
-  isEditingRef    = false;   // toggles the edit inputs in view mode
-  refSaving       = false;   // disables Save button while API call is in flight
+  // â”€â”€ Reference-field inline edit (view mode only) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  isEditingRef    = false;
+  refSaving       = false;
   refSupplierInvoiceNo = '';
   refDeliveryNoteRef   = '';
   refRemarks           = '';
@@ -38,9 +39,10 @@ export class NewGRNComponent implements OnInit {
 
   userAccessModel!: UserAccessModel;
   currentUser = ''; warningMessage = ''; errorMessage = ''; showLoadingSpinner = false;
-
   constructor(private fb: FormBuilder, private activatedRoute: ActivatedRoute, private route: Router,
-    private service: InventoryService, private _dataService: DatasharingService, private _masterService: MastermoduleService) {
+    private service: InventoryService, private _dataService: DatasharingService,
+    private _masterService: MastermoduleService,
+    private titleService: Title) {
     this.userAccessModel = { readAccess: false, updateAccess: false, deleteAccess: false, createAccess: false };
     this.frm = this.fb.group({
       POID:              [0, [Validators.required, Validators.min(1)]],
@@ -53,6 +55,7 @@ export class NewGRNComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Goods Receipt Note');
     this.ID    = this.activatedRoute.snapshot.params['ID'];
     this.poID  = this.activatedRoute.snapshot.queryParams['poID'];
     this.currentUser = sessionStorage.getItem('username')!;
@@ -63,12 +66,14 @@ export class NewGRNComponent implements OnInit {
     if (this.ID && this.ID !== '0') {
       this.isView = true;
       this.loadExisting();
-    } else {
-      this.service.getGRNCode().subscribe({ next: (d: any) => this.grnNumber = d.Code, error: () => {} });
-      if (this.poID) {
-        this.frm.get('POID')?.setValue(+this.poID);
-        this.loadPOLines(+this.poID);
-      }
+      return;
+    }
+
+    // Normal new GRN flow
+    this.service.getGRNCode().subscribe({ next: (d: any) => this.grnNumber = d.Code, error: () => {} });
+    if (this.poID) {
+      this.frm.get('POID')?.setValue(+this.poID);
+      this.loadPOLines(+this.poID);
     }
   }
 
@@ -101,7 +106,7 @@ export class NewGRNComponent implements OnInit {
 
   loadPOLines(poID: number): void {
     this.showLoadingSpinner = true;
-    // Set warehouse from PO — try from already-loaded list first, then from API
+    // Set warehouse from PO â€” try from already-loaded list first, then from API
     const po = this.approvedPOs.find(p => p.ID === +poID);
     if (po) {
       this.poInfo = po;
@@ -123,7 +128,12 @@ export class NewGRNComponent implements OnInit {
         if (!d || d.length === 0) { this.lines = []; this.errorMessage = 'There are no pending items to receive for this purchase order. All items may have already been fully received.'; }
         else {
           this.errorMessage = '';
-          this.lines = d.map((l: any) => ({ ...l, receivedInput: l.PendingQty, inputError: '' }));
+          this.lines = d.map((l: any) => ({
+            ...l,
+            // Service lines: qty is always fully "received" (no physical stock to count)
+            receivedInput: l.IsServiceLine ? l.PendingQty : l.PendingQty,
+            inputError: ''
+          }));
         }
         this.hideSpinner();
       },
@@ -181,6 +191,9 @@ export class NewGRNComponent implements OnInit {
   hasAnyQty(): boolean { return this.lines.some(l => parseFloat(l.receivedInput) > 0); }
   hasErrors(): boolean { return this.lines.some(l => l.inputError && l.inputError !== ''); }
 
+  /** Template helper â€” Angular templates cannot call global parseFloat directly */
+  toNum(v: any): number { return parseFloat(v) || 0; }
+
   /** Total received quantity across all lines in view mode */
   get viewTotalQty(): number {
     return this.existingDetails.reduce((sum: number, d: any) => sum + (parseFloat(d.ReceivedQty) || 0), 0);
@@ -214,7 +227,7 @@ export class NewGRNComponent implements OnInit {
     return this.lines.some((l: any) => (parseFloat(l.SSTPercent) || 0) > 0);
   }
 
-  /** Computed new-mode SST total across lines × receivedInput */
+  /** Computed new-mode SST total across lines Ã— receivedInput */
   get newModeSSTTotal(): number {
     return this.lines.reduce((sum: number, l: any) => {
       const qty  = parseFloat(l.receivedInput) || 0;
@@ -245,7 +258,8 @@ export class NewGRNComponent implements OnInit {
 
     // Block GRN save if any receiving line has UnitCost = 0
     // (0 cost means the GRN total = 0 and it will never appear in Finance Payments)
-    const zeroCost = this.lines.find(l => parseFloat(l.receivedInput) > 0 && (!l.UnitCost || +l.UnitCost <= 0));
+    // Service lines are exempt from this check â€” they are service charges, not stock items.
+    const zeroCost = this.lines.find(l => !l.IsServiceLine && parseFloat(l.receivedInput) > 0 && (!l.UnitCost || +l.UnitCost <= 0));
     if (zeroCost) {
       this.showMsg(`Unit Cost is 0 for "${zeroCost.ItemName}". Please update the Unit Price in the Purchase Order before receiving.`, 'warning', 'Warning Message');
       return;
@@ -256,13 +270,13 @@ export class NewGRNComponent implements OnInit {
     const details = this.lines
       .filter(l => parseFloat(l.receivedInput) > 0)
       .map(l => ({
-        ID:          0,
-        PODetailID:  l.PODetailID,
-        ItemID:      l.ItemID,
-        UOMID:       l.UOMID || null,
-        ReceivedQty: parseFloat(l.receivedInput),
-        UnitCost:    l.UnitCost,
-        SSTPercent:  parseFloat(l.SSTPercent) || 0,
+        ID:            0,
+        PODetailID:    l.PODetailID,
+        ItemID:        l.ItemID,
+        UOMID:         l.UOMID || null,
+        ReceivedQty:   parseFloat(l.receivedInput),
+        UnitCost:      l.UnitCost,
+        SSTPercent:    parseFloat(l.SSTPercent) || 0,
         LastUpdatedBy: this.currentUser
       }));
 
@@ -274,7 +288,7 @@ export class NewGRNComponent implements OnInit {
     });
   }
 
-  // ── Reference-field inline edit (view mode) ─────────────────────────────
+  // â”€â”€ Reference-field inline edit (view mode) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /** Enter edit mode for the three reference fields. */
   startEditRef(): void {
@@ -339,7 +353,8 @@ export class NewGRNComponent implements OnInit {
   }
   hideSpinner(): void { this.showLoadingSpinner = false; }
 
-  // ── Searchable dropdown helpers ──────────────────────────────────────────
+  // â”€â”€ Searchable dropdown helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   onPOOpen(opened: boolean) { if (opened) { this.poSearch = ''; this.filteredPOs = [...this.approvedPOs]; } }
   onPOSearch(q: string) { this.poSearch = q; const s = q.toLowerCase(); this.filteredPOs = this.approvedPOs.filter(p => p.PONumber?.toLowerCase().includes(s) || p.SupplierName?.toLowerCase().includes(s)); }
 }
+

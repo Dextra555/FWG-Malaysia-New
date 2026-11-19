@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { AbstractControl, FormBuilder, FormGroup, ValidatorFn, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
@@ -9,7 +10,7 @@ import { MastermoduleService } from '../../../../service/mastermodule.service';
 import { DatasharingService } from '../../../../service/datasharing.service';
 import { UserAccessModel } from '../../../../model/userAccesModel';
 
-/** Custom validator: rejects null, undefined, empty string, and 0 — for required dropdowns */
+/** Custom validator: rejects null, undefined, empty string, and 0 â€” for required dropdowns */
 function mustSelect(): ValidatorFn {
   return (control: AbstractControl) => {
     const v = control.value;
@@ -73,23 +74,25 @@ export class NewOpeningStockComponent implements OnInit {
     private service: InventoryService,
     private _dataService: DatasharingService,
     private _masterService: MastermoduleService
-  ) {
+  ,
+    private titleService: Title) {
     this.userAccessModel = { readAccess: false, updateAccess: false, deleteAccess: false, createAccess: false };
 
     this.frm = this.fb.group({
       ID:           [0],
-      ReferenceNo:  [''],                                              // Auto-generated — read-only
+      ReferenceNo:  [''],                                              // Auto-generated â€” read-only
       WarehouseID:  [0, [Validators.required, mustSelect()]],
       ItemID:       [0, [Validators.required, mustSelect()]],
       OpeningDate:  [new Date(), Validators.required],
       OpeningQty:   ['', [Validators.required, greaterThanZero()]],
       UnitCost:     ['', [Validators.required, nonNegative()]],
-      TotalValue:   [{ value: '0.00', disabled: true }],              // Calculated — read-only
+      TotalValue:   [{ value: '0.00', disabled: true }],              // Calculated â€” read-only
       Remarks:      ['']
     });
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Opening Stock');
     this.ID = this.activatedRoute.snapshot.params['ID'];
     this.currentUser = sessionStorage.getItem('username')!;
     if (!this.currentUser || this.currentUser === 'null') {
@@ -110,7 +113,7 @@ export class NewOpeningStockComponent implements OnInit {
     } else {
       this.service.getOpeningStockCode().subscribe({
         next: (d: any) => this.frm.get('ReferenceNo')?.setValue(d.Code),
-        error: () => { /* non-critical — code will be generated server-side */ }
+        error: () => { /* non-critical â€” code will be generated server-side */ }
       });
     }
   }
@@ -184,15 +187,15 @@ export class NewOpeningStockComponent implements OnInit {
       this.selectedItemBrand    = selected.BrandName    || 'N/A';
       this.selectedItemUOM      = selected.UOMName      || '';
 
-      // ── Auto-fill UnitCost from ItemMaster buying price ──────────────────
-      // Only fill when UnitCost is empty (new doc) — never overwrite user entry
+      // â”€â”€ Auto-fill UnitCost from ItemMaster buying price â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // Only fill when UnitCost is empty (new doc) â€” never overwrite user entry
       // or a value loaded from an existing record.
       const currentCost = this.frm.get('UnitCost')?.value;
       if ((!currentCost || currentCost === '') && selected.Price != null) {
         this.frm.get('UnitCost')?.setValue(selected.Price);
       }
 
-      // ── Default Warehouse auto-fill ──────────────────────────────────────
+      // â”€â”€ Default Warehouse auto-fill â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       // Only populate when warehouse is not yet selected (new document only).
       // Never overwrite a warehouse the user has already chosen.
       const currentWH = this.frm.get('WarehouseID')?.value;
@@ -202,7 +205,7 @@ export class NewOpeningStockComponent implements OnInit {
         if (whExists) {
           this.frm.get('WarehouseID')?.setValue(selected.WarehouseID);
         } else if (selected.WarehouseID) {
-          // Default warehouse is inactive — warn user, leave field empty
+          // Default warehouse is inactive â€” warn user, leave field empty
           this.warningMessage =
             'The default warehouse for this item is inactive. Please select another warehouse.';
         }
@@ -287,9 +290,10 @@ export class NewOpeningStockComponent implements OnInit {
 
   hideLoadingSpinner(): void { this.showLoadingSpinner = false; }
 
-  // ── Searchable dropdown helpers ───────────────────────────────────────────
+  // â”€â”€ Searchable dropdown helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   onWarehouseOpen(opened: boolean) { if (opened) { this.warehouseSearch = ''; this.filteredWarehouses = [...this.warehouses]; } }
   onWarehouseSearch(q: string) { this.warehouseSearch = q; const s = q.toLowerCase(); this.filteredWarehouses = this.warehouses.filter(w => w.Name?.toLowerCase().includes(s)); }
   onItemOpen(opened: boolean) { if (opened) { this.itemSearch = ''; this.filteredItems = [...this.items]; } }
   onItemSearch(q: string) { this.itemSearch = q; const s = q.toLowerCase(); this.filteredItems = this.items.filter(i => i.Name?.toLowerCase().includes(s) || i.Code?.toLowerCase().includes(s)); }
 }
+

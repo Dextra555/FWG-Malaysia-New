@@ -1,4 +1,5 @@
-import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
+﻿import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
 import { MatSort, Sort } from '@angular/material/sort';
@@ -22,12 +23,14 @@ export class PurchaseReturnComponent implements OnInit, AfterViewInit {
   dataSource = new MatTableDataSource<any>([]);
   pageSizeOptions: number[] = [];
 
-  constructor(private _liveAnnouncer: LiveAnnouncer, private service: InventoryService, private route: Router, private _dataService: DatasharingService, private _masterService: MastermoduleService) {
+  constructor(private _liveAnnouncer: LiveAnnouncer, private service: InventoryService, private route: Router, private _dataService: DatasharingService, private _masterService: MastermoduleService,
+    private titleService: Title) {
     this.userAccessModel = { readAccess: false, updateAccess: false, deleteAccess: false, createAccess: false };
     for (let i = 10; i <= 50; i += 10) this.pageSizeOptions.push(i);
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Purchase Return');
     this.currentUser = sessionStorage.getItem('username')!;
     if (!this.currentUser || this.currentUser === 'null') this._dataService.getUsername().subscribe(u => this.currentUser = u);
     this.getUserAccessRights(this.currentUser, 'Purchase Return');
@@ -60,3 +63,4 @@ export class PurchaseReturnComponent implements OnInit, AfterViewInit {
   formatDate(d: any): string { if (!d) return ''; return new Date(d).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' }); }
   hideSpinner(): void { this.showLoadingSpinner = false; }
 }
+

@@ -83,12 +83,12 @@
             <mat-datepicker #picker1></mat-datepicker>
           </mat-form-field>
         </div>
-        <div class="col-12 col-md-3">
+        <!-- <div class="col-12 col-md-3">
           <mat-form-field appearance="outline">
             <mat-label>Purchase Amount (RM)</mat-label>
             <input matInput type="number" formControlName="PurchaseAmount" min="0" step="0.01" placeholder="0.00" autocomplete="off">
           </mat-form-field>
-        </div>
+        </div> -->
         <div class="col-12 col-md-3">
           <mat-form-field appearance="outline">
             <mat-label>Warranty Expiry</mat-label>
@@ -115,6 +115,240 @@
             </mat-select>
           </mat-form-field>
         </div>
+        <div class="col-12 col-md-3">
+          <mat-form-field appearance="outline">
+            <mat-label>Supplier Invoice No</mat-label>
+            <input matInput formControlName="SupplierInvoiceNo" placeholder="e.g. INV-2024-001" autocomplete="off">
+            <mat-hint>Supplier's invoice reference</mat-hint>
+          </mat-form-field>
+        </div>
+      </div>
+
+      <!-- ── DEPOSIT & PAYMENT TERMS ─────────────────────────────────────── -->
+      <div class="row mt-2">
+        <div class="col-12"><h6 class="wlt-c-section-label"><strong>Payment Terms</strong></h6><hr class="mt-0"></div>
+      </div>
+
+      <div class="row">
+        <div class="col-12 col-md-2">
+          <mat-form-field appearance="outline">
+            <mat-label>Purchase Amount (RM)</mat-label>
+            <input matInput type="number" formControlName="PurchaseAmount" min="0" step="0.01" placeholder="0.00" autocomplete="off">
+          </mat-form-field>
+        </div>
+        <!-- Deposit Amount -->
+        <div class="col-12 col-md-2">
+          <mat-form-field appearance="outline">
+            <mat-label>Deposit Amount (RM)</mat-label>
+            <input matInput type="number" formControlName="DepositAmount" min="0" step="0.01"
+              placeholder="0.00" autocomplete="off">
+            <mat-hint>Reference only — not tracked in payments</mat-hint>
+          </mat-form-field>
+        </div>
+
+        <!-- Payment Term Type toggle -->
+        <div class="col-12 col-md-3" style="display:flex;align-items:center;padding-top:4px">
+          <mat-label style="margin-right:12px;font-weight:500">Payment Type:</mat-label>
+          <mat-radio-group formControlName="PaymentTermType" style="display:flex;gap:16px">
+            <mat-radio-button value="FULL">Full Payment</mat-radio-button>
+            <mat-radio-button value="MONTHLY">Monthly</mat-radio-button>
+          </mat-radio-group>
+        </div>
+
+        <!-- Monthly fields — shown only when MONTHLY is selected -->
+        <ng-container *ngIf="isMonthly">
+          <div class="col-12 col-md-2">
+            <mat-form-field appearance="outline">
+              <mat-label>Start Month</mat-label>
+              <input matInput [matDatepicker]="pickerStart" formControlName="InstallmentStartDate"
+                placeholder="MM/YYYY" autocomplete="off">
+              <mat-datepicker-toggle matSuffix [for]="pickerStart"></mat-datepicker-toggle>
+              <mat-datepicker #pickerStart startView="year"
+                (monthSelected)="frm.get('InstallmentStartDate')?.setValue($event); pickerStart.close()">
+              </mat-datepicker>
+              <mat-hint>First installment month</mat-hint>
+            </mat-form-field>
+          </div>
+          <div class="col-12 col-md-2">
+            <mat-form-field appearance="outline">
+              <mat-label>Monthly Amount (RM)</mat-label>
+              <input matInput type="number" formControlName="MonthlyInstallmentAmount"
+                min="1" step="0.01" placeholder="0.00" autocomplete="off">
+            </mat-form-field>
+          </div>
+          <div class="col-12 col-md-2">
+            <mat-form-field appearance="outline">
+              <mat-label>No. of Months</mat-label>
+              <input matInput formControlName="InstallmentMonths" readonly
+                placeholder="Auto">
+              <mat-hint>Calculated automatically</mat-hint>
+            </mat-form-field>
+          </div>
+        </ng-container>
+      </div>
+
+      <!-- Installment Preview Table — only when MONTHLY is set and preview rows exist -->
+      <div class="row mt-2" *ngIf="isMonthly && installmentPreview.length > 0">
+        <div class="col-12">
+          <div style="background:#f5f8ff;border:1px solid #c5d5ee;border-radius:6px;padding:12px 16px">
+            <div style="font-weight:600;color:#1a3a5c;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
+              <span>
+                <mat-icon style="vertical-align:middle;font-size:16px;margin-right:4px">event_note</mat-icon>
+                Installment Schedule Preview
+                <span *ngIf="isEdit" style="font-weight:400;font-size:12px;color:#888;margin-left:8px">
+                  (Editing does not regenerate already-saved installments)
+                </span>
+              </span>
+
+              <!-- Preclosing Toggle — only in edit mode with unpaid installments -->
+              <span *ngIf="isEdit && installmentPaidTotal < installmentTotal"
+                style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:12px;font-weight:500;color:#5d4037">Preclosing</span>
+                <mat-slide-toggle
+                  formControlName="IsPreClosing"
+                  color="warn"
+                  [matTooltip]="isPreClosingOn ? 'Click to cancel preclosing' : 'Click to enable early settlement of remaining installments'">
+                </mat-slide-toggle>
+                <span style="font-size:12px;font-weight:600"
+                  [style.color]="isPreClosingOn ? '#c62828' : '#888'">
+                  {{ isPreClosingOn ? 'ON' : 'OFF' }}
+                </span>
+              </span>
+            </div>
+
+            <!-- Preclosing info bar -->
+            <div *ngIf="isPreClosingOn" style="background:#fff3e0;border:1px solid #ff9800;border-radius:6px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+              <mat-icon style="color:#e65100;flex-shrink:0">warning</mat-icon>
+              <div style="flex:1">
+                <strong style="color:#bf360c">Early Settlement (Preclosing)</strong>
+                <div style="font-size:12px;color:#5d4037;margin-top:2px">
+                  All remaining unpaid installments will be settled in one payment.
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px">
+                <mat-form-field appearance="outline" style="width:160px;margin:0">
+                  <mat-label>Preclosing Date</mat-label>
+                  <input matInput [matDatepicker]="pickerPC" formControlName="PreClosingDate" autocomplete="off">
+                  <mat-datepicker-toggle matSuffix [for]="pickerPC"></mat-datepicker-toggle>
+                  <mat-datepicker #pickerPC></mat-datepicker>
+                </mat-form-field>
+                <div style="text-align:center;min-width:120px">
+                  <div style="font-size:11px;color:#888">Total Remaining</div>
+                  <div style="font-size:18px;font-weight:700;color:#c62828">
+                    RM {{frm.get('PreClosingAmount')?.value | number:'1.2-2'}}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style="max-height:220px;overflow-y:auto">
+              <table style="width:100%;border-collapse:collapse;font-size:13px">
+                <thead>
+                  <tr style="background:#dbe8f8;color:#1a3a5c">
+                    <th style="padding:6px 10px;text-align:left;border-bottom:1px solid #c5d5ee">No.</th>
+                    <th style="padding:6px 10px;text-align:left;border-bottom:1px solid #c5d5ee">Due Date</th>
+                    <th style="padding:6px 10px;text-align:right;border-bottom:1px solid #c5d5ee">Amount (RM)</th>
+                    <th style="padding:6px 10px;text-align:center;border-bottom:1px solid #c5d5ee">Paid (RM)</th>
+                    <th style="padding:6px 10px;text-align:right;border-bottom:1px solid #c5d5ee">Balance (RM)</th>
+                    <th style="padding:6px 10px;text-align:center;border-bottom:1px solid #c5d5ee">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- Normal rows — paid installments always show -->
+                  <ng-container *ngFor="let row of installmentPreview">
+                    <!-- Paid rows: always show individually -->
+                    <tr *ngIf="row.paidAmount >= row.amount"
+                      style="border-bottom:1px solid #eaf0fb"
+                      [style.background]="row.no % 2 === 0 ? '#f9fbff' : '#fff'">
+                      <td style="padding:5px 10px">{{row.no}}</td>
+                      <td style="padding:5px 10px">{{row.dueDate | date:'dd MMM yyyy'}}</td>
+                      <td style="padding:5px 10px;text-align:right">{{row.amount | number:'1.2-2'}}</td>
+                      <td style="padding:5px 10px;text-align:center">{{row.paidAmount | number:'1.2-2'}}</td>
+                      <td style="padding:5px 10px;text-align:right;color:#2e7d32;font-weight:500">0.00</td>
+                      <td style="padding:5px 10px;text-align:center">
+                        <span style="background:#e8f5e9;color:#2e7d32;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600">Paid</span>
+                      </td>
+                    </tr>
+                    <!-- Pending rows: show individually only when preclosing is OFF -->
+                    <tr *ngIf="row.paidAmount < row.amount && !isPreClosingOn"
+                      style="border-bottom:1px solid #eaf0fb"
+                      [style.background]="row.no % 2 === 0 ? '#f9fbff' : '#fff'">
+                      <td style="padding:5px 10px">{{row.no}}</td>
+                      <td style="padding:5px 10px">{{row.dueDate | date:'dd MMM yyyy'}}</td>
+                      <td style="padding:5px 10px;text-align:right">{{row.amount | number:'1.2-2'}}</td>
+                      <td style="padding:5px 10px;text-align:center">
+                        {{row.paidAmount > 0 ? (row.paidAmount | number:'1.2-2') : '-'}}
+                      </td>
+                      <td style="padding:5px 10px;text-align:right;font-weight:500;color:#c62828">
+                        {{(row.amount - row.paidAmount) | number:'1.2-2'}}
+                      </td>
+                      <td style="padding:5px 10px;text-align:center">
+                        <span [ngStyle]="{
+                          'background': row.paidAmount > 0 ? '#fff8e1' : '#fce4ec',
+                          'color':      row.paidAmount > 0 ? '#f57f17' : '#c62828',
+                          'padding': '2px 10px', 'border-radius': '12px',
+                          'font-size': '11px', 'font-weight': '600'
+                        }">
+                          {{ row.paidAmount > 0 ? 'Partial' : 'Pending' }}
+                        </span>
+                      </td>
+                    </tr>
+                  </ng-container>
+
+                  <!-- Preclosing ON: show ONE merged row for all unpaid installments -->
+                  <tr *ngIf="isPreClosingOn && (installmentTotal - installmentPaidTotal) > 0"
+                    style="border-bottom:2px solid #ff9800;background:#fff8e1">
+                    <td style="padding:8px 10px;font-weight:600;color:#bf360c">—</td>
+                    <td style="padding:8px 10px;font-weight:600;color:#bf360c">
+                      <mat-icon style="font-size:14px;vertical-align:middle">flash_on</mat-icon>
+                      Preclosing
+                      <div style="font-size:11px;font-weight:400;color:#795548;margin-top:2px">
+                        {{frm.get('PreClosingDate')?.value | date:'dd MMM yyyy'}}
+                        — {{preClosingPendingCount}} remaining inst.
+                      </div>
+                    </td>
+                    <td style="padding:8px 10px;text-align:right;font-weight:700;color:#bf360c">
+                      {{(installmentTotal - installmentPaidTotal) | number:'1.2-2'}}
+                    </td>
+                    <td style="padding:8px 10px;text-align:center">-</td>
+                    <td style="padding:8px 10px;text-align:right;font-weight:700;color:#c62828">
+                      {{(installmentTotal - installmentPaidTotal) | number:'1.2-2'}}
+                    </td>
+                    <td style="padding:8px 10px;text-align:center">
+                      <span style="background:#ff9800;color:#fff;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600">
+                        Preclosing
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+                <tfoot>
+                  <tr style="background:#dbe8f8;font-weight:600">
+                    <td colspan="2" style="padding:6px 10px;text-align:right">Total</td>
+                    <td style="padding:6px 10px;text-align:right">{{installmentTotal | number:'1.2-2'}}</td>
+                    <td style="padding:6px 10px;text-align:center">{{installmentPaidTotal | number:'1.2-2'}}</td>
+                    <td style="padding:6px 10px;text-align:right;font-weight:700"
+                      [style.color]="(installmentTotal - installmentPaidTotal) > 0 ? '#c62828' : '#2e7d32'">
+                      {{(installmentTotal - installmentPaidTotal) | number:'1.2-2'}}
+                    </td>
+                    <td style="padding:6px 10px;text-align:center">
+                      <span *ngIf="installmentPaidTotal >= installmentTotal"
+                        style="background:#e8f5e9;color:#2e7d32;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600">
+                        Fully Paid
+                      </span>
+                      <span *ngIf="installmentPaidTotal > 0 && installmentPaidTotal < installmentTotal"
+                        style="background:#fff8e1;color:#f57f17;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600">
+                        {{installmentPaidTotal | number:'1.2-2'}} / {{installmentTotal | number:'1.2-2'}}
+                      </span>
+                      <span *ngIf="installmentPaidTotal === 0"
+                        style="background:#fce4ec;color:#c62828;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600">
+                        Unpaid
+                      </span>
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- ── LOCATION & CONDITION ───────────────────────────────────────── -->
@@ -135,7 +369,7 @@
                 </div>
               </mat-option>
               <mat-option value="">-- Select Branch --</mat-option>
-              <mat-option *ngFor="let b of filteredBranches" [value]="b.Code">{{b.Code}} — {{b.Name}}</mat-option>
+              <mat-option *ngFor="let b of filteredBranches" [value]="b.Code">{{b.Code}}</mat-option>
               <mat-option disabled *ngIf="filteredBranches.length === 0 && branchSearch.length > 0">No results found.</mat-option>
             </mat-select>
           </mat-form-field>
@@ -165,6 +399,19 @@
         </div>
       </div>
 
+      <!-- ── PAYMENT LOCKED BANNER ─────────────────────────────────────── -->
+      <div class="row" *ngIf="isPaymentLocked">
+        <div class="col-12">
+          <div style="background:#fff3e0;border:1px solid #ff9800;border-radius:6px;padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;gap:10px">
+            <mat-icon style="color:#e65100;font-size:22px;flex-shrink:0">lock</mat-icon>
+            <div>
+              <strong style="color:#bf360c">Editing Locked</strong>
+              <div style="font-size:13px;color:#5d4037;margin-top:2px">{{paymentLockMessage}}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- ── ERROR ──────────────────────────────────────────────────────── -->
       <div class="row" *ngIf="errorMessage !== ''">
         <div class="col-12"><mat-label style="color:orange" [innerHTML]="errorMessage"></mat-label></div>
@@ -175,15 +422,21 @@
         <div class="col-12">
           <div class="text-right">
             <button type="button" class="btn wlt-c-furg-btn-gray mr-3" (click)="onCancelClick()">Cancel</button>
-            <!-- Print PDF — only for an existing saved Asset -->
             <button *ngIf="isEdit" type="button" class="btn btn-secondary mr-2"
               matTooltip="Open PDF in a new tab — print or download from there"
               (click)="onPrintPDF()">
               <mat-icon style="vertical-align:middle;font-size:18px">print</mat-icon> Print PDF
             </button>
-            <button *ngIf="userAccessModel.createAccess || userAccessModel.updateAccess || userRole == 'superadmin'"
+            <button *ngIf="(userAccessModel.createAccess || userAccessModel.updateAccess || userRole == 'superadmin') && !isPaymentLocked"
               type="submit" class="btn wlt-c-furg-btn-primary" [disabled]="showLoadingSpinner">
               {{isEdit ? 'Update Asset' : 'Save Asset'}}
+            </button>
+            <!-- Locked asset: only preclosing save allowed -->
+            <button *ngIf="isPaymentLocked && isEdit"
+              type="submit" class="btn btn-warning" [disabled]="showLoadingSpinner"
+              matTooltip="Save preclosing status only">
+              <mat-icon style="vertical-align:middle;font-size:16px">flash_on</mat-icon>
+              Save Preclosing
             </button>
           </div>
         </div>

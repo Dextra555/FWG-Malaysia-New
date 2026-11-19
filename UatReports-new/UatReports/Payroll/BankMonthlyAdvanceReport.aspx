@@ -1,4 +1,4 @@
-<%@ page language="C#" autoeventwireup="true" inherits="Payroll_BankMonthlyAdvanceReport, App_Web_402qaw3v" title="e-Security Management System" %>
+<%@ Page Language="C#"  AutoEventWireup="true" CodeFile="BankMonthlyAdvanceReport.aspx.cs" Inherits="Payroll_BankMonthlyAdvanceReport" Title="e-Security Management System" %>
 <%@ Register TagPrefix="CR" Namespace="CrystalDecisions.Web" Assembly="CrystalDecisions.Web, Version=13.0.4000.0, Culture=neutral, PublicKeyToken=692fbea5521e1304" %>
 
 <html xmlns="http://www.w3.org/1999/xhtml">

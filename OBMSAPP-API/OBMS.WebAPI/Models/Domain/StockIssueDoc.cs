@@ -32,6 +32,13 @@ namespace OBMS.WebAPI.Models.Domain
 
         public string? Remarks { get; set; }
 
+        /// <summary>
+        /// When IssueToType is Guard or Staff, true = salary deduction applies.
+        /// Only deduction issues appear in the Uniform Loan Pending Stock Issues page.
+        /// false (default) = no deduction — not shown on the Uniform Loan page.
+        /// </summary>
+        public bool IsDeduction { get; set; } = false;
+
         /// <summary>Soft-delete flag.</summary>
         public bool IsActive { get; set; } = true;
 

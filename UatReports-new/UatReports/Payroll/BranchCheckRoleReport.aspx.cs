@@ -14,7 +14,7 @@ public partial class PayRoll_BranchCheckRoleReport : System.Web.UI.Page
             {
                 // Optionally, ensure the Tool Panel is hidden
                 crptCheckRoleList.ToolPanelView = ToolPanelViewType.None;
-                crptCheckRoleList.Zoom(135);
+                crptCheckRoleList.Zoom(100);
                 TableLogOnInfo logonInfo = table.LogOnInfo;
                 logonInfo.ConnectionInfo.ServerName = ConfigurationManager.AppSettings["Server"];
                 logonInfo.ConnectionInfo.DatabaseName = ConfigurationManager.AppSettings["Database"];

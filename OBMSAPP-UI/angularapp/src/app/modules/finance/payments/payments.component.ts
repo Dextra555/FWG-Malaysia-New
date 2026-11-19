@@ -56,6 +56,28 @@ export interface IGRNPaymentRow {
   Amount: number;
 }
 
+/** Shape returned by Inventory/GetAssetInstallmentsForPayment */
+export interface IAssetInstallmentPaymentRow {
+  InstallmentID: number;
+  PaymentDetailID: number;
+  PaymentID: number;
+  CreditorInvoiceID: number | null;
+  AssetID: number;
+  AssetCode: string;
+  AssetName: string;
+  SupplierID: number | null;
+  SupplierName: string | null;
+  BranchCode: string | null;
+  InstallmentNo: number;
+  DueDate: string;
+  InstallmentRef: string;
+  TotalAmount: number;
+  PaidAmount: number;
+  Balance: number;
+  Amount: number;
+  Status: string;
+}
+
 
 @Component({
   selector: 'app-payments',
@@ -226,7 +248,7 @@ export class PaymentsComponent implements AfterViewInit {
           ChequeNo: branchPayment.ChequeNo,
           cheque_status: branchPayment.ChequeStatus,
           PaymentToD: branchPayment.PaymentTo,
-          category_type: 'U',
+          category_type: 'U',   // will be overridden below if Purchase/GRN/Asset
           ItemCategory: branchPayment.ItemCategory,
           PaymentTo: branchPayment.PaymentTo,
           Particulars: branchPayment.Particulars,
@@ -239,21 +261,30 @@ export class PaymentsComponent implements AfterViewInit {
         this.existingChequeNo = branchPayment.ChequeNo;
 
         if (branchPayment.Supplier) {
-          // Auto-detect GRN mode for existing payments:
-          // Check if any BranchPaymentDetails rows for this payment have a GRNID set.
-          // We do this by querying GetGRNsForPayment — if any row has PaymentDetailID > 0
-          // the payment was made against GRNs, so switch the UI to GRN mode.
+          // Auto-detect mode: check GRNs first, then Asset installments
           this._financeService.getGRNsForPayment(branchPayment.Supplier, id)
             .subscribe((grns: IGRNPaymentRow[]) => {
               const hasGRNPayment = (grns || []).some((g: IGRNPaymentRow) => g.PaymentDetailID > 0);
               if (hasGRNPayment) {
+                // GRN payment → Purchase / GRN mode
                 this.paymentRefType = 'G';
-                // Override category_type to Purchase so the radio shows correctly
                 this.frm.get('category_type')?.setValue('P');
+                this.supplierChange(branchPayment.Supplier);
               } else {
-                this.paymentRefType = 'I';
+                // Check asset installments
+                this._financeService.getAssetInstallmentsForPayment(branchPayment.Supplier, id)
+                  .subscribe((insts: IAssetInstallmentPaymentRow[]) => {
+                    const hasInstPayment = (insts || []).some((r: IAssetInstallmentPaymentRow) => r.PaymentDetailID > 0);
+                    if (hasInstPayment) {
+                      // Asset installment payment → Purchase / GRN mode
+                      this.paymentRefType = 'G';
+                      this.frm.get('category_type')?.setValue('P');
+                    } else {
+                      this.paymentRefType = 'I';
+                    }
+                    this.supplierChange(branchPayment.Supplier);
+                  });
               }
-              this.supplierChange(branchPayment.Supplier);
             });
         }
         if (branchPayment.ItemCategory) {
@@ -350,7 +381,44 @@ export class PaymentsComponent implements AfterViewInit {
       GRNID:        [g.GRNID],
       GRNDate:      [g.GRNDate],
       PONumber:     [g.PONumber],
-      SupplierInvoiceNo: [g.SupplierInvoiceNo ?? null]
+      SupplierInvoiceNo: [g.SupplierInvoiceNo ?? null],
+      // Asset installment fields (null for GRN rows)
+      InstallmentID:   [null],
+      InstallmentRef:  [null],
+      RowType:         ['GRN']
+    });
+
+    this.supplierRows.push(row);
+    this.supplierInvoiceDataSource.next(this.supplierRows.controls);
+  }
+
+  /** Adds an Asset Installment row to the supplier invoice FormArray. */
+  addAssetInstallmentRow(r: IAssetInstallmentPaymentRow): void {
+    const total   = Number(r.TotalAmount.toFixed(2));
+    const paid    = Number(r.PaidAmount.toFixed(2));
+    const balance = Number((total - paid).toFixed(2));
+    const amount  = this.paymentID === 0 ? null : Number(r.Amount.toFixed(2));
+
+    const row = this.fb.group({
+      ID:              [r.PaymentDetailID],
+      PaymentID:       [r.PaymentID],
+      Code:            [r.BranchCode || r.AssetCode],
+      Name:            [r.AssetName ?? null],
+      InvoiceID:       [r.CreditorInvoiceID ?? null],
+      InvoiceNo:       [r.InstallmentRef],
+      Total:           [total],
+      Amount:          [amount],
+      PaidAmount:      [paid],
+      BranchUserName:  [null],
+      Balance:         [balance],
+      Supplier:        [r.SupplierID],
+      GRNID:           [null],
+      GRNDate:         [r.DueDate],
+      PONumber:        [null],
+      SupplierInvoiceNo: [null],
+      InstallmentID:   [r.InstallmentID],
+      InstallmentRef:  [r.InstallmentRef],
+      RowType:         ['ASSET_INST']
     });
 
     this.supplierRows.push(row);
@@ -798,11 +866,21 @@ export class PaymentsComponent implements AfterViewInit {
 
     // ── GRN reference mode ──────────────────────────────────────────────────
     if (this.paymentRefType === 'G') {
-      this._financeService.getGRNsForPayment(value, paymentId).subscribe((grns: IGRNPaymentRow[]) => {
-        this.showDataSourceTable = grns?.length > 0;
-        (grns || []).forEach(g => this.addGRNPaymentRow(g));
-        // Edit mode: show "Add More GRNs" button so user can add unpaid GRNs not yet in this payment
-        this.showAddInvoiceBtn = paymentId > 0;
+      // Get selected payment date to filter installments by month
+      const paymentDateRaw = this.frm.getRawValue()['PaymentDate'];
+      const paymentDateStr = paymentDateRaw
+        ? this.returnDate(paymentDateRaw)
+        : this.returnDate(new Date());
+
+      // Load GRNs and Asset Installments in parallel
+      forkJoin({
+        grns:  this._financeService.getGRNsForPayment(value, paymentId),
+        insts: this._financeService.getAssetInstallmentsForPayment(value, paymentId, paymentDateStr)
+      }).subscribe(({ grns, insts }) => {
+        (grns  || []).forEach((g: IGRNPaymentRow)                => this.addGRNPaymentRow(g));
+        (insts || []).forEach((r: IAssetInstallmentPaymentRow)   => this.addAssetInstallmentRow(r));
+        this.showDataSourceTable = (grns?.length > 0 || insts?.length > 0);
+        this.showAddInvoiceBtn   = paymentId > 0;
         const sel = this.supplierList.find((x: any) => x.Id == value);
         if (sel) {
           this.frm.get("PaymentTo")?.setValue(sel.Name);
@@ -855,7 +933,8 @@ export class PaymentsComponent implements AfterViewInit {
    */
   refTypeChange(type: 'I' | 'G'): void {
     this.paymentRefType = type;
-    const supplierValue = this.frm.get('Supplier')?.value;
+    // Supplier control is disabled — use getRawValue() to read its value
+    const supplierValue = this.frm.getRawValue()['Supplier'];
     if (supplierValue) {
       this.supplierChange(supplierValue);
     } else {
@@ -870,8 +949,15 @@ export class PaymentsComponent implements AfterViewInit {
    * and merge them into the table (skip invoices already shown).
    */
   addMoreSupplierInvoices() {
-    const supplierValue = this.frm.get('Supplier')?.value;
+    // Supplier control is disabled — use getRawValue() to read its value
+    const supplierValue = this.frm.getRawValue()['Supplier'];
     if (!supplierValue) return;
+
+    // Get payment date for installment filter
+    const paymentDateRaw = this.frm.getRawValue()['PaymentDate'];
+    const paymentDateStr = paymentDateRaw
+      ? this.returnDate(paymentDateRaw)
+      : this.returnDate(new Date());
 
     // ── GRN mode: load all pending GRNs and merge new ones ────────────────
     if (this.paymentRefType === 'G') {
@@ -881,26 +967,37 @@ export class PaymentsComponent implements AfterViewInit {
           .map((ctrl) => ctrl.get('GRNID')?.value)
           .filter((id) => !!id)
       );
+      const existingInstIds = new Set<number>(
+        this.supplierRows.controls
+          .map((ctrl) => ctrl.get('InstallmentID')?.value)
+          .filter((id) => !!id)
+      );
 
-      // paymentId=0 → API returns all pending (balance>0) GRNs for this supplier
-      this._financeService.getGRNsForPayment(supplierValue, 0).subscribe((grns: IGRNPaymentRow[]) => {
+      forkJoin({
+        grns:  this._financeService.getGRNsForPayment(supplierValue, 0),
+        insts: this._financeService.getAssetInstallmentsForPayment(supplierValue, 0, paymentDateStr)
+      }).subscribe(({ grns, insts }) => {
         let addedCount = 0;
         (grns || []).forEach((g: IGRNPaymentRow) => {
           if (!existingGrnIds.has(g.GRNID)) {
-            // New row — amount starts at null so user must enter it
-            g.Amount = 0;
-            g.PaymentDetailID = 0;
-            g.PaymentID = 0;
+            g.Amount = 0; g.PaymentDetailID = 0; g.PaymentID = 0;
             this.addGRNPaymentRow(g);
             existingGrnIds.add(g.GRNID);
             addedCount++;
           }
         });
-
+        (insts || []).forEach((r: IAssetInstallmentPaymentRow) => {
+          if (!existingInstIds.has(r.InstallmentID)) {
+            r.Amount = 0; r.PaymentDetailID = 0; r.PaymentID = 0;
+            this.addAssetInstallmentRow(r);
+            existingInstIds.add(r.InstallmentID);
+            addedCount++;
+          }
+        });
         if (addedCount > 0) {
           this.showDataSourceTable = true;
         } else {
-          this.showMessage('No additional outstanding GRNs found for this supplier.', 'info', 'Warning Message');
+          this.showMessage('No additional outstanding GRNs or asset installments found for this supplier.', 'info', 'Warning Message');
         }
       });
       return;

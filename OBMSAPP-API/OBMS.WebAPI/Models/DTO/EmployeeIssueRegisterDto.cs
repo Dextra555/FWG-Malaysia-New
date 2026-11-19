@@ -32,5 +32,14 @@ namespace OBMS.WebAPI.Models.DTO
 
         public string? Remarks { get; set; }
         public string? IssuedBy { get; set; }
+
+        /// <summary>Client name from ClientMaster via StockIssueDocDetail.ClientID (nullable)</summary>
+        public string? ClientName { get; set; }
+
+        /// <summary>ClientID from StockIssueDocDetail — used for dropdown filter</summary>
+        public int? ClientID { get; set; }
+
+        /// <summary>true = salary deduction issue; false = non-deduction</summary>
+        public bool IsDeduction { get; set; }
     }
 }

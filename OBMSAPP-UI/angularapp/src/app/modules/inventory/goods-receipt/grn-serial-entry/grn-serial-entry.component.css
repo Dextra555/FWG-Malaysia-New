@@ -1,0 +1,137 @@
+/* ── Serial Number Entry Page ─────────────────────────────── */
+
+.serial-summary-bar {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  background: #f9f9f9;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+
+.serial-summary-bar .summary-item label {
+  font-weight: 600;
+  color: #555;
+  margin-right: 4px;
+}
+
+.serial-summary-bar .summary-item span {
+  color: #1a3a5c;
+}
+
+/* Progress bar */
+.serial-progress-wrap {
+  margin-bottom: 14px;
+}
+.serial-progress-label {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+}
+.serial-progress {
+  height: 6px;
+  border-radius: 3px;
+  background: #e0e0e0;
+  overflow: hidden;
+}
+.serial-progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: #7b1e3b;
+  transition: width 0.3s ease;
+}
+.serial-progress-fill.complete {
+  background: #2e7d32;
+}
+
+/* Table */
+.serial-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.serial-table th {
+  background: #7b1e3b;
+  color: #fff;
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.3px;
+}
+.serial-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #f0f0f0;
+  vertical-align: middle;
+}
+.serial-table tr:hover td {
+  background: #fafafa;
+}
+.serial-table .sno-col {
+  width: 60px;
+  text-align: center;
+  color: #888;
+  font-weight: 600;
+}
+.serial-table .status-col {
+  width: 130px;
+}
+.serial-input {
+  width: 100%;
+  max-width: 300px;
+  padding: 7px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s;
+  font-family: 'Roboto Mono', monospace, sans-serif;
+  letter-spacing: 0.5px;
+}
+.serial-input:focus {
+  border-color: #7b1e3b;
+  box-shadow: 0 0 0 2px rgba(123, 30, 59, 0.12);
+}
+.serial-input.input-error {
+  border-color: #c62828;
+}
+.serial-input.input-ok {
+  border-color: #2e7d32;
+}
+.field-error {
+  font-size: 11px;
+  color: #c62828;
+  margin-top: 3px;
+}
+
+/* Status badges */
+.badge-pending   { background: #f5f5f5; color: #888;    border: 1px solid #ddd;    border-radius: 12px; padding: 2px 10px; font-size: 11px; }
+.badge-entered   { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; border-radius: 12px; padding: 2px 10px; font-size: 11px; font-weight: 600; }
+.badge-duplicate { background: #fff3e0; color: #e65100; border: 1px solid #ffcc80; border-radius: 12px; padding: 2px 10px; font-size: 11px; font-weight: 600; }
+.badge-existing  { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; border-radius: 12px; padding: 2px 10px; font-size: 11px; font-weight: 600; }
+
+/* Action buttons */
+.serial-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+  justify-content: flex-end;
+}
+
+/* Validation summary */
+.validation-summary {
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-size: 12px;
+  color: #5d4037;
+  margin-bottom: 12px;
+}
+.validation-summary ul {
+  margin: 4px 0 0 16px;
+  padding: 0;
+}

@@ -1,4 +1,5 @@
 ﻿import { Component, OnInit } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import {environment} from "../../../../../environments/environment";
 import {DomSanitizer, SafeResourceUrl} from "@angular/platform-browser";
 import {FormBuilder, FormGroup, Validators} from "@angular/forms";
@@ -27,7 +28,8 @@ export class BranchStockLedgerComponent implements OnInit {
   userAccessModel!: UserAccessModel;
 
   constructor(public sanitizer: DomSanitizer, private _masterService: MastermoduleService, private service: InventoryService, 
-    private fb: FormBuilder,private _dataService: DatasharingService) {
+    private fb: FormBuilder,private _dataService: DatasharingService,
+    private titleService: Title) {
     this.currentUser = sessionStorage.getItem('username')!;
     const rawRole = sessionStorage.getItem('userrole');
     if (rawRole == '1') { this.userRole = 'admin'; }
@@ -51,6 +53,7 @@ export class BranchStockLedgerComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Branch Stock Ledger');
     this.currentUser = sessionStorage.getItem('username')!;
     const rawRole = sessionStorage.getItem('userrole');
     if (rawRole == '1') { this.userRole = 'admin'; }
@@ -130,3 +133,4 @@ export class BranchStockLedgerComponent implements OnInit {
 // ?Branch=FWG-VALLI&StartDate=02-May-2021&EndDate=16-May-2024&ItemID=1&LoginId=superuser
 
 }
+

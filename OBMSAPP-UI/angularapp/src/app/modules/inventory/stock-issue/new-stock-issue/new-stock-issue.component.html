@@ -51,6 +51,19 @@
             <span class="wlt-view-value">{{issueToType}}{{issueToName ? ' — ' + issueToName : ''}}</span>
           </div>
         </div>
+        <div class="col-6 col-md-3" *ngIf="frm.get('IssueToType')?.value === 'Guard' || frm.get('IssueToType')?.value === 'Staff' || frm.get('IssueToType')?.value === 'Other Guards'">
+          <div class="wlt-view-field">
+            <span class="wlt-view-label">Deduction</span>
+            <span class="wlt-view-value">
+              <span *ngIf="frm.get('IsDeduction')?.value" style="color:#c62828; font-weight:600;">
+                <mat-icon style="font-size:16px; vertical-align:middle;">monetization_on</mat-icon> Deduction
+              </span>
+              <span *ngIf="!frm.get('IsDeduction')?.value" style="color:#388e3c; font-weight:600;">
+                <mat-icon style="font-size:16px; vertical-align:middle;">money_off</mat-icon> Non-Deduction
+              </span>
+            </span>
+          </div>
+        </div>
         <div class="col-6 col-md-3" *ngIf="frm.get('Remarks')?.value">
           <div class="wlt-view-field">
             <span class="wlt-view-label">Remarks</span>
@@ -173,6 +186,29 @@
               <div>
                 <small class="text-muted d-block" style="font-size:10px; line-height:1.2;">Selected {{issueToType}}</small>
                 <strong style="font-size:13px;">{{issueToName}}</strong>
+              </div>
+            </div>
+          </div>
+
+          <!-- Deduction Slide Toggle — only for Guard / Staff -->
+          <div class="col-12 col-md-4" *ngIf="showDeductionToggle">
+            <div class="p-2 mt-1" style="border:1px solid #e0e0e0; border-radius:6px; min-height:56px; display:flex; align-items:center; gap:12px;">
+              <mat-icon style="font-size:20px;"
+                [style.color]="frm.get('IsDeduction')?.value ? '#c62828' : '#757575'">
+                monetization_on
+              </mat-icon>
+              <div style="flex:1">
+                <small class="text-muted d-block" style="font-size:10px; line-height:1.3; margin-bottom:6px;">
+                  Salary Deduction?
+                </small>
+                <mat-slide-toggle
+                  formControlName="IsDeduction"
+                  [color]="frm.get('IsDeduction')?.value ? 'warn' : 'primary'">
+                  <span style="font-size:13px; font-weight:600;"
+                    [style.color]="frm.get('IsDeduction')?.value ? '#c62828' : '#388e3c'">
+                    {{ frm.get('IsDeduction')?.value ? 'Deduction' : 'Non-Deduction' }}
+                  </span>
+                </mat-slide-toggle>
               </div>
             </div>
           </div>

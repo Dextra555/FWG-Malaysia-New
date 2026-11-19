@@ -1,4 +1,5 @@
 ﻿import { Component, OnInit } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router } from "@angular/router";
@@ -26,7 +27,8 @@ export class NewCatergoryComponent implements OnInit {
   showLoadingSpinner: boolean = false;
 
   constructor(private fb: FormBuilder, public dialog: MatDialog, private activatedRoute: ActivatedRoute, private service: InventoryService, private route: Router,
-    private _dataService: DatasharingService, private _masterService: MastermoduleService) {
+    private _dataService: DatasharingService, private _masterService: MastermoduleService,
+    private titleService: Title) {
     this.userAccessModel = {
       readAccess: false,
       updateAccess: false,
@@ -62,6 +64,7 @@ export class NewCatergoryComponent implements OnInit {
   onParentCatSearch(q: string) { this.parentCatSearch = q; const s = q.toLowerCase(); this.filteredParentCategories = this.parentCategories.filter(c => c.Name?.toLowerCase().includes(s)); }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Category Master');
     this.ID = this.activatedRoute.snapshot.params['ID'];
     this.currentUser = sessionStorage.getItem('username')!;
     const rawRole = sessionStorage.getItem('userrole');
@@ -150,3 +153,4 @@ export class NewCatergoryComponent implements OnInit {
     this.showLoadingSpinner = false
   }
 }
+

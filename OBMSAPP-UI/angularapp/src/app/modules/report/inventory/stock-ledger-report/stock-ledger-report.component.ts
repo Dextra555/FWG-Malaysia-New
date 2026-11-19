@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { environment } from '../../../../../environments/environment';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
@@ -31,9 +32,9 @@ export class StockLedgerReportComponent implements OnInit {
   loadingSizes: boolean = false;
   userAccessModel!: UserAccessModel;
 
-  /** Parent categories that have sub-categories — shown as optgroups */
+  /** Parent categories that have sub-categories â€” shown as optgroups */
   categoryGroups: { parent: any; children: any[] }[] = [];
-  /** Standalone categories (no parent, no children) — shown flat */
+  /** Standalone categories (no parent, no children) â€” shown flat */
   categoryFlat: any[] = [];
 
   transactionTypeOptions = [
@@ -56,7 +57,8 @@ export class StockLedgerReportComponent implements OnInit {
     private service: InventoryService,
     private fb: FormBuilder,
     private _dataService: DatasharingService
-  ) {
+  ,
+    private titleService: Title) {
     this.currentUser = sessionStorage.getItem('username')!;
 
     const today        = new Date();
@@ -79,13 +81,14 @@ export class StockLedgerReportComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Stock Ledger Report');
     this.currentUser = sessionStorage.getItem('username')!;
     if (!this.currentUser || this.currentUser === 'null') {
       this._dataService.getUsername().subscribe(u => this.currentUser = u);
     }
     this.getUserAccessRights(this.currentUser, 'Stock Ledger Report');
 
-    // When Category changes → clear selected Size and reload size list
+    // When Category changes â†’ clear selected Size and reload size list
     this.frm.get('CategoryID')!.valueChanges.subscribe((catId: any) => {
       this.frm.get('Size')!.setValue('', { emitEvent: false });
       this.sizeList = [];
@@ -257,3 +260,4 @@ export class StockLedgerReportComponent implements OnInit {
     return `${y}-${m}-${day}`;
   }
 }
+

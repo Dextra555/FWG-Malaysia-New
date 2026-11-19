@@ -57,29 +57,10 @@ public partial class PayRoll_PaySlipReport : System.Web.UI.Page
             // ================= RECORD SELECTION FORMULA =================
             string formula = crptPaySlip.ReportDocument.RecordSelectionFormula ?? "";
 
-            // --- EmployeeType filter (for 'Others' role) ---
-            string employeeTypeCheck = Request.QueryString["EmployeeType"] ?? "";
-            if (!string.IsNullOrEmpty(employeeTypeCheck)
-                && employeeTypeCheck != "Guard"
-                && employeeTypeCheck != "Staff"
-                && employeeTypeCheck != "Foreign Guard"
-                && employeeTypeCheck != "FGuard")
-            {
-                var empIds = new System.Collections.Generic.List<string>();
-                using (var conn = new System.Data.SqlClient.SqlConnection(connStr))
-                {
-                    conn.Open();
-                    var cmd = new System.Data.SqlClient.SqlCommand(
-                        "SELECT EMP_ID FROM Employee WHERE EMP_ROLE = @role", conn);
-                    cmd.Parameters.AddWithValue("@role", employeeTypeCheck);
-                    using (var reader = cmd.ExecuteReader())
-                        while (reader.Read()) empIds.Add(reader.GetInt32(0).ToString());
-                }
-                string empIdCondition = empIds.Count > 0
-                    ? "{PaySlip.EmployeeID} IN (" + string.Join(",", empIds) + ")"
-                    : "{PaySlip.EmployeeID} = 0";
-                formula = BuildFormula(formula, empIdCondition);
-            }
+            // NOTE: EmployeeType (EMP_ROLE) filtering is handled by the Crystal Reports
+            // {?EmployeeType} parameter which maps to {vwPaySheet.EMP_ROLE} in the .rpt formula.
+            // No extra IN-list condition is needed here — the parameter set via SetParameter()
+            // above is sufficient for all role types including "Others".
 
             // --- Specific Employee filter (blank / "0" = show all) ---
             string empParam = (Request.QueryString["Employee"] ?? "").Trim();

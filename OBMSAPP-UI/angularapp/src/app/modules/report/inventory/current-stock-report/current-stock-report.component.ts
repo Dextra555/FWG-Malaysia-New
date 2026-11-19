@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { environment } from '../../../../../environments/environment';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { FormBuilder, FormGroup } from '@angular/forms';
@@ -31,9 +32,9 @@ export class CurrentStockReportComponent implements OnInit {
   loadingSizes: boolean  = false;
   userAccessModel!: UserAccessModel;
 
-  /** Parent categories with sub-categories — rendered as mat-optgroup */
+  /** Parent categories with sub-categories â€” rendered as mat-optgroup */
   categoryGroups: { parent: any; children: any[] }[] = [];
-  /** Standalone categories (no children) — rendered flat */
+  /** Standalone categories (no children) â€” rendered flat */
   categoryFlat: any[] = [];
 
   constructor(
@@ -42,7 +43,8 @@ export class CurrentStockReportComponent implements OnInit {
     private service: InventoryService,
     private fb: FormBuilder,
     private _dataService: DatasharingService
-  ) {
+  ,
+    private titleService: Title) {
     this.currentUser = sessionStorage.getItem('username')!;
     this.url += this.currentUrl;
     this.url += 'LoginID=' + this.currentUser;
@@ -61,13 +63,14 @@ export class CurrentStockReportComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Current Stock Report');
     this.currentUser = sessionStorage.getItem('username')!;
     if (!this.currentUser || this.currentUser === 'null') {
       this._dataService.getUsername().subscribe(u => this.currentUser = u);
     }
     this.getUserAccessRights(this.currentUser, 'Current Stock Report');
 
-    // When Category changes → clear Size and reload size list
+    // When Category changes â†’ clear Size and reload size list
     this.frm.get('CategoryID')!.valueChanges.subscribe((catId: any) => {
       this.frm.get('Size')!.setValue('', { emitEvent: false });
       this.sizeList = [];
@@ -194,3 +197,4 @@ export class CurrentStockReportComponent implements OnInit {
     this.loadSizes(0);
   }
 }
+

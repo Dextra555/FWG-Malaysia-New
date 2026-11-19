@@ -1,4 +1,5 @@
 ﻿import { Component, OnInit } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { InventoryService } from "../../../../service/inventory.service";
@@ -42,7 +43,8 @@ export class NewItemComponent implements OnInit {
     private route: Router,
     private _dataService: DatasharingService,
     private _masterService: MastermoduleService
-  ) {
+  ,
+    private titleService: Title) {
     this.userAccessModel = {
       readAccess: false,
       updateAccess: false,
@@ -68,6 +70,7 @@ export class NewItemComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Item Master');
     this.ID = this.activatedRoute.snapshot.params['ID'];
     this.currentUser = sessionStorage.getItem('username')!;
     const rawRole = sessionStorage.getItem('userrole');
@@ -240,3 +243,4 @@ export class NewItemComponent implements OnInit {
     this.showLoadingSpinner = false;
   }
 }
+

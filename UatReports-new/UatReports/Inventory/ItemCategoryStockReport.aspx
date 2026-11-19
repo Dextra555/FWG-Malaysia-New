@@ -143,11 +143,12 @@
         // ── Column definitions: header, fieldName, relWidth, isNumeric ─────
         var cols = new object[][]
         {
-            new object[]{ "S.NO.",             "#",              1.0f,  true  },
+            new object[]{ "S.NO.",          "#",              1.0f,  true  },
             new object[]{ "Item Code",      "ItemCode",       1.6f,  false },
-            new object[]{ "Item Name",      "ItemName",       3.8f,  false },
+            new object[]{ "Item Name",      "ItemName",       3.4f,  false },
+            new object[]{ "Size",           "Size",           1.0f,  false },
             new object[]{ "UOM",            "UOMName",        1.0f,  false },
-            new object[]{ "Warehouse",      "WarehouseName",  2.2f,  false },
+            new object[]{ "Warehouse",      "WarehouseName",  2.0f,  false },
             new object[]{ "Total In",       "TotalIn",        1.6f,  true  },
             new object[]{ "Total Out",      "TotalOut",       1.6f,  true  },
             new object[]{ "Closing Bal.",   "ClosingBalance", 1.6f,  true  },
@@ -432,6 +433,7 @@
             new[]{ "Category",      "CategoryName"   },
             new[]{ "Item Code",     "ItemCode"       },
             new[]{ "Item Name",     "ItemName"       },
+            new[]{ "Size",          "Size"           },
             new[]{ "UOM",           "UOMName"        },
             new[]{ "Warehouse",     "WarehouseName"  },
             new[]{ "Total In",      "TotalIn"        },

@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { AbstractControl, FormBuilder, FormGroup, ValidatorFn, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
@@ -41,7 +42,7 @@ export class NewStockAdjustmentComponent implements OnInit {
   selectedItemCode: string = '';
   selectedUOMName: string = '';
 
-  // ── Approval workflow state ──────────────────────────────────────────────
+  // â”€â”€ Approval workflow state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   currentStatus   = '';    // Draft | Submitted | Approved | Rejected
   submittedBy     = '';
   approvedBy      = '';
@@ -68,7 +69,8 @@ export class NewStockAdjustmentComponent implements OnInit {
     private service: InventoryService,
     private _dataService: DatasharingService,
     private _masterService: MastermoduleService
-  ) {
+  ,
+    private titleService: Title) {
     this.userAccessModel = { readAccess: false, updateAccess: false, deleteAccess: false, createAccess: false };
     this.frm = this.fb.group({
       ID:             [0],
@@ -85,6 +87,7 @@ export class NewStockAdjustmentComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Stock Adjustment');
     this.ID = this.activatedRoute.snapshot.params['ID'];
     this.currentUser = sessionStorage.getItem('username') || '';
     const rawRole = sessionStorage.getItem('userrole') ?? '0';
@@ -209,7 +212,7 @@ export class NewStockAdjustmentComponent implements OnInit {
     });
   }
 
-  // ── Approver check (PR reference pattern) ───────────────────────────────
+  // â”€â”€ Approver check (PR reference pattern) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   private checkIsApprover(): void {
     if (this.isApprover && this.approverCheckDone) return;
     this.service.isCurrentUserApprover('STOCK_ADJUSTMENT', this.submittedBy || '').subscribe({
@@ -227,19 +230,19 @@ export class NewStockAdjustmentComponent implements OnInit {
     });
   }
 
-  // ── State helpers ────────────────────────────────────────────────────────
+  // â”€â”€ State helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   canEdit(): boolean {
     return !this.isEdit || this.currentStatus === 'Draft';
   }
 
   get viewWarehouseName(): string {
     const id = this.frm.get('WarehouseID')?.value;
-    return this.warehouses.find((w: any) => w.ID === id)?.Name || '—';
+    return this.warehouses.find((w: any) => w.ID === id)?.Name || 'â€”';
   }
   get viewItemName(): string {
     const id = this.frm.get('ItemID')?.value;
     const item = this.items.find((i: any) => i.ID === id);
-    return item ? `${item.Code} — ${item.Name}` : '—';
+    return item ? `${item.Code} â€” ${item.Name}` : 'â€”';
   }
 
   canSubmit(): boolean {
@@ -257,9 +260,9 @@ export class NewStockAdjustmentComponent implements OnInit {
     return (val ?? 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
-  // ── Actions ──────────────────────────────────────────────────────────────
+  // â”€â”€ Actions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  // Save Draft only — no submit
+  // Save Draft only â€” no submit
   onSave(): void {
     if (this.frm.invalid) { this.frm.markAllAsTouched(); return; }
     const raw = this.frm.getRawValue();
@@ -283,7 +286,7 @@ export class NewStockAdjustmentComponent implements OnInit {
     });
   }
 
-  // Submit = save (if new) then submit — mirrors PR onSubmitDirect
+  // Submit = save (if new) then submit â€” mirrors PR onSubmitDirect
   onSubmit(): void {
     if (this.frm.invalid) { this.frm.markAllAsTouched(); return; }
     const raw   = this.frm.getRawValue();
@@ -296,7 +299,7 @@ export class NewStockAdjustmentComponent implements OnInit {
       this.showLoadingSpinner = true;
 
       if (this.isEdit) {
-        // Already a saved Draft — just submit
+        // Already a saved Draft â€” just submit
         this.service.submitSA(+raw.ID).subscribe({
           next: (res: any) => {
             this.showMessage(res?.message || 'Submitted for approval.', 'success', 'Success Message');
@@ -308,7 +311,7 @@ export class NewStockAdjustmentComponent implements OnInit {
           }
         });
       } else {
-        // New form — save as Draft first, then immediately submit
+        // New form â€” save as Draft first, then immediately submit
         const payload = this.buildPayload(raw);
         this.service.saveStockAdjustment(payload).subscribe({
           next: (saveRes: any) => {
@@ -361,7 +364,7 @@ export class NewStockAdjustmentComponent implements OnInit {
       title: 'Reject Stock Adjustment',
       text: 'Please enter the reason for rejection:',
       input: 'textarea',
-      inputPlaceholder: 'Enter rejection reason here…',
+      inputPlaceholder: 'Enter rejection reason hereâ€¦',
       inputAttributes: { rows: '3' },
       showCancelButton: true,
       confirmButtonText: 'Reject',
@@ -390,7 +393,7 @@ export class NewStockAdjustmentComponent implements OnInit {
   onCancelClick(): void { this.route.navigate(['/inventory/stock-adjustment']); }
 
   /** Open the Stock Adjustment PDF in a new browser tab for printing or downloading.
-   *  Only callable when isEdit=true (existing saved document). Read-only — does not
+   *  Only callable when isEdit=true (existing saved document). Read-only â€” does not
    *  modify any record, stock ledger, ADJ_PLUS/ADJ_MINUS entries, or balances. */
   onPrintPDF(): void {
     const docID = this.ID || this.frm.get('ID')?.value;
@@ -402,7 +405,7 @@ export class NewStockAdjustmentComponent implements OnInit {
     window.open(url, '_blank');
   }
 
-  // ── Helpers ──────────────────────────────────────────────────────────────
+  // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   private buildPayload(raw: any) {
     return {
       ID:             raw.ID || 0,
@@ -435,9 +438,10 @@ export class NewStockAdjustmentComponent implements OnInit {
 
   hideLoadingSpinner(): void { this.showLoadingSpinner = false; }
 
-  // ── Searchable dropdown helpers ──────────────────────────────────────────
+  // â”€â”€ Searchable dropdown helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   onWarehouseOpen(opened: boolean) { if (opened) { this.warehouseSearch = ''; this.filteredWarehouses = [...this.warehouses]; } }
   onItemOpen(opened: boolean)      { if (opened) { this.itemSearch = '';      this.filteredItems      = [...this.items];      } }
   onWarehouseSearch(q: string) { this.warehouseSearch = q; const s = q.toLowerCase(); this.filteredWarehouses = this.warehouses.filter(w => w.Name?.toLowerCase().includes(s)); }
   onItemSearch(q: string)      { this.itemSearch = q;      const s = q.toLowerCase(); this.filteredItems      = this.items.filter(i => i.Name?.toLowerCase().includes(s) || i.Code?.toLowerCase().includes(s)); }
 }
+

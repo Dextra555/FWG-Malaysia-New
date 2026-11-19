@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { AbstractControl, FormBuilder, FormGroup, ValidatorFn, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import Swal from 'sweetalert2';
@@ -53,7 +54,8 @@ export class NewStockDamageLossComponent implements OnInit {
     private service: InventoryService,
     private _dataService: DatasharingService,
     private _masterService: MastermoduleService
-  ) {
+  ,
+    private titleService: Title) {
     this.userAccessModel = { readAccess: false, updateAccess: false, deleteAccess: false, createAccess: false };
     this.frm = this.fb.group({
       ID:         [0],
@@ -70,6 +72,7 @@ export class NewStockDamageLossComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Stock Damage & Loss');
     this.ID = this.activatedRoute.snapshot.params['ID'];
     this.currentUser = sessionStorage.getItem('username')!;
     if (!this.currentUser || this.currentUser === 'null') {
@@ -128,7 +131,7 @@ export class NewStockDamageLossComponent implements OnInit {
       this.selectedUOMName  = selected.UOMName || '';
       this.frm.get('UnitCost')?.setValue(selected.Price || 0);
 
-      // ── Default Warehouse auto-fill ──────────────────────────────────────
+      // â”€â”€ Default Warehouse auto-fill â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       // Only for new records (isViewMode=false) and only when warehouse is
       // not yet selected. Never overwrite a warehouse the user already chose.
       // isViewMode is set true BEFORE loadExisting(), so valueChanges-triggered
@@ -140,7 +143,7 @@ export class NewStockDamageLossComponent implements OnInit {
           if (whExists) {
             this.frm.get('WarehouseID')?.setValue(selected.WarehouseID);
           } else {
-            // Default warehouse is inactive — warn user, leave field empty
+            // Default warehouse is inactive â€” warn user, leave field empty
             this.warningMessage =
               'The default warehouse for this item is inactive. Please select another warehouse.';
           }
@@ -192,12 +195,12 @@ export class NewStockDamageLossComponent implements OnInit {
 
   get viewWarehouseName(): string {
     const id = this.frm.get('WarehouseID')?.value;
-    return this.warehouses.find((w: any) => w.ID === id)?.Name || '—';
+    return this.warehouses.find((w: any) => w.ID === id)?.Name || 'â€”';
   }
   get viewItemName(): string {
     const id = this.frm.get('ItemID')?.value;
     const item = this.items.find((i: any) => i.ID === id);
-    return item ? `${item.Code} — ${item.Name}` : '—';
+    return item ? `${item.Code} â€” ${item.Name}` : 'â€”';
   }
 
   onSubmit(): void {
@@ -260,9 +263,10 @@ export class NewStockDamageLossComponent implements OnInit {
 
   hideLoadingSpinner(): void { this.showLoadingSpinner = false; }
 
-  // ── Searchable dropdown helpers ──────────────────────────────────────────
+  // â”€â”€ Searchable dropdown helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   onWarehouseOpen(opened: boolean) { if (opened) { this.warehouseSearch = ''; this.filteredWarehouses = [...this.warehouses]; } }
   onItemOpen(opened: boolean)      { if (opened) { this.itemSearch = '';      this.filteredItems      = [...this.items];      } }
   onWarehouseSearch(q: string) { this.warehouseSearch = q; const s = q.toLowerCase(); this.filteredWarehouses = this.warehouses.filter(w => w.Name?.toLowerCase().includes(s)); }
   onItemSearch(q: string)      { this.itemSearch = q;      const s = q.toLowerCase(); this.filteredItems      = this.items.filter(i => i.Name?.toLowerCase().includes(s) || i.Code?.toLowerCase().includes(s)); }
 }
+

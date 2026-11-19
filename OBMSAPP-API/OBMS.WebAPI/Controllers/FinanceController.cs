@@ -1247,7 +1247,7 @@ namespace OBMS.WebAPI.Controllers
                         ) P ON P.InvoiceID = CI.ID
                         WHERE OB.Name = @UserID
                             AND CI.IsDeleted = 0
-                            AND ISNULL(CI.InvoiceType, '') <> 'G'
+                            AND ISNULL(CI.InvoiceType, '') NOT IN ('G', 'A', 'P')
                           AND (
                                 @PaymentID <> 0
                                 OR CI.Total - ISNULL(P.PaidAmount,0) > 0
@@ -1306,7 +1306,7 @@ namespace OBMS.WebAPI.Controllers
                     WHERE OB.Name = @UserID             
                       AND CI.IsDeleted = 0
                       AND CI.Supplier = @Supplier
-                      AND ISNULL(CI.InvoiceType, '') <> 'G'
+                      AND ISNULL(CI.InvoiceType, '') NOT IN ('G', 'A', 'P')
                       AND (
                             @PaymentID <> 0               
                             OR CI.Total - ISNULL(P.PaidAmount,0) > 0 
@@ -2342,6 +2342,23 @@ namespace OBMS.WebAPI.Controllers
                         linkedCI.LASTUPDATE    = DateTime.Now;
                         linkedCI.LastUpdatedBy = request.CurrentUser;
                         _oBMSDbContext.CreditorInvoices.Update(linkedCI);
+                    }
+                }
+
+                // If this payment line was against an Asset installment or preclosing CI
+                // (InvoiceType = 'A' or 'P'), restore it so it reappears in Payment Due.
+                if (detail.InvoiceID != null && detail.InvoiceID > 0 && detail.GRNID == null)
+                {
+                    int ciId = (int)detail.InvoiceID.Value;
+                    var assetCI = await _oBMSDbContext.CreditorInvoices
+                        .FirstOrDefaultAsync(ci => ci.ID == ciId
+                                                && (ci.InvoiceType == "A" || ci.InvoiceType == "P"));
+                    if (assetCI != null && assetCI.IsDeleted)
+                    {
+                        assetCI.IsDeleted     = false;
+                        assetCI.LASTUPDATE    = DateTime.Now;
+                        assetCI.LastUpdatedBy = request.CurrentUser;
+                        _oBMSDbContext.CreditorInvoices.Update(assetCI);
                     }
                 }
 

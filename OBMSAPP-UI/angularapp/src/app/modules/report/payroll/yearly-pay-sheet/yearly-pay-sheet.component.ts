@@ -194,7 +194,7 @@ export class YearlyPaySheetComponent implements OnInit {
   }
 
   clkBtn(number: number) {
-    if (number != 4 && number != 5 && number != 6) {
+    if (number != 4 && number != 5 && number != 6 && number != 7 && number != 8) {
       this.reportPageName = "YPaySheetReport" + (number == 0 ? "" : number) + ".aspx?"
       this.reportPageName += "LoginID=" + this.currentUser;
     } else if (number == 4) {
@@ -207,6 +207,14 @@ export class YearlyPaySheetComponent implements OnInit {
     }
     else if (number == 6) {
       this.reportPageName = "PSheetForGuard2Report.aspx?"
+      this.reportPageName += "LoginID=" + this.currentUser;
+    }
+    else if (number == 7) {
+      this.reportPageName = "YwithoutshiftPaySheetReport.aspx?"
+      this.reportPageName += "LoginID=" + this.currentUser;
+    }
+    else if (number == 8) {
+      this.reportPageName = "YshiftPaySheetReport.aspx?"
       this.reportPageName += "LoginID=" + this.currentUser;
     }
 

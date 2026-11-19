@@ -1,4 +1,5 @@
-import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
+﻿import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { AbstractControl, FormBuilder, FormGroup, ValidatorFn, Validators } from '@angular/forms';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
@@ -10,7 +11,7 @@ import { MastermoduleService } from '../../../service/mastermodule.service';
 import { DatasharingService } from '../../../service/datasharing.service';
 import { UserAccessModel } from '../../../model/userAccesModel';
 
-/** Custom validator: rejects null, undefined, empty string, and 0 — for required dropdowns */
+/** Custom validator: rejects null, undefined, empty string, and 0 â€” for required dropdowns */
 function mustSelect(): ValidatorFn {
   return (control: AbstractControl) => {
     const v = control.value;
@@ -111,7 +112,8 @@ export class StockLedgerComponent implements OnInit, AfterViewInit {
     private service: InventoryService,
     private _dataService: DatasharingService,
     private _masterService: MastermoduleService
-  ) {
+  ,
+    private titleService: Title) {
     this.userAccessModel = { readAccess: false, updateAccess: false, deleteAccess: false, createAccess: false };
 
     const today = new Date();
@@ -127,6 +129,7 @@ export class StockLedgerComponent implements OnInit, AfterViewInit {
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Stock Ledger');
     this.currentUser = sessionStorage.getItem('username')!;
     if (!this.currentUser || this.currentUser === 'null') {
       this._dataService.getUsername().subscribe(u => { this.currentUser = u; });
@@ -168,7 +171,7 @@ export class StockLedgerComponent implements OnInit, AfterViewInit {
   loadItems(): void {
     this.service.getItemsForStock().subscribe({
       next: (d: any[]) => { this.items = d || []; },
-      error: () => { /* non-critical — item filter is optional */ }
+      error: () => { /* non-critical â€” item filter is optional */ }
     });
   }
 
@@ -320,7 +323,7 @@ export class StockLedgerComponent implements OnInit, AfterViewInit {
 
   hideLoadingSpinner(): void { this.showLoadingSpinner = false; }
 
-  /** Print / Save as PDF — uses browser's native print dialog.
+  /** Print / Save as PDF â€” uses browser's native print dialog.
    *  @media print CSS in the component stylesheet hides everything
    *  except #printSection, producing a clean A4 printout. */
   onPrint(): void {
@@ -332,3 +335,4 @@ export class StockLedgerComponent implements OnInit, AfterViewInit {
     setTimeout(() => window.print(), 150);
   }
 }
+

@@ -403,14 +403,14 @@
               Print PDF
             </button>
 
-            <!-- New / Draft: Save Draft -->
+            <!-- New / Draft / Approved: Save Draft -->
             <button type="button"
               *ngIf="canSave() && (userAccessModel.createAccess || userAccessModel.updateAccess || userRole === 'superadmin')"
               class="btn wlt-c-furg-btn-primary mr-2"
               [disabled]="showLoadingSpinner"
               (click)="onSave()">
               <mat-icon style="font-size:18px; vertical-align:middle">save</mat-icon>
-              {{isEditMode ? 'Update Draft' : 'Save Draft'}}
+              {{currentStatus === 'Approved' ? 'Save & Re-submit' : (isEditMode ? 'Update Draft' : 'Save Draft')}}
             </button>
 
             <!-- Submit — visible on new form with items OR saved Draft -->

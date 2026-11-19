@@ -48,6 +48,7 @@ public partial class OBMSDbContext : DbContext
     public DbSet<PaySlip> PaySlips { get; set; }
     public DbSet<MiscTrans> MiscTrans { get; set; }
     public DbSet<AssetMaster> AssetMasters { get; set; }
+    public DbSet<AssetInstallment> AssetInstallments { get; set; }
     public DbSet<Supplier> suppliers { get; set; }
     public virtual DbSet<BankMaster> BankMasters { get; set; }
     public virtual DbSet<ChequeMaster> ChequeMasters { get; set; }

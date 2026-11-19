@@ -27,6 +27,12 @@ namespace OBMS.WebAPI.Models.DTO
 
         public string? Remarks { get; set; }
 
+        /// <summary>
+        /// Guard / Staff issues only. true = salary deduction; false = non-deduction.
+        /// Only deduction issues are shown on the Uniform Loan Pending Stock Issues page.
+        /// </summary>
+        public bool IsDeduction { get; set; } = false;
+
         public string? LastUpdatedBy { get; set; }
 
         public List<StockIssueDocDetailRequestDto> Details { get; set; } = new();

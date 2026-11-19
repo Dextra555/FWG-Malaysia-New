@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { AbstractControl, FormBuilder, FormGroup, ValidatorFn, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
@@ -51,6 +52,9 @@ export class NewPOComponent implements OnInit {
   warehouseSearch = ''; filteredWarehouses: any[] = [];
   itemSearch = '';      filteredItems:      any[] = [];
 
+  // Service line toggle â€” when true the item dropdown is replaced by a free-text description
+  isServiceLineMode = false;
+
   currentStatus = 'Draft';
   approvedBy    = '';
   submittedBy   = '';
@@ -59,21 +63,21 @@ export class NewPOComponent implements OnInit {
   sstTotal      = 0;
   grandTotal    = 0;
 
-  // ── Reference-field inline edit (view mode) ──────────────────────────────
+  // â”€â”€ Reference-field inline edit (view mode) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   isEditingRef    = false;   // toggles the edit inputs in view mode
   refSaving       = false;   // disables Save button while API call is in flight
   refRemarks      = '';
 
-  // ── Linked GRN (set after loadExisting when PO is Approved or Received) ──
+  // â”€â”€ Linked GRN (set after loadExisting when PO is Approved or Received) â”€â”€
   linkedGRN: any = null;   // holds GRN info if a GRN has already been posted for this PO
 
-  // ── PO Editability (from backend) ────────────────────────────────────────
+  // â”€â”€ PO Editability (from backend) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   canEditPO         = false;   // true = form can be saved
   isPRLinked        = false;   // true = item list is locked, only Qty/Price editable
   linkedPRNumber    = '';      // PR number shown in lock banner
   editabilityLoaded = false;   // prevents flickering before first API response
 
-  // ── Approver check (set in checkIsApprover) ──────────────────────────────
+  // â”€â”€ Approver check (set in checkIsApprover) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   isApprover        = false;
   approverCheckDone = false;
   approverName      = '';
@@ -81,7 +85,7 @@ export class NewPOComponent implements OnInit {
   userAccessModel!: UserAccessModel;
   currentUser       = '';
   // BUG-11 FIX: use userRole derived from sessionStorage 'userrole', not currentUser string.
-  // '0'→'user', '1'→'admin', '2'→'superadmin'  (matches OBMSUsers.IsAdmin values)
+  // '0'â†’'user', '1'â†’'admin', '2'â†’'superadmin'  (matches OBMSUsers.IsAdmin values)
   userRole          = '';
   warningMessage    = '';
   errorMessage      = '';
@@ -95,7 +99,8 @@ export class NewPOComponent implements OnInit {
     private service: InventoryService,
     private _dataService: DatasharingService,
     private _masterService: MastermoduleService
-  ) {
+  ,
+    private titleService: Title) {
     this.userAccessModel = {
       readAccess: false, updateAccess: false,
       deleteAccess: false, createAccess: false
@@ -113,7 +118,9 @@ export class NewPOComponent implements OnInit {
     });
 
     this.lineForm = this.fb.group({
-      ItemID:     [0,   [Validators.required, mustSelect()]],
+      ItemID:             [0,   [Validators.required, mustSelect()]],
+      ServiceDescription: [''],
+      IsServiceLine:      [false],
       UOMID:      [0],
       OrderedQty: ['',  [Validators.required, greaterThanZero()]],
       UnitPrice:  ['',  [Validators.required, nonNegative()]],
@@ -129,6 +136,7 @@ export class NewPOComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Purchase Order');
     this.ID   = this.activatedRoute.snapshot.params['ID'];
     this.prID = this.activatedRoute.snapshot.queryParams['prID'];
 
@@ -151,7 +159,7 @@ export class NewPOComponent implements OnInit {
       this.isEdit = true;
       this.loadExisting();
     } else {
-      // New PO — fully editable by default
+      // New PO â€” fully editable by default
       this.canEditPO         = true;
       this.editabilityLoaded = true;
       this.service.getPOCode().subscribe({
@@ -159,7 +167,7 @@ export class NewPOComponent implements OnInit {
         error: () => {}
       });
       if (this.prID) {
-        // ── Guard: if a PO already exists for this PR, open it instead ──────
+        // â”€â”€ Guard: if a PO already exists for this PR, open it instead â”€â”€â”€â”€â”€â”€
         // This prevents duplicate POs when the same approved-PR notification
         // is clicked more than once.
         this.showLoadingSpinner = true;
@@ -167,14 +175,14 @@ export class NewPOComponent implements OnInit {
           next: (existingPO: any) => {
             this.hideSpinner();
             if (existingPO && existingPO.ID) {
-              // A PO already exists — redirect to it (read/edit the existing one)
+              // A PO already exists â€” redirect to it (read/edit the existing one)
               this.showMsg(
                 `A Purchase Order (${existingPO.PONumber}) already exists for this Purchase Requisition. Opening the existing order.`,
                 'info', 'Info'
               );
               this.route.navigate(['/inventory/purchase-order/new-po', existingPO.ID]);
             } else {
-              // No PO yet — safe to prefill from PR and create new
+              // No PO yet â€” safe to prefill from PR and create new
               this.frm.get('PRID')?.setValue(+this.prID);
               this.prefillFromPR(+this.prID);
             }
@@ -282,11 +290,11 @@ export class NewPOComponent implements OnInit {
         }));
         this.calcTotal();
 
-        // Always disable the form initially — editability API decides final state
+        // Always disable the form initially â€” editability API decides final state
         this.frm.disable();
         this.hideSpinner();
 
-        // ── Load editability from backend ──────────────────────────────────
+        // â”€â”€ Load editability from backend â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         this.service.getPOEditability(+this.ID).subscribe({
           next: (edit: any) => {
             // API returns PascalCase (PropertyNamingPolicy = null); support both cases
@@ -305,7 +313,7 @@ export class NewPOComponent implements OnInit {
             }
           },
           error: () => {
-            // On error, keep form locked — safe default
+            // On error, keep form locked â€” safe default
             this.canEditPO         = false;
             this.editabilityLoaded = true;
           }
@@ -319,7 +327,7 @@ export class NewPOComponent implements OnInit {
           this.isApprover = false;
         }
 
-        // If Approved / Partially Received / Fully Received — check for a posted GRN
+        // If Approved / Partially Received / Fully Received â€” check for a posted GRN
         const grnnableStatuses = ['Approved', 'Partially Received', 'Fully Received'];
         if (grnnableStatuses.includes(d.Status)) {
           this.service.getGRNByPOID(+this.ID).subscribe({
@@ -356,17 +364,14 @@ export class NewPOComponent implements OnInit {
     });
   }
 
-  // ── Line helpers ─────────────────────────────────────────────────────────
+  // â”€â”€ Line helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   onItemChange(itemID: number): void {
     const item = this.items.find(i => i.ID === +itemID);
     if (item) {
       this.lineForm.get('UOMID')?.setValue(item.UOMID || 0);
       this.lineForm.get('UnitPrice')?.setValue(item.Price || 0);
 
-      // ── Default Warehouse auto-fill ──────────────────────────────────────
-      // Only on a new PO (isEdit=false) or when the header warehouse is still
-      // unset (0). Never overwrite a warehouse the user has already chosen,
-      // and never fire during edit mode where the saved value must be preserved.
+      // â”€â”€ Default Warehouse auto-fill â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       if (!this.isEdit) {
         const currentWH = +this.frm.get('WarehouseID')?.value;
         if (currentWH === 0 && item.WarehouseID) {
@@ -374,7 +379,7 @@ export class NewPOComponent implements OnInit {
           if (whExists) {
             this.frm.get('WarehouseID')?.setValue(item.WarehouseID);
           } else if (item.WarehouseID) {
-            // Default warehouse is inactive — warn and leave field empty
+            // Default warehouse is inactive â€” warn and leave field empty
             this.warningMessage =
               'The default warehouse for this item is inactive. Please select another warehouse.';
           }
@@ -392,25 +397,54 @@ export class NewPOComponent implements OnInit {
     this.lineForm.get('LineTotal')?.setValue((qty * price).toFixed(2), { emitEvent: false });
   }
 
+  // â”€â”€ Service Line Toggle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  toggleServiceLine(): void {
+    this.isServiceLineMode = !this.isServiceLineMode;
+    this.lineForm.get('IsServiceLine')?.setValue(this.isServiceLineMode);
+    if (this.isServiceLineMode) {
+      // Service mode: clear ItemID validator, require ServiceDescription
+      this.lineForm.get('ItemID')?.clearValidators();
+      this.lineForm.get('ItemID')?.setValue(0);
+      this.lineForm.get('ServiceDescription')?.setValidators([Validators.required]);
+    } else {
+      // Item mode: restore ItemID validator, clear ServiceDescription
+      this.lineForm.get('ItemID')?.setValidators([Validators.required, mustSelect()]);
+      this.lineForm.get('ServiceDescription')?.clearValidators();
+      this.lineForm.get('ServiceDescription')?.setValue('');
+    }
+    this.lineForm.get('ItemID')?.updateValueAndValidity();
+    this.lineForm.get('ServiceDescription')?.updateValueAndValidity();
+  }
+
   addLine(): void {
     if (this.lineForm.invalid) { this.lineForm.markAllAsTouched(); return; }
     const raw  = this.lineForm.getRawValue();
-    const item = this.items.find(i => i.ID === +raw.ItemID);
+    const isService = !!raw.IsServiceLine;
+    const item = !isService ? this.items.find(i => i.ID === +raw.ItemID) : null;
     const sstPct = parseFloat(raw.SSTPercent) || 0;
     const line = {
       ...raw,
-      ItemCode:     item?.Code         || '',
-      ItemName:     item?.Name         || '',
-      CategoryName: item?.CategoryName || '',
-      UOMName:      item?.UOMName      || '',
-      LineTotal:    parseFloat(raw.OrderedQty) * parseFloat(raw.UnitPrice),
-      SSTPercent:   sstPct,
-      SSTAmount:    parseFloat(raw.OrderedQty) * parseFloat(raw.UnitPrice) * sstPct / 100
+      IsServiceLine:      isService,
+      ServiceDescription: isService ? (raw.ServiceDescription || '').trim() : null,
+      ItemCode:           item?.Code         || (isService ? 'SVC' : ''),
+      ItemName:           item?.Name         || (isService ? (raw.ServiceDescription || '').trim() : ''),
+      CategoryName:       item?.CategoryName || (isService ? 'Service' : ''),
+      UOMName:            item?.UOMName      || '',
+      LineTotal:          parseFloat(raw.OrderedQty) * parseFloat(raw.UnitPrice),
+      SSTPercent:         sstPct,
+      SSTAmount:          parseFloat(raw.OrderedQty) * parseFloat(raw.UnitPrice) * sstPct / 100
     };
     if (raw._index >= 0) { this.lines[raw._index] = line; }
     else { this.lines.push(line); }
+    // Reset form â€” also reset service mode back to normal item mode
+    this.isServiceLineMode = false;
+    this.lineForm.get('ItemID')?.setValidators([Validators.required, mustSelect()]);
+    this.lineForm.get('ServiceDescription')?.clearValidators();
+    this.lineForm.get('ItemID')?.updateValueAndValidity();
+    this.lineForm.get('ServiceDescription')?.updateValueAndValidity();
     this.lineForm.reset({
-      ItemID: 0, UOMID: 0, OrderedQty: '', UnitPrice: '',
+      ItemID: 0, ServiceDescription: '', IsServiceLine: false,
+      UOMID: 0, OrderedQty: '', UnitPrice: '',
       SSTPercent: 0, LineTotal: '0.00', Remarks: '', _index: -1
     });
     this.editLineIndex = -1;
@@ -420,11 +454,28 @@ export class NewPOComponent implements OnInit {
   editLine(i: number): void {
     this.editLineIndex = i;
     const l = this.lines[i];
+    const isService = !!l.IsServiceLine;
+    this.isServiceLineMode = isService;
+    // Set validators for the correct mode
+    if (isService) {
+      this.lineForm.get('ItemID')?.clearValidators();
+      this.lineForm.get('ServiceDescription')?.setValidators([Validators.required]);
+    } else {
+      this.lineForm.get('ItemID')?.setValidators([Validators.required, mustSelect()]);
+      this.lineForm.get('ServiceDescription')?.clearValidators();
+    }
+    this.lineForm.get('ItemID')?.updateValueAndValidity();
+    this.lineForm.get('ServiceDescription')?.updateValueAndValidity();
     this.lineForm.patchValue({
-      ItemID: l.ItemID, UOMID: l.UOMID || 0,
-      OrderedQty: l.OrderedQty, UnitPrice: l.UnitPrice,
-      SSTPercent: l.SSTPercent || 0,
-      Remarks: l.Remarks, _index: i
+      ItemID:             isService ? 0 : l.ItemID,
+      ServiceDescription: l.ServiceDescription || '',
+      IsServiceLine:      isService,
+      UOMID:              l.UOMID || 0,
+      OrderedQty:         l.OrderedQty,
+      UnitPrice:          l.UnitPrice,
+      SSTPercent:         l.SSTPercent || 0,
+      Remarks:            l.Remarks,
+      _index:             i
     });
     this.calcLineTotal();
   }
@@ -445,18 +496,18 @@ export class NewPOComponent implements OnInit {
     this.grandTotal = this.totalAmount + this.sstTotal;
   }
 
-  // ── State helpers ─────────────────────────────────────────────────────────
+  // â”€â”€ State helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // New form (isEdit=false): always editable, no PR lock yet.
   // Existing form (isEdit=true): driven by canEditPO from backend.
   canEdit():   boolean { return !this.isEdit || this.canEditPO; }
 
   get viewSupplierName(): string {
     const id = this.frm.get('SupplierID')?.value;
-    return this.suppliers.find((s: any) => s.Id === id)?.Name || '—';
+    return this.suppliers.find((s: any) => s.Id === id)?.Name || 'â€”';
   }
   get viewWarehouseName(): string {
     const id = this.frm.get('WarehouseID')?.value;
-    return this.warehouses.find((w: any) => w.ID === id)?.Name || '—';
+    return this.warehouses.find((w: any) => w.ID === id)?.Name || 'â€”';
   }
   // Submit is available on a new (unsaved) form with at least one line,
   // OR on an existing Draft (or Approved-GRN-deleted, which will be reset to Draft on save).
@@ -465,7 +516,7 @@ export class NewPOComponent implements OnInit {
   }
   canApproveAction(): boolean {
     if (!this.isEdit || this.currentStatus !== 'Submitted') return false;
-    // SuperAdmin (IsAdmin='2') has global approval authority — including their own submissions.
+    // SuperAdmin (IsAdmin='2') has global approval authority â€” including their own submissions.
     if (this.userRole === 'superadmin') return true;
     // Normal users: configured approver only, self-approval blocked
     return this.isApprover && this.approverCheckDone;
@@ -476,7 +527,7 @@ export class NewPOComponent implements OnInit {
        this.currentStatus === 'Partially Received');
   }
 
-  // ── Actions ───────────────────────────────────────────────────────────────
+  // â”€â”€ Actions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   onSave(): void {
     if (this.frm.invalid) { this.frm.markAllAsTouched(); return; }
     if (this.lines.length === 0) {
@@ -495,14 +546,16 @@ export class NewPOComponent implements OnInit {
       Remarks:      raw.Remarks,
       LastUpdatedBy: this.currentUser,
       Details: this.lines.map(l => ({
-        ID:         l.ID || 0,
-        ItemID:     l.ItemID,
-        UOMID:      l.UOMID || null,
-        OrderedQty: +l.OrderedQty,
-        UnitPrice:  +l.UnitPrice,
-        SSTPercent: +l.SSTPercent || 0,
-        Remarks:    l.Remarks || '',
-        LastUpdatedBy: this.currentUser
+        ID:                 l.ID || 0,
+        ItemID:             l.IsServiceLine ? null : (l.ItemID || null),
+        ServiceDescription: l.IsServiceLine ? (l.ServiceDescription || '') : null,
+        IsServiceLine:      !!l.IsServiceLine,
+        UOMID:              l.UOMID || null,
+        OrderedQty:         +l.OrderedQty,
+        UnitPrice:          +l.UnitPrice,
+        SSTPercent:         +l.SSTPercent || 0,
+        Remarks:            l.Remarks || '',
+        LastUpdatedBy:      this.currentUser
       }))
     };
     this.service.savePO(payload).subscribe({
@@ -542,7 +595,7 @@ export class NewPOComponent implements OnInit {
     }).afterClosed().subscribe((r: any) => {
       if (!r?.confirmDialog) return;
       this.showLoadingSpinner = true;
-      // Uses /api/Approval/SubmitPO — reads identity from JWT
+      // Uses /api/Approval/SubmitPO â€” reads identity from JWT
       this.service.submitPO(this.ID, this.currentUser).subscribe({
         next: (res: any) => {
           this.showMsg(res?.message || 'Purchase order submitted for approval.', 'success', 'Success Message');
@@ -556,7 +609,7 @@ export class NewPOComponent implements OnInit {
     });
   }
 
-  // ── Direct Submit (New form → save as Draft → immediately submit) ─────────
+  // â”€â”€ Direct Submit (New form â†’ save as Draft â†’ immediately submit) â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Allows the user to click [Submit] on a brand-new PO form without first saving a Draft.
   // If the PO is already a saved Draft (isEdit=true), this skips the save step.
   onSubmitDirect(): void {
@@ -581,7 +634,7 @@ export class NewPOComponent implements OnInit {
       this.showLoadingSpinner = true;
 
       if (this.isEdit) {
-        // Already a saved Draft — just submit
+        // Already a saved Draft â€” just submit
         this.service.submitPO(this.ID, this.currentUser).subscribe({
           next: (res: any) => {
             this.showMsg(res?.message || 'Purchase order submitted for approval.', 'success', 'Success Message');
@@ -593,7 +646,7 @@ export class NewPOComponent implements OnInit {
           }
         });
       } else {
-        // New form — save as Draft first, then immediately submit
+        // New form â€” save as Draft first, then immediately submit
         const raw = this.frm.getRawValue();
         const payload = {
           ID: 0, PONumber: raw.PONumber,
@@ -605,14 +658,16 @@ export class NewPOComponent implements OnInit {
           Remarks:      raw.Remarks,
           LastUpdatedBy: this.currentUser,
           Details: this.lines.map(l => ({
-            ID:         0,
-            ItemID:     l.ItemID,
-            UOMID:      l.UOMID || null,
-            OrderedQty: +l.OrderedQty,
-            UnitPrice:  +l.UnitPrice,
-            SSTPercent: +l.SSTPercent || 0,
-            Remarks:    l.Remarks || '',
-            LastUpdatedBy: this.currentUser
+            ID:                 0,
+            ItemID:             l.IsServiceLine ? null : (l.ItemID || null),
+            ServiceDescription: l.IsServiceLine ? (l.ServiceDescription || '') : null,
+            IsServiceLine:      !!l.IsServiceLine,
+            UOMID:              l.UOMID || null,
+            OrderedQty:         +l.OrderedQty,
+            UnitPrice:          +l.UnitPrice,
+            SSTPercent:         +l.SSTPercent || 0,
+            Remarks:            l.Remarks || '',
+            LastUpdatedBy:      this.currentUser
           }))
         };
         this.service.savePO(payload).subscribe({
@@ -623,7 +678,7 @@ export class NewPOComponent implements OnInit {
               this.hideSpinner();
               return;
             }
-            // Draft saved — now submit
+            // Draft saved â€” now submit
             this.service.submitPO(newID, this.currentUser).subscribe({
               next: (submitRes: any) => {
                 this.showMsg(submitRes?.message || 'Purchase order submitted for approval.', 'success', 'Success Message');
@@ -632,7 +687,7 @@ export class NewPOComponent implements OnInit {
                   .then(() => this.route.navigate(['/inventory/purchase-order/new-po', newID]));
               },
               error: (err: any) => {
-                // Save succeeded but submit failed — navigate to draft so user can retry
+                // Save succeeded but submit failed â€” navigate to draft so user can retry
                 this.showMsg(this.extractMsg(err, 'Saved as Draft, but submit failed. Please open the draft and try submitting again.'), 'error', 'Error Message');
                 this.route.navigateByUrl('/dummy', { skipLocationChange: true })
                   .then(() => this.route.navigate(['/inventory/purchase-order/new-po', newID]));
@@ -654,7 +709,7 @@ export class NewPOComponent implements OnInit {
     }).afterClosed().subscribe((r: any) => {
       if (!r?.confirmDialog) return;
       this.showLoadingSpinner = true;
-      // Uses /api/Approval/ApprovePOWithHistory — reads identity from JWT
+      // Uses /api/Approval/ApprovePOWithHistory â€” reads identity from JWT
       this.service.approvePOWithHistory(this.ID, { ApprovedBy: this.currentUser, Comments: '' }).subscribe({
         next: (res: any) => {
           this.showMsg(res?.message || 'Purchase order approved.', 'success', 'Success Message');
@@ -673,7 +728,7 @@ export class NewPOComponent implements OnInit {
       title: 'Reject Purchase Order',
       text: 'Please enter the reason for rejection:',
       input: 'textarea',
-      inputPlaceholder: 'Enter rejection reason here…',
+      inputPlaceholder: 'Enter rejection reason hereâ€¦',
       inputAttributes: { rows: '3' },
       showCancelButton: true,
       confirmButtonText: 'Reject',
@@ -686,7 +741,7 @@ export class NewPOComponent implements OnInit {
     }).then(result => {
       if (!result.isConfirmed || !result.value?.trim()) return;
       this.showLoadingSpinner = true;
-      // Uses /api/Approval/RejectPO — reads identity from JWT
+      // Uses /api/Approval/RejectPO â€” reads identity from JWT
       this.service.rejectPO(this.ID, { RejectedBy: this.currentUser, RejectReason: result.value.trim() }).subscribe({
         next: (res: any) => {
           this.showMsg(res?.message || 'Purchase order rejected.', 'warning', 'Warning Message');
@@ -712,7 +767,7 @@ export class NewPOComponent implements OnInit {
 
   onCancel(): void { this.route.navigate(['/inventory/purchase-order']); }
 
-  // ── Reference-field inline edit (view mode) ─────────────────────────────
+  // â”€â”€ Reference-field inline edit (view mode) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /** Enter edit mode for the reference fields. */
   startEditRef(): void {
@@ -785,7 +840,7 @@ export class NewPOComponent implements OnInit {
 
   hideSpinner(): void { this.showLoadingSpinner = false; }
 
-  // ── Searchable dropdown helpers ──────────────────────────────────────────
+  // â”€â”€ Searchable dropdown helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   onSupplierOpen(opened: boolean)   { if (opened) { this.supplierSearch  = ''; this.filteredSuppliers  = [...this.suppliers];  } }
   onWarehouseOpen(opened: boolean)  { if (opened) { this.warehouseSearch = ''; this.filteredWarehouses = [...this.warehouses]; } }
   onItemOpen(opened: boolean)       { if (opened) { this.itemSearch      = ''; this.filteredItems      = [...this.items];      } }
@@ -793,3 +848,4 @@ export class NewPOComponent implements OnInit {
   onWarehouseSearch(q: string) { this.warehouseSearch = q; const s = q.toLowerCase(); this.filteredWarehouses = this.warehouses.filter(x => x.Name?.toLowerCase().includes(s)); }
   onItemSearch(q: string)      { this.itemSearch      = q; const s = q.toLowerCase(); this.filteredItems      = this.items.filter(x      => x.Name?.toLowerCase().includes(s) || x.Code?.toLowerCase().includes(s)); }
 }
+

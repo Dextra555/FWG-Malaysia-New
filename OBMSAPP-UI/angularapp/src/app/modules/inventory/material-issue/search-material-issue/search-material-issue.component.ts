@@ -1,4 +1,5 @@
 ﻿import {AfterViewInit, Component, OnInit, ViewChild} from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import {FormBuilder, FormGroup, Validators} from "@angular/forms";
 import {MatTableDataSource} from "@angular/material/table";
 import {LiveAnnouncer} from "@angular/cdk/a11y";
@@ -33,7 +34,8 @@ export class SearchMaterialIssueComponent implements AfterViewInit {
   userRole: string = '';
   branchList: any = [];
 
-  constructor(public fb: FormBuilder, private _liveAnnouncer: LiveAnnouncer, public dialog: MatDialog, private service: InventoryService, public dialogRef: MatDialogRef<SearchMaterialIssueComponent>, private _dataService: DatasharingService) {
+  constructor(public fb: FormBuilder, private _liveAnnouncer: LiveAnnouncer, public dialog: MatDialog, private service: InventoryService, public dialogRef: MatDialogRef<SearchMaterialIssueComponent>, private _dataService: DatasharingService,
+    private titleService: Title) {
 
     this.currentUser = sessionStorage.getItem('username')!;
     const rawRole = sessionStorage.getItem('userrole');
@@ -91,3 +93,4 @@ export class SearchMaterialIssueComponent implements AfterViewInit {
     this.dialogRef.close(element);
   }
 }
+

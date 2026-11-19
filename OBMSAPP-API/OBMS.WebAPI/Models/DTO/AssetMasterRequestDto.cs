@@ -32,6 +32,41 @@
         public string? AssetCondition { get; set; }
         public string? Remarks { get; set; }
 
+        /// <summary>Supplier's invoice number for this asset purchase (reference).</summary>
+        public string? SupplierInvoiceNo { get; set; }
+
+        // ── Deposit & Installment fields ─────────────────────────────────────
+
+        /// <summary>Reference / display field only — not tracked via payments.</summary>
+        public decimal? DepositAmount { get; set; }
+
+        /// <summary>FULL (default) or MONTHLY</summary>
+        public string? PaymentTermType { get; set; }
+
+        /// <summary>First month of the installment schedule (MONTHLY mode only).</summary>
+        public DateTime? InstallmentStartDate { get; set; }
+
+        /// <summary>Amount to pay per month (MONTHLY mode only).</summary>
+        public decimal? MonthlyInstallmentAmount { get; set; }
+
+        /// <summary>
+        /// Total installment months.
+        /// Calculated by UI: CEILING((PurchaseAmount - DepositAmount) / MonthlyInstallmentAmount).
+        /// Stored here for reference; server re-calculates before generating rows.
+        /// </summary>
+        public int? InstallmentMonths { get; set; }
+
+        // ── Preclosing ────────────────────────────────────────────────────────
+        public bool IsPreClosing { get; set; } = false;
+        public DateTime? PreClosingDate { get; set; }
+        public decimal? PreClosingAmount { get; set; }
+
+        /// <summary>
+        /// When true, only IsPreClosing/PreClosingDate/PreClosingAmount are saved.
+        /// Used when asset is payment-locked but user enables preclosing.
+        /// </summary>
+        public bool IsPreClosingOnly { get; set; } = false;
+
         public DateTime? LastUpdatedDate { get; set; }
         public string? LastUpdatedBy { get; set; }
     }

@@ -1,4 +1,5 @@
 ﻿import { Component, OnInit } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router } from "@angular/router";
@@ -29,7 +30,8 @@ export class NewRecepientComponent implements OnInit {
 
   constructor(private fb: FormBuilder, public dialog: MatDialog, private route: Router, private activatedRoute: ActivatedRoute, private service: InventoryService,
     private _dataService: DatasharingService, private _masterService: MastermoduleService
-  ) {
+  ,
+    private titleService: Title) {
     this.userAccessModel = {
       readAccess: false,
       updateAccess: false,
@@ -80,6 +82,7 @@ export class NewRecepientComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Recipient Master');
     this.currentUser = sessionStorage.getItem('username')!;
     const rawRole = sessionStorage.getItem('userrole');
     if (rawRole == '1') { this.userRole = 'admin'; }
@@ -204,3 +207,4 @@ export class NewRecepientComponent implements OnInit {
     this.showLoadingSpinner = false
   }
 }
+

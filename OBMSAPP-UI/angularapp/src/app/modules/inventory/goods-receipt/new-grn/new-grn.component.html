@@ -241,12 +241,20 @@
               <th class="mat-header-cell" style="text-align:right">SST %</th>
               <th class="mat-header-cell" style="text-align:right;width:140px">Receiving Qty <span style="color:#ff8a80">*</span></th>
             </tr>
-          </thead>
           <tbody>
-            <tr class="mat-row" *ngFor="let l of lines">
-              <td class="mat-cell">{{ l.ItemCode }} — {{ l.ItemName }}</td>
-              <td class="mat-cell">{{ l.CategoryName }}</td>
-              <td class="mat-cell">{{ l.UOMName }}</td>
+            <tr class="mat-row" *ngFor="let l of lines; let i = index">
+              <td class="mat-cell">
+                <span *ngIf="!l.IsServiceLine">{{ l.ItemCode }} — {{ l.ItemName }}</span>
+                <span *ngIf="l.IsServiceLine">
+                  <span class="badge"
+                    style="background:#e65100;color:#fff;font-size:10px;padding:2px 6px;border-radius:10px;margin-right:4px;">
+                    SERVICE
+                  </span>
+                  {{ l.ServiceDescription || l.ItemName }}
+                </span>
+              </td>
+              <td class="mat-cell">{{ l.IsServiceLine ? '—' : l.CategoryName }}</td>
+              <td class="mat-cell">{{ l.IsServiceLine ? '—' : l.UOMName }}</td>
               <td class="mat-cell" style="text-align:right">{{ l.OrderedQty }}</td>
               <td class="mat-cell" style="text-align:right">{{ l.ReceivedQty }}</td>
               <td class="mat-cell" style="text-align:right">
@@ -259,7 +267,15 @@
                 <span *ngIf="!(l.SSTPercent > 0)" class="text-muted">—</span>
               </td>
               <td class="mat-cell" style="text-align:right">
-                <input type="number"
+                <!-- Service lines: read-only (auto-received, no physical stock to count) -->
+                <input *ngIf="l.IsServiceLine" type="number"
+                  [(ngModel)]="l.receivedInput"
+                  [readonly]="true"
+                  class="form-control text-right"
+                  style="width:120px;display:inline-block;background:#f5f5f5">
+
+                <!-- Normal lines: editable qty input -->
+                <input *ngIf="!l.IsServiceLine" type="number"
                   [(ngModel)]="l.receivedInput"
                   (input)="validateQty(l)"
                   [max]="l.PendingQty"
@@ -306,8 +322,18 @@
           <tbody>
             <tr class="mat-row" *ngFor="let d of existingDetails; let i = index">
               <td class="mat-cell">{{ i + 1 }}</td>
-              <td class="mat-cell">{{ d.ItemCode }} — {{ d.ItemName }}</td>
-              <td class="mat-cell">{{ d.CategoryName }}</td>
+              <td class="mat-cell">
+                <span *ngIf="!d.IsServiceLine">{{ d.ItemCode }} — {{ d.ItemName }}</span>
+                <span *ngIf="d.IsServiceLine">
+                  <span class="badge"
+                    style="background:#e65100;color:#fff;font-size:10px;padding:2px 6px;border-radius:10px;margin-right:4px;">
+                    SERVICE
+                  </span>
+                  {{ d.ItemName }}
+                </span>
+              </td>
+              <td class="mat-cell">{{ d.IsServiceLine ? '—' : d.CategoryName }}</td>
+              <td class="mat-cell">{{ d.IsServiceLine ? '—' : d.UOMName }}</td>
               <td class="mat-cell">{{ d.UOMName }}</td>
               <td class="mat-cell" style="text-align:right"><strong>{{ d.ReceivedQty }}</strong></td>
               <td class="mat-cell" style="text-align:right">{{ d.UnitCost | number:'1.2-2' }}</td>

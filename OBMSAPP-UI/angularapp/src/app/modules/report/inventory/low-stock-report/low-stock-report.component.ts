@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { environment } from '../../../../../environments/environment';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { FormBuilder, FormGroup } from '@angular/forms';
@@ -33,15 +34,16 @@ export class LowStockReportComponent implements OnInit {
     private service: InventoryService,
     private fb: FormBuilder,
     private _dataService: DatasharingService
-  ) {
+  ,
+    private titleService: Title) {
     this.currentUser = sessionStorage.getItem('username')!;
     this.url += this.currentUrl;
     this.url += 'LoginID=' + this.currentUser;
 
-    // No date filter — current snapshot only
+    // No date filter â€” current snapshot only
     this.frm = this.fb.group({
-      WarehouseID: ['0'],   // optional — 0 = All
-      CategoryID:  ['0'],   // optional — 0 = All
+      WarehouseID: ['0'],   // optional â€” 0 = All
+      CategoryID:  ['0'],   // optional â€” 0 = All
     });
 
     this.userAccessModel = {
@@ -51,6 +53,7 @@ export class LowStockReportComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Low Stock Report');
     this.currentUser = sessionStorage.getItem('username')!;
     if (!this.currentUser || this.currentUser === 'null') {
       this._dataService.getUsername().subscribe(u => this.currentUser = u);
@@ -124,3 +127,4 @@ export class LowStockReportComponent implements OnInit {
     this.errorMessage = '';
   }
 }
+

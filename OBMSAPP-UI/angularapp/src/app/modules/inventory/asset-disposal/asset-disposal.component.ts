@@ -1,4 +1,5 @@
-import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
+﻿import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { AbstractControl, FormBuilder, FormGroup, ValidatorFn, Validators } from '@angular/forms';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
@@ -31,7 +32,7 @@ export class AssetDisposalComponent implements OnInit, AfterViewInit {
     if (this.dataSource) { this.dataSource.paginator = this.paginator; this.dataSource.sort = this.sort; }
   }
 
-  // ── List mode ─────────────────────────────────────────────────────────────
+  // â”€â”€ List mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   userAccessModel!: UserAccessModel;
   currentUser = ''; userRole = '';
   warningMessage = ''; errorMessage = ''; showLoadingSpinner = false;
@@ -39,7 +40,7 @@ export class AssetDisposalComponent implements OnInit, AfterViewInit {
   displayedColumns = ['DisposalNo', 'AssetCode', 'AssetName', 'DisposalDate', 'DisposalType', 'DisposalReason', 'DisposalValue', 'Status', 'action'];
   dataSource = new MatTableDataSource<any>([]);
 
-  // ── Form mode (new or view existing) ──────────────────────────────────────
+  // â”€â”€ Form mode (new or view existing) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   showForm    = false;   // inline new form
   showDetail  = false;   // detail panel for existing record (view/approve)
   frm!: FormGroup;
@@ -48,7 +49,7 @@ export class AssetDisposalComponent implements OnInit, AfterViewInit {
   disposalNo = '';
   assetSearch = ''; filteredAssets: any[] = [];
 
-  // ── Detail / approval state ───────────────────────────────────────────────
+  // â”€â”€ Detail / approval state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   selectedRecord: any = null;   // currently viewed disposal record
   currentStatus   = '';
   submittedBy     = '';
@@ -68,7 +69,8 @@ export class AssetDisposalComponent implements OnInit, AfterViewInit {
     private service: InventoryService,
     private _dataService: DatasharingService,
     private _masterService: MastermoduleService
-  ) {
+  ,
+    private titleService: Title) {
     this.userAccessModel = { readAccess: false, updateAccess: false, deleteAccess: false, createAccess: false };
     this.buildForm();
   }
@@ -87,6 +89,7 @@ export class AssetDisposalComponent implements OnInit, AfterViewInit {
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Asset Disposal');
     this.currentUser = sessionStorage.getItem('username') || '';
     const rawRole = sessionStorage.getItem('userrole') ?? '0';
     this.userRole = rawRole === '2' ? 'superadmin' : rawRole === '1' ? 'admin' : 'user';
@@ -142,7 +145,7 @@ export class AssetDisposalComponent implements OnInit, AfterViewInit {
     });
   }
 
-  // ── New disposal form ─────────────────────────────────────────────────────
+  // â”€â”€ New disposal form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   openNewForm(): void {
     this.buildForm();
     this.service.getDisposalCode().subscribe({ next: d => { this.disposalNo = d.Code; this.frm.get('DisposalNo')?.setValue(d.Code); }, error: () => {} });
@@ -190,13 +193,13 @@ export class AssetDisposalComponent implements OnInit, AfterViewInit {
       this.showLoadingSpinner = true;
 
       if (!isNew) {
-        // Already saved Draft — just submit
+        // Already saved Draft â€” just submit
         this.service.submitAD(+raw.ID).subscribe({
           next: (res: any) => { this.showMsg(res?.message || 'Submitted.', 'success', 'Success Message'); this.showForm = false; this.loadList(); },
           error: err => { this.showMsg(this.extractMsg(err, 'Unable to submit.'), 'error', 'Error Message'); this.hideLoadingSpinner(); }
         });
       } else {
-        // New form — save then submit
+        // New form â€” save then submit
         const payload = { ...raw, AssetID: +raw.AssetID, LastUpdatedBy: this.currentUser };
         this.service.saveAssetDisposal(payload).subscribe({
           next: (saveRes: any) => {
@@ -218,7 +221,7 @@ export class AssetDisposalComponent implements OnInit, AfterViewInit {
     });
   }
 
-  // ── Detail / approve panel ────────────────────────────────────────────────
+  // â”€â”€ Detail / approve panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   openDetailByID(id: number): void {
     this.showLoadingSpinner = true;
     this.service.getAssetDisposalByID(id).subscribe({
@@ -246,7 +249,7 @@ export class AssetDisposalComponent implements OnInit, AfterViewInit {
 
   viewRecord(row: any): void { this.openDetailByID(row.ID); }
 
-  // ── Approver check (PR pattern) ───────────────────────────────────────────
+  // â”€â”€ Approver check (PR pattern) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   private checkIsApprover(): void {
     if (this.isApprover && this.approverCheckDone) return;
     this.service.isCurrentUserApprover('ASSET_DISPOSAL', this.submittedBy || '').subscribe({
@@ -279,7 +282,7 @@ export class AssetDisposalComponent implements OnInit, AfterViewInit {
       title: 'Reject Asset Disposal',
       text: 'Please enter the reason for rejection:',
       input: 'textarea',
-      inputPlaceholder: 'Enter rejection reason here…',
+      inputPlaceholder: 'Enter rejection reason hereâ€¦',
       inputAttributes: { rows: '3' },
       showCancelButton: true,
       confirmButtonText: 'Reject',
@@ -296,7 +299,7 @@ export class AssetDisposalComponent implements OnInit, AfterViewInit {
     });
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   getStatusLabel(row: any): string {
     const s = row.Status || 'Approved';
     if (s === 'Submitted') return 'Waiting Approval';
@@ -315,7 +318,7 @@ export class AssetDisposalComponent implements OnInit, AfterViewInit {
 
   applyFilter(e: Event): void { this.filterValue = (e.target as HTMLInputElement).value; this.dataSource.filter = this.filterValue.trim().toLowerCase(); }
   announceSortChange(s: Sort): void { this._liveAnnouncer.announce(s.direction ? `Sorted ${s.direction}ending` : 'Sorting cleared'); }
-  formatDate(v: any): string { if (!v) return '—'; return new Date(v).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' }); }
+  formatDate(v: any): string { if (!v) return 'â€”'; return new Date(v).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' }); }
   formatNumber(v: number): string { return (v ?? 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   private extractMsg(e: any, fb: string): string { return (e && typeof e === 'string') ? e : e?.error?.message || e?.message || fb; }
   private showMsg(msg: string, icon: 'success'|'error'|'warning'|'info', title: 'Success Message'|'Error Message'|'Warning Message'): void {
@@ -326,3 +329,4 @@ export class AssetDisposalComponent implements OnInit, AfterViewInit {
   onAssetOpen(opened: boolean) { if (opened) { this.assetSearch = ''; this.filteredAssets = [...this.assetList]; } }
   onAssetSearch(q: string) { this.assetSearch = q; const s = q.toLowerCase(); this.filteredAssets = this.assetList.filter(a => a.Name?.toLowerCase().includes(s) || a.AssetCode?.toLowerCase().includes(s)); }
 }
+

@@ -2017,11 +2017,11 @@ namespace OBMS.WebAPI.Controllers
 
         [HttpGet]
         [Route("GetSalaryList")]
-        public IActionResult GetSalaryList(DateTime Period, string Branch, string Client, string Bank, string PaymentType, string EmployeeType, string EmpTempType, string Source)
+        public IActionResult GetSalaryList(DateTime Period, string Branch, string Client, string Bank, string PaymentType, string EmployeeType, string EmpTempType, string Source, string PaymentMode = "Bank")
         {
             try
             {
-                List<BankStatementExcelDto> result = UtilityMain.GetSalaryList(Period, Branch, Client, Bank, PaymentType, EmployeeType, EmpTempType, Source);
+                List<BankStatementExcelDto> result = UtilityMain.GetSalaryList(Period, Branch, Client, Bank, PaymentType, EmployeeType, EmpTempType, Source, PaymentMode);
                 return Ok(result);
             }
             catch (Exception ex)

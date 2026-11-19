@@ -1714,6 +1714,147 @@ namespace OBMS.WebAPI.Controllers
             }
         }
 
+        /// <summary>
+        /// Bulk import Opening Stock from Excel rows.
+        /// Each row is saved independently — partial success is allowed.
+        /// Returns per-row success/failure results.
+        /// </summary>
+        [HttpPost("BulkImportOpeningStock")]
+        public async Task<IActionResult> BulkImportOpeningStock([FromBody] BulkOpeningStockRequestDto dto)
+        {
+            if (dto?.Rows == null || !dto.Rows.Any())
+                return BadRequest(new { success = false, message = "No rows to import." });
+
+            var results = new List<BulkOpeningStockResultDto>();
+            var currentUser = dto.LastUpdatedBy ?? GetJwtUser();
+
+            // Pre-load item and warehouse lookups for fast resolution
+            var allItems      = _oBMSDbContext.ItemMasters
+                .Where(i => i.Code != null)
+                .Select(i => new { i.ID, i.Code })
+                .ToList();
+            var allWarehouses = _oBMSDbContext.WarehouseMasters
+                .Where(w => w.IsActive)
+                .Select(w => new { w.ID, w.Code })
+                .ToList();
+
+            // Generate starting reference number once
+            var maxOSRow = _oBMSDbContext.OpeningStocks
+                .Where(x => x.ReferenceNo.StartsWith("OS"))
+                .OrderByDescending(x => x.ReferenceNo)
+                .Select(x => x.ReferenceNo)
+                .FirstOrDefault();
+            int osNum = 0;
+            if (!string.IsNullOrEmpty(maxOSRow) && maxOSRow.Length > 2)
+                int.TryParse(maxOSRow.Substring(2), out osNum);
+
+            foreach (var row in dto.Rows)
+            {
+                var result = new BulkOpeningStockResultDto
+                {
+                    RowNumber    = row.RowNumber,
+                    ItemCode     = row.ItemCode,
+                    WarehouseCode = row.WarehouseCode
+                };
+
+                try
+                {
+                    // Resolve ItemCode → ItemID
+                    var item = allItems.FirstOrDefault(i =>
+                        string.Equals(i.Code, row.ItemCode?.Trim(), StringComparison.OrdinalIgnoreCase));
+                    if (item == null)
+                    {
+                        result.Success = false;
+                        result.Message = $"Item code '{row.ItemCode}' not found.";
+                        results.Add(result);
+                        continue;
+                    }
+
+                    // Resolve WarehouseCode → WarehouseID
+                    var wh = allWarehouses.FirstOrDefault(w =>
+                        string.Equals(w.Code, row.WarehouseCode?.Trim(), StringComparison.OrdinalIgnoreCase));
+                    if (wh == null)
+                    {
+                        result.Success = false;
+                        result.Message = $"Warehouse code '{row.WarehouseCode}' not found or inactive.";
+                        results.Add(result);
+                        continue;
+                    }
+
+                    // Parse date
+                    if (!DateTime.TryParse(row.OpeningDate, out var openingDate))
+                    {
+                        result.Success = false;
+                        result.Message = $"Invalid date '{row.OpeningDate}'. Use format YYYY-MM-DD.";
+                        results.Add(result);
+                        continue;
+                    }
+
+                    if (row.OpeningQty <= 0)
+                    {
+                        result.Success = false;
+                        result.Message = "Opening quantity must be greater than zero.";
+                        results.Add(result);
+                        continue;
+                    }
+
+                    if (row.UnitCost < 0)
+                    {
+                        result.Success = false;
+                        result.Message = "Unit cost cannot be negative.";
+                        results.Add(result);
+                        continue;
+                    }
+
+                    // Generate reference number
+                    osNum++;
+                    string refNo = "OS" + osNum.ToString("D4");
+
+                    var saveDto = new OpeningStockRequestDto
+                    {
+                        ID          = 0,
+                        ReferenceNo = refNo,
+                        WarehouseID = wh.ID,
+                        ItemID      = item.ID,
+                        OpeningDate = openingDate,
+                        OpeningQty  = row.OpeningQty,
+                        UnitCost    = row.UnitCost,
+                        Remarks     = row.Remarks,
+                        LastUpdatedBy = currentUser
+                    };
+
+                    var (success, message, record) = await _inventoryRepository.SaveOpeningStock(saveDto);
+
+                    result.Success    = success;
+                    result.Message    = message;
+                    result.ReferenceNo = record?.ReferenceNo;
+
+                    if (!success) osNum--; // rollback counter on failure
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"[BulkImportOpeningStock] Row {row.RowNumber}: {ex.Message}");
+                    result.Success = false;
+                    result.Message = ex.InnerException?.Message ?? ex.Message;
+                    osNum--;
+                }
+
+                results.Add(result);
+            }
+
+            int successCount = results.Count(r => r.Success);
+            int failCount    = results.Count(r => !r.Success);
+
+            return Ok(new
+            {
+                success      = successCount > 0,
+                message      = $"{successCount} row(s) imported successfully. {failCount} row(s) failed.",
+                successCount,
+                failCount,
+                results
+            });
+        }
+
         // ── Part 2: Stock Ledger endpoints ───────────────────────────────────────
 
         /// <summary>
@@ -2449,10 +2590,20 @@ namespace OBMS.WebAPI.Controllers
                 if (!success) return BadRequest(new { success = false, message });
                 return Ok(new { success = true, message, id = record?.ID, grnNumber = record?.GRNNumber });
             }
+            catch (InvalidOperationException ex)
+            {
+                // Business rule violations (e.g. duplicate serial numbers) — show exact message
+                Console.Error.WriteLine($"[SaveGRN] Business rule: {ex.Message}");
+                return BadRequest(new { success = false, message = ex.Message });
+            }
             catch (Exception ex)
             {
-                Console.Error.WriteLine($"[SaveGRN] {ex}");
-                return StatusCode(500, new { success = false, message = "Unable to save the goods receipt right now. Please try again. If the problem continues, contact your administrator." });
+                Console.Error.WriteLine($"[SaveGRN] {ex.GetType().Name}: {ex.Message}");
+                Console.Error.WriteLine($"[SaveGRN] Inner: {ex.InnerException?.Message}");
+                Console.Error.WriteLine($"[SaveGRN] Stack: {ex.StackTrace}");
+                // Return detailed message for debugging
+                var detail = ex.InnerException?.Message ?? ex.Message;
+                return StatusCode(500, new { success = false, message = detail });
             }
         }
 
@@ -3324,7 +3475,10 @@ namespace OBMS.WebAPI.Controllers
             DateTime dateFrom,
             DateTime dateTo,
             int? employeeID,
-            string? issueToType = "ALL")
+            string? issueToType = "ALL",
+            string? clientName = "",
+            string? isDeduction = "ALL",   // "ALL" | "true" | "false"
+            int? clientID = null)
         {
             if (dateFrom == default || dateTo == default)
                 return BadRequest(new { success = false, message = "Please enter a valid date range." });
@@ -3337,6 +3491,22 @@ namespace OBMS.WebAPI.Controllers
                 int? empID = (employeeID.HasValue && employeeID > 0) ? employeeID : null;
                 var list = await _inventoryRepository.GetEmployeeIssueRegister(
                     dateFrom, dateTo, empID, issueToType, GetJwtUser());
+
+                // Client name text filter
+                if (!string.IsNullOrWhiteSpace(clientName))
+                    list = list.Where(x => (x.ClientName ?? "").Contains(clientName, StringComparison.OrdinalIgnoreCase)).ToList();
+
+                // Client ID dropdown filter
+                if (clientID.HasValue && clientID > 0)
+                    list = list.Where(x => x.ClientID == clientID).ToList();
+
+                // Deduction filter
+                if (!string.IsNullOrWhiteSpace(isDeduction) && isDeduction != "ALL")
+                {
+                    bool deduct = isDeduction.Equals("true", StringComparison.OrdinalIgnoreCase);
+                    list = list.Where(x => x.IsDeduction == deduct).ToList();
+                }
+
                 return Ok(list);
             }
             catch (Exception ex)
@@ -3452,6 +3622,34 @@ namespace OBMS.WebAPI.Controllers
             }
         }
 
+        [HttpGet("GetAssetPaymentLockStatus")]
+        public async Task<IActionResult> GetAssetPaymentLockStatus(int assetID)
+        {
+            try
+            {
+                var hasPayment = await (
+                    from ci in _oBMSDbContext.CreditorInvoices
+                    join bpd in _oBMSDbContext.BranchPaymentDetails
+                        on (decimal)ci.ID equals bpd.InvoiceID
+                    where ci.RecID       == assetID
+                       && ci.InvoiceType == "A"
+                       && ci.IsDeleted   == false
+                       && bpd.IsDeleted  != true
+                    select bpd.ID
+                ).AnyAsync();
+
+                return Ok(new { isLocked = hasPayment,
+                    message = hasPayment
+                        ? "This asset is locked for editing because a payment has been recorded against it."
+                        : null });
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[GetAssetPaymentLockStatus] {ex}");
+                return StatusCode(500, new { isLocked = false });
+            }
+        }
+
         [HttpPost("DeleteAssetRecord/{id}")]
         public async Task<IActionResult> DeleteAssetRecord(int id, [FromQuery] string currentUser)
         {
@@ -3465,6 +3663,36 @@ namespace OBMS.WebAPI.Controllers
             {
                 Console.Error.WriteLine($"[DeleteAssetRecord] {ex}");
                 return StatusCode(500, new { success = false, message = "Unable to delete the asset right now. Please try again." });
+            }
+        }
+
+        [HttpGet("GetAssetInstallments")]
+        public async Task<IActionResult> GetAssetInstallments(int assetID)
+        {
+            try
+            {
+                var rows = await _inventoryRepository.GetAssetInstallments(assetID);
+                return Ok(rows);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[GetAssetInstallments] {ex}");
+                return StatusCode(500, new { success = false, message = "Unable to load installments. Please try again." });
+            }
+        }
+
+        [HttpGet("GetAssetInstallmentsForPayment")]
+        public async Task<IActionResult> GetAssetInstallmentsForPayment(int supplierID, int paymentId = 0, DateTime? paymentDate = null)
+        {
+            try
+            {
+                var rows = await _inventoryRepository.GetAssetInstallmentsForPayment(supplierID, paymentId, paymentDate);
+                return Ok(rows);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[GetAssetInstallmentsForPayment] {ex}");
+                return StatusCode(500, new { success = false, message = "Unable to load asset installments for payment. Please try again." });
             }
         }
 

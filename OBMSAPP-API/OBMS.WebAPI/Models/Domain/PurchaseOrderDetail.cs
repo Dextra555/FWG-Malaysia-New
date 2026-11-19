@@ -12,7 +12,22 @@ namespace OBMS.WebAPI.Models.Domain
 
         public int POID { get; set; }
 
-        public int ItemID { get; set; }
+        /// <summary>
+        /// FK to ItemMaster. NULL when IsServiceLine = true (free-text service line).
+        /// </summary>
+        public int? ItemID { get; set; }
+
+        /// <summary>
+        /// Free-text description for service / non-inventory lines.
+        /// Populated only when IsServiceLine = true (ItemID is null).
+        /// </summary>
+        public string? ServiceDescription { get; set; }
+
+        /// <summary>
+        /// True when this line represents a service or ad-hoc charge
+        /// that is not tracked in the ItemMaster.
+        /// </summary>
+        public bool IsServiceLine { get; set; } = false;
 
         public int? UOMID { get; set; }
 
@@ -51,7 +66,7 @@ namespace OBMS.WebAPI.Models.Domain
         public virtual PurchaseOrder? PO { get; set; }
 
         [ForeignKey("ItemID")]
-        public virtual ItemMaster? Item { get; set; }
+        public virtual ItemMaster? Item { get; set; }   // null for service lines
 
         [ForeignKey("UOMID")]
         public virtual UOMMaster? UOM { get; set; }

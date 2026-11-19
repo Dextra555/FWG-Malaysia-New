@@ -250,7 +250,7 @@ namespace OBMS.WebAPI.BusinessObjects
                                         sbQuery = new StringBuilder();
                                         //***New Change 22/10/2024 to add special OT Hours from clientmaster for additional OT
                                         //***New Change 13/03/2025 to add KPI Hours from clientmaster for split Overtime calculation
-                                        sbQuery.Append("SELECT Client.KPIHours,employee.emp_client,EmployeeSalaryDetails.TMPGUARD ,EMP_DATE_OF_BIRTH,emp_citizen,EMPPAY_DATE_JOINED,EMPPAY_DATE_RESIGNED,EMPFL_EPF8Pa,EPFDETECT, SOCSODETECT,DETECTBYND55,ISNULL(EmployeeSalaryDetails.SKBBK,1) AS SKBBK, ");
+                                        sbQuery.Append("SELECT Client.KPIHours,employee.emp_client,EmployeeSalaryDetails.TMPGUARD ,EMP_DATE_OF_BIRTH,emp_citizen,EMPPAY_DATE_JOINED,EMPPAY_DATE_RESIGNED,EMPFL_EPF8Pa,EPFDETECT, SOCSODETECT,DETECTBYND55,ISNULL(EmployeeSalaryDetails.SKBBK,1) AS SKBBK,ISNULL(EmployeeSalaryDetails.SplitSalaryPayment,0) AS SplitSalaryPayment, ");
                                         sbQuery.Append(" INCOMETAXDETECT,EMPPAY_BASIC_RATE,AttendanceAllowance,SpecialAllowance,AttendanceAllowanceWorkingDays, ");
                                         sbQuery.Append(" AttendanceAllowanceFollowCalendar,PAYMODE,SalaryStructure.EmployeeNationality,SalaryStructure.WorkingHours, ");
                                         sbQuery.Append(" SalaryStructure.Name,SalaryStructure.TravelAllowance,SalaryStructure.GeneralDayRate,SalaryStructure.GeneralDayHours, ");
@@ -283,6 +283,7 @@ namespace OBMS.WebAPI.BusinessObjects
                                         bool DeductEPF = false;
                                         bool DeductSOCSO = false;
                                         bool DeductSKBBK = true; // SKBBK flag - default Yes
+                                        bool bSplitSalaryPayment = false;
                                         bool DeductEPFBeyond55 = false;
                                         bool DeductIncomeTax = false; //IncomeTax
                                         decimal WorkingHours = 0;
@@ -322,6 +323,7 @@ namespace OBMS.WebAPI.BusinessObjects
 
                                             DeductSOCSO = drEmployee.GetBoolean(drEmployee.GetOrdinal("SOCSODETECT"));
                                             DeductSKBBK = drEmployee.IsDBNull(drEmployee.GetOrdinal("SKBBK")) ? true : drEmployee.GetBoolean(drEmployee.GetOrdinal("SKBBK"));
+                                            bSplitSalaryPayment = drEmployee.IsDBNull(drEmployee.GetOrdinal("SplitSalaryPayment")) ? false : drEmployee.GetBoolean(drEmployee.GetOrdinal("SplitSalaryPayment"));
                                             DeductEPFBeyond55 = drEmployee.GetBoolean(drEmployee.GetOrdinal("DETECTBYND55"));
                                             DeductIncomeTax = drEmployee.GetBoolean(drEmployee.GetOrdinal("INCOMETAXDETECT"));//IncomeTax
                                             NoOfWorkingDays = drEmployee.GetDecimal(drEmployee.GetOrdinal("WorkingDays"));
@@ -3719,7 +3721,7 @@ namespace OBMS.WebAPI.BusinessObjects
                                             sbQuery.Append(" EPFEmployerContribution, SOCSOEmployerContribution, ");
                                             sbQuery.Append(" DailyAdvanceRecovery, MonthlyAdvanceRecovery,SpecialAdvanceRecovery, UniformIssueRecovery, LoanRecovery,IncomeTaxDeduction, ");
                                             sbQuery.Append(" MiscAmount, MiscDeduction,Bonus,SalaryPayMode, ");
-                                            sbQuery.Append(" LastUpdate,LastUpdatedBy,SIPEmployeeContribution,SIPEmployerContribution,SKBBKContribution) VALUES (@Period, @EmployeeID, @BasicSalaryDays,@BasicSalaryRate,@BasicSalary, ");
+                                            sbQuery.Append(" LastUpdate,LastUpdatedBy,SIPEmployeeContribution,SIPEmployerContribution,SKBBKContribution,SplitSalaryPayment) VALUES (@Period, @EmployeeID, @BasicSalaryDays,@BasicSalaryRate,@BasicSalary, ");
                                             sbQuery.Append(" @OverTimeSalaryHours,@OverTimeSalaryRate,@OverTimeSalary,@OffDaySalaryDays,@OffDaySalaryRate,@OffDaySalary, ");
                                             sbQuery.Append(" @OffDayOverTimeSalaryHours,@OffDayOverTimeSalaryRate,@OffDayOverTimeSalary,@HolidaySalaryDays, ");
                                             sbQuery.Append(" @HolidaySalaryRate,@HolidaySalary,@HolidayOverTimeSalaryHours,@HolidayOverTimeSalaryRate, ");
@@ -3728,7 +3730,7 @@ namespace OBMS.WebAPI.BusinessObjects
                                             sbQuery.Append(" @EPFEmployerContribution, @SOCSOEmployerContribution, ");
                                             sbQuery.Append(" @DailyAdvanceRecovery, @MonthlyAdvanceRecovery,@SpecialAdvanceRecovery, @UniformIssueRecovery, @LoanRecovery, @IncomeTaxDeduction, ");
                                             sbQuery.Append(" @MiscAmount, @MiscDeduction,@Bonus, @SalaryPayMode, ");
-                                            sbQuery.Append(" @LASTUPDATE,@LastUpdatedBy,@SIPEmployeeContribution,@SIPEmployerContribution,@SKBBKContribution); SELECT SCOPE_IDENTITY()");
+                                            sbQuery.Append(" @LASTUPDATE,@LastUpdatedBy,@SIPEmployeeContribution,@SIPEmployerContribution,@SKBBKContribution,@SplitSalaryPayment); SELECT SCOPE_IDENTITY()");
                                             cmdPaySlip.CommandText = sbQuery.ToString();
                                             cmdPaySlip.Parameters.AddWithValue("@Period", Period);
                                             cmdPaySlip.Parameters.AddWithValue("@EmployeeID", EmployeeID);
@@ -3778,6 +3780,7 @@ namespace OBMS.WebAPI.BusinessObjects
                                             cmdPaySlip.Parameters.AddWithValue("@SIPEmployeeContribution", dSIPEmployee);
                                             cmdPaySlip.Parameters.AddWithValue("@SIPEmployerContribution", dSIPEmployer);
                                             cmdPaySlip.Parameters.AddWithValue("@SKBBKContribution", dSKBBK);
+                                            cmdPaySlip.Parameters.AddWithValue("@SplitSalaryPayment", bSplitSalaryPayment);
                                             SqlDataReader drTemp = sdaPaySlip.RetrieveData(cmdPaySlip);
                                             drTemp.Read();
                                             decimal dPaySlipID = drTemp.GetDecimal(0);
@@ -3817,7 +3820,7 @@ namespace OBMS.WebAPI.BusinessObjects
                                         sbQuery.Append(" EPFEmployerContribution, SOCSOEmployerContribution, ");
                                         sbQuery.Append(" DailyAdvanceRecovery, MonthlyAdvanceRecovery,SpecialAdvanceRecovery, UniformIssueRecovery, LoanRecovery,IncomeTaxDeduction, ");
                                         sbQuery.Append(" MiscAmount, MiscDeduction,Bonus,SalaryPayMode, ");
-                                        sbQuery.Append(" LastUpdate,LastUpdatedBy,Version,SIPEmployeeContribution,SIPEmployerContribution,SKBBKContribution) VALUES (@Period, @EmployeeID, @BasicSalaryDays,@BasicSalaryRate,@BasicSalary, ");
+                                        sbQuery.Append(" LastUpdate,LastUpdatedBy,Version,SIPEmployeeContribution,SIPEmployerContribution,SKBBKContribution,SplitSalaryPayment) VALUES (@Period, @EmployeeID, @BasicSalaryDays,@BasicSalaryRate,@BasicSalary, ");
                                         sbQuery.Append(" @OverTimeSalaryHours,@OverTimeSalaryRate,@OverTimeSalary,@OffDaySalaryDays,@OffDaySalaryRate,@OffDaySalary, ");
                                         sbQuery.Append(" @OffDayOverTimeSalaryHours,@OffDayOverTimeSalaryRate,@OffDayOverTimeSalary,@HolidaySalaryDays, ");
                                         sbQuery.Append(" @HolidaySalaryRate,@HolidaySalary,@HolidayOverTimeSalaryHours,@HolidayOverTimeSalaryRate, ");
@@ -3826,7 +3829,7 @@ namespace OBMS.WebAPI.BusinessObjects
                                         sbQuery.Append(" @EPFEmployerContribution, @SOCSOEmployerContribution, ");
                                         sbQuery.Append(" @DailyAdvanceRecovery, @MonthlyAdvanceRecovery,@SpecialAdvanceRecovery, @UniformIssueRecovery, @LoanRecovery, @IncomeTaxDeduction, ");
                                         sbQuery.Append(" @MiscAmount, @MiscDeduction,@Bonus, @SalaryPayMode, ");
-                                        sbQuery.Append(" @LASTUPDATE,@LastUpdatedBy,@Version,@SIPEmployeeContribution,@SIPEmployerContribution,@SKBBKContribution)");
+                                        sbQuery.Append(" @LASTUPDATE,@LastUpdatedBy,@Version,@SIPEmployeeContribution,@SIPEmployerContribution,@SKBBKContribution,@SplitSalaryPayment)");
 
                                         SqlCommand cmdPaySlipAudit = new SqlCommand();
                                         cmdPaySlipAudit.CommandText = sbQuery.ToString();
@@ -3878,6 +3881,7 @@ namespace OBMS.WebAPI.BusinessObjects
                                         cmdPaySlipAudit.Parameters.AddWithValue("@SIPEmployeeContribution", dSIPEmployee);
                                         cmdPaySlipAudit.Parameters.AddWithValue("@SIPEmployerContribution", dSIPEmployer);
                                         cmdPaySlipAudit.Parameters.AddWithValue("@SKBBKContribution", dSKBBK);
+                                        cmdPaySlipAudit.Parameters.AddWithValue("@SplitSalaryPayment", bSplitSalaryPayment);
 
                                         sdaPaySlip.ExecuteSQL(cmdPaySlipAudit);
                                         cmdPaySlipAudit.Dispose();

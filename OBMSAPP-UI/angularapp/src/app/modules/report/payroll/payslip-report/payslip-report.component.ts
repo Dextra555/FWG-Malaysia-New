@@ -440,6 +440,18 @@ export class PayslipReportComponent implements OnInit {
     this.url += "&Lang=" + this.payslipForm.get("LanguageType")?.value
     this.urlSafe = this.sanitizer.bypassSecurityTrustResourceUrl(this.url);
   }
+  getShift2SalaryReportClick(): void {
+    this.url = environment.baseReportUrl;
+    this.url += 'Payroll/PaySlipShift2salaryReport.aspx?';
+    this.url += "LoginID=" + this.currentUser;
+    this.url += "&Branch=" + this.payslipForm.get("BranchCode")?.value;
+    this.url += "&Period=" + this.dtAdvanceDate;
+    this.url += "&EmployeeType=" + this.payslipForm.get("EmployeeType")?.value;
+    this.url += "&Employee=" + (this.payslipForm.get("EmployeeCode")?.value || '0');
+    this.url += "&ClientCode=" + (this.payslipForm.get("ClientCode")?.value || '');
+    this.url += "&Lang=" + this.payslipForm.get("LanguageType")?.value;
+    this.urlSafe = this.sanitizer.bypassSecurityTrustResourceUrl(this.url);
+  }
   getPaySlipRBAReportClick(): void {
     this.url = environment.baseReportUrl;
     this.url += 'Payroll/PaySlipRBAReport.aspx?';
@@ -450,6 +462,18 @@ export class PayslipReportComponent implements OnInit {
     this.url += "&Employee=" + (this.payslipForm.get("EmployeeCode")?.value || '0')
     this.url += "&ClientCode=" + (this.payslipForm.get("ClientCode")?.value || '')
     this.url += "&Lang=" + this.payslipForm.get("LanguageType")?.value
+    this.urlSafe = this.sanitizer.bypassSecurityTrustResourceUrl(this.url);
+  }
+  getPayslip1ReportClick(): void {
+    this.url = environment.baseReportUrl;
+    this.url += 'Payroll/Payslip1Report.aspx?';
+    this.url += "LoginID=" + this.currentUser;
+    this.url += "&Branch=" + this.payslipForm.get("BranchCode")?.value;
+    this.url += "&Period=" + this.dtAdvanceDate;
+    this.url += "&EmployeeType=" + this.payslipForm.get("EmployeeType")?.value;
+    this.url += "&Employee=" + (this.payslipForm.get("EmployeeCode")?.value || '0');
+    this.url += "&ClientCode=" + (this.payslipForm.get("ClientCode")?.value || '');
+    this.url += "&Lang=" + this.payslipForm.get("LanguageType")?.value;
     this.urlSafe = this.sanitizer.bypassSecurityTrustResourceUrl(this.url);
   }
   handleErrors(error: string) {

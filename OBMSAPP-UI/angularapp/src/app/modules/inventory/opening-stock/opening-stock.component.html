@@ -18,7 +18,7 @@
 <mat-card>
   <mat-card-content>
 
-    <!-- Toolbar: Search + Add button -->
+    <!-- Toolbar: Search + Add + Import buttons -->
     <div class="row" *ngIf="warningMessage === ''">
       <div class="col-12 col-sm-12 col-md-4 col-lg-4 order-2 order-md-1">
         <mat-form-field appearance="outline">
@@ -28,6 +28,22 @@
       </div>
       <div class="col-12 col-sm-12 col-md-8 col-lg-8 order-1 order-md-2">
         <div class="text-right pt-2">
+          <!-- Download Template -->
+          <button class="btn btn-outline-secondary mr-2" (click)="downloadTemplate()"
+            matTooltip="Download CSV template for bulk import">
+            <mat-icon style="vertical-align:middle;font-size:18px">file_download</mat-icon>
+            Download Template
+          </button>
+          <!-- Bulk Import — superadmin only -->
+          <button
+            *ngIf="userRole === 'superadmin'"
+            class="btn btn-outline-primary mr-2"
+            (click)="onImportClick()"
+            matTooltip="Import multiple opening stock entries from CSV — Superadmin only">
+            <mat-icon style="vertical-align:middle;font-size:18px">upload_file</mat-icon>
+            Import Excel
+          </button>
+          <!-- Add Single -->
           <button
             *ngIf="userAccessModel.createAccess || currentUser === 'superadmin'"
             class="btn wlt-c-furg-btn-primary"
@@ -35,6 +51,118 @@
             <mat-icon>add</mat-icon><span>Add Opening Stock</span>
           </button>
         </div>
+      </div>
+    </div>
+
+    <!-- ── IMPORT PANEL ──────────────────────────────────────────────────── -->
+    <div *ngIf="showImportPanel" class="import-panel mt-3">
+      <div class="import-panel-header">
+        <mat-icon style="vertical-align:middle;margin-right:6px">upload_file</mat-icon>
+        Bulk Import — Opening Stock
+        <button type="button" class="close-import-btn" (click)="cancelImport()">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+      <div class="import-panel-body">
+
+        <!-- Instructions -->
+        <div class="import-instructions">
+          <strong>Instructions:</strong>
+          <ol style="margin:6px 0 0 16px;padding:0;font-size:13px">
+            <li>Click <strong>Download Template</strong> to get the CSV template.</li>
+            <li>Fill in your data: <code>ItemCode, WarehouseCode, OpeningDate (YYYY-MM-DD), OpeningQty, UnitCost, Remarks</code></li>
+            <li>Save as CSV and upload below.</li>
+            <li>Review the preview, then click <strong>Import Now</strong>.</li>
+          </ol>
+        </div>
+
+        <!-- File upload -->
+        <div class="import-upload-row">
+          <label class="import-upload-label">
+            <mat-icon>attach_file</mat-icon>
+            <span>{{ importFileName || 'Choose CSV file…' }}</span>
+            <input #fileInput type="file" accept=".csv,.xlsx,.xls" (change)="onFileSelected($event)" style="display:none">
+          </label>
+          <button type="button" class="btn btn-sm btn-outline-secondary ml-2"
+            onclick="this.previousElementSibling.click()">Browse</button>
+        </div>
+
+        <!-- File error message -->
+        <div *ngIf="importFileError" class="import-file-error mt-2">
+          <mat-icon style="font-size:16px;vertical-align:middle;margin-right:4px">error_outline</mat-icon>
+          {{ importFileError }}
+        </div>
+
+        <!-- Preview table -->
+        <div *ngIf="importRows.length > 0" class="mt-3">
+          <div class="import-summary-bar">
+            <span class="badge-total">Total: {{ importRows.length }}</span>
+            <span class="badge-valid">Valid: {{ pendingRowCount }}</span>
+            <span class="badge-error" *ngIf="errorRowCount > 0">Errors: {{ errorRowCount }}</span>
+            <span *ngIf="importDone" class="badge-done">
+              Imported: {{ importSuccessCount }} &nbsp;|&nbsp; Failed: {{ importFailCount }}
+            </span>
+          </div>
+
+          <div class="table-responsive mt-2">
+            <table class="import-preview-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Item Code</th>
+                  <th>Warehouse</th>
+                  <th>Date</th>
+                  <th class="text-right">Qty</th>
+                  <th class="text-right">Unit Cost</th>
+                  <th>Remarks</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let r of importRows" [class]="getRowStatusClass(r)">
+                  <td>{{ r.rowNumber }}</td>
+                  <td>{{ r.itemCode }}</td>
+                  <td>{{ r.warehouseCode }}</td>
+                  <td>{{ r.openingDate }}</td>
+                  <td class="text-right">{{ r.openingQty }}</td>
+                  <td class="text-right">{{ r.unitCost | number:'1.2-2' }}</td>
+                  <td>{{ r.remarks }}</td>
+                  <td>
+                    <span *ngIf="r.status === 'pending'" class="imp-badge imp-pending">Ready</span>
+                    <span *ngIf="r.status === 'success'" class="imp-badge imp-success">
+                      ✓ {{ r.refNo }}
+                    </span>
+                    <span *ngIf="r.status === 'error'" class="imp-badge imp-error"
+                      [matTooltip]="r.message">
+                      ✗ Error
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Import actions -->
+          <div class="import-actions mt-3" *ngIf="!importDone">
+            <button type="button" class="btn wlt-c-furg-btn-gray mr-2" (click)="cancelImport()">Cancel</button>
+            <button type="button" class="btn wlt-c-furg-btn-primary"
+              [disabled]="importProcessing || pendingRowCount === 0"
+              (click)="onImportSubmit()">
+              <span *ngIf="importProcessing">
+                <span class="spinner-border spinner-border-sm mr-1"></span> Importing...
+              </span>
+              <span *ngIf="!importProcessing">
+                <mat-icon style="vertical-align:middle;font-size:18px">cloud_upload</mat-icon>
+                Import {{ pendingRowCount }} Row(s)
+              </span>
+            </button>
+          </div>
+
+          <div class="import-actions mt-3" *ngIf="importDone">
+            <button type="button" class="btn wlt-c-furg-btn-gray" (click)="cancelImport()">Close</button>
+          </div>
+        </div>
+
       </div>
     </div>
 

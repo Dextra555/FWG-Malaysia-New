@@ -1,4 +1,5 @@
-import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
+﻿import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
 import { MatSort, Sort } from '@angular/material/sort';
@@ -44,11 +45,13 @@ export class StockIssueReturnComponent implements OnInit, AfterViewInit {
     private route: Router,
     private _dataService: DatasharingService,
     private _masterService: MastermoduleService
-  ) {
+  ,
+    private titleService: Title) {
     this.userAccessModel = { readAccess: false, updateAccess: false, deleteAccess: false, createAccess: false };
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Stock Issue Return');
     this.currentUser = sessionStorage.getItem('username')!;
     if (!this.currentUser || this.currentUser === 'null') {
       this._dataService.getUsername().subscribe(u => { this.currentUser = u; });
@@ -113,3 +116,4 @@ export class StockIssueReturnComponent implements OnInit, AfterViewInit {
 
   hideLoadingSpinner(): void { this.showLoadingSpinner = false; }
 }
+

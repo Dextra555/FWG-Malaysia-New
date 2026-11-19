@@ -258,8 +258,28 @@
 
     <!-- Add line form — only for non-PR-linked editable POs -->
     <div *ngIf="canEdit() && !isPRLinked" [formGroup]="lineForm">
+
+      <!-- Service Line Toggle -->
+      <div class="row mb-1">
+        <div class="col-12">
+          <mat-slide-toggle
+            [checked]="isServiceLineMode"
+            (change)="toggleServiceLine()"
+            color="primary">
+            <span style="font-size:13px;font-weight:500;margin-left:6px;">
+              Service / Non-inventory Line
+            </span>
+          </mat-slide-toggle>
+          <span *ngIf="isServiceLineMode"
+            style="margin-left:12px;font-size:12px;color:#e65100;font-weight:500;">
+            ⚡ Service line — enter a description instead of selecting an item
+          </span>
+        </div>
+      </div>
+
       <div class="row">
-        <div class="col-12 col-md-4">
+        <!-- Item dropdown (normal mode) -->
+        <div class="col-12 col-md-4" *ngIf="!isServiceLineMode">
           <mat-form-field appearance="outline">
             <mat-label>Item <span style="color:red">*</span></mat-label>
             <mat-select formControlName="ItemID" (selectionChange)="onItemChange($event.value)" (openedChange)="onItemOpen($event)">
@@ -278,6 +298,20 @@
             <mat-error *ngIf="lineForm.get('ItemID')?.hasError('mustSelect')">Please select an item.</mat-error>
           </mat-form-field>
         </div>
+
+        <!-- Service description (service mode) -->
+        <div class="col-12 col-md-4" *ngIf="isServiceLineMode">
+          <mat-form-field appearance="outline">
+            <mat-label>Service Description <span style="color:red">*</span></mat-label>
+            <input matInput formControlName="ServiceDescription"
+              placeholder="e.g. Consultancy fee, Delivery charge…" maxlength="250">
+            <mat-hint>Free-text — max 250 chars</mat-hint>
+            <mat-error *ngIf="lineForm.get('ServiceDescription')?.hasError('required')">
+              Please enter a service description.
+            </mat-error>
+          </mat-form-field>
+        </div>
+
         <div class="col-12 col-md-2">
           <mat-form-field appearance="outline">
             <mat-label>Qty <span style="color:red">*</span></mat-label>
@@ -337,9 +371,18 @@
         <tbody>
           <tr class="mat-row" *ngFor="let l of lines; let i = index">
             <td class="mat-cell">{{i+1}}</td>
-            <td class="mat-cell">{{l.ItemCode}} — {{l.ItemName}}</td>
-            <td class="mat-cell">{{l.CategoryName}}</td>
-            <td class="mat-cell">{{l.UOMName}}</td>
+            <td class="mat-cell">
+              <span *ngIf="!l.IsServiceLine">{{l.ItemCode}} — {{l.ItemName}}</span>
+              <span *ngIf="l.IsServiceLine">
+                <span class="badge"
+                  style="background:#e65100;color:#fff;font-size:10px;padding:2px 6px;border-radius:10px;margin-right:4px;">
+                  SERVICE
+                </span>
+                {{l.ServiceDescription}}
+              </span>
+            </td>
+            <td class="mat-cell">{{l.IsServiceLine ? '—' : l.CategoryName}}</td>
+            <td class="mat-cell">{{l.IsServiceLine ? '—' : l.UOMName}}</td>
 
             <!-- Ordered Qty — inline edit when PR-linked -->
             <td class="mat-cell" style="text-align:right">

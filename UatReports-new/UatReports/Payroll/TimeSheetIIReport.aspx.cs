@@ -83,58 +83,21 @@ public partial class PayRoll_TimeSheetIIReport : System.Web.UI.Page
             crptPaySlipList.ParameterFieldInfo["LoginID"].CurrentValues.Add(paramUserName);
             crptPaySlipList.ParameterFieldInfo["Period"].CurrentValues.Add(paramPeriod);
             crptPaySlipList.ParameterFieldInfo["EmployeeType"].CurrentValues.Add(paramEmployeeType);
-            // For 'Others' (Other Guards) type, override the EMP_ROLE filter via record selection formula
-            string employeeTypeCheck = Request.QueryString["EmployeeType"];
-            bool isForeignGuard = (employeeTypeCheck == "FGuard" || employeeTypeCheck == "Foreign Guard");
-            if (isForeignGuard)
-            {
-                crptPaySlip.ReportDocument.RecordSelectionFormula += " AND {Employee.EMP_CITIZEN} = 1";
-            }
-            else             if (!string.IsNullOrEmpty(employeeTypeCheck) && employeeTypeCheck != "Guard" && employeeTypeCheck != "Staff" && employeeTypeCheck != "Foreign Guard" && employeeTypeCheck != "FGuard")
-            {
-                // Override Crystal parameter to 'Guard' so passport length condition works correctly for Others
-                crptPaySlipList.ParameterFieldInfo["EmployeeType"].CurrentValues.Clear();
-                ParameterDiscreteValue paramEmpTypeOverride = new ParameterDiscreteValue();
-                paramEmpTypeOverride.Value = "Guard";
-                crptPaySlipList.ParameterFieldInfo["EmployeeType"].CurrentValues.Add(paramEmpTypeOverride);
-                // Append EMP_ROLE filter to restrict to Others employees only
-                crptPaySlipList.ParameterFieldInfo["EmployeeType"].CurrentValues.Clear();
-                ParameterDiscreteValue paramGuardOverride = new ParameterDiscreteValue();
-                paramGuardOverride.Value = "Guard";
-                crptPaySlipList.ParameterFieldInfo["EmployeeType"].CurrentValues.Add(paramGuardOverride);
-                crptPaySlipList.ParameterFieldInfo["EmployeeType"].CurrentValues.Clear();
-                ParameterDiscreteValue paramGuardOverride = new ParameterDiscreteValue();
-                paramGuardOverride.Value = "Guard";
-                crptPaySlipList.ParameterFieldInfo["EmployeeType"].CurrentValues.Add(paramGuardOverride);
-                crptPaySlipList.ParameterFieldInfo["EmployeeType"].CurrentValues.Clear();
-                ParameterDiscreteValue paramGuardOverride = new ParameterDiscreteValue();
-                paramGuardOverride.Value = "Guard";
-                crptPaySlipList.ParameterFieldInfo["EmployeeType"].CurrentValues.Add(paramGuardOverride);
-string connStr = System.Configuration.ConfigurationManager.ConnectionStrings["obms"] != null ? ConfigurationManager.ConnectionStrings["obms"].ConnectionString : string.Format("Server={0};Database={1};User Id={2};Password={3};", ConfigurationManager.AppSettings["Server"], ConfigurationManager.AppSettings["Database"], ConfigurationManager.AppSettings["UserID"], ConfigurationManager.AppSettings["Password"]);
-
-                var empIds = new System.Collections.Generic.List<string>();
-                using (var conn = new System.Data.SqlClient.SqlConnection(connStr))
-                {
-                    conn.Open();
-                    var cmd = new System.Data.SqlClient.SqlCommand(
-                        "SELECT EMP_ID FROM Employee WHERE EMP_ROLE = @role", conn);
-                    cmd.Parameters.AddWithValue("@role", employeeTypeCheck);
-                    using (var reader = cmd.ExecuteReader())
-                        while (reader.Read()) empIds.Add(reader.GetInt32(0).ToString());
-                }
-
-                if (empIds.Count > 0)
-                    crptPaySlip.ReportDocument.RecordSelectionFormula +=
-                        " AND {PaySlip.EmployeeID} IN (" + string.Join(",", empIds) + ")";
-                else
-                    crptPaySlip.ReportDocument.RecordSelectionFormula +=
-                        " AND {PaySlip.EmployeeID} = 0";
-            }
 
             // Add selection formula if Employee is specified  
             if (this.Page.Request.QueryString["Employee"] != "0")
             {
                 crptPaySlip.ReportDocument.RecordSelectionFormula += " AND {vwTimeSheet.EMP_CODE}='" + Request.QueryString["Employee"] + "'";
+            }
+
+            // ===== EMPLOYEE TYPE FILTER =====
+            string employeeType = (Request.QueryString["EmployeeType"] ?? "").Trim();
+            if (!string.IsNullOrEmpty(employeeType))
+            {
+                if (employeeType == "FGuard" || employeeType == "Foreign Guard")
+                    crptPaySlip.ReportDocument.RecordSelectionFormula += " AND {Employee.EMP_CITIZEN} = 1";
+                else
+                    crptPaySlip.ReportDocument.RecordSelectionFormula += " AND {Employee.EMP_ROLE} = '" + employeeType.Replace("'", "''") + "'";
             }
         }
         catch (ArgumentNullException ex)

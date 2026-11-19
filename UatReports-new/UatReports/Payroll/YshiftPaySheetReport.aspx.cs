@@ -1,0 +1,152 @@
+using System;
+using System.Configuration;
+using CrystalDecisions.Shared;
+using CrystalDecisions.Web;
+
+public partial class Payroll_YwithoutshiftPaySheetReport : System.Web.UI.Page 
+{
+    protected void Page_Load(object sender, EventArgs e)
+    {
+        try
+        {
+            foreach (CrystalDecisions.CrystalReports.Engine.Table table in CrystalReportSourceData.ReportDocument.Database.Tables)
+            {
+                // Optionally, ensure the Tool Panel is hidden
+                CrystalReportViewerView.ToolPanelView = ToolPanelViewType.None;
+                TableLogOnInfo logonInfo = table.LogOnInfo;
+                logonInfo.ConnectionInfo.ServerName = ConfigurationManager.AppSettings["Server"];
+                logonInfo.ConnectionInfo.DatabaseName = ConfigurationManager.AppSettings["Database"];
+                logonInfo.ConnectionInfo.Password = ConfigurationManager.AppSettings["Password"];
+                logonInfo.ConnectionInfo.UserID = ConfigurationManager.AppSettings["UserID"];
+                table.ApplyLogOnInfo(logonInfo);
+            }
+
+            ParameterDiscreteValue paramCompanyName = new ParameterDiscreteValue();
+            paramCompanyName.Value = ConfigurationManager.AppSettings["CompanyName"];
+
+            ParameterDiscreteValue paramAddress1 = new ParameterDiscreteValue();
+            paramAddress1.Value = ConfigurationManager.AppSettings["Address1"];
+
+            ParameterDiscreteValue paramAddress2 = new ParameterDiscreteValue();
+            paramAddress2.Value = ConfigurationManager.AppSettings["Address2"];
+
+            ParameterDiscreteValue paramPostCodeCity = new ParameterDiscreteValue();
+            paramPostCodeCity.Value = ConfigurationManager.AppSettings["PostCode"] + " " + ConfigurationManager.AppSettings["City"];
+
+            ParameterDiscreteValue paramState = new ParameterDiscreteValue();
+            paramState.Value = ConfigurationManager.AppSettings["State"];
+
+            ParameterDiscreteValue paramRegistration = new ParameterDiscreteValue();
+            paramRegistration.Value = ConfigurationManager.AppSettings["Registration"];
+
+            ParameterDiscreteValue paramPhone = new ParameterDiscreteValue();
+            paramPhone.Value = ConfigurationManager.AppSettings["Phone"];
+
+
+            ParameterDiscreteValue paramUserName = new ParameterDiscreteValue();
+            paramUserName.Value = Request.QueryString["LoginID"];
+
+            ParameterDiscreteValue paramBranch = new ParameterDiscreteValue();
+
+            ParameterDiscreteValue paramPeriod = new ParameterDiscreteValue();
+            paramPeriod.Value = Request.QueryString["Period"];
+
+            ParameterDiscreteValue paramEmployeeType = new ParameterDiscreteValue();
+            paramEmployeeType.Value = Request.QueryString["EmployeeType"];
+
+            ParameterDiscreteValue paramPayType = new ParameterDiscreteValue();
+
+
+            CrystalReportViewerView.ParameterFieldInfo["CompanyName"].CurrentValues.Add(paramCompanyName);
+            CrystalReportViewerView.ParameterFieldInfo["CompanyAddress1"].CurrentValues.Add(paramAddress1);
+            CrystalReportViewerView.ParameterFieldInfo["CompanyAddress2"].CurrentValues.Add(paramAddress2);
+            CrystalReportViewerView.ParameterFieldInfo["CompanyAddress3"].CurrentValues.Add(paramPostCodeCity);
+            CrystalReportViewerView.ParameterFieldInfo["CompanyAddress4"].CurrentValues.Add(paramState);
+            CrystalReportViewerView.ParameterFieldInfo["CompanyRegistration"].CurrentValues.Add(paramRegistration);
+            CrystalReportViewerView.ParameterFieldInfo["CompanyPhone"].CurrentValues.Add(paramPhone);
+
+            CrystalReportViewerView.ParameterFieldInfo["LoginID"].CurrentValues.Add(paramUserName);
+            CrystalReportViewerView.ParameterFieldInfo["Period"].CurrentValues.Add(paramPeriod);
+            CrystalReportViewerView.ParameterFieldInfo["EmployeeType"].CurrentValues.Add(paramEmployeeType);
+
+            if (this.Page.Request.QueryString["Branch"] == "0")
+            {
+              
+                paramBranch.Value = "ALL BRANCHES";
+                CrystalReportViewerView.ParameterFieldInfo["Branch"].CurrentValues.Add(paramBranch);
+            }
+            else
+            {
+                CrystalReportSourceData.ReportDocument.RecordSelectionFormula += " AND {command.Code}= '" + Request.QueryString["Branch"] + "'";
+               
+                paramBranch.Value = Request.QueryString["Branch"];
+                CrystalReportViewerView.ParameterFieldInfo["Branch"].CurrentValues.Add(paramBranch);
+            }
+
+
+            switch (int.Parse(Request.QueryString["RepOption"]))
+            {
+                case 0:
+                    paramPayType.Value = "ALL";
+                    CrystalReportViewerView.ParameterFieldInfo["PayType"].CurrentValues.Add(paramPayType);
+
+                    break;
+                case 1:
+                    CrystalReportSourceData.ReportDocument.RecordSelectionFormula += " AND {command.PayMode} = 'Bank'";
+                    paramPayType.Value = "BANK";
+                    CrystalReportViewerView.ParameterFieldInfo["PayType"].CurrentValues.Add(paramPayType);
+
+                    break;
+                case 2:
+                    CrystalReportSourceData.ReportDocument.RecordSelectionFormula += " AND {command.PayMode} = 'Cash'";
+                    paramPayType.Value = "CASH";
+                    CrystalReportViewerView.ParameterFieldInfo["PayType"].CurrentValues.Add(paramPayType);
+
+                    break;
+                case 3:
+                    CrystalReportSourceData.ReportDocument.RecordSelectionFormula += " AND {command.PayMode} = 'Cheque'";
+                    paramPayType.Value = "CHEQUE";
+                    CrystalReportViewerView.ParameterFieldInfo["PayType"].CurrentValues.Add(paramPayType);
+
+                    break;
+                case 4:
+                    CrystalReportSourceData.ReportDocument.RecordSelectionFormula += " AND {command.TMPGUARD} = true";
+                    paramPayType.Value = "Temporary Guard";
+                    CrystalReportViewerView.ParameterFieldInfo["PayType"].CurrentValues.Add(paramPayType);
+
+                    break;
+                case 5:
+                    CrystalReportSourceData.ReportDocument.RecordSelectionFormula += " AND {command.EMP_CITIZEN} = 0";
+                    paramPayType.Value = "Temporary Guard";
+                    CrystalReportViewerView.ParameterFieldInfo["PayType"].CurrentValues.Add(paramPayType);
+
+                    break;
+                case 6:
+                    CrystalReportSourceData.ReportDocument.RecordSelectionFormula += " AND {command.EMP_CITIZEN} = 1";
+                    paramPayType.Value = "Temporary Guard";
+                    CrystalReportViewerView.ParameterFieldInfo["PayType"].CurrentValues.Add(paramPayType);
+
+                    break;
+            }
+
+            // ===== EMPLOYEE TYPE FILTER =====
+            string employeeTypeVal = (Request.QueryString["EmployeeType"] ?? "").Trim();
+            if (!string.IsNullOrEmpty(employeeTypeVal)
+                && employeeTypeVal != "FGuard"
+                && employeeTypeVal != "Foreign Guard")
+            {
+                CrystalReportSourceData.ReportDocument.RecordSelectionFormula +=
+                    " AND {command.EMP_ROLE} = '" + employeeTypeVal.Replace("'", "''") + "'";
+            }
+
+        }
+        catch (ArgumentNullException ex)
+        {
+            Response.Write("Error: Data cannot be null. " + ex.Message);
+        }
+        catch (Exception ex)
+        {
+            Response.Write("Error: " + ex.Message);
+        }
+    }
+}

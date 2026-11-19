@@ -43,33 +43,39 @@ public partial class PayRoll_MiscTransReport : System.Web.UI.Page
             ParameterDiscreteValue paramPhone = new ParameterDiscreteValue();
             paramPhone.Value = ConfigurationManager.AppSettings["Phone"];
 
-            // ── Query string values ───────────────────────────────────────
-            string branch       = Request.QueryString["Branch"]       ?? "";
-            string employeeType = Request.QueryString["EmployeeType"] ?? "Guard";
-            string transTypeStr = Request.QueryString["TransType"]    ?? "1";
-            string loginID      = Request.QueryString["LoginID"]      ?? "";
-            string period       = Request.QueryString["Period"]       ?? "";
+            // ── Report parameters ─────────────────────────────────────────
+            string branch        = Request.QueryString["Branch"]       ?? "";
+            string employeeType  = Request.QueryString["EmployeeType"] ?? "Guard";
+            string transTypeStr  = Request.QueryString["TransType"]    ?? "1";
+            string loginID       = Request.QueryString["LoginID"]      ?? "";
+            string period        = Request.QueryString["Period"]        ?? "";
 
             DateTime periodDate;
             if (!DateTime.TryParse(period, out periodDate))
                 periodDate = DateTime.Now;
 
+            // ── Build RecordSelectionFormula fully from code ───────────────
+            string periodMonth = periodDate.Month.ToString();
+            string periodYear  = periodDate.Year.ToString();
             int transTypeInt;
             if (!int.TryParse(transTypeStr, out transTypeInt))
                 transTypeInt = 1;
 
-            // ── NOTE: RecordSelectionFormula is NOT set here because the   ──
-            // ── .rpt already has its own formula using {?Branch} parameter: ──
-            // ── ({?Branch} = "ALL BRANCHES" OR {BranchMaster.Code} = {?Branch}) ──
-            // ── Passing "ALL BRANCHES" when no branch selected handles all  ──
-            // ── branches automatically via the .rpt formula.                ──
+            string formula =
+                "(Month({MiscTrans.TransDate}) = " + periodMonth +
+                " AND Year({MiscTrans.TransDate}) = " + periodYear + ")" +
+                " AND {Employee.EMP_ROLE} = '" + employeeType.Replace("'", "''") + "'" +
+                " AND {MiscTrans.TransType} = " + transTypeInt;
 
-            // When branch is empty = All Branches → pass "ALL BRANCHES"
-            // so the .rpt record selection formula shows all records.
-            string branchParam = string.IsNullOrEmpty(branch) ? "ALL BRANCHES" : branch;
+            // Add branch filter only when a specific branch is selected
+            if (!string.IsNullOrEmpty(branch))
+                formula += " AND {BranchMaster.Code} = '" + branch.Replace("'", "''") + "'";
 
+            crptMiscTrans.ReportDocument.RecordSelectionFormula = formula;
+
+            // ── Parameters for display/header fields in RPT ───────────────
             ParameterDiscreteValue paramBranch = new ParameterDiscreteValue();
-            paramBranch.Value = branchParam;
+            paramBranch.Value = string.IsNullOrEmpty(branch) ? "ALL BRANCHES" : branch;
 
             ParameterDiscreteValue paramUserName = new ParameterDiscreteValue();
             paramUserName.Value = loginID;

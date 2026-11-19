@@ -1,4 +1,5 @@
 ﻿import { AfterViewInit, Component, ViewChild } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { MatTableDataSource } from '@angular/material/table';
@@ -69,7 +70,8 @@ export class UtilityBillsComponent implements AfterViewInit {
 
   constructor(private fb: FormBuilder, public dialog: MatDialog, private _liveAnnouncer: LiveAnnouncer,
     commonService: CommonService, private service: InventoryService, private route: Router,
-    private _dataService: DatasharingService, private _masterService: MastermoduleService) {
+    private _dataService: DatasharingService, private _masterService: MastermoduleService,
+    private titleService: Title) {
     this.userAccessModel = {
       readAccess: false,
       updateAccess: false,
@@ -117,6 +119,7 @@ export class UtilityBillsComponent implements AfterViewInit {
   }
 
   ngOnInit() {
+    this.titleService.setTitle('Utility Bills');
     this._dataService.getSelectedInvoice().subscribe(result => {
       if (!result || result.length === 0) return;
 
@@ -435,3 +438,4 @@ export class UtilityBillsComponent implements AfterViewInit {
     this.showLoadingSpinner = false
   }
 }
+

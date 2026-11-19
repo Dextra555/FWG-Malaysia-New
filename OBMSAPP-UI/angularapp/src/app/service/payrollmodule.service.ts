@@ -532,7 +532,7 @@ export class PayrollModuleService {
     return this.httpClient.get<any[]>(`${this.apiUrl}payroll/GetEmployeeLoanList`, { params });
   }
   getSalaryList(period: string, branch: string, client: string, bank: string, paymentType: string,
-    employeeType: string, empTempType: string, source: string
+    employeeType: string, empTempType: string, source: string, paymentMode: string = 'Bank'
   ): Observable<any[]> {
     let params = new HttpParams()
       .set('Period', period)
@@ -542,7 +542,8 @@ export class PayrollModuleService {
       .set('PaymentType', paymentType)
       .set('EmployeeType', employeeType)
       .set('EmpTempType', empTempType)
-      .set('Source', source);
+      .set('Source', source)
+      .set('PaymentMode', paymentMode);
 
     return this.httpClient.get<any[]>(`${this.apiUrl}payroll/GetSalaryList`, { params });
   }

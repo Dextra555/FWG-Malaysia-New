@@ -1,4 +1,5 @@
-import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
+﻿import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatPaginator } from '@angular/material/paginator';
@@ -29,23 +30,23 @@ export class AssetLocationComponent implements OnInit, AfterViewInit {
   currentUser = ''; warningMessage = ''; errorMessage = '';
   showLoadingSpinner = false;
 
-  // ── Mode control ──────────────────────────────────────────
+  // â”€â”€ Mode control â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // mode: 'defect-list' | 'update-form' | 'location-log'
   mode: 'defect-list' | 'update-form' | 'location-log' = 'defect-list';
 
-  // ── Defect location list ──────────────────────────────────
+  // â”€â”€ Defect location list â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   displayedColumns = ['AssetCode', 'Name', 'LocationStatus', 'CurrentLocation', 'LocationUpdatedBy', 'LocationUpdatedDate', 'action'];
   dataSource = new MatTableDataSource<any>([]);
   pageSizeOptions = [10, 20, 30, 50];
   filterValue = '';
 
-  // ── Update location form ──────────────────────────────────
+  // â”€â”€ Update location form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   frm!: FormGroup;
   assetList: any[] = [];
   selectedAsset: any = null;
   locationStatuses = ['Normal', 'Defect_Location', 'Parked_Away', 'Unknown'];
 
-  // ── Location log ──────────────────────────────────────────
+  // â”€â”€ Location log â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   logAsset: any = null;
   locationLog: any[] = [];
   logColumns = ['LogDate', 'NewLocation', 'LocationStatus', 'PreviousLocation', 'UpdatedBy', 'Remarks'];
@@ -59,7 +60,8 @@ export class AssetLocationComponent implements OnInit, AfterViewInit {
     private service: InventoryService,
     private _dataService: DatasharingService,
     private _masterService: MastermoduleService
-  ) {
+  ,
+    private titleService: Title) {
     this.userAccessModel = { readAccess: false, updateAccess: false, deleteAccess: false, createAccess: false };
     this.buildForm();
   }
@@ -75,6 +77,7 @@ export class AssetLocationComponent implements OnInit, AfterViewInit {
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Asset Location');
     this.currentUser = sessionStorage.getItem('username')!;
     if (!this.currentUser || this.currentUser === 'null') this._dataService.getUsername().subscribe(u => { this.currentUser = u; });
     this.getUserAccessRights(this.currentUser, 'Asset Location');
@@ -113,16 +116,17 @@ export class AssetLocationComponent implements OnInit, AfterViewInit {
     this.showLoadingSpinner = true;
     this.service.getDefectLocationAssets().subscribe({
       next: d => {
-        this.dataSource = new MatTableDataSource(d || []);
+        const data = d || [];
+        this.dataSource = new MatTableDataSource(data);
         this.dataSource.paginator = this.paginator;
         this.dataSource.sort = this.sort;
         this.hideLoadingSpinner();
       },
-      error: () => { this.errorMessage = 'Unable to load defect location list.'; this.hideLoadingSpinner(); }
+      error: () => { this.errorMessage = 'Unable to load location list.'; this.hideLoadingSpinner(); }
     });
   }
 
-  // ── Form actions ──────────────────────────────────────────
+  // â”€â”€ Form actions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   openUpdateForm(asset?: any): void {
     this.buildForm();
@@ -190,6 +194,8 @@ export class AssetLocationComponent implements OnInit, AfterViewInit {
         this.showMsg(res?.message || 'Location updated successfully.', 'success', 'Success Message');
         this.mode = 'defect-list';
         this.loadDefectList();
+        // Also refresh assetList so the dropdown reflects latest data
+        this.loadAssetList();
       },
       error: err => {
         this.showMsg(this.extractMsg(err, 'Unable to update location. Please try again.'), 'error', 'Error Message');
@@ -198,7 +204,7 @@ export class AssetLocationComponent implements OnInit, AfterViewInit {
     });
   }
 
-  locationStatusLabel(s: string): string { return s?.replace(/_/g, ' ') || '—'; }
+  locationStatusLabel(s: string): string { return s?.replace(/_/g, ' ') || 'â€”'; }
 
   locationStatusBadge(s: string): string {
     switch (s) {
@@ -211,7 +217,7 @@ export class AssetLocationComponent implements OnInit, AfterViewInit {
   }
 
   formatDate(v: any): string {
-    if (!v) return '—';
+    if (!v) return 'â€”';
     return new Date(v).toLocaleString('en-MY', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   }
 
@@ -222,3 +228,4 @@ export class AssetLocationComponent implements OnInit, AfterViewInit {
   }
   hideLoadingSpinner(): void { this.showLoadingSpinner = false; }
 }
+

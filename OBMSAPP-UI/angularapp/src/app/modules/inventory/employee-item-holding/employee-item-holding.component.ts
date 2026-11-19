@@ -1,4 +1,5 @@
-import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
+﻿import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
 import { MatSort, Sort } from '@angular/material/sort';
@@ -37,6 +38,7 @@ export class EmployeeItemHoldingComponent implements OnInit, AfterViewInit {
 
   // Filters
   issueToTypeFilter: string = 'ALL';
+  clientNameFilter:  string = '';
   filterValue: string = '';
 
   // Summary list (one row per employee)
@@ -46,7 +48,7 @@ export class EmployeeItemHoldingComponent implements OnInit, AfterViewInit {
 
   // Detail panel (items for selected employee)
   selectedEmployee: any = null;
-  detailColumns: string[] = ['ItemCode', 'ItemName', 'CategoryName', 'UOMName', 'TotalIssued', 'TotalReturned', 'NetHolding', 'UnitCost', 'TotalValue', 'LastIssueNo', 'LastIssueDate'];
+  detailColumns: string[] = ['ItemCode', 'ItemName', 'CategoryName', 'UOMName', 'ClientName', 'TotalIssued', 'TotalReturned', 'NetHolding', 'UnitCost', 'TotalValue', 'LastIssueNo', 'LastIssueDate'];
   detailSource: MatTableDataSource<any> = new MatTableDataSource<any>([]);
   showDetail: boolean = false;
   detailFilterValue: string = '';
@@ -61,11 +63,13 @@ export class EmployeeItemHoldingComponent implements OnInit, AfterViewInit {
     private route: Router,
     private _dataService: DatasharingService,
     private _masterService: MastermoduleService
-  ) {
+  ,
+    private titleService: Title) {
     this.userAccessModel = { readAccess: false, updateAccess: false, deleteAccess: false, createAccess: false };
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Employee Item Holding');
     this.currentUser = sessionStorage.getItem('username')!;
     if (!this.currentUser || this.currentUser === 'null') {
       this._dataService.getUsername().subscribe(u => { this.currentUser = u; });
@@ -116,6 +120,22 @@ export class EmployeeItemHoldingComponent implements OnInit, AfterViewInit {
 
   onFilterChange(): void { this.loadSummary(); }
 
+  /** Filter detail items by client name */
+  applyDetailClientFilter(): void {
+    const cn = (this.clientNameFilter || '').trim().toLowerCase();
+    if (!cn) {
+      this.detailSource.filter = this.detailFilterValue.trim().toLowerCase();
+      return;
+    }
+    // Combined filter: existing text filter + client name
+    this.detailSource.filterPredicate = (row: any, filter: string) => {
+      const matchText = !filter || JSON.stringify(row).toLowerCase().includes(filter);
+      const matchClient = !cn || (row.ClientName || '').toLowerCase().includes(cn);
+      return matchText && matchClient;
+    };
+    this.detailSource.filter = this.detailFilterValue.trim().toLowerCase() || ' ';
+  }
+
   applyFilter(event: Event): void {
     this.filterValue = (event.target as HTMLInputElement).value;
     this.dataSource.filter = this.filterValue.trim().toLowerCase();
@@ -155,7 +175,7 @@ export class EmployeeItemHoldingComponent implements OnInit, AfterViewInit {
   }
 
   formatDate(val: any): string {
-    if (!val) return '—';
+    if (!val) return 'â€”';
     return new Date(val).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
@@ -169,3 +189,4 @@ export class EmployeeItemHoldingComponent implements OnInit, AfterViewInit {
 
   hideLoadingSpinner(): void { this.showLoadingSpinner = false; }
 }
+

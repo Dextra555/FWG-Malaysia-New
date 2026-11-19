@@ -13,7 +13,7 @@ public partial class PayRoll_MaterialVoucherReport : System.Web.UI.Page
             {
                 // Optionally, ensure the Tool Panel is hidden
                 CrystalReportViewerView.ToolPanelView = ToolPanelViewType.None;
-                CrystalReportViewerView.Zoom(133);
+                CrystalReportViewerView.Zoom(100);
                 TableLogOnInfo logonInfo = table.LogOnInfo;
                 logonInfo.ConnectionInfo.ServerName = ConfigurationManager.AppSettings["Server"];
                 logonInfo.ConnectionInfo.DatabaseName = ConfigurationManager.AppSettings["Database"];

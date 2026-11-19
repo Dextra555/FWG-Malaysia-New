@@ -37,6 +37,9 @@ namespace OBMS.WebAPI.Models.DTO
 
         /// <summary>Reference number of the most recent issue document</summary>
         public string? LastIssueNo { get; set; }
+
+        /// <summary>Client name from ClientMaster — the client this item is issued for (nullable)</summary>
+        public string? ClientName { get; set; }
     }
 
     /// <summary>

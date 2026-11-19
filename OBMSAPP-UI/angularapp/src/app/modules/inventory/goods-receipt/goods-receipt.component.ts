@@ -1,4 +1,5 @@
-import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
+﻿import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
 import { MatSort, Sort } from '@angular/material/sort';
@@ -26,12 +27,14 @@ export class GoodsReceiptComponent implements OnInit, AfterViewInit {
   pageSizeOptions: number[] = [];
 
   constructor(private _liveAnnouncer: LiveAnnouncer, public dialog: MatDialog, private service: InventoryService,
-    private route: Router, private _dataService: DatasharingService, private _masterService: MastermoduleService) {
+    private route: Router, private _dataService: DatasharingService, private _masterService: MastermoduleService,
+    private titleService: Title) {
     this.userAccessModel = { readAccess: false, updateAccess: false, deleteAccess: false, createAccess: false };
     for (let i = 10; i <= 50; i += 10) this.pageSizeOptions.push(i);
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Goods Receipt Note');
     this.currentUser = sessionStorage.getItem('username')!;
     if (!this.currentUser || this.currentUser === 'null') this._dataService.getUsername().subscribe(u => this.currentUser = u);
     this.getUserAccessRights(this.currentUser, 'Goods Receipt');
@@ -65,7 +68,7 @@ export class GoodsReceiptComponent implements OnInit, AfterViewInit {
 
   deleteClick(row: any): void {
     this.showLoadingSpinner = true;
-    // Always check backend dependency first — do NOT rely solely on frontend
+    // Always check backend dependency first â€” do NOT rely solely on frontend
     this.service.checkGRNDependency(row.ID).subscribe({
       next: (dep: any) => {
         this.hideSpinner();
@@ -73,7 +76,7 @@ export class GoodsReceiptComponent implements OnInit, AfterViewInit {
           this.showMsg(dep.blockingMessage || 'This goods receipt cannot be deleted due to a downstream dependency.', 'warning', 'Warning Message');
           return;
         }
-        // Safe to delete — ask for confirmation
+        // Safe to delete â€” ask for confirmation
         this.dialog.open(DialogConfirmationComponent, {
           data: `Are you sure you want to delete Goods Receipt <b>${row.GRNNumber}</b>?<br><br>
                  This will reverse the stock update and revert the purchase order status.`
@@ -101,3 +104,4 @@ export class GoodsReceiptComponent implements OnInit, AfterViewInit {
   }
   hideSpinner(): void { this.showLoadingSpinner = false; }
 }
+

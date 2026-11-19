@@ -54,5 +54,7 @@ namespace OBMS.WebAPI.Models.Domain
         public string LastUpdatedBy { get; set; }
         public decimal? SIPEmployeeContribution { get; set; }
         public decimal? SIPEmployerContribution { get; set; }
+        public decimal? SKBBKContribution { get; set; }
+        public bool? SplitSalaryPayment { get; set; }
     }
 }

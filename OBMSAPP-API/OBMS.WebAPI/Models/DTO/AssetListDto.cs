@@ -20,6 +20,7 @@ namespace OBMS.WebAPI.Models.DTO
         public string AssetStatus { get; set; } = "Available";
         public string? AssetCondition { get; set; }
         public string? Remarks { get; set; }
+        public string? SupplierInvoiceNo { get; set; }
         public bool IsActive { get; set; }
         public DateTime LASTUPDATE { get; set; }
         public string? LastUpdatedBy { get; set; }
@@ -33,5 +34,21 @@ namespace OBMS.WebAPI.Models.DTO
         public string? LocationStatus { get; set; }
         public string? LocationUpdatedBy { get; set; }
         public DateTime? LocationUpdatedDate { get; set; }
+
+        // ── Deposit & Installment Payment ─────────────────────────────────────
+        public decimal? DepositAmount { get; set; }
+        public string? PaymentTermType { get; set; }
+        public DateTime? InstallmentStartDate { get; set; }
+        public decimal? MonthlyInstallmentAmount { get; set; }
+        public int? InstallmentMonths { get; set; }
+
+        // ── Preclosing ────────────────────────────────────────────────────────
+        public bool IsPreClosing { get; set; } = false;
+        public DateTime? PreClosingDate { get; set; }
+        public decimal? PreClosingAmount { get; set; }
+
+        // Installment summary (loaded separately)
+        public int? PaidInstallments { get; set; }
+        public int? PendingInstallments { get; set; }
     }
 }

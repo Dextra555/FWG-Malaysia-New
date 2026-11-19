@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { environment } from '../../../../../environments/environment';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { FormBuilder, FormGroup } from '@angular/forms';
@@ -34,15 +35,16 @@ export class WarehouseStockReportComponent implements OnInit {
     private service: InventoryService,
     private fb: FormBuilder,
     private _dataService: DatasharingService
-  ) {
+  ,
+    private titleService: Title) {
     this.currentUser = sessionStorage.getItem('username')!;
     this.url += this.currentUrl;
     this.url += 'LoginID=' + this.currentUser;
 
     this.frm = this.fb.group({
-      WarehouseID: ['0'],            // optional — 0 = All
-      CategoryID:  ['0'],            // optional — 0 = All
-      ItemID:      ['0'],            // optional — 0 = All
+      WarehouseID: ['0'],            // optional â€” 0 = All
+      CategoryID:  ['0'],            // optional â€” 0 = All
+      ItemID:      ['0'],            // optional â€” 0 = All
       AsOfDate:    [new Date()]      // default = today
     });
 
@@ -53,6 +55,7 @@ export class WarehouseStockReportComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Warehouse Stock Report');
     this.currentUser = sessionStorage.getItem('username')!;
     if (!this.currentUser || this.currentUser === 'null') {
       this._dataService.getUsername().subscribe(u => this.currentUser = u);
@@ -147,3 +150,4 @@ export class WarehouseStockReportComponent implements OnInit {
     return `${year}-${month}-${day}`;
   }
 }
+

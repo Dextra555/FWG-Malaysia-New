@@ -15,6 +15,8 @@ namespace OBMS.WebAPI.Models.DTO
         public int EmployeeID { get; set; }
         public string EmployeeName { get; set; } = string.Empty;
         public string EmployeeBranchCode { get; set; } = string.Empty;
+        public string IssueToType { get; set; } = string.Empty;
+        public bool IsDeduction { get; set; }
         public List<PendingStockIssueLineDto> Lines { get; set; } = new();
     }
 

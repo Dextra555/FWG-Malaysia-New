@@ -1,4 +1,5 @@
-import { Component, Inject, OnInit } from '@angular/core';
+﻿import { Component, Inject, OnInit } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { Router } from '@angular/router';
 import { InventoryService } from '../../../../service/inventory.service';
@@ -30,16 +31,18 @@ export class PendingActivityDialogComponent implements OnInit {
   constructor(
     public  dialogRef: MatDialogRef<PendingActivityDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: PendingActivityDialogData,
+    private titleService: Title,
     private _service: InventoryService,
     private _router:  Router
   ) {}
 
   ngOnInit(): void {
+    this.titleService.setTitle('Inventory Dashboard');
     this.setupColumns();
     this.loadData();
   }
 
-  // ── Column definitions ────────────────────────────────────────────────────
+  // â”€â”€ Column definitions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   private setupColumns(): void {
     switch (this.data.activityType) {
@@ -93,7 +96,7 @@ export class PendingActivityDialogComponent implements OnInit {
         ];
         break;
       case 'APPROVAL':
-        // Uses getPendingApprovals() — fields from VW_PendingApprovals
+        // Uses getPendingApprovals() â€” fields from VW_PendingApprovals
         this.columns = [
           { key: 'DocumentTypeDisplay', label: 'Document Type' },
           { key: 'DocumentNumber',      label: 'Doc No'        },
@@ -106,7 +109,7 @@ export class PendingActivityDialogComponent implements OnInit {
     }
   }
 
-  // ── Data loading ──────────────────────────────────────────────────────────
+  // â”€â”€ Data loading â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   private loadData(): void {
     this.loading = true;
@@ -176,7 +179,7 @@ export class PendingActivityDialogComponent implements OnInit {
     });
   }
 
-  // ── Search / filter ────────────────────────────────────────────────────────
+  // â”€â”€ Search / filter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   applyFilter(event: Event): void {
     const q = (event.target as HTMLInputElement).value.trim().toLowerCase();
@@ -190,7 +193,7 @@ export class PendingActivityDialogComponent implements OnInit {
     );
   }
 
-  // ── Navigation — document number link → view page ─────────────────────────
+  // â”€â”€ Navigation â€” document number link â†’ view page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   navigateToDoc(row: any): void {
     this.dialogRef.close();
@@ -217,7 +220,7 @@ export class PendingActivityDialogComponent implements OnInit {
     }
   }
 
-  // ── Navigation — Action button → action/create page ───────────────────────
+  // â”€â”€ Navigation â€” Action button â†’ action/create page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   navigateTo(row: any): void {
     this.dialogRef.close();
@@ -248,7 +251,7 @@ export class PendingActivityDialogComponent implements OnInit {
     }
   }
 
-  // ── Approval document navigation (mirrors pending-approvals.viewDocument) ──
+  // â”€â”€ Approval document navigation (mirrors pending-approvals.viewDocument) â”€â”€
 
   private viewApprovalDoc(row: any): void {
     switch (row.DocumentType) {
@@ -273,7 +276,7 @@ export class PendingActivityDialogComponent implements OnInit {
     }
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   docNumber(row: any): string {
     switch (this.data.activityType) {
@@ -304,20 +307,20 @@ export class PendingActivityDialogComponent implements OnInit {
   }
 
   formatDate(v: any): string {
-    if (!v) return '—';
+    if (!v) return 'â€”';
     return new Date(v).toLocaleDateString('en-MY',
       { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
   formatAmount(v: any): string {
     const n = parseFloat(v);
-    if (isNaN(n)) return '—';
+    if (isNaN(n)) return 'â€”';
     return n.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
   cellValue(row: any, col: { key: string; label: string; align?: string }): string {
     const v = row[col.key];
-    if (v == null || v === '') return '—';
+    if (v == null || v === '') return 'â€”';
     if (col.key.toLowerCase().endsWith('date')) return this.formatDate(v);
     if (col.key === 'TotalAmount' || col.key === 'GrandTotal') return this.formatAmount(v);
     return String(v);
@@ -348,3 +351,4 @@ export class PendingActivityDialogComponent implements OnInit {
 
   close(): void { this.dialogRef.close(); }
 }
+

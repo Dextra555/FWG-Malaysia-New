@@ -79,53 +79,6 @@ public partial class PayRoll_PaySheetReportNoEPF : System.Web.UI.Page
             CrystalReportViewerView.ParameterFieldInfo["LoginID"].CurrentValues.Add(paramUserName);
             CrystalReportViewerView.ParameterFieldInfo["Period"].CurrentValues.Add(paramPeriod);
             CrystalReportViewerView.ParameterFieldInfo["EmployeeType"].CurrentValues.Add(paramEmployeeType);
-            // For 'Others' (Other Guards) type, override the EMP_ROLE filter via record selection formula
-            string employeeTypeCheck = Request.QueryString["EmployeeType"];
-            bool isForeignGuard = (employeeTypeCheck == "FGuard" || employeeTypeCheck == "Foreign Guard");
-            if (isForeignGuard)
-            {
-                crptPaySlip.ReportDocument.RecordSelectionFormula += " AND {Employee.EMP_CITIZEN} = 1";
-            }
-            else             if (!string.IsNullOrEmpty(employeeTypeCheck) && employeeTypeCheck != "Guard" && employeeTypeCheck != "Staff" && employeeTypeCheck != "Foreign Guard" && employeeTypeCheck != "FGuard")
-            {
-                // Override Crystal parameter to 'Guard' so passport length condition works correctly for Others
-                CrystalReportViewerView.ParameterFieldInfo["EmployeeType"].CurrentValues.Clear();
-                ParameterDiscreteValue paramEmpTypeOverride = new ParameterDiscreteValue();
-                paramEmpTypeOverride.Value = "Guard";
-                CrystalReportViewerView.ParameterFieldInfo["EmployeeType"].CurrentValues.Add(paramEmpTypeOverride);
-                // Append EMP_ROLE filter to restrict to Others employees only
-                CrystalReportViewerView.ParameterFieldInfo["EmployeeType"].CurrentValues.Clear();
-                ParameterDiscreteValue paramGuardOverride = new ParameterDiscreteValue();
-                paramGuardOverride.Value = "Guard";
-                CrystalReportViewerView.ParameterFieldInfo["EmployeeType"].CurrentValues.Add(paramGuardOverride);
-                CrystalReportViewerView.ParameterFieldInfo["EmployeeType"].CurrentValues.Clear();
-                ParameterDiscreteValue paramGuardOverride = new ParameterDiscreteValue();
-                paramGuardOverride.Value = "Guard";
-                CrystalReportViewerView.ParameterFieldInfo["EmployeeType"].CurrentValues.Add(paramGuardOverride);
-                CrystalReportViewerView.ParameterFieldInfo["EmployeeType"].CurrentValues.Clear();
-                ParameterDiscreteValue paramGuardOverride = new ParameterDiscreteValue();
-                paramGuardOverride.Value = "Guard";
-                CrystalReportViewerView.ParameterFieldInfo["EmployeeType"].CurrentValues.Add(paramGuardOverride);
-string connStr = System.Configuration.ConfigurationManager.ConnectionStrings["obms"] != null ? ConfigurationManager.ConnectionStrings["obms"].ConnectionString : string.Format("Server={0};Database={1};User Id={2};Password={3};", ConfigurationManager.AppSettings["Server"], ConfigurationManager.AppSettings["Database"], ConfigurationManager.AppSettings["UserID"], ConfigurationManager.AppSettings["Password"]);
-
-                var empIds = new System.Collections.Generic.List<string>();
-                using (var conn = new System.Data.SqlClient.SqlConnection(connStr))
-                {
-                    conn.Open();
-                    var cmd = new System.Data.SqlClient.SqlCommand(
-                        "SELECT EMP_ID FROM Employee WHERE EMP_ROLE = @role", conn);
-                    cmd.Parameters.AddWithValue("@role", employeeTypeCheck);
-                    using (var reader = cmd.ExecuteReader())
-                        while (reader.Read()) empIds.Add(reader.GetInt32(0).ToString());
-                }
-
-                if (empIds.Count > 0)
-                    CrystalReportSourceData.ReportDocument.RecordSelectionFormula +=
-                        " AND {PaySlip.EmployeeID} IN (" + string.Join(",", empIds) + ")";
-                else
-                    CrystalReportSourceData.ReportDocument.RecordSelectionFormula +=
-                        " AND {PaySlip.EmployeeID} = 0";
-            }
 
             if (this.Page.Request.QueryString["Branch"] == "0")
             {

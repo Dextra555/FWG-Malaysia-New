@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { environment } from '../../../../../environments/environment';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
@@ -33,17 +34,18 @@ export class InventoryValuationReportComponent implements OnInit {
     private service: InventoryService,
     private fb: FormBuilder,
     private _dataService: DatasharingService
-  ) {
+  ,
+    private titleService: Title) {
     this.currentUser = sessionStorage.getItem('username')!;
     this.url += this.currentUrl;
     this.url += 'LoginID=' + this.currentUser;
 
     const today = new Date();
 
-    // Single date picker (As of Date) — no date range
+    // Single date picker (As of Date) â€” no date range
     this.frm = this.fb.group({
-      WarehouseID: ['0'],                          // optional — 0 = All
-      CategoryID:  ['0'],                          // optional — 0 = All
+      WarehouseID: ['0'],                          // optional â€” 0 = All
+      CategoryID:  ['0'],                          // optional â€” 0 = All
       AsOfDate:    [today, Validators.required]    // required
     });
 
@@ -54,6 +56,7 @@ export class InventoryValuationReportComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Inventory Valuation Report');
     this.currentUser = sessionStorage.getItem('username')!;
     if (!this.currentUser || this.currentUser === 'null') {
       this._dataService.getUsername().subscribe(u => this.currentUser = u);
@@ -150,3 +153,4 @@ export class InventoryValuationReportComponent implements OnInit {
     return `${year}-${month}-${day}`;
   }
 }
+

@@ -1,4 +1,4 @@
-﻿<%@ page language="C#" autoeventwireup="true" inherits="Payroll_LoanLedgerReport, App_Web_402qaw3v" %>
+﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="LoanLedgerReport.aspx.cs" Inherits="Payroll_LoanLedgerReport" %>
 
 <%@ Register TagPrefix="CR" Namespace="CrystalDecisions.Web" Assembly="CrystalDecisions.Web, Version=13.0.4000.0, Culture=neutral, PublicKeyToken=692fbea5521e1304" %>
 

@@ -89,9 +89,9 @@
             <!-- View / Edit -->
             <a *ngIf="userAccessModel.readAccess || userRole === 'superadmin'"
                style="cursor:pointer" class="wlt-c-furg-text-primary mr-2"
-               matTooltip="View / Edit"
+               [matTooltip]="(row.Status === 'Draft' || (row.Status === 'Approved' && (userAccessModel.updateAccess || userRole === 'superadmin'))) ? 'Edit' : 'View'"
                [routerLink]="['/inventory/branch-stock-request/new-bsr', row.ID]">
-              <mat-icon>{{row.Status === 'Draft' ? 'edit' : 'visibility'}}</mat-icon>
+              <mat-icon>{{(row.Status === 'Draft' || (row.Status === 'Approved' && (userAccessModel.updateAccess || userRole === 'superadmin'))) ? 'edit' : 'visibility'}}</mat-icon>
             </a>
 
             <!-- Submit (Draft only) -->

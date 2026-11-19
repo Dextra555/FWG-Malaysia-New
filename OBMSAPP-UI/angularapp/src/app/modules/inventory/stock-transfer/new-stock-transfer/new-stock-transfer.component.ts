@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { AbstractControl, FormArray, FormBuilder, FormGroup, ValidatorFn, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import Swal from 'sweetalert2';
@@ -54,7 +55,8 @@ export class NewStockTransferComponent implements OnInit {
     private service: InventoryService,
     private _dataService: DatasharingService,
     private _masterService: MastermoduleService
-  ) {
+  ,
+    private titleService: Title) {
     this.userAccessModel = { readAccess: false, updateAccess: false, deleteAccess: false, createAccess: false };
     this.frm = this.fb.group({
       ID:                [0],
@@ -70,6 +72,7 @@ export class NewStockTransferComponent implements OnInit {
   get details(): FormArray { return this.frm.get('Details') as FormArray; }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Stock Transfer');
     this.ID = this.activatedRoute.snapshot.params['ID'];
     this.fromBSR = this.activatedRoute.snapshot.queryParams['fromBSR']
       ? +this.activatedRoute.snapshot.queryParams['fromBSR']
@@ -85,7 +88,7 @@ export class NewStockTransferComponent implements OnInit {
       this.isViewMode = true;
       this.loadWarehousesAndItems(() => this.loadExisting());
     } else {
-      // New transfer — check if we arrived from a BSR "Create Stock Transfer" action
+      // New transfer â€” check if we arrived from a BSR "Create Stock Transfer" action
       if (this.fromBSR) {
         this.service.getStockTransferCode().subscribe({ next: (d: any) => this.frm.get('TransferNo')?.setValue(d.Code), error: () => {} });
         this.loadWarehousesAndItems(() => this.prefillFromBSR(this.fromBSR!));
@@ -138,7 +141,7 @@ export class NewStockTransferComponent implements OnInit {
             ItemID:      [line.ItemID,      [Validators.required, mustSelect()]],
             UOMID:       [line.UOMID ?? null],
             TransferQty: [line.RequestedQty ?? line.TransferQty ?? '', [Validators.required, greaterThanZero()]],
-            UnitCost:    [line.UnitCost ?? 0],
+            UnitCost:    [line.BuyingPrice ?? line.UnitCost ?? 0],
             Remarks:     [line.Remarks ?? ''],
             _ItemName:   [line.ItemName ?? ''],
             _UOMName:    [line.UOMName  ?? ''],
@@ -223,13 +226,13 @@ export class NewStockTransferComponent implements OnInit {
       line.get('UOMID')?.setValue(selected.UOMID || null);
       line.get('UnitCost')?.setValue(selected.Price || 0);
 
-      // ── Default Warehouse auto-fill (Source Warehouse only) ──────────────
+      // â”€â”€ Default Warehouse auto-fill (Source Warehouse only) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       // Auto-fill SourceWarehouseID from item's default warehouse when:
-      //   • Not in view mode (existing transfer is read-only)
-      //   • SourceWarehouseID is not yet selected (0)
+      //   â€¢ Not in view mode (existing transfer is read-only)
+      //   â€¢ SourceWarehouseID is not yet selected (0)
       // BSR-originated transfers already have SourceWarehouseID set from
       // prefillFromBSR(), so the currentWH===0 guard naturally protects them.
-      // Destination warehouse is NEVER auto-filled — user always picks it.
+      // Destination warehouse is NEVER auto-filled â€” user always picks it.
       if (!this.isViewMode) {
         const currentWH = +this.frm.get('SourceWarehouseID')?.value;
         if (currentWH === 0 && selected.WarehouseID) {
@@ -237,7 +240,7 @@ export class NewStockTransferComponent implements OnInit {
           if (whExists) {
             this.frm.get('SourceWarehouseID')?.setValue(selected.WarehouseID);
           } else {
-            // Default warehouse is inactive — warn user, leave field empty
+            // Default warehouse is inactive â€” warn user, leave field empty
             this.errorMessage =
               'The default warehouse for this item is inactive. Please select another warehouse.';
           }
@@ -262,13 +265,30 @@ export class NewStockTransferComponent implements OnInit {
     return (val ?? 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
+  /** Returns TransferQty Ã— UnitCost for a single line */
+  getLineTotal(i: number): number {
+    const line = this.details.at(i);
+    const qty  = parseFloat(line.get('TransferQty')?.value) || 0;
+    const cost = parseFloat(line.get('UnitCost')?.value)    || 0;
+    return qty * cost;
+  }
+
+  /** Returns sum of all line totals */
+  getGrandTotal(): number {
+    let total = 0;
+    for (let i = 0; i < this.details.length; i++) {
+      total += this.getLineTotal(i);
+    }
+    return total;
+  }
+
   get viewSrcWarehouseName(): string {
     const id = this.frm.get('SourceWarehouseID')?.value;
-    return this.warehouses.find((w: any) => w.ID === id)?.Name || '—';
+    return this.warehouses.find((w: any) => w.ID === id)?.Name || 'â€”';
   }
   get viewDestWarehouseName(): string {
     const id = this.frm.get('DestWarehouseID')?.value;
-    return this.warehouses.find((w: any) => w.ID === id)?.Name || '—';
+    return this.warehouses.find((w: any) => w.ID === id)?.Name || 'â€”';
   }
 
   onSubmit(): void {
@@ -321,7 +341,7 @@ export class NewStockTransferComponent implements OnInit {
                 .then(() => this.route.navigate(['/inventory/branch-stock-request/new-bsr', this.fromBSR]));
             },
             error: () => {
-              // Transfer saved successfully — link failed silently.
+              // Transfer saved successfully â€” link failed silently.
               // User can still see the transfer; they can re-link manually if needed.
               this.showMessage(
                 (res?.message || 'Stock transfer saved.') +
@@ -333,7 +353,7 @@ export class NewStockTransferComponent implements OnInit {
             }
           });
         } else {
-          // Normal (non-BSR) transfer — navigate to list as before
+          // Normal (non-BSR) transfer â€” navigate to list as before
           this.showMessage(res?.message || 'Stock transfer saved successfully.', 'success', 'Success Message');
           this.route.navigateByUrl('/dummy', { skipLocationChange: true }).then(() => this.route.navigate(['/inventory/stock-transfer']));
         }
@@ -348,7 +368,7 @@ export class NewStockTransferComponent implements OnInit {
   onCancelClick(): void { this.route.navigate(['/inventory/stock-transfer']); }
 
   /** Open the Stock Transfer PDF in a new browser tab for printing or downloading.
-   *  Only callable in view mode (existing saved document). Read-only — does not
+   *  Only callable in view mode (existing saved document). Read-only â€” does not
    *  modify any record, stock ledger, TRANSFER_OUT/IN entries, or balances. */
   onPrintPDF(): void {
     const docID = this.ID || this.frm.get('ID')?.value;
@@ -376,7 +396,7 @@ export class NewStockTransferComponent implements OnInit {
 
   hideLoadingSpinner(): void { this.showLoadingSpinner = false; }
 
-  // ── Searchable dropdown helpers ──────────────────────────────────────────
+  // â”€â”€ Searchable dropdown helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   onSrcWarehouseOpen(opened: boolean)  { if (opened) { this.srcWarehouseSearch  = ''; this.filteredSrcWarehouses  = [...this.warehouses]; } }
   onDestWarehouseOpen(opened: boolean) { if (opened) { this.destWarehouseSearch = ''; this.filteredDestWarehouses = [...this.warehouses]; } }
   onItemOpen(opened: boolean)          { if (opened) { this.itemSearch = ''; this.filteredItems = [...this.items]; } }
@@ -384,3 +404,4 @@ export class NewStockTransferComponent implements OnInit {
   onDestWarehouseSearch(q: string) { this.destWarehouseSearch = q; const s = q.toLowerCase(); this.filteredDestWarehouses = this.warehouses.filter(w => w.Name?.toLowerCase().includes(s)); }
   onItemSearch(q: string)          { this.itemSearch = q;          const s = q.toLowerCase(); this.filteredItems          = this.items.filter(i => i.Name?.toLowerCase().includes(s) || i.Code?.toLowerCase().includes(s)); }
 }
+

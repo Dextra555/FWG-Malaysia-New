@@ -403,6 +403,23 @@ export class FinanceService {
       { params }
     ).pipe(catchError(this.errorHandle));
   }
+
+  /**
+   * Returns asset installments eligible for payment for the given supplier.
+   * paymentId = 0 for new payments; supply the ID when editing an existing payment.
+   */
+  getAssetInstallmentsForPayment(supplierID: number, paymentId: number = 0, paymentDate?: string): Observable<any[]> {
+    let params = new HttpParams()
+      .set('supplierID', supplierID.toString())
+      .set('paymentId', paymentId.toString());
+    if (paymentDate) {
+      params = params.set('paymentDate', paymentDate);
+    }
+    return this.httpClient.get<any[]>(
+      `${this.apiUrl}Inventory/GetAssetInstallmentsForPayment`,
+      { params }
+    ).pipe(catchError(this.errorHandle));
+  }
   generateClientStatement(payload: any) {
     return this.httpClient.post(`${this.apiUrl}Finance/client-statement`, payload);
   }

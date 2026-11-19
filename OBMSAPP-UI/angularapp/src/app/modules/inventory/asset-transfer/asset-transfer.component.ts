@@ -1,4 +1,5 @@
-import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
+﻿import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { AbstractControl, FormBuilder, FormGroup, ValidatorFn, Validators } from '@angular/forms';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
@@ -51,7 +52,8 @@ export class AssetTransferComponent implements OnInit, AfterViewInit {
     private fb: FormBuilder, private _liveAnnouncer: LiveAnnouncer,
     private service: InventoryService, private _payroll: PayrollModuleService,
     private _dataService: DatasharingService, private _masterService: MastermoduleService
-  ) {
+  ,
+    private titleService: Title) {
     this.userAccessModel = { readAccess: false, updateAccess: false, deleteAccess: false, createAccess: false };
     this.buildForm();
   }
@@ -70,6 +72,7 @@ export class AssetTransferComponent implements OnInit, AfterViewInit {
   }
 
   ngOnInit(): void {
+    this.titleService.setTitle('Asset Transfer');
     this.currentUser = sessionStorage.getItem('username')!;
     if (!this.currentUser || this.currentUser === 'null') this._dataService.getUsername().subscribe(u => this.currentUser = u);
     this.getUserAccessRights(this.currentUser, 'Asset Transfer');
@@ -113,7 +116,7 @@ export class AssetTransferComponent implements OnInit, AfterViewInit {
 
   onToTypeChange(): void { this.frm.get('ToID')?.setValue(null); this.frm.get('ToName')?.setValue(''); this.toSearch = ''; this.filteredToList = this.employeeList; }
   onToSearch(val: string): void { this.toSearch = val; const l = val.toLowerCase(); this.filteredToList = l ? this.employeeList.filter((e: any) => (e.EMP_NAME || '').toLowerCase().includes(l)) : this.employeeList; }
-  onToBranchSelect(b: any): void { this.frm.get('ToID')?.setValue(null); this.frm.get('ToName')?.setValue(`${b.Code} — ${b.Name}`); }
+  onToBranchSelect(b: any): void { this.frm.get('ToID')?.setValue(null); this.frm.get('ToName')?.setValue(`${b.Code} â€” ${b.Name}`); }
   onToEmployeeSelect(e: any): void { this.frm.get('ToID')?.setValue(e.EMP_ID); this.frm.get('ToName')?.setValue(e.EMP_NAME); }
 
   get toType(): string { return this.frm.get('ToType')?.value || ''; }
@@ -144,7 +147,7 @@ export class AssetTransferComponent implements OnInit, AfterViewInit {
     });
   }
 
-  formatDate(v: any): string { if (!v) return '—'; return new Date(v).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' }); }
+  formatDate(v: any): string { if (!v) return 'â€”'; return new Date(v).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' }); }
   private extractMsg(e: any, fb: string): string { return typeof e === 'string' ? e : e?.error?.message || e?.message || fb; }
   private showMessage(msg: string, icon: 'success'|'error'|'warning'|'info', title: 'Success Message'|'Error Message'|'Warning Message'): void {
     Swal.fire({ toast: true, position: 'top', showConfirmButton: false, title, text: msg, icon, timer: 5000, width: '600px', customClass: { popup: 'swal-top-offset' } });
@@ -152,9 +155,10 @@ export class AssetTransferComponent implements OnInit, AfterViewInit {
   }
   hideLoadingSpinner(): void { this.showLoadingSpinner = false; }
 
-  // ── Searchable dropdown helpers (Asset + Branch; Staff/Guard already have inline search) ──
+  // â”€â”€ Searchable dropdown helpers (Asset + Branch; Staff/Guard already have inline search) â”€â”€
   onAssetOpen(opened: boolean)  { if (opened) { this.assetSearch  = ''; this.filteredAssets   = [...this.assetList];  } }
   onBranchOpen(opened: boolean) { if (opened) { this.branchSearch = ''; this.filteredBranches = [...this.branchList]; } }
   onAssetSearch(q: string)  { this.assetSearch  = q; const s = q.toLowerCase(); this.filteredAssets   = this.assetList.filter(a  => a.Name?.toLowerCase().includes(s) || a.AssetCode?.toLowerCase().includes(s)); }
   onBranchSearch(q: string) { this.branchSearch = q; const s = q.toLowerCase(); this.filteredBranches = this.branchList.filter(b => b.Name?.toLowerCase().includes(s) || b.Code?.toLowerCase().includes(s)); }
 }
+

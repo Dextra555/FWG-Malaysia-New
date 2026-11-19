@@ -677,16 +677,33 @@ export class NewEmployeeUniformLoanComponent implements OnInit {
         this.employeeListModel    = [employee];
         this.filteredEmployeeList = [employee];
 
+        // ── Map EMP_ROLE → EmployeeType radio value ──────────────────────────
+        // Radio button values (from HTML): 'Guard', 'Staff', 'Others'
+        // 'Others' EMP_ROLE  → 'Others'  (Other Guards radio)
+        // 'Staff'            → 'Staff'
+        // everything else    → 'Guard'
+        const role: string = (employee.EMP_ROLE || '').trim();
+        let empType = 'Guard';
+        if (role === 'Others') {
+          empType = 'Others';
+        } else if (role === 'Staff') {
+          empType = 'Staff';
+        }
+
         const branchCode = employee.EMP_BRANCH_CODE || '';
-        this.employeeUniformLoanForm.patchValue({ BranchCode: branchCode });
+
+        // Set EmployeeType BEFORE calling onBranchSelectionChange so that
+        // reloadEmployee() picks up the correct type when loading the employee list.
+        this.employeeUniformLoanForm.patchValue({
+          BranchCode:   branchCode,
+          EmployeeType: empType
+        });
+        this.employeeSelectedType = empType;
 
         if (branchCode) {
           this.onBranchSelectionChange({ value: branchCode });
         }
 
-        // EmployeeID is stored in pendingStockIssueDocIDFromRoute flow —
-        // the actual auto-select happens in getEmployeeListByEmployeeType after
-        // the employee list loads. Just ensure EmployeeID is pre-set here.
         const empIDNum = employee.EMP_ID ?? +empId;
         this.EmployeeID = empIDNum;
         this.selectedId = empIDNum;
