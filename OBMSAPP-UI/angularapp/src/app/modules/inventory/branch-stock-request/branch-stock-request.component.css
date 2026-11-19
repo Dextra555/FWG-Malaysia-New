@@ -1,0 +1,5 @@
+/* Status badge colours — mirrors the existing PR/PO badge style */
+.badge-draft     { background-color: #9e9e9e; color: #fff; padding: 3px 8px; border-radius: 4px; font-size: 12px; }
+.badge-submitted { background-color: #e65100; color: #fff; padding: 3px 8px; border-radius: 4px; font-size: 12px; }
+.badge-approved  { background-color: #2e7d32; color: #fff; padding: 3px 8px; border-radius: 4px; font-size: 12px; }
+.badge-rejected  { background-color: #c62828; color: #fff; padding: 3px 8px; border-radius: 4px; font-size: 12px; }

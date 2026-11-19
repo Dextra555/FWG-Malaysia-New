@@ -1,0 +1,485 @@
+/* ══════════════════════════════════════════════════════════════
+   Inventory Dashboard — pixel-matched to reference screenshot
+   Variables from global styles.css are reused:
+     --primary-color      #4D1220  (maroon)
+     --secondary-color    #822839
+     --body-bg            #f9f9f9
+     --table-border       #E8E8E8
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Page body ─────────────────────────────────────────────────────────── */
+.inv-body {
+  padding: 4px 0 0;
+}
+
+/* ── Loading ───────────────────────────────────────────────────────────── */
+.inv-spinner-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+
+/* ── Permission warning ────────────────────────────────────────────────── */
+.inv-warning-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff3cd;
+  border-left: 4px solid #f9a825;
+  border-radius: 6px;
+  padding: 12px 16px;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   KPI CARDS
+   ══════════════════════════════════════════════════════════════ */
+.inv-kpi-row { margin-bottom: 6px; }
+
+.inv-kpi {
+  background: #ffffff;
+  border: 1px solid var(--table-border, #E8E8E8);
+  border-radius: 10px;
+  padding: 14px 12px 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 92px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  transition: box-shadow .18s ease, transform .18s ease;
+}
+.inv-kpi:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,.12);
+  transform: translateY(-1px);
+}
+
+.inv-kpi-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.inv-kpi-icon mat-icon {
+  font-size: 26px;
+  width: 26px;
+  height: 26px;
+}
+
+.inv-kpi-body  { flex: 1; min-width: 0; }
+
+.inv-kpi-label {
+  font-size: 9.5px;
+  color: #8e8e8e;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  font-weight: 600;
+  margin: 0 0 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.inv-kpi-val {
+  font-size: 24px;
+  font-weight: 700;
+  color: #2c2c2c;
+  line-height: 1.15;
+  margin: 0 0 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.inv-kpi-val--currency { font-size: 16px; font-weight: 700; }
+.inv-kpi-val--alert    { color: #c62828 !important; }
+
+.inv-kpi-sub {
+  font-size: 10px;
+  color: #aaaaaa;
+  margin: 0;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SHARED PANEL  (replaces mat-card for tighter control)
+   ══════════════════════════════════════════════════════════════ */
+.inv-panel {
+  background: #ffffff;
+  border: 1px solid var(--table-border, #E8E8E8);
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.05);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.inv-panel-head {
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.inv-panel-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary-color, #4D1220);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.inv-panel-body {
+  padding: 12px 16px 14px;
+  flex: 1;
+}
+/* Remove top padding when table sits right below header */
+.inv-panel-body--notop {
+  padding-top: 0;
+}
+
+/* ── Bar chart legend chips ───────────────────────────────────────────── */
+.inv-legend-chips {
+  display: flex;
+  gap: 10px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.inv-chip { display: flex; align-items: center; gap: 3px; }
+.inv-chip--green { color: #2e7d32; }
+.inv-chip--red   { color: #c62828; }
+
+/* ── Donut layout ─────────────────────────────────────────────────────── */
+.inv-donut-wrap {
+  /* constrain the ApexCharts canvas height */
+  max-height: 220px;
+  overflow: hidden;
+}
+
+/* Custom legend below the donut */
+.inv-donut-legend { margin-top: 6px; }
+
+.inv-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 0;
+  border-bottom: 1px solid #f5f5f5;
+  font-size: 12px;
+}
+.inv-legend-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%; flex-shrink: 0;
+}
+.inv-legend-name {
+  flex: 1; color: #555;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.inv-legend-amt {
+  font-weight: 600; color: #2c2c2c; font-size: 11.5px; white-space: nowrap;
+}
+.inv-legend-footer {
+  display: flex; justify-content: space-between;
+  font-weight: 700; font-size: 13px;
+  color: var(--primary-color, #4D1220);
+  padding-top: 6px; margin-top: 4px;
+  border-top: 2px solid var(--primary-color, #4D1220);
+}
+
+/* ── Stock Summary stat list ──────────────────────────────────────────── */
+.inv-stat-list { display: flex; flex-direction: column; }
+
+.inv-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 11px 0;
+  border-bottom: 1px solid #f5f5f5;
+  font-size: 12.5px;
+}
+.inv-stat-row--total {
+  border-bottom: none;
+  border-top: 2px solid var(--primary-color, #4D1220);
+  margin-top: 4px;
+  padding-bottom: 0;
+  font-weight: 700;
+}
+.inv-stat-label    { color: #6a6a6a; }
+.inv-stat-val      { font-weight: 600; color: #2c2c2c; }
+.inv-stat-val--green { color: #2e7d32 !important; font-weight: 700; }
+.inv-stat-val--red   { color: #c62828 !important; font-weight: 700; }
+
+/* ══════════════════════════════════════════════════════════════
+   QUICK ACCESS GRID
+   ══════════════════════════════════════════════════════════════ */
+.inv-qa-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.inv-qa-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 6px;
+  border-radius: 8px;
+  border: 1px solid #eeeeee;
+  cursor: pointer;
+  text-decoration: none;
+  text-align: center;
+  transition: box-shadow .15s, background .15s;
+}
+.inv-qa-tile:hover {
+  box-shadow: 0 3px 8px rgba(0,0,0,.1);
+  background: #fafafa;
+  text-decoration: none;
+}
+
+.inv-qa-icon {
+  width: 38px; height: 38px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+}
+.inv-qa-icon mat-icon { font-size: 20px; width: 20px; height: 20px; }
+
+.inv-qa-label {
+  font-size: 10px;
+  color: #555;
+  line-height: 1.35;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SHARED TABLE  (.inv-tbl)
+   ══════════════════════════════════════════════════════════════ */
+.inv-tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  font-family: 'Poppins', sans-serif;
+}
+.inv-tbl thead th {
+  background: var(--primary-color, #4D1220);
+  color: #fff;
+  padding: 8px 10px;
+  font-weight: 600;
+  font-size: 11px;
+  white-space: nowrap;
+  border: none;
+}
+.inv-tbl thead th:first-child { border-radius: 4px 0 0 0; }
+.inv-tbl thead th:last-child  { border-radius: 0 4px 0 0; }
+
+.inv-tbl tbody tr { border-bottom: 1px solid #f3f3f3; }
+.inv-tbl tbody tr:last-child { border-bottom: none; }
+.inv-tbl tbody tr:hover { background: #fdf4f5; }
+.inv-tbl tbody td {
+  padding: 7px 10px;
+  color: #5a5a5a;
+  vertical-align: middle;
+}
+
+/* Item code chip */
+.inv-item-code {
+  font-size: 11px;
+  background: #fdf4f5;
+  color: var(--primary-color, #4D1220);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Muted secondary text */
+.inv-td-muted { color: #8e8e8e; }
+
+/* Qty colouring */
+.inv-qty-in  { color: #2e7d32; font-weight: 700; }
+.inv-qty-out { color: #c62828; font-weight: 700; }
+.inv-qty-low { color: #c62828; font-weight: 600; }
+
+/* Low stock badge */
+.inv-badge-low {
+  display: inline-block;
+  background: #fce4ec;
+  color: #c62828;
+  border-radius: 4px;
+  padding: 2px 9px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+}
+
+/* Warning icon in panel title */
+.inv-warn-icon {
+  font-size: 15px !important;
+  width: 15px !important;
+  height: 15px !important;
+  color: #c62828;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   PENDING ACTIVITIES LIST
+   ══════════════════════════════════════════════════════════════ */
+.inv-act-list { display: flex; flex-direction: column; }
+
+.inv-act-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #f3f3f3;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background .1s;
+  border-radius: 4px;
+}
+.inv-act-row:last-child { border-bottom: none; }
+.inv-act-row:hover { background: #fdf4f5; padding-left: 4px; text-decoration: none; }
+
+/* Button variant — resets native <button> styles to look like the link rows */
+.inv-act-row--btn {
+  width: 100%;
+  background: none;
+  border: none;
+  outline: none;
+  font-family: 'Poppins', sans-serif;
+  font-size: inherit;
+  text-align: left;
+  padding-left: 0;
+}
+.inv-act-row--btn:focus-visible {
+  outline: 2px solid #4D1220;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.inv-act-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #555;
+}
+.inv-act-icon {
+  font-size: 18px !important;
+  width: 18px !important;
+  height: 18px !important;
+}
+
+.inv-act-num {
+  font-size: 20px;
+  font-weight: 700;
+  min-width: 32px;
+  text-align: right;
+}
+
+/* ── "View more" link ─────────────────────────────────────────────────── */
+.inv-view-more {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary-color, #4D1220);
+  text-decoration: none;
+}
+.inv-view-more:hover {
+  color: var(--secondary-color, #822839);
+  text-decoration: underline;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   EMPTY / PLACEHOLDER STATES
+   ══════════════════════════════════════════════════════════════ */
+.inv-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 28px 16px;
+  color: #c6c6c6;
+  text-align: center;
+}
+.inv-empty mat-icon { font-size: 42px; width: 42px; height: 42px; margin-bottom: 6px; }
+.inv-empty p        { font-size: 12px; margin: 0; }
+.inv-empty--ok      { color: #43a047; }
+
+/* ══════════════════════════════════════════════════════════════
+   FOOTER BAR
+   ══════════════════════════════════════════════════════════════ */
+.inv-footer {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: #f5f5f5;
+  border: 1px solid #e4e4e4;
+  border-radius: 6px;
+  padding: 7px 14px;
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.inv-footer-icon {
+  font-size: 14px !important;
+  width: 14px !important;
+  height: 14px !important;
+  color: #aaa;
+}
+
+.inv-footer-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+  background: none;
+  border: 1px solid var(--primary-color, #4D1220);
+  border-radius: 4px;
+  color: var(--primary-color, #4D1220);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  cursor: pointer;
+  transition: background .15s;
+  font-family: 'Poppins', sans-serif;
+}
+.inv-footer-refresh mat-icon {
+  font-size: 13px !important;
+  width: 13px !important;
+  height: 13px !important;
+}
+.inv-footer-refresh:hover {
+  background: var(--primary-color, #4D1220);
+  color: #fff;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   RESPONSIVE
+   ══════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .inv-kpi-val          { font-size: 20px; }
+  .inv-kpi-val--currency { font-size: 14px; }
+  .inv-legend-chips     { display: none; }
+  .inv-qa-grid          { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 576px) {
+  .inv-kpi              { min-height: 80px; padding: 10px; gap: 8px; }
+  .inv-kpi-icon         { width: 38px; height: 38px; }
+  .inv-kpi-val          { font-size: 18px; }
+  .inv-kpi-val--currency { font-size: 12px; }
+  .inv-kpi-sub          { display: none; }
+  .inv-panel-head       { padding: 10px 12px 8px; }
+  .inv-panel-body       { padding: 10px 12px 12px; }
+}

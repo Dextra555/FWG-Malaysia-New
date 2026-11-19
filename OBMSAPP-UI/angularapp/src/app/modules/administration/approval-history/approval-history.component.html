@@ -1,0 +1,188 @@
+<!-- ══════════════════════════════════════════════════════════
+     PAGE HEADER  (same pattern as Branch Master / User Access Rights / Approval Setup)
+     ══════════════════════════════════════════════════════════ -->
+<div class="wlt-c-furg-content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-12 col-sm-12 col-md-6 col-lg-6">
+        <h1 class="mb-1">Approval History</h1>
+      </div>
+      <div class="col-12 col-sm-12 col-md-6 col-lg-6 my-1">
+        <ol class="breadcrumb float-md-right">
+          <li class="breadcrumb-item"><a routerLink="/dashboard">Administration</a></li>
+          <li class="breadcrumb-item active">Approval History</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     MAIN CARD  (same structure as Approval Setup / Branch Master)
+     ══════════════════════════════════════════════════════════ -->
+<mat-card>
+  <mat-card-content>
+
+    <!-- ── Toolbar: Filters + Search + Export ────────────────────────────── -->
+    <div class="row" *ngIf="warningMessage === ''">
+
+      <!-- From Date (same mat-datepicker pattern as pay-history) -->
+      <div class="col-12 col-sm-12 col-md-2 col-lg-2">
+        <mat-form-field appearance="outline" class="w-100">
+          <mat-label>From Date</mat-label>
+          <input matInput [matDatepicker]="pickerFrom"
+                 [(ngModel)]="filterDateFrom"
+                 placeholder="" autocomplete="off">
+          <mat-datepicker-toggle matSuffix [for]="pickerFrom"></mat-datepicker-toggle>
+          <mat-datepicker #pickerFrom></mat-datepicker>
+        </mat-form-field>
+      </div>
+
+      <!-- To Date -->
+      <div class="col-12 col-sm-12 col-md-2 col-lg-2">
+        <mat-form-field appearance="outline" class="w-100">
+          <mat-label>To Date</mat-label>
+          <input matInput [matDatepicker]="pickerTo"
+                 [(ngModel)]="filterDateTo"
+                 placeholder="" autocomplete="off">
+          <mat-datepicker-toggle matSuffix [for]="pickerTo"></mat-datepicker-toggle>
+          <mat-datepicker #pickerTo></mat-datepicker>
+        </mat-form-field>
+      </div>
+
+      <!-- Document Type filter -->
+      <div class="col-12 col-sm-12 col-md-2 col-lg-2">
+        <mat-form-field appearance="outline" class="w-100">
+          <mat-label>Document Type</mat-label>
+          <mat-select [(ngModel)]="filterDocType">
+            <mat-option *ngFor="let opt of docTypeOptions" [value]="opt.value">{{ opt.label }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <!-- Search button — plain text, same as pay-history / bank-salary-statement2 -->
+      <div class="col-12 col-sm-12 col-md-1 col-lg-1" style="padding-top: 8px;">
+        <button class="btn wlt-c-furg-btn-primary" (click)="onSearch()">Search</button>
+      </div>
+
+      <!-- Search box (live filter — same as Branch Master / Approval Setup) -->
+      <div class="col-12 col-sm-12 col-md-3 col-lg-3">
+        <mat-form-field appearance="outline" class="w-100">
+          <mat-label>Search</mat-label>
+          <input matInput (keyup)="applyFilter($event)" placeholder="" #input>
+        </mat-form-field>
+      </div>
+
+      <!-- Export Excel button — right-aligned, same as employee-visa-passport-list -->
+      <div class="col-12 col-sm-12 col-md-2 col-lg-2" style="padding-top: 8px; text-align: right;">
+        <button
+          *ngIf="dataSource && dataSource.data && dataSource.data.length > 0"
+          mat-raised-button color="primary"
+          (click)="exportToExcel()"
+          matTooltip="Export visible records to Excel">
+          <mat-icon>file_download</mat-icon> Export to Excel
+        </button>
+      </div>
+
+    </div>
+
+    <!-- ── Table (same class as Branch Master / Approval Setup) ───────────── -->
+    <div class="table-responsive"
+         *ngIf="errorMessage === '' && warningMessage === ''">
+      <table mat-table [dataSource]="dataSource"
+             class="wlt-table table-striped"
+             matSort (matSortChange)="announceSortChange($event)">
+
+        <!-- Action Date -->
+        <ng-container matColumnDef="ActionDate">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Date / Time</th>
+          <td mat-cell *matCellDef="let row" class="text-left">{{ formatDate(row.ActionDate) }}</td>
+        </ng-container>
+
+        <!-- Document Type -->
+        <ng-container matColumnDef="DocumentTypeDisplay">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Document Type</th>
+          <td mat-cell *matCellDef="let row" class="text-left">{{ row.DocumentTypeDisplay }}</td>
+        </ng-container>
+
+        <!-- Document Number -->
+        <ng-container matColumnDef="DocumentNumber">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Document No.</th>
+          <td mat-cell *matCellDef="let row" class="text-left"><b>{{ row.DocumentNumber }}</b></td>
+        </ng-container>
+
+        <!-- Action / Status badge -->
+        <ng-container matColumnDef="Action">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Action</th>
+          <td mat-cell *matCellDef="let row" class="text-left">
+            <span [ngClass]="getActionClass(row.Action)" class="ah-badge">{{ row.Action }}</span>
+          </td>
+        </ng-container>
+
+        <!-- Action By -->
+        <ng-container matColumnDef="ActionBy">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Action By</th>
+          <td mat-cell *matCellDef="let row" class="text-left">{{ row.ActionBy }}</td>
+        </ng-container>
+
+        <!-- From Status -->
+        <ng-container matColumnDef="PreviousStatus">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>From Status</th>
+          <td mat-cell *matCellDef="let row" class="text-left text-muted">{{ row.PreviousStatus || '—' }}</td>
+        </ng-container>
+
+        <!-- To Status -->
+        <ng-container matColumnDef="NewStatus">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>To Status</th>
+          <td mat-cell *matCellDef="let row" class="text-left">{{ row.NewStatus || '—' }}</td>
+        </ng-container>
+
+        <!-- Remarks -->
+        <ng-container matColumnDef="Comments">
+          <th mat-header-cell *matHeaderCellDef>Remarks / Reason</th>
+          <td mat-cell *matCellDef="let row" class="text-left">{{ row.Comments || '—' }}</td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+
+        <!-- No data row -->
+        <tr class="mat-row" *matNoDataRow>
+          <td class="mat-cell text-center py-4" [attr.colspan]="displayedColumns.length">
+            No approval history records found.
+          </td>
+        </tr>
+
+      </table>
+    </div>
+
+    <!-- Permission warning (same style as Branch Master / Approval Setup) -->
+    <div *ngIf="warningMessage !== ''">
+      <mat-label style="color:red" [innerHTML]="warningMessage"></mat-label>
+    </div>
+
+    <!-- Error message -->
+    <div *ngIf="errorMessage !== ''">
+      <mat-label style="color:red" [innerHTML]="errorMessage"></mat-label>
+    </div>
+
+    <!-- Paginator (same as Branch Master) -->
+    <mat-paginator
+      *ngIf="warningMessage === ''"
+      [pageSizeOptions]="pageSizeOptions"
+      showFirstLastButtons
+      aria-label="Select page of approval history">
+    </mat-paginator>
+
+  </mat-card-content>
+</mat-card>
+
+<!-- ══════════════════════════════════════════════════════════
+     LOADING SPINNER  (exact same inline pattern as Branch Master / Approval Setup)
+     ══════════════════════════════════════════════════════════ -->
+<div [style.display]="showLoadingSpinner ? 'block' : 'none'"
+     style="margin-top: -20.5rem; display: block; margin-left: -6.5rem;">
+  <div class="d-flex justify-content-center">
+    <span class="loader"></span>
+  </div>
+</div>

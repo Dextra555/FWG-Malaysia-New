@@ -36,9 +36,23 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
         public Task<Obmsuser?> LoginUser(Obmsuser user)
         {
-          var userAvailable =  _dbContext.Obmsusers.Where(u=>u.Name == user.Name && u.Password == user.Password).SingleOrDefault();
+            if (user == null || string.IsNullOrWhiteSpace(user.Name) || string.IsNullOrWhiteSpace(user.Password))
+            {
+                return Task.FromResult<Obmsuser?>(null);
+            }
+
+            var normalizedUserName = user.Name.Trim();
+            var normalizedPassword = user.Password.Trim();
+
+            var userAvailable = _dbContext.Obmsusers
+                .AsNoTracking()
+                .FirstOrDefault(u =>
+                    u.IsDeleted != true &&
+                    u.Name != null &&
+                    u.Name.Trim().ToLower() == normalizedUserName.ToLower() &&
+                    u.Password == normalizedPassword);
+
             return Task.FromResult(userAvailable);
-                     
         }
 
         public async Task<Obmsuser> RegisterAsync(Obmsuser obmsuser)
@@ -60,6 +74,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 existingUser.IsAdmin = obmsuser.IsAdmin;
                 existingUser.Email = obmsuser.Email;
                 existingUser.ContactNo = obmsuser.ContactNo;
+                existingUser.Department = obmsuser.Department;
                 _dbContext.Obmsusers.Update(existingUser);
                 await _dbContext.SaveChangesAsync();
                 return existingUser;
@@ -420,7 +435,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
             foreach (var oBMSPermission in oBMSPermissions)
             {
                 var existingRecord = await _dbContext.OBMSPermissions
-                    .Where(s => s.Name == oBMSPermission.Name && s.ScreenName == oBMSPermission.ScreenName).SingleOrDefaultAsync();
+                    .Where(s => s.Name == oBMSPermission.Name && s.ScreenName == oBMSPermission.ScreenName).FirstOrDefaultAsync();
 
                 if (existingRecord != null)
                 {
@@ -438,6 +453,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 }
                 else
                 {
+                    oBMSPermission.ID = 0;
                     _dbContext.Add(oBMSPermission);
                     updatedRecords.Add(oBMSPermission);
                 }

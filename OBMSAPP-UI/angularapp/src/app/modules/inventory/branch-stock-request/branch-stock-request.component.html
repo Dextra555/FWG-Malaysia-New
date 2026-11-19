@@ -1,0 +1,143 @@
+<!-- Page Header -->
+<div class="wlt-c-furg-content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-12 col-md-6"><h1 class="mb-1">Branch Stock Request</h1></div>
+      <div class="col-12 col-md-6 my-1">
+        <ol class="breadcrumb float-md-right">
+          <li class="breadcrumb-item"><a routerLink="/dashboard">Inventory</a></li>
+          <li class="breadcrumb-item active">Branch Stock Request</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+
+<mat-card>
+  <mat-card-content>
+
+    <!-- ── Toolbar ─────────────────────────────────────────────────────── -->
+    <div class="row" *ngIf="warningMessage === ''">
+      <div class="col-12 col-md-4 order-2 order-md-1">
+        <mat-form-field appearance="outline">
+          <mat-label>Search</mat-label>
+          <input matInput (keyup)="applyFilter($event)"
+                 placeholder="Request no, branch, warehouse…">
+        </mat-form-field>
+      </div>
+      <div class="col-12 col-md-8 order-1 order-md-2">
+        <div class="text-right pt-2">
+          <button
+            *ngIf="userAccessModel.createAccess || userRole === 'superadmin'"
+            class="btn wlt-c-furg-btn-primary"
+            [routerLink]="['/inventory/branch-stock-request/new-bsr']">
+            <mat-icon>add</mat-icon><span>New Request</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Messages ───────────────────────────────────────────────────── -->
+    <div *ngIf="warningMessage !== ''">
+      <mat-label style="color:red" [innerHTML]="warningMessage"></mat-label>
+    </div>
+    <div *ngIf="errorMessage !== '' && warningMessage === ''">
+      <mat-label style="color:red">{{errorMessage}}</mat-label>
+    </div>
+
+    <!-- ── Table ──────────────────────────────────────────────────────── -->
+    <div class="table-responsive" *ngIf="warningMessage === ''">
+      <table mat-table [dataSource]="dataSource" class="wlt-table table-striped"
+             matSort (matSortChange)="announceSortChange($event)">
+
+        <ng-container matColumnDef="RequestNo">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Request No</th>
+          <td mat-cell *matCellDef="let row"><strong>{{row.RequestNo}}</strong></td>
+        </ng-container>
+
+        <ng-container matColumnDef="RequestDate">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Date</th>
+          <td mat-cell *matCellDef="let row">{{formatDate(row.RequestDate)}}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="RequestingBranchName">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Requesting Branch</th>
+          <td mat-cell *matCellDef="let row">{{row.RequestingBranchName}}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="SourceWarehouseName">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Source Warehouse</th>
+          <td mat-cell *matCellDef="let row">{{row.SourceWarehouseName}}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="RequestedBy">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Requested By</th>
+          <td mat-cell *matCellDef="let row">{{row.RequestedBy}}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="Status">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Status</th>
+          <td mat-cell *matCellDef="let row">
+            <span class="badge" [ngClass]="getStatusClass(row.Status)">{{row.Status}}</span>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="action" stickyEnd>
+          <th mat-header-cell *matHeaderCellDef style="text-align:center; width:140px">Action</th>
+          <td mat-cell *matCellDef="let row" style="text-align:center">
+
+            <!-- View / Edit -->
+            <a *ngIf="userAccessModel.readAccess || userRole === 'superadmin'"
+               style="cursor:pointer" class="wlt-c-furg-text-primary mr-2"
+               matTooltip="View / Edit"
+               [routerLink]="['/inventory/branch-stock-request/new-bsr', row.ID]">
+              <mat-icon>{{row.Status === 'Draft' ? 'edit' : 'visibility'}}</mat-icon>
+            </a>
+
+            <!-- Submit (Draft only) -->
+            <a *ngIf="(userAccessModel.updateAccess || userRole === 'superadmin') && row.Status === 'Draft'"
+               style="cursor:pointer" class="mr-2"
+               [style.color]="'#e65100'"
+               matTooltip="Submit for Approval"
+               (click)="submitClick(row)">
+              <mat-icon>send</mat-icon>
+            </a>
+
+            <!-- Delete (Draft only) -->
+            <a *ngIf="(userAccessModel.deleteAccess || userRole === 'superadmin') && row.Status === 'Draft'"
+               style="cursor:pointer" class="wlt-c-furg-text-danger"
+               matTooltip="Delete Request"
+               (click)="deleteClick(row)">
+              <mat-icon>delete</mat-icon>
+            </a>
+
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+
+        <tr class="mat-row" *matNoDataRow>
+          <td class="mat-cell" [attr.colspan]="displayedColumns.length"
+              style="text-align:center; padding:24px; color:#888">
+            <span *ngIf="filterValue">
+              No records match "<strong>{{filterValue}}</strong>".
+            </span>
+            <span *ngIf="!filterValue">
+              No stock requests found. Click <strong>+ New Request</strong> to create one.
+            </span>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <mat-paginator [pageSizeOptions]="pageSizeOptions" showFirstLastButtons></mat-paginator>
+
+  </mat-card-content>
+</mat-card>
+
+<!-- Loading spinner -->
+<div [style.display]="showLoadingSpinner ? 'block' : 'none'"
+     style="margin-top:-20.5rem; display:block; margin-left:-6.5rem;">
+  <div class="d-flex justify-content-center"><span class="loader"></span></div>
+</div>

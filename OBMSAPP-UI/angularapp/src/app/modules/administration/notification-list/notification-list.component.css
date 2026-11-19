@@ -1,0 +1,3 @@
+.notif-row-unread   { background: #fffde7; }
+.notif-message-cell { max-width: 350px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.text-end           { text-align: right !important; }

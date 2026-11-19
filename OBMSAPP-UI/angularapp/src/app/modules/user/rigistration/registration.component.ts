@@ -89,6 +89,7 @@ export class RegistrationComponent implements OnInit {
       CreatedBy: '',
       CreatedDate: new Date(),
       LastUpdatedDate: new Date(),
+      Department: '',
     };
   }
   initializeRegisterFormModel() {
@@ -107,7 +108,8 @@ export class RegistrationComponent implements OnInit {
       LastUpdatedDate: [new Date],
       Designation: [''],
       Description: [''],
-      LastUpdatedBy: ['']
+      LastUpdatedBy: [''],
+      Department: ['']
     }, {
       validator: this.passwordMatchValidator
     });
@@ -138,7 +140,7 @@ export class RegistrationComponent implements OnInit {
         Description: users.Description,
         isView: users.isView,
         // IsAdmin: users.IsAdmin === '2' ? (users.Name === 'superadmin' ? '2' : '1') : '0',
-        IsAdmin: users.IsAdmin === '2'  ? (users.IsAdmin === '2' ? '2' : '1')  : (users.IsAdmin === '1' ? '1' : '0'),
+        IsAdmin: users.IsAdmin ?? '0',   // BUG-14 FIX: simplified from tautological nested ternary
         Email: users.Email,
         ContactNo: users.ContactNo,
         IsDeleted: users.IsDeleted,
@@ -146,6 +148,7 @@ export class RegistrationComponent implements OnInit {
         CreatedBy: users.CreatedBy,
         LastUpdatedDate: this.formatDate(users.LastUpdatedDate),
         LastUpdatedBy: users.LastUpdatedBy,
+        Department: users.Department ?? '',
       });
       this.showLoadingSpinner = false;
     });

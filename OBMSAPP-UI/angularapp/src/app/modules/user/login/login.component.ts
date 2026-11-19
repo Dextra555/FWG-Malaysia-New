@@ -8,6 +8,7 @@ import { DatasharingService } from 'src/app/service/datasharing.service';
 import Swal from 'sweetalert2';
 import * as CryptoJS from 'crypto-js';
 import { AuthService } from 'src/app/service/auth.service';
+import { SignalrNotificationService } from 'src/app/service/signalr-notification.service';
 
 @Component({
   selector: 'app-login',
@@ -34,7 +35,8 @@ export class LoginComponent implements OnInit {
   passwordChange!: string;
 
   constructor(private fb: FormBuilder, private _router: Router, private _commonService: CommonService,
-    private _dataSharingService: DatasharingService, private authService: AuthService) {
+    private _dataSharingService: DatasharingService, private authService: AuthService,
+    private signalrNotifService: SignalrNotificationService) {
     this.loginForm = this.fb.group({
       userName: ['', [Validators.required]],
       password: ['', [Validators.required]],
@@ -83,6 +85,9 @@ export class LoginComponent implements OnInit {
   // Function to check password expiration
   checkPasswordExpiration(response: any) {
     this._dataSharingService.setUsername(response.Users.Name);
+    // Clear previous session before stamping new user data
+    sessionStorage.clear();
+    this.authService.clearToken();
     sessionStorage.setItem('username', this.response.Users.Name);
     sessionStorage.setItem('userrole', this.response.Users.IsAdmin);
     const dtLastUpdatedDate = new Date(response.Users.LastUpdatedDate);
@@ -113,12 +118,29 @@ export class LoginComponent implements OnInit {
   successLogin(response: any) {
     this.userName = response.Users.Name;
     this._dataSharingService.setUsername(response.Users.Name);
+    // Clear ALL previous session data before setting new user's data.
+    // This prevents stale tokens/usernames from a previous login (same tab
+    // or same browser window) from leaking into the new session.
+    sessionStorage.clear();
+    this.authService.clearToken();
     sessionStorage.setItem('username', response.Users.Name);
+    // BUG-A FIX: always stamp 'userrole' here so the value is set regardless
+    // of whether checkPasswordExpiration() was the caller or successLogin() was
+    // called directly (e.g. after the password-expiry warning "No" path).
+    // All approval components read sessionStorage.getItem('userrole') to derive
+    // SuperAdmin status — if this is missing, the entire approval UI is broken.
+    sessionStorage.setItem('userrole', response.Users.IsAdmin ?? '0');
     this.register = response.Users;
     let data = this.register
     data['Password'] = "";
     sessionStorage.setItem('currentUser', JSON.stringify(data));
     this.authService.setToken(response.token);
+
+    // Request browser desktop notification permission once at login.
+    // The browser shows a native permission prompt only the first time —
+    // subsequent calls return the already-granted/denied state immediately.
+    this.signalrNotifService.requestDesktopPermission();
+
     this._router.navigate(['/dashboard']);
     Swal.fire({
       toast: true,

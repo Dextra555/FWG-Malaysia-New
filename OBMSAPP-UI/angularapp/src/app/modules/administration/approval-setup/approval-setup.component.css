@@ -1,0 +1,7 @@
+/* Approval Setup – uses the existing OBMS wlt-table / wlt-c-furg-* styles.
+   Only page-specific overrides live here. */
+
+/* Inactive rows: dim the whole row so active vs inactive is visually obvious */
+table.mat-table tr.mat-row-inactive td {
+  opacity: 0.5;
+}

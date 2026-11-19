@@ -1,0 +1,6 @@
+.approval-history-table { font-size: 13px; }
+.action-badge     { padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+.action-approved  { background-color: #e8f5e9; color: #388e3c; }
+.action-rejected  { background-color: #ffebee; color: #d32f2f; }
+.action-submitted { background-color: #fff3e0; color: #f57c00; }
+.action-cancelled { background-color: #eeeeee; color: #616161; }

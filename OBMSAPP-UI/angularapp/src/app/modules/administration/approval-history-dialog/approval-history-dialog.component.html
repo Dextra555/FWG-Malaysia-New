@@ -1,0 +1,49 @@
+<h2 mat-dialog-title>
+  <mat-icon class="me-2" style="vertical-align:middle">history</mat-icon>
+  Approval History — {{ data.documentNumber }}
+</h2>
+
+<mat-dialog-content>
+  <!-- Loading -->
+  <div *ngIf="loading" class="text-center py-4">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+
+  <!-- Error -->
+  <div *ngIf="!loading && errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
+
+  <!-- Empty -->
+  <div *ngIf="!loading && !errorMessage && history.length === 0" class="text-center py-4 text-muted">
+    No approval history found for this document.
+  </div>
+
+  <!-- History table -->
+  <div *ngIf="!loading && !errorMessage && history.length > 0">
+    <table class="table table-sm table-bordered approval-history-table">
+      <thead class="table-light">
+        <tr>
+          <th>Date / Time</th>
+          <th>Action</th>
+          <th>By</th>
+          <th>From Status</th>
+          <th>To Status</th>
+          <th>Remarks / Reason</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let row of history">
+          <td>{{ formatDate(row.ActionDate) }}</td>
+          <td><span [ngClass]="getActionClass(row.Action)" class="action-badge">{{ row.Action }}</span></td>
+          <td>{{ row.ActionBy }}</td>
+          <td><span class="text-muted">{{ row.PreviousStatus || '—' }}</span></td>
+          <td>{{ row.NewStatus || '—' }}</td>
+          <td>{{ row.Comments || '—' }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="close()">Close</button>
+</mat-dialog-actions>

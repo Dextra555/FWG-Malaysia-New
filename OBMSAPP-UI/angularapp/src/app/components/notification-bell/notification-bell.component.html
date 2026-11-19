@@ -1,0 +1,66 @@
+<div class="notif-wrapper">
+
+  <!-- Bell button -->
+  <button class="notif-bell-btn" (click)="toggleDropdown()" title="Notifications"
+    aria-label="Notifications" aria-haspopup="listbox">
+    <mat-icon class="notif-icon">notifications</mat-icon>
+    <span *ngIf="unreadCount > 0" class="notif-badge" [attr.aria-label]="unreadCount + ' unread notifications'">
+      {{ unreadCount > 99 ? '99+' : unreadCount }}
+    </span>
+  </button>
+
+  <!-- Dropdown panel -->
+  <div class="notif-dropdown" *ngIf="dropdownOpen" role="listbox">
+
+    <!-- Header -->
+    <div class="notif-header d-flex justify-content-between align-items-center px-3 py-2">
+      <span class="fw-bold">Notifications</span>
+      <div>
+        <button mat-button color="primary" class="notif-mark-all-btn" (click)="markAllRead()"
+          *ngIf="unreadCount > 0">Mark all read</button>
+        <button mat-icon-button (click)="viewAll()" title="View all notifications">
+          <mat-icon style="font-size:18px">open_in_new</mat-icon>
+        </button>
+      </div>
+    </div>
+
+    <mat-divider></mat-divider>
+
+    <!-- Empty state -->
+    <div *ngIf="notifications.length === 0" class="notif-empty text-center text-muted py-4">
+      <mat-icon style="font-size:36px;opacity:0.4">notifications_off</mat-icon>
+      <p class="mt-2 mb-0">No notifications</p>
+    </div>
+
+    <!-- Notification list — only unread items are loaded here -->
+    <div class="notif-list" *ngIf="notifications.length > 0">
+      <div *ngFor="let n of notifications"
+        class="notif-item notif-unread d-flex align-items-start px-3 py-2"
+        (click)="navigateTo(n)"
+        role="option"
+        tabindex="0"
+        (keypress)="navigateTo(n)">
+
+        <!-- Icon -->
+        <div class="notif-type-icon me-3 mt-1">
+          <mat-icon [style.color]="getTypeColor(n.NotificationType)">{{ getTypeIcon(n.NotificationType) }}</mat-icon>
+        </div>
+
+        <!-- Content -->
+        <div class="notif-content flex-grow-1">
+          <div class="notif-title fw-bold">{{ n.Title }}</div>
+          <div class="notif-message text-muted">{{ n.Message }}</div>
+          <div class="notif-time text-muted mt-1">{{ n.TimeAgo }}</div>
+        </div>
+
+      </div>
+    </div>
+
+    <mat-divider></mat-divider>
+
+    <!-- Footer -->
+    <div class="notif-footer text-center py-2">
+      <button mat-button color="primary" (click)="viewAll()">View All Notifications</button>
+    </div>
+  </div>
+</div>

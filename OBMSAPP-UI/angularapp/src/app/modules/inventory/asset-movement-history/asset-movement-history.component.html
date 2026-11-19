@@ -1,0 +1,114 @@
+<!-- Page Header -->
+<div class="wlt-c-furg-content-header"><div class="container-fluid"><div class="row mb-2">
+  <div class="col-12 col-md-6"><h1 class="mb-1">Asset Movement History</h1></div>
+  <div class="col-12 col-md-6 my-1"><ol class="breadcrumb float-md-right">
+    <li class="breadcrumb-item"><a routerLink="/dashboard">Inventory</a></li>
+    <li class="breadcrumb-item"><a routerLink="/inventory/asset-master">Asset Master</a></li>
+    <li class="breadcrumb-item active">Movement History</li>
+  </ol></div>
+</div></div></div>
+
+<!-- Asset Info Card -->
+<mat-card *ngIf="asset" class="mb-3">
+  <mat-card-content>
+    <div class="row align-items-center">
+      <div class="col-12 col-md-1 d-flex align-items-center justify-content-center">
+        <mat-icon style="font-size:48px;color:#1976d2;width:48px;height:48px">computer</mat-icon>
+      </div>
+      <div class="col-12 col-md-8">
+        <h5 class="mb-0"><strong>{{asset.AssetCode}}</strong> — {{asset.Name}}</h5>
+        <small class="text-muted">{{asset.AssetType}} &nbsp;|&nbsp; S/N: {{asset.SerialNumber || '—'}} &nbsp;|&nbsp; Branch: {{asset.Branch || '—'}}</small>
+      </div>
+      <div class="col-12 col-md-2 text-right">
+        <span class="badge badge-lg" [ngClass]="statusBadgeClass(asset.AssetStatus)" style="font-size:13px;padding:6px 12px">
+          {{asset.AssetStatus?.replace('_',' ')}}
+        </span>
+      </div>
+      <div class="col-12 col-md-1 text-right">
+        <button class="btn btn-sm wlt-c-furg-btn-gray" (click)="goBack()">
+          <mat-icon style="font-size:16px;vertical-align:middle">arrow_back</mat-icon> Back
+        </button>
+      </div>
+    </div>
+  </mat-card-content>
+</mat-card>
+
+<div *ngIf="warningMessage !== ''"><mat-label style="color:red" [innerHTML]="warningMessage"></mat-label></div>
+<div *ngIf="errorMessage !== '' && warningMessage === ''"><mat-label style="color:red">{{errorMessage}}</mat-label></div>
+
+<!-- Timeline -->
+<mat-card *ngIf="history.length > 0 && warningMessage === ''">
+  <mat-card-content>
+    <h6 class="wlt-c-section-label mb-3"><strong>Complete Lifecycle ({{history.length}} events)</strong></h6>
+
+    <div class="timeline">
+      <div *ngFor="let h of history; let i = index; let last = last" class="timeline-item">
+
+        <!-- Icon -->
+        <div class="timeline-icon" [style.background]="getMovementColor(h.MovementType)">
+          <mat-icon style="color:#fff;font-size:18px;width:18px;height:18px">{{getMovementIcon(h.MovementType)}}</mat-icon>
+        </div>
+
+        <!-- Content -->
+        <div class="timeline-content">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <strong style="font-size:14px">{{h.MovementType?.replace('_', ' ')}}</strong>
+              <span *ngIf="h.ReferenceNo" class="ml-2 badge badge-light" style="font-size:11px">{{h.ReferenceNo}}</span>
+            </div>
+            <small class="text-muted">{{formatDate(h.MovementDate)}}</small>
+          </div>
+
+          <div class="row mt-1">
+            <div class="col-12 col-md-4" *ngIf="h.FromLocation || h.FromPerson">
+              <small class="text-muted d-block">From</small>
+              <span>{{h.FromPerson || h.FromLocation || '—'}}</span>
+            </div>
+            <div class="col-12 col-md-4" *ngIf="h.ToLocation || h.ToPerson">
+              <small class="text-muted d-block">To</small>
+              <span>{{h.ToPerson || h.ToLocation || '—'}}</span>
+            </div>
+            <div class="col-12 col-md-4" *ngIf="h.PreviousStatus || h.NewStatus">
+              <small class="text-muted d-block">Status Change</small>
+              <span *ngIf="h.PreviousStatus">
+                <span class="badge badge-secondary" style="font-size:10px">{{h.PreviousStatus?.replace('_',' ')}}</span>
+                <mat-icon style="font-size:12px;vertical-align:middle;margin:0 4px">arrow_forward</mat-icon>
+                <span class="badge" [ngClass]="statusBadgeClass(h.NewStatus)" style="font-size:10px">{{h.NewStatus?.replace('_',' ')}}</span>
+              </span>
+            </div>
+          </div>
+
+          <div *ngIf="h.Remarks" class="mt-1">
+            <small class="text-muted">Remarks: </small><small>{{h.Remarks}}</small>
+          </div>
+          <div class="mt-1">
+            <small class="text-muted">By: {{h.CreatedBy || '—'}}</small>
+          </div>
+        </div>
+
+        <!-- Connector line (not on last) -->
+        <div *ngIf="!last" class="timeline-line"></div>
+      </div>
+    </div>
+  </mat-card-content>
+</mat-card>
+
+<!-- Empty state -->
+<mat-card *ngIf="history.length === 0 && !showLoadingSpinner && warningMessage === ''">
+  <mat-card-content style="text-align:center;padding:32px;color:#888">
+    <mat-icon style="font-size:48px;opacity:0.3">history</mat-icon>
+    <p class="mt-2">No movement history found for this asset.</p>
+  </mat-card-content>
+</mat-card>
+
+<div [style.display]="showLoadingSpinner ? 'block' : 'none'" style="margin-top:-20.5rem;display:block;margin-left:-6.5rem;">
+  <div class="d-flex justify-content-center"><span class="loader"></span></div>
+</div>
+
+<style>
+.timeline { position: relative; padding: 0; }
+.timeline-item { position: relative; display: flex; gap: 16px; margin-bottom: 0; }
+.timeline-icon { min-width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 1; }
+.timeline-content { flex: 1; padding: 12px 16px; background: #fafafa; border-radius: 6px; border: 1px solid #e0e0e0; margin-bottom: 8px; }
+.timeline-line { position: absolute; left: 17px; top: 36px; width: 2px; height: calc(100% - 28px); background: #e0e0e0; }
+</style>

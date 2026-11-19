@@ -315,7 +315,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
                 if (existing != null)
                 {
-                    // Update � attach a new entity with the known ID
+                    // Update ï¿½ attach a new entity with the known ID
                     var updated = new EmployeeItemIssue
                     {
                         ID = existing.ID,
@@ -330,7 +330,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 }
                 else if (item.Quantity > 0)
                 {
-                    // Insert � create a fresh entity so EF uses identity for ID
+                    // Insert ï¿½ create a fresh entity so EF uses identity for ID
                     var newItem = new EmployeeItemIssue
                     {
                         AdvanceID = item.AdvanceID,
@@ -377,15 +377,14 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
             return newVoucherNo.ToString("000000");
         }
-        public List<ItemMasterDto> GetUniformItemRows(int AdvanceID, int Category)
+        public List<EmployeeItemIssueDto> GetUniformItemRows(int AdvanceID, int Category)
         {
-            // When AdvanceID = 0 (new record), skip the join � return all items with Quantity 0
             if (AdvanceID == 0)
             {
                 return _oBMSDbContext.ItemMasters
                     .Where(im => im.CategoryID == Category)
                     .OrderBy(im => im.Name)
-                    .Select(im => new ItemMasterDto
+                    .Select(im => new EmployeeItemIssueDto
                     {
                         ID = 0,
                         AdvanceID = 0,
@@ -404,7 +403,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                             into itemIssueGroup
                         from employeeItemIssue in itemIssueGroup.DefaultIfEmpty()
                         where itemMaster.CategoryID == Category
-                        select new ItemMasterDto
+                        select new EmployeeItemIssueDto
                         {
                             ID = employeeItemIssue != null ? employeeItemIssue.ID : 0,
                             AdvanceID = employeeItemIssue != null ? employeeItemIssue.AdvanceID : 0,
@@ -701,10 +700,10 @@ namespace OBMS.WebAPI.Repositories.Implementation
         {
             try
             {
-                // ✅ BUG FIX: Match by Year+Month only (not Day).
+                // âœ… BUG FIX: Match by Year+Month only (not Day).
                 // The frontend sends the last day of the month (e.g. 2026-08-31)
                 // but DB stores Period as first day of the month (e.g. 2026-08-01).
-                // Comparing Day caused a mismatch → blank form even when data exists.
+                // Comparing Day caused a mismatch â†’ blank form even when data exists.
                 var attendance = _oBMSDbContext.Attendances
                     .Where(e => e.EmployeeID == employeeID
                              && e.Period.Year == Period.Year
@@ -859,7 +858,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                                   select attendanceDetail.ID).Count();
 
                 // Fetch leave system config and employment details for the employee in memory
-                // LeaveSystem is a single config table (cross join), not per-employee — cannot use LS_ID = EMP_ID
+                // LeaveSystem is a single config table (cross join), not per-employee â€” cannot use LS_ID = EMP_ID
                 var leaveData = (from employee in _oBMSDbContext.Employees
                                  join employmentDetail in _oBMSDbContext.EmploymentDetails on employee.EMP_CODE equals employmentDetail.EMPPAY_CODE
                                  where employee.EMP_ID == employeeID
@@ -1087,7 +1086,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     }
 
                     // -----------------------------------------------------------------
-                    // INSERT path — new Attendance record
+                    // INSERT path â€” new Attendance record
                     // -----------------------------------------------------------------
                     if (existingAttendance == null)
                     {
@@ -1157,7 +1156,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                         await _oBMSDbContext.SaveChangesAsync();
                     }
                     // -----------------------------------------------------------------
-                    // UPDATE path — existing Attendance record
+                    // UPDATE path â€” existing Attendance record
                     // -----------------------------------------------------------------
                     else
                     {
@@ -1240,7 +1239,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                             }
                             else
                             {
-                                // New detail row added during an update — treat as INSERT
+                                // New detail row added during an update â€” treat as INSERT
                                 var newDetail = new AttendanceDetails
                                 {
                                     AttendanceID   = existingAttendance.ID,
@@ -1480,7 +1479,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     query = query.Where(emp => emp.EMP_ROLE.Contains(employeeType));
             }
 
-            // ✅ BUG FIX: Previously the resigned-date filter was commented out and the
+            // âœ… BUG FIX: Previously the resigned-date filter was commented out and the
             // joinDate filter was incorrectly nested inside the resignedDate block (no braces).
             // This caused resigned employees to always appear in the attendance list.
             // Now: filter out employees whose resign date is before the attendance period.
@@ -1622,7 +1621,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
             DateTime lastDayOfMonth  = hasPeriod ? joinDate.Date    : DateTime.MaxValue;
 
             // ---------------------------------------------------------------
-            // Base query: join Employee → EmploymentDetails → EmployeeSalaryDetails
+            // Base query: join Employee â†’ EmploymentDetails â†’ EmployeeSalaryDetails
             // Also join EmploymentDetailsHistory to resolve the branch for the
             // selected period.  We use a LEFT JOIN so employees who have no
             // history row (pre-backfill edge case) still appear, falling back
@@ -1690,7 +1689,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     baseQuery = baseQuery.Where(q => q.Employee.EMP_ROLE == employeeType);
             }
 
-            // Branch filter — use effective (history-aware) branch
+            // Branch filter â€” use effective (history-aware) branch
             if (!string.IsNullOrEmpty(branch))
                 baseQuery = baseQuery.Where(q => q.EffectiveBranch == branch);
 

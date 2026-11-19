@@ -20,7 +20,7 @@ namespace OBMS.WebAPI.Repositories.Interface
         Task<List<SalaryAdvance>> GetSalaryAdvanceByDateAndEmployee(SalaryAdvance salaryAdvance);
         Task<List<InventoryCategory>> GetInventoryCategories();
         string GetNewVoucherNumberAsync(int transType);
-        List<ItemMasterDto> GetUniformItemRows(int AdvanceID, int Category);
+        List<EmployeeItemIssueDto> GetUniformItemRows(int AdvanceID, int Category);
         bool GetSalaryProcessDateByEmployeeID(int employeeID, int year, int month);
         DateTime GetResignDateByEmployeeID(int employeeID);
         Task<IEnumerable<MiscTrans>> GetMiscTrans(string currentUser);

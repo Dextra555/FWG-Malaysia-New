@@ -594,15 +594,16 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 .OrderBy(x => x.Name)
                 .ToListAsync();
 
-            var result = data.Select(x => new InventoryCategoryDto(
-                id: x.ID,
-                accountCategoryID: 0,           // Default int
-                accountNo: string.Empty,        // Empty string
-                accountTypeID: 0,               // Default int
-                name: x.Cat == "P" ? $"{x.Name} (Purchase)" : $"{x.Name} (Expenses)",
-                cat: x.Cat,
-                assetType: x.AssetType ?? string.Empty
-            )).ToList();
+            var result = data.Select(x => new InventoryCategoryDto
+            {
+                ID = x.ID,
+                AccountCategoryID = 0,
+                AccountNo = string.Empty,
+                AccountTypeID = 0,
+                Name = x.Cat == "P" ? $"{x.Name} (Purchase)" : $"{x.Name} (Expenses)",
+                Cat = x.Cat,
+                AssetType = x.AssetType ?? string.Empty
+            }).ToList();
 
             return result;
         }
@@ -708,7 +709,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
             return await query.ToListAsync();
         }
-        public async Task<List<ClientLegalDemandActionDto>> GetActionsAsync(string branch = null, string client = null, string actionTaken = null)
+        public async Task<List<ClientLegalDemandActionDto>> GetActionsAsync(string? branch = null, string? client = null, string? actionTaken = null)
         {
             var query = from action in _oBMSDbContext.ClientLegalDemandActions
                         join clientMaster in _oBMSDbContext.ClientMasters

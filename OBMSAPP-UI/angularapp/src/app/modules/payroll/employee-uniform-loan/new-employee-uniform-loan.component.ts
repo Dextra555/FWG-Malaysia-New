@@ -17,6 +17,7 @@ import { SalaryMonthlyAdvance } from 'src/app/model/salaryMonthlyAdvance';
 import { UserAccessModel } from 'src/app/model/userAccesModel';
 import { DatasharingService } from 'src/app/service/datasharing.service';
 import { EmployeeService } from 'src/app/service/employee.service';
+import { InventoryService } from 'src/app/service/inventory.service';
 import { MastermoduleService } from 'src/app/service/mastermodule.service';
 import { PayrollModuleService } from 'src/app/service/payrollmodule.service';
 import { twoDecimalPlacesValidator } from 'src/app/shared/validators/custom-validators';
@@ -60,6 +61,23 @@ export class NewEmployeeUniformLoanComponent implements OnInit {
   employeeNameMap: { [key: number]: string } = {};
   btnPrint: boolean = false;
   btnDelete: boolean = false;
+
+  // ── Stock Issue link feature ──────────────────────────────────────────────
+  /** Whether the "Link from Stock Issue" panel is open */
+  showStockIssuePanel: boolean = false;
+  /** true while loading the pending stock issue list */
+  loadingPendingIssues: boolean = false;
+  /** Pending stock issue documents for the selected employee */
+  pendingStockIssues: any[] = [];
+  /** Category ID to apply once inventoryModel is loaded */
+  pendingCategoryID: number = 0;
+  /** The stock issue document the user has selected to link */
+  selectedStockIssueDocID: number = 0;
+  selectedStockIssueNo: string = '';
+  /** Item rows pre-filled from the selected Stock Issue */
+  stockIssueItemRows: any[] = [];
+  /** StockIssueDocID passed via query param from "Link to Loan" button — auto-select on load */
+  pendingStockIssueDocIDFromRoute: number = 0;
   
   employeeSearchSubject = new Subject<string>();
   branchSearchSubject = new Subject<string>();
@@ -85,7 +103,8 @@ export class NewEmployeeUniformLoanComponent implements OnInit {
   constructor(private fb: FormBuilder, public dialog: MatDialog, private _liveAnnouncer: LiveAnnouncer,
     private _masterService: MastermoduleService, private _router: Router, public employeeService: EmployeeService,
     private _activatedRoute: ActivatedRoute, private _payrollService: PayrollModuleService,
-    private _dataService: DatasharingService) {
+    private _dataService: DatasharingService,
+    private _inventoryService: InventoryService) {
     this.employeeUniformLoanForm = this.fb.group({
       ID: [0],
       InventoryCategoryID: [0],
@@ -189,7 +208,18 @@ export class NewEmployeeUniformLoanComponent implements OnInit {
         this.isEdit = false;
         this.advanceID = 0;
         this.btnPrint = false;
-        this.isEdit = false
+        this.isEdit = false;
+
+        // ── Auto-fill from "Link to Loan" button on Uniform Loan Stock Issues page ──
+        const preDocID  = +params['stockIssueDocID'];
+        const preEmpID  = +params['employeeID'];
+        if (preDocID > 0 && preEmpID > 0) {
+          this.pendingStockIssueDocIDFromRoute = preDocID;
+          // Set today as default AdvanceTakenDate so employee list loads
+          const today = this.formatDate(new Date());
+          this.employeeUniformLoanForm.patchValue({ AdvanceTakenDate: today });
+          this.getBranchCodeByEmployeeIdAndAutoSelect(String(preEmpID));
+        }
       }
     });
   }
@@ -271,6 +301,12 @@ export class NewEmployeeUniformLoanComponent implements OnInit {
     this._payrollService.getInventoryCategories().subscribe(
       (data) => {
         this.inventoryModel = data;
+        // If a category was queued before the list loaded (e.g. from stock issue autofill),
+        // apply it now that the options are available.
+        if (this.pendingCategoryID > 0) {
+          this.employeeUniformLoanForm.patchValue({ InventoryCategoryID: this.pendingCategoryID });
+          this.pendingCategoryID = 0;
+        }
         this.hideSpinner();
       },
       (error) => this.handleErrors(error)
@@ -564,14 +600,20 @@ export class NewEmployeeUniformLoanComponent implements OnInit {
 
         // ✅ ADD MODE – auto select first
         if (!this.isEdit && this.employeeListModel.length > 0) {
-          const firstEmpId = this.employeeListModel[0].EMP_ID;
+          // If navigated from "Link to Loan", find that specific employee; else pick first
+          const targetEmpId = this.pendingStockIssueDocIDFromRoute > 0
+            ? (this.employeeListModel.find(e => e.EMP_ID === this.EmployeeID)?.EMP_ID
+               ?? this.employeeListModel[0].EMP_ID)
+            : this.employeeListModel[0].EMP_ID;
 
-          this.employeeUniformLoanForm.patchValue({
-            EmployeeID: firstEmpId
-          });
+          this.employeeUniformLoanForm.patchValue({ EmployeeID: targetEmpId });
+          this.EmployeeID = targetEmpId;
+          this.selectedId = targetEmpId;
+        }
 
-          this.EmployeeID = firstEmpId;
-          this.selectedId = firstEmpId;
+        // ── Auto-select stock issue when navigated from "Link to Loan" ──────
+        if (!this.isEdit && this.pendingStockIssueDocIDFromRoute > 0) {
+          this.autoSelectStockIssue(this.pendingStockIssueDocIDFromRoute);
         }
 
         this.hideSpinner();
@@ -620,6 +662,169 @@ export class NewEmployeeUniformLoanComponent implements OnInit {
       }
     });
   }
+
+  /**
+   * Same as getBranchCodeByEmployeeId but also auto-selects the employee and
+   * triggers stock issue auto-fill when pendingStockIssueDocIDFromRoute is set.
+   * Called from ngOnInit when navigated via "Link to Loan" button.
+   */
+  getBranchCodeByEmployeeIdAndAutoSelect(empId: string): void {
+    this.employeeService.getEmployeeById(empId).subscribe({
+      next: (response: any) => {
+        const employee = response?.Result?.employee;
+        if (!employee) return;
+
+        this.employeeListModel    = [employee];
+        this.filteredEmployeeList = [employee];
+
+        const branchCode = employee.EMP_BRANCH_CODE || '';
+        this.employeeUniformLoanForm.patchValue({ BranchCode: branchCode });
+
+        if (branchCode) {
+          this.onBranchSelectionChange({ value: branchCode });
+        }
+
+        // EmployeeID is stored in pendingStockIssueDocIDFromRoute flow —
+        // the actual auto-select happens in getEmployeeListByEmployeeType after
+        // the employee list loads. Just ensure EmployeeID is pre-set here.
+        const empIDNum = employee.EMP_ID ?? +empId;
+        this.EmployeeID = empIDNum;
+        this.selectedId = empIDNum;
+      },
+      error: (err) => {
+        console.error('[getBranchCodeByEmployeeIdAndAutoSelect] Error:', err);
+      }
+    });
+  }
+
+  /**
+   * Loads pending stock issues for the current employee and auto-selects
+   * the one matching stockIssueDocID — called after navigating from "Link to Loan".
+   */
+  private autoSelectStockIssue(stockIssueDocID: number): void {
+    if (!this.EmployeeID || this.EmployeeID <= 0) return;
+
+    this._inventoryService.getPendingStockIssuesForEmployee(this.EmployeeID).subscribe({
+      next: (list: any[]) => {
+        this.pendingStockIssues = list || [];
+        const issue = this.pendingStockIssues.find(i => i.IssueDocID === stockIssueDocID);
+        if (issue) {
+          this.showStockIssuePanel = true;
+          this.onSelectStockIssue(issue);
+        } else {
+          // Issue may already be linked — just open the panel and show list
+          this.showStockIssuePanel = true;
+        }
+        this.pendingStockIssueDocIDFromRoute = 0; // clear so it doesn't re-trigger
+      },
+      error: () => {
+        console.error('[autoSelectStockIssue] Failed to load pending issues.');
+      }
+    });
+  }
+
+  // ── Stock Issue Link feature ──────────────────────────────────────────────
+
+  /**
+   * Toggles the pending-stock-issue panel.
+   * When opened, loads pending issues for the currently selected employee.
+   * Only available in add mode (advanceID === 0) and when an employee is selected.
+   */
+  toggleStockIssuePanel(): void {
+    this.showStockIssuePanel = !this.showStockIssuePanel;
+    if (this.showStockIssuePanel) {
+      this.loadPendingStockIssues();
+    } else {
+      // If user closes the panel without selecting, clear any selection
+      this.clearStockIssueSelection();
+    }
+  }
+
+  private loadPendingStockIssues(): void {
+    if (!this.EmployeeID || this.EmployeeID <= 0) {
+      this.showMessage('Please select an employee first.', 'warning', 'Warning Message');
+      this.showStockIssuePanel = false;
+      return;
+    }
+    this.loadingPendingIssues = true;
+    this.pendingStockIssues   = [];
+    this._inventoryService.getPendingStockIssuesForEmployee(this.EmployeeID).subscribe({
+      next: (list: any[]) => {
+        this.pendingStockIssues   = list || [];
+        this.loadingPendingIssues = false;
+      },
+      error: () => {
+        this.loadingPendingIssues = false;
+        this.showMessage('Unable to load pending stock issues. Please try again.', 'warning', 'Warning Message');
+      }
+    });
+  }
+
+  /**
+   * Called when the user clicks a stock issue row to select it.
+   * Pre-fills the item table and amount from the selected issue's line items.
+   */
+  onSelectStockIssue(issue: any): void {
+    this.selectedStockIssueDocID = issue.IssueDocID;
+    this.selectedStockIssueNo    = issue.IssueNo;
+    this.stockIssueItemRows      = issue.Lines || [];
+
+    // Pre-fill the item table rows using existing dataSource mechanism.
+    // Map issue lines → EmployeeItemIssueDto shape that the table expects.
+    const rows = this.stockIssueItemRows.map((line: any) => ({
+      ID:       0,          // not yet saved as EmployeeItemIssue
+      AdvanceID: 0,
+      ItemID:   line.ItemID,
+      Name:     line.ItemName,
+      Price:    line.UnitCost,
+      Quantity: Math.ceil(line.IssueQty)  // round up to whole units if decimal
+    }));
+
+    this.dataSource = new MatTableDataSource(rows);
+    this.initForm();  // rebuilds itemFormArray from dataSource
+
+    // Pre-fill quantities in the form array
+    rows.forEach((row, i) => {
+      this.itemFormArray.at(i)?.get('Quantity')?.setValue(row.Quantity);
+      const total = row.Price * row.Quantity;
+      this.itemFormArray.at(i)?.get('Total')?.setValue(total);
+    });
+
+    // Compute and set total Amount
+    const totalAmount = rows.reduce((sum, r) => sum + r.Price * r.Quantity, 0);
+    this.employeeUniformLoanForm.patchValue({ Amount: totalAmount.toFixed(2) });
+
+    // Auto-fill category from the first line's CategoryID.
+    // If inventoryModel is already loaded → set directly.
+    // If not yet loaded → store in pendingCategoryID; getInventoryList() will apply it.
+    const firstCategoryID = this.stockIssueItemRows[0]?.CategoryID ?? 0;
+    if (firstCategoryID > 0) {
+      if (this.inventoryModel && this.inventoryModel.length > 0) {
+        this.employeeUniformLoanForm.patchValue({ InventoryCategoryID: firstCategoryID });
+      } else {
+        this.pendingCategoryID = firstCategoryID;
+      }
+    }
+
+    this.formReady = true;
+    this.showStockIssuePanel = false;  // close panel
+
+    this.showMessage(
+      `Stock Issue ${issue.IssueNo} pre-filled. Review the quantities and set No. of Installments before saving.`,
+      'info', 'Warning Message'
+    );
+  }
+
+  /** Clears the stock issue selection and resets the item table. */
+  clearStockIssueSelection(): void {
+    this.selectedStockIssueDocID = 0;
+    this.selectedStockIssueNo    = '';
+    this.stockIssueItemRows      = [];
+    this.pendingStockIssues      = [];
+  }
+
+  // ── End Stock Issue Link feature ──────────────────────────────────────────
+
   savebuttonClick(): void {
     if (this.EmployeeID == 0) {
       this.showMessage(`Please select the Employee`, 'warning', 'Warning Message')
@@ -776,24 +981,56 @@ export class NewEmployeeUniformLoanComponent implements OnInit {
       })
       .filter((item: any) => item.Quantity > 0 || item.ID > 0);
 
+    const afterItemsSaved = () => {
+      // ── Stock Issue link: if user selected a Stock Issue, link it now ──
+      if (this.selectedStockIssueDocID > 0) {
+        this._inventoryService.linkStockIssueToUniformLoan(
+          this.selectedStockIssueDocID,
+          savedAdvanceID,
+          this.currentUser
+        ).subscribe({
+          next: () => {
+            // Link succeeded — navigate
+            this.hideSpinner();
+            this.showMessage(response.Message || 'Saved successfully.', 'success', 'Success Message');
+            this._router.navigate(['/payroll/uniform-loan-report'],
+              { queryParams: { id: savedAdvanceID }, queryParamsHandling: 'merge' });
+          },
+          error: (err: any) => {
+            // Link failed but loan already saved — warn and still navigate
+            console.error('Stock Issue link error:', err);
+            this.hideSpinner();
+            this.showMessage(
+              'Loan saved, but the Stock Issue link could not be recorded. ' +
+              'Please contact your administrator.',
+              'warning', 'Warning Message'
+            );
+            this._router.navigate(['/payroll/uniform-loan-report'],
+              { queryParams: { id: savedAdvanceID }, queryParamsHandling: 'merge' });
+          }
+        });
+      } else {
+        // No stock issue linked — normal navigation
+        this.hideSpinner();
+        this.showMessage(response.Message || 'Saved successfully.', 'success', 'Success Message');
+        this._router.navigate(['/payroll/uniform-loan-report'],
+          { queryParams: { id: savedAdvanceID }, queryParamsHandling: 'merge' });
+      }
+    };
+
     if (itemsToSave.length > 0) {
       this._payrollService.saveEmployeeItemIssues(itemsToSave).subscribe({
-        next: () => {
-          this.hideSpinner();
-          this.showMessage(response.Message || 'Saved successfully.', 'success', 'Success Message');
-          this._router.navigate(['/payroll/uniform-loan-report'], { queryParams: { id: savedAdvanceID }, queryParamsHandling: 'merge' });
-        },
+        next: () => { afterItemsSaved(); },
         error: (err) => {
           console.error('Item save error:', err);
           this.hideSpinner();
           this.showMessage(`Loan saved but item details failed to save.`, 'warning', 'Warning Message');
-          this._router.navigate(['/payroll/uniform-loan-report'], { queryParams: { id: savedAdvanceID }, queryParamsHandling: 'merge' });
+          this._router.navigate(['/payroll/uniform-loan-report'],
+            { queryParams: { id: savedAdvanceID }, queryParamsHandling: 'merge' });
         }
       });
     } else {
-      this.hideSpinner();
-      this.showMessage(response.Message || 'Saved successfully.', 'success', 'Success Message');
-      this._router.navigate(['/payroll/uniform-loan-report'], { queryParams: { id: savedAdvanceID }, queryParamsHandling: 'merge' });
+      afterItemsSaved();
     }
   }
 

@@ -185,6 +185,95 @@
                 </div>
             </div>
             <br />
+            <!-- ── Link from Stock Issue panel (add mode only) ──────────────── -->
+            <div *ngIf="!isEdit" class="col-12 col-sm-12 col-md-12 col-lg-12 mb-3">
+              <div style="border:1px solid #e0e0e0; border-radius:6px; padding:12px;">
+                <div class="d-flex align-items-center justify-content-between">
+                  <div>
+                    <strong style="font-size:14px;">Link from Stock Issue</strong>
+                    <small class="text-muted ml-2">
+                      (Optional) Pre-fill items from a recorded Stock Issue for this employee.
+                    </small>
+                  </div>
+                  <button type="button" class="btn btn-sm wlt-c-furg-btn-gray"
+                          [disabled]="!EmployeeID || EmployeeID <= 0"
+                          (click)="toggleStockIssuePanel()">
+                    <mat-icon style="font-size:16px; vertical-align:middle;">
+                      {{ showStockIssuePanel ? 'expand_less' : 'link' }}
+                    </mat-icon>
+                    {{ showStockIssuePanel ? 'Close' : 'Select Stock Issue' }}
+                  </button>
+                </div>
+
+                <!-- Selected stock issue badge -->
+                <div *ngIf="selectedStockIssueDocID > 0 && !showStockIssuePanel"
+                     class="mt-2 p-2"
+                     style="background:#e8f5e9; border-left:4px solid #43a047; border-radius:4px; display:flex; align-items:center; justify-content:space-between;">
+                  <div>
+                    <mat-icon style="color:#43a047; font-size:16px; vertical-align:middle;">check_circle</mat-icon>
+                    <strong style="font-size:13px; margin-left:4px;">Linked: {{ selectedStockIssueNo }}</strong>
+                    <small class="text-muted ml-2">Items pre-filled below. Review and set installments before saving.</small>
+                  </div>
+                  <button type="button" class="btn btn-sm btn-link text-danger p-0"
+                          (click)="clearStockIssueSelection()"
+                          matTooltip="Remove link">
+                    <mat-icon style="font-size:16px;">cancel</mat-icon>
+                  </button>
+                </div>
+
+                <!-- Pending issues picker -->
+                <div *ngIf="showStockIssuePanel" class="mt-2">
+                  <div *ngIf="loadingPendingIssues" class="text-center py-2">
+                    <span class="loader" style="transform:scale(0.6);"></span>
+                    <small class="text-muted ml-2">Loading stock issues…</small>
+                  </div>
+                  <div *ngIf="!loadingPendingIssues && pendingStockIssues.length === 0"
+                       class="text-muted py-2" style="font-size:13px;">
+                    No pending stock issues found for this employee.
+                    All issues may already be linked to an active Uniform Loan.
+                  </div>
+                  <div *ngIf="!loadingPendingIssues && pendingStockIssues.length > 0">
+                    <div class="table-responsive">
+                      <table class="table table-bordered table-sm table-hover" style="font-size:13px;">
+                        <thead class="thead-light">
+                          <tr>
+                            <th>Issue No</th>
+                            <th>Issue Date</th>
+                            <th>Warehouse</th>
+                            <th style="text-align:right">Total Value</th>
+                            <th>Items</th>
+                            <th style="text-align:center">Select</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr *ngFor="let issue of pendingStockIssues">
+                            <td><strong>{{ issue.IssueNo }}</strong></td>
+                            <td>{{ issue.IssueDate | date:'dd-MMM-yyyy' }}</td>
+                            <td>{{ issue.WarehouseName }}</td>
+                            <td style="text-align:right">{{ issue.TotalValue | number:'1.2-2' }}</td>
+                            <td>
+                              <ul class="list-unstyled mb-0" style="font-size:12px;">
+                                <li *ngFor="let line of issue.Lines">
+                                  {{ line.ItemName }} — Qty: {{ line.IssueQty }} × RM{{ line.UnitCost | number:'1.2-2' }}
+                                </li>
+                              </ul>
+                            </td>
+                            <td style="text-align:center; vertical-align:middle;">
+                              <button type="button" class="btn btn-sm wlt-c-furg-btn-primary"
+                                      (click)="onSelectStockIssue(issue)">
+                                Use This
+                              </button>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- ── End Link from Stock Issue panel ─────────────────────────── -->
+
             <div formArrayName="items">
                 <div class="table-responsive" style="width: 50%;">
                     <table mat-table [dataSource]="dataSource" class="wlt-table table-striped" matSort

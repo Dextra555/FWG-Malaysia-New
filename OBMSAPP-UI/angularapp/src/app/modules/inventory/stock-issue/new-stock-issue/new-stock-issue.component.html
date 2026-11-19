@@ -1,0 +1,328 @@
+<!-- Page Header -->
+<div class="wlt-c-furg-content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-12 col-md-4">
+        <h1 class="mb-1">{{isViewMode ? 'View' : 'New'}} Stock Issue</h1>
+      </div>
+      <div class="col-12 col-md-8 my-1">
+        <ol class="breadcrumb float-md-right">
+          <li class="breadcrumb-item"><a routerLink="/dashboard">Inventory</a></li>
+          <li class="breadcrumb-item"><a routerLink="/inventory/stock-issue">Stock Issue</a></li>
+          <li class="breadcrumb-item active">{{isViewMode ? 'View' : 'New'}} Stock Issue</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+
+<mat-card>
+  <mat-card-content>
+    <form [formGroup]="frm" (ngSubmit)="onSubmit()">
+
+      <!-- ── HEADER ──────────────────────────────────────────────────────── -->
+      <div class="row mt-2">
+        <div class="col-12"><h6 class="wlt-c-section-label"><strong>Issue Information</strong></h6><hr class="mt-0"></div>
+      </div>
+
+      <!-- ── VIEW MODE ── -->
+      <div *ngIf="isViewMode" class="row mb-3">
+        <div class="col-6 col-md-3">
+          <div class="wlt-view-field">
+            <span class="wlt-view-label">Issue No</span>
+            <span class="wlt-view-value">{{frm.get('IssueNo')?.value || '—'}}</span>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="wlt-view-field">
+            <span class="wlt-view-label">Issue Date</span>
+            <span class="wlt-view-value">{{frm.get('IssueDate')?.value | date:'dd/MM/yyyy'}}</span>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="wlt-view-field">
+            <span class="wlt-view-label">Warehouse</span>
+            <span class="wlt-view-value">{{viewWarehouseName}}</span>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="wlt-view-field">
+            <span class="wlt-view-label">Issue To</span>
+            <span class="wlt-view-value">{{issueToType}}{{issueToName ? ' — ' + issueToName : ''}}</span>
+          </div>
+        </div>
+        <div class="col-6 col-md-3" *ngIf="frm.get('Remarks')?.value">
+          <div class="wlt-view-field">
+            <span class="wlt-view-label">Remarks</span>
+            <span class="wlt-view-value">{{frm.get('Remarks')?.value}}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── EDIT MODE ── -->
+      <div *ngIf="!isViewMode">
+        <div class="row">
+          <div class="col-12 col-md-3">
+            <mat-form-field appearance="outline">
+              <mat-label>Issue No</mat-label>
+              <input matInput formControlName="IssueNo" readonly placeholder="AUTO">
+              <mat-hint>Auto-generated</mat-hint>
+            </mat-form-field>
+          </div>
+          <div class="col-12 col-md-3">
+            <mat-form-field appearance="outline">
+              <mat-label>Issue Date <span style="color:red">*</span></mat-label>
+              <input matInput [matDatepicker]="picker" formControlName="IssueDate" autocomplete="off">
+              <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+              <mat-datepicker #picker></mat-datepicker>
+              <mat-error *ngIf="frm.get('IssueDate')?.hasError('required')">Please enter the issue date.</mat-error>
+            </mat-form-field>
+          </div>
+          <div class="col-12 col-md-6">
+            <mat-form-field appearance="outline">
+              <mat-label>Warehouse <span style="color:red">*</span></mat-label>
+              <mat-select formControlName="WarehouseID" (selectionChange)="onWarehouseChange()">
+                <mat-option [value]="0">-- Select Warehouse --</mat-option>
+                <mat-option *ngFor="let w of warehouses" [value]="w.ID">{{w.Name}}</mat-option>
+              </mat-select>
+              <mat-error *ngIf="frm.get('WarehouseID')?.hasError('mustSelect')">Please select a warehouse.</mat-error>
+            </mat-form-field>
+          </div>
+        </div>
+
+        <!-- ── ISSUE TO ────────────────────────────────────────────────────── -->
+        <div class="row">
+          <!-- Issue To Type -->
+          <div class="col-12 col-md-3">
+            <mat-form-field appearance="outline">
+              <mat-label>Issue To (Type) <span style="color:red">*</span></mat-label>
+              <mat-select formControlName="IssueToType" (selectionChange)="onIssueToTypeChange()">
+                <mat-option value="">-- Select --</mat-option>
+                <mat-option value="Staff">Staff</mat-option>
+                <mat-option value="Guard">Guard</mat-option>
+                <mat-option value="Other Guards">Other Guards</mat-option>
+                <mat-option value="Branch">Branch</mat-option>
+                <mat-option value="Other">Other</mat-option>
+              </mat-select>
+              <mat-error *ngIf="frm.get('IssueToType')?.hasError('required')">Please select who the stock is issued to.</mat-error>
+            </mat-form-field>
+          </div>
+
+          <!-- Employee / Guard lookup — searchable dropdown, filtered by warehouse + role -->
+          <div class="col-12 col-md-5" *ngIf="showRecipientDropdown">
+            <mat-form-field appearance="outline">
+              <mat-label>
+                {{ issueToType === 'Branch' ? 'Select Branch' : 'Select ' + issueToType }}
+                <span style="color:red">*</span>
+              </mat-label>
+              <mat-select [value]="frm.get('IssueToID')?.value"
+                          (selectionChange)="onRecipientSelect($event.value)"
+                          (openedChange)="onRecipientSearch('')">
+                <mat-option disabled *ngIf="loadingEmployees">
+                  <span style="font-size:12px; color:#888;">Loading…</span>
+                </mat-option>
+                <mat-option disabled *ngIf="!loadingEmployees && (issueToType==='Guard'||issueToType==='Staff'||issueToType==='Other Guards') && frm.get('WarehouseID')?.value <= 0">
+                  <span style="font-size:12px; color:#e65100;">⚠ Please select a warehouse first.</span>
+                </mat-option>
+                <mat-option disabled style="position:sticky; top:0; background:#fff; z-index:1; padding:0"
+                            *ngIf="!loadingEmployees">
+                  <div style="padding: 4px 10px;">
+                    <input
+                      type="text"
+                      placeholder="Search…"
+                      [value]="recipientSearch"
+                      (input)="onRecipientSearch($any($event.target).value)"
+                      (click)="$event.stopPropagation()"
+                      (keydown)="$event.stopPropagation()"
+                      style="width:100%; border:1px solid #ccc; border-radius:4px; padding:6px 8px; font-size:13px; outline:none;">
+                  </div>
+                </mat-option>
+                <ng-container *ngIf="!loadingEmployees">
+                  <mat-option
+                    *ngFor="let item of (filteredRecipients.length > 0 || recipientSearch ? filteredRecipients : getSourceList())"
+                    [value]="item">
+                    {{ getRecipientLabel(item) }}
+                  </mat-option>
+                </ng-container>
+                <mat-option disabled *ngIf="!loadingEmployees && filteredRecipients.length === 0 && recipientSearch.length > 0">
+                  No results found.
+                </mat-option>
+                <mat-option disabled *ngIf="!loadingEmployees && getSourceList().length === 0 && !recipientSearch && (issueToType==='Guard'||issueToType==='Staff'||issueToType==='Other Guards') && frm.get('WarehouseID')?.value > 0">
+                  <span style="font-size:12px; color:#888;">No active {{issueToType}}s found for this warehouse.</span>
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+            <small class="text-warning d-block mt-n2 mb-2"
+                   *ngIf="(issueToType==='Guard'||issueToType==='Staff'||issueToType==='Other Guards') && frm.get('WarehouseID')?.value <= 0">
+              Select a warehouse to load the {{issueToType}} list.
+            </small>
+          </div>
+
+          <!-- Other — free text -->
+          <div class="col-12 col-md-5" *ngIf="issueToType === 'Other'">
+            <mat-form-field appearance="outline">
+              <mat-label>Recipient Name</mat-label>
+              <input matInput formControlName="IssueToName" placeholder="Enter recipient name">
+            </mat-form-field>
+          </div>
+
+          <!-- Selected name confirmation chip -->
+          <div class="col-12 col-md-4" *ngIf="showRecipientDropdown && issueToName">
+            <div class="p-2 mt-1" style="background:#e8f5e9; border-left:4px solid #43a047; border-radius:4px; min-height:56px; display:flex; align-items:center; gap:8px;">
+              <mat-icon style="color:#43a047; font-size:18px;">person_pin</mat-icon>
+              <div>
+                <small class="text-muted d-block" style="font-size:10px; line-height:1.2;">Selected {{issueToType}}</small>
+                <strong style="font-size:13px;">{{issueToName}}</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-4">
+            <mat-form-field appearance="outline">
+              <mat-label>Remarks</mat-label>
+              <input matInput formControlName="Remarks" placeholder="Optional">
+            </mat-form-field>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── ITEMS ──────────────────────────────────────────────────────── -->
+      <div class="row mt-3">
+        <div class="col-12">
+          <h6 class="wlt-c-section-label"><strong>Items to Issue</strong></h6><hr class="mt-0">
+        </div>
+      </div>
+
+      <div formArrayName="Details">
+        <div class="table-responsive">
+          <table class="table table-bordered table-sm">
+            <thead class="thead-light">
+              <tr>
+                <th style="width:30%">Item</th>
+                <th style="width:18%">Client Name <span style="color:red">*</span></th>
+                <th style="width:10%; text-align:right" *ngIf="!isViewMode">Available</th>
+                <th style="width:10%; text-align:right">Issue Qty *</th>
+                <th style="width:10%; text-align:right">Unit Cost</th>
+                <th style="width:15%">Remarks</th>
+                <th style="width:7%; text-align:center" *ngIf="!isViewMode">Remove</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let line of details.controls; let i = index" [formGroupName]="i">
+                <td>
+                  <mat-select formControlName="ItemID" (selectionChange)="onItemChange(i)"
+                    style="width:100%; padding:4px">
+                    <mat-option [value]="0">-- Select Item --</mat-option>
+                    <mat-option *ngFor="let item of items" [value]="item.ID">
+                      {{item.Code}} — {{item.Name}}
+                    </mat-option>
+                  </mat-select>
+                  <small class="text-danger" *ngIf="line.get('ItemID')?.hasError('mustSelect') && line.get('ItemID')?.touched">
+                    Please select an item.
+                  </small>
+                </td>
+
+                <!-- Client Name -->
+                <td>
+                  <ng-container *ngIf="!isViewMode; else clientView">
+                    <mat-select formControlName="ClientID"
+                                (selectionChange)="onClientChange(i)"
+                                (openedChange)="onClientOpen(i, $event)"
+                                style="width:100%; padding:4px">
+                      <mat-option disabled style="position:sticky;top:0;background:#fff;z-index:1;padding:0">
+                        <div style="padding:4px 8px">
+                          <input type="text" placeholder="Search client…"
+                            [value]="clientSearchMap[i] || ''"
+                            (input)="onClientSearch(i, $any($event.target).value)"
+                            (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()"
+                            style="width:100%;border:1px solid #ccc;border-radius:4px;padding:5px 7px;font-size:12px;outline:none">
+                        </div>
+                      </mat-option>
+                      <mat-option [value]="0">-- Select Client --</mat-option>
+                      <mat-option *ngFor="let c of (filteredClientsMap[i] || clients)" [value]="c.ID">
+                        {{c.Name}}
+                      </mat-option>
+                      <mat-option disabled *ngIf="(filteredClientsMap[i] || clients).length === 0 && (clientSearchMap[i] || '').length > 0">
+                        No results found.
+                      </mat-option>
+                    </mat-select>
+                    <small class="text-danger"
+                      *ngIf="line.get('ClientID')?.hasError('mustSelect') && line.get('ClientID')?.touched">
+                      Please select a client.
+                    </small>
+                  </ng-container>
+                  <ng-template #clientView>
+                    <span style="font-size:13px">{{line.get('_ClientName')?.value || '—'}}</span>
+                  </ng-template>
+                </td>
+                <td style="text-align:right; vertical-align:middle" *ngIf="!isViewMode">
+                  <span [class.text-danger]="(availableStockMap[i] || 0) === 0">
+                    {{formatNumber(availableStockMap[i] || 0)}}
+                  </span>
+                </td>
+                <td>
+                  <input type="number" formControlName="IssueQty" class="form-control form-control-sm text-right"
+                    min="0.01" step="0.01" placeholder="0.00"
+                    [class.is-invalid]="line.get('IssueQty')?.invalid && line.get('IssueQty')?.touched">
+                  <div class="invalid-feedback" *ngIf="line.get('IssueQty')?.hasError('greaterThanZero')">Must be &gt; 0</div>
+                </td>
+                <td>
+                  <input type="number" formControlName="UnitCost" class="form-control form-control-sm text-right"
+                    min="0" step="0.01" placeholder="0.00">
+                </td>
+                <td>
+                  <input type="text" formControlName="Remarks" class="form-control form-control-sm" placeholder="Optional">
+                </td>
+                <td style="text-align:center; vertical-align:middle" *ngIf="!isViewMode">
+                  <a style="cursor:pointer" class="wlt-c-furg-text-danger" (click)="removeDetailRow(i)" matTooltip="Remove row">
+                    <mat-icon>remove_circle_outline</mat-icon>
+                  </a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div *ngIf="!isViewMode" class="mt-2">
+          <button type="button" class="btn btn-sm wlt-c-furg-btn-gray" (click)="addDetailRow()">
+            <mat-icon style="font-size:18px; vertical-align:middle">add</mat-icon> Add Item
+          </button>
+        </div>
+      </div>
+
+      <!-- ── MESSAGES ───────────────────────────────────────────────────── -->
+      <div class="row mt-2" *ngIf="errorMessage !== ''">
+        <div class="col-12"><mat-label style="color:orange" [innerHTML]="errorMessage"></mat-label></div>
+      </div>
+
+      <!-- ── ACTIONS ───────────────────────────────────────────────────── -->
+      <div class="row mt-3">
+        <div class="col-12">
+          <div class="text-right">
+            <button type="button" class="btn wlt-c-furg-btn-gray mr-3" (click)="onCancelClick()">
+              {{isViewMode ? 'Back' : 'Cancel'}}
+            </button>
+
+            <!-- Print PDF — only for an existing saved Stock Issue (view mode) -->
+            <button *ngIf="isViewMode"
+              type="button" class="btn btn-secondary mr-3"
+              matTooltip="Open PDF in a new tab — print or download from there"
+              (click)="onPrintPDF()">
+              <mat-icon style="vertical-align:middle; font-size:18px;">print</mat-icon>
+              Print PDF
+            </button>
+
+            <button *ngIf="!isViewMode && (userAccessModel.createAccess || currentUser === 'superadmin')"
+              type="submit" class="btn wlt-c-furg-btn-primary" [disabled]="showLoadingSpinner">
+              Save Stock Issue
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </form>
+  </mat-card-content>
+</mat-card>
+
+<div [style.display]="showLoadingSpinner ? 'block' : 'none'" style="margin-top:-20.5rem; display:block; margin-left:-6.5rem;">
+  <div class="d-flex justify-content-center"><span class="loader"></span></div>
+</div>

@@ -21,7 +21,7 @@ namespace OBMS.WebAPI.Repositories.Interface
         List<BranchPaymentRequestDto> GetDeletedPaymentsByMonthYear(DateTime paymentDate);
         bool Restore(int id, string currentUser);
         Task<List<ChequeStatusDto>> GetChequeStatusesAsync(DateTime startDate, DateTime endDate, string chequeStatus, string bankCode, string transType);
-        Task<List<ClientLegalDemandActionDto>> GetActionsAsync(string branch = null, string client = null, string actionTaken = null);
+        Task<List<ClientLegalDemandActionDto>> GetActionsAsync(string? branch = null, string? client = null, string? actionTaken = null);
         Task<bool> DeleteLegalDemandAsync(int id, string currentUser, string deleteRemarks);
         Task<ClientLegalDemandActionDto> GetLegalDemandByID(int ID);
         Task<List<BranchPaymentVoucherSummaryDto>> GetBranchPaymentVoucherSummary(DateTime? startDate, DateTime? endDate, string branch);

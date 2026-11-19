@@ -13,4 +13,5 @@ export class UserRegistration {
   CreatedDate?:Date;
   LastUpdatedDate?:Date;
   IsDeleted?:boolean;
+  Department?: string;
 } 

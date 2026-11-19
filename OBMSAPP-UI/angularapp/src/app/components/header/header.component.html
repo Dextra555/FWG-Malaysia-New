@@ -48,6 +48,10 @@
         <a class="wlt-c-furg-date-time">{{ dateTime | date }}, {{ time | date: 'hh:mm:ss a' }}</a>          
       </li> -->
       <li class="wlt-c-furg-dropdown text-nowrap">
+        <!-- Part 7: Notification Bell -->
+        <app-notification-bell></app-notification-bell>
+      </li>
+      <li class="wlt-c-furg-dropdown text-nowrap">
         <a class="wlt-c-furg-dropbtn wlt-c-furg-welcome-text" href="#" (click)="logout()">
           <span class="user-icon-text">
             <mat-icon class="user-icon">account_circle</mat-icon>

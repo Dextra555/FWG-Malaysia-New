@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OBMS.WebAPI.BusinessObjects;
 using OBMS.WebAPI.Models;
@@ -1076,6 +1076,144 @@ namespace OBMS.WebAPI.Controllers
             }
         }
 
+        // ── GRN-for-Payment endpoint ────────────────────────────────────────────────
+        /// <summary>
+        /// Returns GRNs eligible for payment for the given supplier.
+        /// Used by Finance → Payments when the user selects "Pay by GRN".
+        ///
+        /// Rules:
+        ///  • Only active GRNs (IsActive = true).
+        ///  • In NEW payment mode (paymentId == 0): only GRNs with balance > 0.
+        ///  • In EDIT payment mode (paymentId > 0): also returns GRNs already
+        ///    linked to this payment (so the user can see what was paid).
+        /// </summary>
+        [HttpGet]
+        [Route("GetGRNsForPayment")]
+        public async Task<ActionResult<List<GRNPaymentRowDto>>> GetGRNsForPayment(
+            int supplierID, int paymentId = 0)
+        {
+            try
+            {
+                // 1. Compute GRN totals — prefer the stored GrandTotal (includes SST) that
+                //    was written by InventoryRepository.SaveGRN(). Fall back to re-summing
+                //    detail lines only for GRNs created before Migration 29 (GrandTotal = 0).
+                var grnTotals = await (
+                    from grn in _oBMSDbContext.GoodsReceiptNotes
+                    join po  in _oBMSDbContext.PurchaseOrders  on grn.POID       equals po.ID
+                    join sup in _oBMSDbContext.Suppliers       on po.SupplierID  equals sup.Id
+                    join wh  in _oBMSDbContext.WarehouseMasters on grn.WarehouseID equals wh.ID
+                    join br  in _oBMSDbContext.BranchMasters   on wh.BranchID    equals br.ID
+                    where grn.IsActive == true && po.SupplierID == supplierID
+                    select new
+                    {
+                        grn.ID,
+                        grn.GRNNumber,
+                        grn.GRNDate,
+                        grn.SupplierInvoiceNo,
+                        po.PONumber,
+                        SupId   = sup.Id,
+                        SupName = sup.Name,
+                        BranchCode = br.Code,
+                        // Use GrandTotal (sub-total + SST) when available;
+                        // fall back to sub-total sum for pre-SST GRNs where GrandTotal = 0.
+                        GRNStoredGrandTotal = grn.GrandTotal,
+                        GRNSubTotal = (decimal?)_oBMSDbContext.GoodsReceiptNoteDetails
+                            .Where(d => d.GRNID == grn.ID)
+                            .Sum(d => (decimal?)(d.ReceivedQty * d.UnitCost)) ?? 0m
+                    }
+                ).ToListAsync();
+
+                // Resolve the effective payable total per GRN after materialisation
+                // (cannot use conditional expression referencing both in EF LINQ)
+                var grnTotalsResolved = grnTotals.Select(g => new
+                {
+                    g.ID,
+                    g.GRNNumber,
+                    g.GRNDate,
+                    g.SupplierInvoiceNo,
+                    g.PONumber,
+                    g.SupId,
+                    g.SupName,
+                    g.BranchCode,
+                    GRNTotal = g.GRNStoredGrandTotal > 0 ? g.GRNStoredGrandTotal : g.GRNSubTotal
+                }).ToList();
+
+                if (!grnTotalsResolved.Any())
+                    return Ok(new List<GRNPaymentRowDto>());
+
+                var grnIDs = grnTotalsResolved.Select(g => g.ID).ToList();
+
+                // 2. Compute already-paid amounts per GRN (across ALL non-deleted payments)
+                //    Include the current payment so PaidAmount reflects the true total paid so far.
+                var paidPerGRN = await _oBMSDbContext.BranchPaymentDetails
+                    .Where(d => d.GRNID != null
+                             && grnIDs.Contains(d.GRNID.Value)
+                             && d.IsDeleted == false)
+                    .GroupBy(d => d.GRNID!.Value)
+                    .Select(g => new { GRNID = g.Key, Paid = g.Sum(d => d.Amount) })
+                    .ToListAsync();
+
+                var paidLookup = paidPerGRN.ToDictionary(x => x.GRNID, x => x.Paid);
+
+                // 3. Amount already entered for THIS payment (used in edit mode to populate Amount field)
+                var thisPaymentLookup = paymentId > 0
+                    ? (await _oBMSDbContext.BranchPaymentDetails
+                          .Where(d => d.GRNID != null
+                                   && grnIDs.Contains(d.GRNID.Value)
+                                   && d.PaymentID == paymentId
+                                   && d.IsDeleted == false)
+                          .ToListAsync())
+                      .ToDictionary(d => d.GRNID!.Value, d => new { d.ID, d.Amount })
+                    : new Dictionary<int, object>().ToDictionary(k => k.Key, v => new { ID = 0, Amount = 0m });
+
+                // 4. Build result rows
+                var rows = new List<GRNPaymentRowDto>();
+
+                foreach (var g in grnTotalsResolved)
+                {
+                    var paid    = paidLookup.TryGetValue(g.ID, out var p) ? p : 0m;
+                    var balance = g.GRNTotal - paid;
+
+                    bool linkedToThisPayment = paymentId > 0 && thisPaymentLookup.ContainsKey(g.ID);
+
+                    // Edit mode  (paymentId > 0): show ONLY GRNs saved under this payment.
+                    // New mode   (paymentId = 0): show all GRNs that still have a balance.
+                    if (paymentId > 0 && !linkedToThisPayment) continue;
+                    if (paymentId == 0 && balance <= 0) continue;
+
+                    var thisDetail = linkedToThisPayment ? thisPaymentLookup[g.ID] : new { ID = 0, Amount = 0m };
+
+                    rows.Add(new GRNPaymentRowDto
+                    {
+                        PaymentDetailID   = thisDetail.ID,
+                        PaymentID         = paymentId,
+                        GRNID             = g.ID,
+                        GRNNumber         = g.GRNNumber,
+                        GRNDate           = g.GRNDate,
+                        SupplierInvoiceNo = g.SupplierInvoiceNo,
+                        PONumber          = g.PONumber,
+                        SupplierID        = g.SupId,
+                        SupplierName      = g.SupName,
+                        WarehouseBranchCode = g.BranchCode,
+                        TotalAmount       = g.GRNTotal,
+                        PaidAmount        = paid,
+                        Balance           = balance,
+                        Amount            = thisDetail.Amount
+                    });
+                }
+
+                return Ok(rows.OrderBy(r => r.GRNDate).ThenBy(r => r.GRNNumber).ToList());
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = ex.Message,
+                    inner   = ex.InnerException?.Message
+                });
+            }
+        }
+
         [HttpGet]
         [Route("creditor-invoice-payment-details")]
         public async Task<List<CreditorInvoicePaymentRow>> GetCreditorInvoicePaymentList(string userId, decimal paymentId)
@@ -1109,6 +1247,7 @@ namespace OBMS.WebAPI.Controllers
                         ) P ON P.InvoiceID = CI.ID
                         WHERE OB.Name = @UserID
                             AND CI.IsDeleted = 0
+                            AND ISNULL(CI.InvoiceType, '') <> 'G'
                           AND (
                                 @PaymentID <> 0
                                 OR CI.Total - ISNULL(P.PaidAmount,0) > 0
@@ -1167,6 +1306,7 @@ namespace OBMS.WebAPI.Controllers
                     WHERE OB.Name = @UserID             
                       AND CI.IsDeleted = 0
                       AND CI.Supplier = @Supplier
+                      AND ISNULL(CI.InvoiceType, '') <> 'G'
                       AND (
                             @PaymentID <> 0               
                             OR CI.Total - ISNULL(P.PaidAmount,0) > 0 
@@ -1353,12 +1493,13 @@ namespace OBMS.WebAPI.Controllers
                             else
                             {
                                 // New row (ID == 0): check if a soft-deleted record already exists
-                                // for the same (PaymentID, Branch, InvoiceID) to avoid unique key violation
+                                // for the same (PaymentID, Branch, InvoiceID, GRNID) to avoid duplicate
                                 var existingSoftDeleted = await _oBMSDbContext.BranchPaymentDetails
                                     .FirstOrDefaultAsync(x =>
                                         x.PaymentID == branchPayment.ID &&
                                         x.Branch == detail.Branch &&
                                         x.InvoiceID == detail.InvoiceID &&
+                                        x.GRNID == detail.GRNID &&
                                         x.IsDeleted == true);
 
                                 if (existingSoftDeleted != null)
@@ -1375,8 +1516,100 @@ namespace OBMS.WebAPI.Controllers
                             }
 
                             branchPaymentDetails.PaymentID = branchPayment.ID;
-                            branchPaymentDetails.Branch = detail.Branch;
-                            branchPaymentDetails.InvoiceID = detail.InvoiceID;
+                            branchPaymentDetails.Branch = string.IsNullOrWhiteSpace(detail.Branch)
+                                ? (detail.GRNID.HasValue ? "GRN" : "")   // fallback only if branch missing
+                                : detail.Branch;
+
+                            // ── GRN → CreditorInvoice link ──────────────────────────────────────
+                            // When paying against a GRN, ensure a CreditorInvoice row exists so
+                            // the standard invoice-paid tracking continues to work.
+                            // InvoiceType = 'GRN', RecID = GRNID (unique per GRN).
+                            if (detail.GRNID.HasValue && detail.GRNID.Value > 0)
+                            {
+                                // Find or create the CreditorInvoice for this GRN
+                                var existingCI = await _oBMSDbContext.CreditorInvoices
+                                    .FirstOrDefaultAsync(ci =>
+                                        ci.RecID == detail.GRNID.Value &&
+                                        ci.InvoiceType == "G" &&
+                                        ci.IsDeleted == false);
+
+                                if (existingCI == null)
+                                {
+                                    // Fetch GRN data needed for the invoice row.
+                                    // Use GrandTotal (sub-total + SST) when available;
+                                    // fall back to sub-total sum for pre-SST GRNs.
+                                    var grnData = await (
+                                        from grn in _oBMSDbContext.GoodsReceiptNotes
+                                        join po  in _oBMSDbContext.PurchaseOrders  on grn.POID       equals po.ID
+                                        join wh  in _oBMSDbContext.WarehouseMasters on grn.WarehouseID equals wh.ID
+                                        join br  in _oBMSDbContext.BranchMasters   on wh.BranchID    equals br.ID
+                                        where grn.ID == detail.GRNID.Value
+                                        select new
+                                        {
+                                            grn.GRNNumber,
+                                            grn.GRNDate,
+                                            grn.SupplierInvoiceNo,
+                                            po.SupplierID,
+                                            BranchCode = br.Code,
+                                            GRNStoredGrandTotal = grn.GrandTotal,
+                                            GRNSubTotal = (decimal?)_oBMSDbContext.GoodsReceiptNoteDetails
+                                                .Where(d => d.GRNID == grn.ID)
+                                                .Sum(d => (decimal?)(d.ReceivedQty * d.UnitCost)) ?? 0m
+                                        }
+                                    ).FirstOrDefaultAsync();
+
+                                    // Resolve after materialisation
+                                    decimal grnEffectiveTotal = grnData == null ? 0m
+                                        : grnData.GRNStoredGrandTotal > 0
+                                            ? grnData.GRNStoredGrandTotal
+                                            : grnData.GRNSubTotal;
+
+                                    if (grnData != null)
+                                    {
+                                        var newCI = new CreditorInvoice
+                                        {
+                                            Branch        = grnData.BranchCode,
+                                            Supplier      = grnData.SupplierID,
+                                            RecID         = detail.GRNID.Value,
+                                            // Use supplier's own invoice number if entered; fall back to GRN number
+                                            InvoiceNo     = !string.IsNullOrWhiteSpace(grnData.SupplierInvoiceNo)
+                                                                ? grnData.SupplierInvoiceNo
+                                                                : grnData.GRNNumber,
+                                            InvoiceType   = "G",
+                                            InvoiceDate   = grnData.GRNDate,
+                                            Total         = grnEffectiveTotal,
+                                            PaymentDate   = branchPaymentRequestDto.PaymentDate,
+                                            ItemCategory  = string.IsNullOrWhiteSpace(branchPaymentRequestDto.ItemCategory)
+                                                                ? (int?)null
+                                                                : int.TryParse(branchPaymentRequestDto.ItemCategory, out int catId) ? catId : (int?)null,
+                                            LASTUPDATE    = DateTime.Now,
+                                            LastUpdatedBy = branchPaymentRequestDto.userId ?? "",
+                                            IsDeleted     = false
+                                        };
+                                        _oBMSDbContext.CreditorInvoices.Add(newCI);
+                                        await _oBMSDbContext.SaveChangesAsync();
+                                        _oBMSDbContext.ChangeTracker.Clear();
+
+                                        branchPaymentDetails.InvoiceID = newCI.ID;
+                                    }
+                                    else
+                                    {
+                                        branchPaymentDetails.InvoiceID = detail.InvoiceID;
+                                    }
+                                }
+                                else
+                                {
+                                    // CreditorInvoice already exists — just link to it
+                                    branchPaymentDetails.InvoiceID = existingCI.ID;
+                                }
+                            }
+                            else
+                            {
+                                branchPaymentDetails.InvoiceID = detail.InvoiceID;
+                            }
+                            // ────────────────────────────────────────────────────────────────────
+
+                            branchPaymentDetails.GRNID = detail.GRNID;   // GRN reference (nullable)
                             branchPaymentDetails.Amount = detail.Amount;
                             branchPaymentDetails.LastUpdate = DateTime.Now;
                             branchPaymentDetails.LastUpdatedBy = branchPaymentRequestDto.userId;
@@ -1920,18 +2153,19 @@ namespace OBMS.WebAPI.Controllers
 
                 var inventoryCategoryList = new List<InventoryCategoryDto>
             {
-                new InventoryCategoryDto(0, 0, "", 0, "", "", "")
+                new InventoryCategoryDto { ID = 0, AccountCategoryID = 0, AccountNo = "", AccountTypeID = 0, Name = "", Cat = "", AssetType = "" }
             };
 
-                inventoryCategoryList.AddRange(inventoryCategoryFactoryList.Select(icf => new InventoryCategoryDto(
-                    icf.ID,
-                    0, // AccountCategoryID placeholder
-                    "", // AccountNo placeholder
-                    0, // AccountTypeID placeholder
-                    icf.Name,
-                    icf.Cat,
-                    icf.AssetType
-                )));
+                inventoryCategoryList.AddRange(inventoryCategoryFactoryList.Select(icf => new InventoryCategoryDto
+                {
+                    ID = icf.ID,
+                    AccountCategoryID = 0,
+                    AccountNo = "",
+                    AccountTypeID = 0,
+                    Name = icf.Name,
+                    Cat = icf.Cat,
+                    AssetType = icf.AssetType
+                }));
 
                 return Ok(inventoryCategoryList);
             }
@@ -2014,7 +2248,7 @@ namespace OBMS.WebAPI.Controllers
             return Ok(receipts);
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("{id:int}")]
         public async Task<IActionResult> GetReceipt(int id)
         {
             var receipt = await _financeRepository.GetReceiptAsync(id);
@@ -2093,6 +2327,23 @@ namespace OBMS.WebAPI.Controllers
                 detail.LastUpdatedBy = request.CurrentUser;
 
                 _oBMSDbContext.BranchPaymentDetails.Update(detail);
+
+                // If this payment line was against a GRN, restore the linked
+                // CreditorInvoice row so it reappears in vwPaymentDue
+                if (detail.GRNID != null && detail.GRNID > 0)
+                {
+                    var linkedCI = await _oBMSDbContext.CreditorInvoices
+                        .FirstOrDefaultAsync(ci => ci.InvoiceType == "G"
+                                                && ci.RecID       == detail.GRNID
+                                                && ci.IsDeleted   == true);
+                    if (linkedCI != null)
+                    {
+                        linkedCI.IsDeleted     = false;
+                        linkedCI.LASTUPDATE    = DateTime.Now;
+                        linkedCI.LastUpdatedBy = request.CurrentUser;
+                        _oBMSDbContext.CreditorInvoices.Update(linkedCI);
+                    }
+                }
 
                 // Recalculate BranchPayments header Amount from remaining active lines,
                 // and stamp LastUpdate / LastUpdatedBy on the parent header
@@ -2310,7 +2561,7 @@ namespace OBMS.WebAPI.Controllers
         }
 
         [HttpGet("GetLegalDemandList")]
-        public async Task<IActionResult> GetList([FromQuery] string branch = null, [FromQuery] string client = null, [FromQuery] string actionTaken = null)
+        public async Task<IActionResult> GetList([FromQuery] string? branch = null, [FromQuery] string? client = null, [FromQuery] string? actionTaken = null)
         {
 
             try
@@ -2387,7 +2638,7 @@ namespace OBMS.WebAPI.Controllers
                 Dictionary<string, object> result = new Dictionary<string, object>();
                 result.Add("Success", "Success");
 
-                Response.Headers.Add("Success", "Successfully saved or updated legal demand action.");
+                Response.Headers["Success"] = "Successfully saved or updated legal demand action.";
                 return Ok(result);
             }
             catch (Exception ex)

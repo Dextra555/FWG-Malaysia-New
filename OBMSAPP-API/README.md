@@ -1,20 +1,26 @@
-# Introduction 
-TODO: Give a short introduction of your project. Let this section explain the objectives or the motivation behind this project. 
+# OBMS Web API
 
-# Getting Started
-TODO: Guide users through getting your code up and running on their own system. In this section you can talk about:
-1.	Installation process
-2.	Software dependencies
-3.	Latest releases
-4.	API references
+## Getting started
 
-# Build and Test
-TODO: Describe and show how to build your code and run the tests. 
+Install the .NET 8 SDK and configure a reachable SQL Server connection in
+`OBMS.WebAPI/appsettings.Development.json` (or `appsettings.json` for Production).
 
-# Contribute
-TODO: Explain how other users and developers can contribute to make your code better. 
+From this directory, restore and run the API project:
 
-If you want to learn more about creating good readme files then refer the following [guidelines](https://docs.microsoft.com/en-us/azure/devops/repos/git/create-a-readme?view=azure-devops). You can also seek inspiration from the below readme files:
-- [ASP.NET Core](https://github.com/aspnet/Home)
-- [Visual Studio Code](https://github.com/Microsoft/vscode)
-- [Chakra Core](https://github.com/Microsoft/ChakraCore)
+```powershell
+dotnet restore .\OBMS.WebAPI\OBMS.WebAPI.csproj
+dotnet run --project .\OBMS.WebAPI\OBMS.WebAPI.csproj
+```
+
+The API listens at `http://localhost:5002`; Swagger UI is available at
+`http://localhost:5002/swagger`.
+
+## Build
+
+```powershell
+dotnet build .\OBMS.WebAPI.sln
+```
+
+`website.publishproj` is a legacy Visual Studio Web Site publishing project and
+requires Visual Studio Web publishing targets. It is not the ASP.NET Core API
+project and should not be passed to `dotnet run`.
