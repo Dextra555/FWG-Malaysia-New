@@ -23,6 +23,13 @@ public partial class PayRoll_PaySlipForGuard1Report : System.Web.UI.Page
                 logonInfo.ConnectionInfo.DatabaseName = ConfigurationManager.AppSettings["Database"];
                 logonInfo.ConnectionInfo.Password = ConfigurationManager.AppSettings["Password"];
                 logonInfo.ConnectionInfo.UserID = ConfigurationManager.AppSettings["UserID"];
+                // Remap PaySlip table to vwPaySlipGuard1 so Shift2Salary = 0 for Payment 1
+                // Payment 1 must never include Shift2Salary (that belongs to Payment 2 / PaySlipGuardPart2.rpt)
+                if (table.Name.Equals("PaySlip", StringComparison.OrdinalIgnoreCase) ||
+                    table.Name.Equals("dbo.PaySlip", StringComparison.OrdinalIgnoreCase))
+                {
+                    table.Location = "vwPaySlipGuard1";
+                }
                 table.ApplyLogOnInfo(logonInfo);
             }
 

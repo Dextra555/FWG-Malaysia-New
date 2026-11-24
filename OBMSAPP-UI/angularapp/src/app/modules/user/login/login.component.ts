@@ -9,6 +9,8 @@ import Swal from 'sweetalert2';
 import * as CryptoJS from 'crypto-js';
 import { AuthService } from 'src/app/service/auth.service';
 import { SignalrNotificationService } from 'src/app/service/signalr-notification.service';
+import { timeout, catchError } from 'rxjs/operators';
+import { throwError } from 'rxjs';
 
 @Component({
   selector: 'app-login',
@@ -61,25 +63,35 @@ export class LoginComponent implements OnInit {
   }
   validateUser() {
     this.showLoadingSpinner = true;
+    this.errorMessage = '';
     this.loginModel = {
       userName: this.loginForm.value.userName!,
       password: this.hashPassword(this.loginForm.value.password)
     }
     this.passwordChange = this.loginForm.value.password
     sessionStorage.setItem('password', this.passwordChange);
-    this._commonService.loginUser(this.loginModel).subscribe((response) => {
-      this.response = response;
-      if (response.Failure == 'Failure') {
-        this.errorMessage = response.Message;
-      } else if (response.Success == 'Success') {
-        // Check password expiration after successful login
-        this.checkPasswordExpiration(response);
-      }
-
-      this.showLoadingSpinner = false;
-    },
-      (error) => this.handleErrors(error)
-    );
+    this._commonService.loginUser(this.loginModel)
+      .pipe(
+        timeout(15000),
+        catchError(err => {
+          if (err.name === 'TimeoutError') {
+            return throwError('Server is not responding. Please check if the API is running and try again.');
+          }
+          return throwError(err);
+        })
+      )
+      .subscribe((response) => {
+        this.response = response;
+        if (response.Failure == 'Failure') {
+          this.errorMessage = response.Message;
+        } else if (response.Success == 'Success') {
+          // Check password expiration after successful login
+          this.checkPasswordExpiration(response);
+        }
+        this.showLoadingSpinner = false;
+      },
+        (error) => this.handleErrors(error)
+      );
   }
 
   // Function to check password expiration

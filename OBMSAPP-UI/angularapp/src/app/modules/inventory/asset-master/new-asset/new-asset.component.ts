@@ -35,6 +35,13 @@ export class NewAssetComponent implements OnInit {
   // Installment schedule preview rows
   installmentPreview: { no: number; dueDate: Date; amount: number; paidAmount: number; status: string }[] = [];
 
+<<<<<<< HEAD
+=======
+  // Payment lock — true when a payment has been recorded against this asset
+  isPaymentLocked: boolean = false;
+  paymentLockMessage: string = '';
+
+>>>>>>> dadc643 (Updated payslip changes)
   userAccessModel!: UserAccessModel;
   currentUser:    string  = '';
   userRole:       string  = '';
@@ -63,7 +70,10 @@ export class NewAssetComponent implements OnInit {
       ModelNo:                  [''],
       BrandName:                [''],
       SupplierID:               [null],
+<<<<<<< HEAD
       CategoryID:               [null],
+=======
+>>>>>>> dadc643 (Updated payslip changes)
       Branch:                   [''],
       PurchaseAmount:           [''],
       PurchaseDate:             [null],
@@ -80,12 +90,16 @@ export class NewAssetComponent implements OnInit {
       // ── Preclosing ────────────────────────────────────────────────────
       IsPreClosing:             [false],
       PreClosingDate:           [null],
+<<<<<<< HEAD
       PreClosingAmount:         [{ value: null, disabled: true }],   // auto-calculated
       // ── Vehicle-specific ──────────────────────────────────────────────
       RoadTaxRenewalDate:       [null],
       InsuranceRenewalDate:     [null],
       // ── Office-specific ───────────────────────────────────────────────
       ServiceLastDate:          [null]
+=======
+      PreClosingAmount:         [{ value: null, disabled: true }]   // auto-calculated
+>>>>>>> dadc643 (Updated payslip changes)
     });
 
     // Recalculate installments whenever relevant fields change
@@ -128,6 +142,7 @@ export class NewAssetComponent implements OnInit {
     return this.frm.get('PaymentTermType')?.value === 'MONTHLY';
   }
 
+<<<<<<< HEAD
   /** True when the selected Category Master has AssetType = 'Vehicle' */
   get isVehicle(): boolean {
     const catID = this.frm.get('CategoryID')?.value;
@@ -144,6 +159,8 @@ export class NewAssetComponent implements OnInit {
     return cat?.AssetType === 'Office';
   }
 
+=======
+>>>>>>> dadc643 (Updated payslip changes)
   /** Sum of all installment preview amounts */
   get installmentTotal(): number {
     return this.installmentPreview.reduce((sum, r) => sum + r.amount, 0);
@@ -259,7 +276,10 @@ export class NewAssetComponent implements OnInit {
           ModelNo:                  d.ModelNo,
           BrandName:                d.BrandName,
           SupplierID:               d.SupplierID,
+<<<<<<< HEAD
           CategoryID:               d.CategoryID ?? null,
+=======
+>>>>>>> dadc643 (Updated payslip changes)
           Branch:                   d.Branch,
           PurchaseAmount:           d.PurchaseAmount,
           PurchaseDate:             d.PurchaseDate ? new Date(d.PurchaseDate) : null,
@@ -274,12 +294,35 @@ export class NewAssetComponent implements OnInit {
           InstallmentMonths:        d.InstallmentMonths ?? null,
           IsPreClosing:             d.IsPreClosing ?? false,
           PreClosingDate:           d.PreClosingDate ? new Date(d.PreClosingDate) : null,
+<<<<<<< HEAD
           PreClosingAmount:         d.PreClosingAmount ?? null,
           RoadTaxRenewalDate:       d.RoadTaxRenewalDate   ? new Date(d.RoadTaxRenewalDate)   : null,
           InsuranceRenewalDate:     d.InsuranceRenewalDate ? new Date(d.InsuranceRenewalDate) : null,
           ServiceLastDate:          d.ServiceLastDate       ? new Date(d.ServiceLastDate)       : null
         });
 
+=======
+          PreClosingAmount:         d.PreClosingAmount ?? null
+        });
+
+        // Check payment lock
+        this.service.getAssetPaymentLockStatus(d.ID).subscribe({
+          next: (lock: any) => {
+            if (lock?.isLocked) {
+              this.isPaymentLocked = true;
+              this.paymentLockMessage = lock.message || 'This asset is locked — a payment has been recorded.';
+              // Disable entire form except preclosing fields
+              this.frm.disable();
+              // Re-enable only preclosing toggle and date
+              // so user can still initiate early settlement
+              this.frm.get('IsPreClosing')?.enable();
+              this.frm.get('PreClosingDate')?.enable();
+            }
+          },
+          error: () => {}
+        });
+
+>>>>>>> dadc643 (Updated payslip changes)
         // Load existing installment schedule for display
         if (d.PaymentTermType === 'MONTHLY') {
           this.service.getAssetInstallments(d.ID).subscribe({
@@ -305,6 +348,42 @@ export class NewAssetComponent implements OnInit {
 
   onSubmit(): void {
     if (this.frm.invalid) { this.frm.markAllAsTouched(); return; }
+<<<<<<< HEAD
+=======
+    if (this.isPaymentLocked) {
+      // Locked asset — only allow preclosing toggle save
+      const raw = this.frm.getRawValue();
+      if (!raw.IsPreClosing && !this.frm.get('IsPreClosing')?.dirty) {
+        this.showMessage('This asset is locked for editing because a payment has been recorded against it.', 'warning', 'Warning Message');
+        return;
+      }
+      // Allow saving preclosing state only
+      this.showLoadingSpinner = true;
+      const preClosingPayload = {
+        ID:               raw.ID,
+        IsPreClosing:     raw.IsPreClosing,
+        IsPreClosingOnly: true,                    // ← tells API: only save preclosing fields
+        PreClosingDate:   raw.IsPreClosing ? raw.PreClosingDate : null,
+        PreClosingAmount: raw.IsPreClosing ? (raw.PreClosingAmount ? +raw.PreClosingAmount : null) : null,
+        LastUpdatedBy:    this.currentUser,
+        LastUpdatedDate:  new Date(),
+        // Required fields — carry existing values
+        Name:      raw.Name,
+        AssetType: raw.AssetType
+      };
+      this.service.saveAssetRecord(preClosingPayload).subscribe({
+        next: (res: any) => {
+          this.showMessage(res?.message || 'Preclosing status updated.', 'success', 'Success Message');
+          this.hideLoadingSpinner();
+        },
+        error: (err: any) => {
+          this.showMessage(this.extractErrorMessage(err, 'Unable to save. Please try again.'), 'error', 'Error Message');
+          this.hideLoadingSpinner();
+        }
+      });
+      return;
+    }
+>>>>>>> dadc643 (Updated payslip changes)
 
     const raw = this.frm.getRawValue();
     const isMonthlySelected = raw.PaymentTermType === 'MONTHLY';

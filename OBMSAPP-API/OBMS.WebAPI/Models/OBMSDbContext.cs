@@ -10,6 +10,9 @@ public partial class OBMSDbContext : DbContext
     public OBMSDbContext(DbContextOptions<OBMSDbContext> options)
         : base(options)
     {
+        // Global command timeout for ALL queries — prevents infinite hang
+        // on synchronous .ToList() / .FirstOrDefault() calls.
+        Database.SetCommandTimeout(15);
     }
     public virtual DbSet<AdvanceRepayment> AdvanceRepayments { get; set; }
     public virtual DbSet<Obmsuser> Obmsusers { get; set; }
