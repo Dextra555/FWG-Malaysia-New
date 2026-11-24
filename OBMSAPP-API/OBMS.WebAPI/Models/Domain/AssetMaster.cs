@@ -27,6 +27,9 @@ namespace OBMS.WebAPI.Models.Domain
         /// <summary>FK to Suppliers table (nullable)</summary>
         public int? SupplierID { get; set; }
 
+        /// <summary>FK to InventoryCategory table (nullable) — Purchase categories (Cat='P')</summary>
+        public int? CategoryID { get; set; }
+
         /// <summary>Branch code (free text) — existing field kept as-is</summary>
         public string? Branch { get; set; }
 
@@ -102,9 +105,23 @@ namespace OBMS.WebAPI.Models.Domain
         /// <summary>Total remaining amount at time of preclosing.</summary>
         public decimal? PreClosingAmount { get; set; }
 
+        // ── Vehicle-specific fields ───────────────────────────────────────────
+        /// <summary>Road tax renewal date (only relevant when AssetType = Vehicle).</summary>
+        public DateTime? RoadTaxRenewalDate { get; set; }
+
+        /// <summary>Insurance renewal date (only relevant when AssetType = Vehicle).</summary>
+        public DateTime? InsuranceRenewalDate { get; set; }
+
+        // ── Office-specific fields ────────────────────────────────────────────
+        /// <summary>Service last date (only relevant when Category AssetType = Office).</summary>
+        public DateTime? ServiceLastDate { get; set; }
+
         // Navigation
         [ForeignKey("SupplierID")]
         public virtual Supplier? Supplier { get; set; }
+
+        [ForeignKey("CategoryID")]
+        public virtual InventoryCategory? Category { get; set; }
 
         public virtual ICollection<AssetInstallment> Installments { get; set; } = new List<AssetInstallment>();
     }

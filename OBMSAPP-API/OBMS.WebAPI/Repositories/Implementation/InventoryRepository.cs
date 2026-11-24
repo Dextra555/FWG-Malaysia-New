@@ -5265,6 +5265,8 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 from a in _oBMSDbContext.AssetMasters
                 join sup in _oBMSDbContext.Suppliers on a.SupplierID equals sup.Id into supJoin
                 from sup in supJoin.DefaultIfEmpty()
+                join cat in _oBMSDbContext.InventoryCategories on a.CategoryID equals cat.ID into catJoin
+                from cat in catJoin.DefaultIfEmpty()
                 where a.IsActive
                    && (allowedBranches == null || (a.Branch != null && allowedBranches.Contains(a.Branch)))
                 orderby a.AssetCode
@@ -5280,6 +5282,8 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     BrandName                = a.BrandName,
                     SupplierID               = a.SupplierID,
                     SupplierName             = sup != null ? sup.Name : "",
+                    CategoryID               = a.CategoryID,
+                    CategoryName             = cat != null ? cat.Name : "",
                     Branch                   = a.Branch,
                     PurchaseAmount           = a.PurchaseAmount,
                     PurchaseDate             = a.PurchaseDate,
@@ -5304,7 +5308,12 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     // ── Preclosing ────────────────────────────────────────────
                     IsPreClosing             = a.IsPreClosing,
                     PreClosingDate           = a.PreClosingDate,
-                    PreClosingAmount         = a.PreClosingAmount
+                    PreClosingAmount         = a.PreClosingAmount,
+                    // ── Vehicle-specific ──────────────────────────────────────
+                    RoadTaxRenewalDate       = a.RoadTaxRenewalDate,
+                    InsuranceRenewalDate     = a.InsuranceRenewalDate,
+                    // ── Office-specific ───────────────────────────────────────
+                    ServiceLastDate          = a.ServiceLastDate
                 }
             ).ToListAsync();
 
@@ -5331,6 +5340,8 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 from a in _oBMSDbContext.AssetMasters
                 join sup in _oBMSDbContext.Suppliers on a.SupplierID equals sup.Id into supJoin
                 from sup in supJoin.DefaultIfEmpty()
+                join cat in _oBMSDbContext.InventoryCategories on a.CategoryID equals cat.ID into catJoin
+                from cat in catJoin.DefaultIfEmpty()
                 where a.ID == id
                    && a.IsActive
                    && (allowedBranches == null || (a.Branch != null && allowedBranches.Contains(a.Branch)))
@@ -5346,6 +5357,8 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     BrandName                = a.BrandName,
                     SupplierID               = a.SupplierID,
                     SupplierName             = sup != null ? sup.Name : "",
+                    CategoryID               = a.CategoryID,
+                    CategoryName             = cat != null ? cat.Name : "",
                     Branch                   = a.Branch,
                     PurchaseAmount           = a.PurchaseAmount,
                     PurchaseDate             = a.PurchaseDate,
@@ -5366,7 +5379,12 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     // ── Preclosing ────────────────────────────────────────────
                     IsPreClosing             = a.IsPreClosing,
                     PreClosingDate           = a.PreClosingDate,
-                    PreClosingAmount         = a.PreClosingAmount
+                    PreClosingAmount         = a.PreClosingAmount,
+                    // ── Vehicle-specific ──────────────────────────────────────
+                    RoadTaxRenewalDate       = a.RoadTaxRenewalDate,
+                    InsuranceRenewalDate     = a.InsuranceRenewalDate,
+                    // ── Office-specific ───────────────────────────────────────
+                    ServiceLastDate          = a.ServiceLastDate
                 }
             ).FirstOrDefaultAsync();
 
@@ -5569,6 +5587,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
                     asset.Name                      = dto.Name;
                     asset.AssetType                 = dto.AssetType;
+                    asset.CategoryID                = dto.CategoryID;
                     asset.SerialNumber              = dto.SerialNumber;
                     asset.Description               = dto.Description;
                     asset.ModelNo                   = dto.ModelNo;
@@ -5593,6 +5612,32 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     asset.IsPreClosing              = dto.IsPreClosing;
                     asset.PreClosingDate            = dto.IsPreClosing ? dto.PreClosingDate : null;
                     asset.PreClosingAmount          = dto.IsPreClosing ? dto.PreClosingAmount : null;
+
+                    // ── Vehicle-specific fields ───────────────────────────────
+                    // Show fields only when the selected Category has AssetType = 'Vehicle'
+                    bool isVehicle = false;
+                    if (dto.CategoryID.HasValue)
+                    {
+                        var cat = await _oBMSDbContext.InventoryCategories
+                            .Where(x => x.ID == dto.CategoryID.Value)
+                            .Select(x => x.AssetType)
+                            .FirstOrDefaultAsync();
+                        isVehicle = string.Equals(cat, "Vehicle", StringComparison.OrdinalIgnoreCase);
+                    }
+                    asset.RoadTaxRenewalDate    = isVehicle ? dto.RoadTaxRenewalDate    : null;
+                    asset.InsuranceRenewalDate  = isVehicle ? dto.InsuranceRenewalDate  : null;
+
+                    // ── Office-specific fields ────────────────────────────────
+                    bool isOffice = false;
+                    if (dto.CategoryID.HasValue && !isVehicle)
+                    {
+                        var catType = await _oBMSDbContext.InventoryCategories
+                            .Where(x => x.ID == dto.CategoryID.Value)
+                            .Select(x => x.AssetType)
+                            .FirstOrDefaultAsync();
+                        isOffice = string.Equals(catType, "Office", StringComparison.OrdinalIgnoreCase);
+                    }
+                    asset.ServiceLastDate = (isVehicle || isOffice) ? dto.ServiceLastDate : null;
 
                     // Calculate installment months: CEILING((Purchase - Deposit) / Monthly)
                     if (isMonthly && dto.PurchaseAmount > 0 && dto.MonthlyInstallmentAmount > 0)

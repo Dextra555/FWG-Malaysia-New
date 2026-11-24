@@ -126,7 +126,10 @@ app.UseCors(policy =>
             "http://124.217.236.37",           // Live server (bare port 80)
             "http://124.217.236.37:63388",     // FWG Live Angular app ← FIXED
             "http://124.217.236.37:63399",     // FWG Live API
-            "http://124.217.236.37:8009",      // FWG Report server
+            "http://124.217.236.37:64488",     // FWG UAT Angular app ← FIXED
+            "http://124.217.236.37:64499",     // FWG UAT API
+            "http://124.217.236.37:8008",      // FWG UAT Report server
+            "http://124.217.236.37:8009",      // FWG Live Report server
             "http://124.217.236.37:8227",      // UAT Angular
             "http://124.217.236.37:8484"       // IND Angular
           )

@@ -23,19 +23,17 @@ export class NewAssetComponent implements OnInit {
 
   branchList:   any[] = [];
   supplierList: any[] = [];
+  categoryList: any[] = [];
   // Search filter state
   supplierSearch = ''; filteredSuppliers: any[] = [];
   branchSearch = '';   filteredBranches:  any[] = [];
+  categorySearch = ''; filteredCategories: any[] = [];
 
-  assetTypes:     string[] = ['Fixed Asset', 'Liquid Assets', 'Current Liabilities', 'Long Term Liabilities'];
+  assetTypes:     string[] = ['Fixed Asset', 'Liquid Assets', 'Current Liabilities', 'Long Term Liabilities', 'Vehicle'];
   conditionTypes: string[] = ['Good', 'Fair', 'Poor', 'Damaged'];
 
   // Installment schedule preview rows
   installmentPreview: { no: number; dueDate: Date; amount: number; paidAmount: number; status: string }[] = [];
-
-  // Payment lock — true when a payment has been recorded against this asset
-  isPaymentLocked: boolean = false;
-  paymentLockMessage: string = '';
 
   userAccessModel!: UserAccessModel;
   currentUser:    string  = '';
@@ -65,6 +63,7 @@ export class NewAssetComponent implements OnInit {
       ModelNo:                  [''],
       BrandName:                [''],
       SupplierID:               [null],
+      CategoryID:               [null],
       Branch:                   [''],
       PurchaseAmount:           [''],
       PurchaseDate:             [null],
@@ -81,7 +80,12 @@ export class NewAssetComponent implements OnInit {
       // ── Preclosing ────────────────────────────────────────────────────
       IsPreClosing:             [false],
       PreClosingDate:           [null],
-      PreClosingAmount:         [{ value: null, disabled: true }]   // auto-calculated
+      PreClosingAmount:         [{ value: null, disabled: true }],   // auto-calculated
+      // ── Vehicle-specific ──────────────────────────────────────────────
+      RoadTaxRenewalDate:       [null],
+      InsuranceRenewalDate:     [null],
+      // ── Office-specific ───────────────────────────────────────────────
+      ServiceLastDate:          [null]
     });
 
     // Recalculate installments whenever relevant fields change
@@ -122,6 +126,22 @@ export class NewAssetComponent implements OnInit {
   /** True when MONTHLY payment term is selected */
   get isMonthly(): boolean {
     return this.frm.get('PaymentTermType')?.value === 'MONTHLY';
+  }
+
+  /** True when the selected Category Master has AssetType = 'Vehicle' */
+  get isVehicle(): boolean {
+    const catID = this.frm.get('CategoryID')?.value;
+    if (!catID) return false;
+    const cat = this.categoryList.find((c: any) => c.ID === catID);
+    return cat?.AssetType === 'Vehicle';
+  }
+
+  /** True when the selected Category Master has AssetType = 'Office' */
+  get isOffice(): boolean {
+    const catID = this.frm.get('CategoryID')?.value;
+    if (!catID) return false;
+    const cat = this.categoryList.find((c: any) => c.ID === catID);
+    return cat?.AssetType === 'Office';
   }
 
   /** Sum of all installment preview amounts */
@@ -218,6 +238,10 @@ export class NewAssetComponent implements OnInit {
       next: (d: any[]) => { this.supplierList = d || []; this.filteredSuppliers = [...this.supplierList]; },
       error: () => {}
     });
+    this.service.getAssetCategories().subscribe({
+      next: (d: any[]) => { this.categoryList = d || []; this.filteredCategories = [...this.categoryList]; },
+      error: () => {}
+    });
   }
 
   loadExisting(): void {
@@ -235,6 +259,7 @@ export class NewAssetComponent implements OnInit {
           ModelNo:                  d.ModelNo,
           BrandName:                d.BrandName,
           SupplierID:               d.SupplierID,
+          CategoryID:               d.CategoryID ?? null,
           Branch:                   d.Branch,
           PurchaseAmount:           d.PurchaseAmount,
           PurchaseDate:             d.PurchaseDate ? new Date(d.PurchaseDate) : null,
@@ -249,24 +274,10 @@ export class NewAssetComponent implements OnInit {
           InstallmentMonths:        d.InstallmentMonths ?? null,
           IsPreClosing:             d.IsPreClosing ?? false,
           PreClosingDate:           d.PreClosingDate ? new Date(d.PreClosingDate) : null,
-          PreClosingAmount:         d.PreClosingAmount ?? null
-        });
-
-        // Check payment lock
-        this.service.getAssetPaymentLockStatus(d.ID).subscribe({
-          next: (lock: any) => {
-            if (lock?.isLocked) {
-              this.isPaymentLocked = true;
-              this.paymentLockMessage = lock.message || 'This asset is locked — a payment has been recorded.';
-              // Disable entire form except preclosing fields
-              this.frm.disable();
-              // Re-enable only preclosing toggle and date
-              // so user can still initiate early settlement
-              this.frm.get('IsPreClosing')?.enable();
-              this.frm.get('PreClosingDate')?.enable();
-            }
-          },
-          error: () => {}
+          PreClosingAmount:         d.PreClosingAmount ?? null,
+          RoadTaxRenewalDate:       d.RoadTaxRenewalDate   ? new Date(d.RoadTaxRenewalDate)   : null,
+          InsuranceRenewalDate:     d.InsuranceRenewalDate ? new Date(d.InsuranceRenewalDate) : null,
+          ServiceLastDate:          d.ServiceLastDate       ? new Date(d.ServiceLastDate)       : null
         });
 
         // Load existing installment schedule for display
@@ -294,39 +305,6 @@ export class NewAssetComponent implements OnInit {
 
   onSubmit(): void {
     if (this.frm.invalid) { this.frm.markAllAsTouched(); return; }
-    if (this.isPaymentLocked) {
-      // Locked asset — only allow preclosing toggle save
-      const raw = this.frm.getRawValue();
-      if (!raw.IsPreClosing && !this.frm.get('IsPreClosing')?.dirty) {
-        this.showMessage('This asset is locked for editing because a payment has been recorded against it.', 'warning', 'Warning Message');
-        return;
-      }
-      // Allow saving preclosing state only
-      this.showLoadingSpinner = true;
-      const preClosingPayload = {
-        ID:               raw.ID,
-        IsPreClosing:     raw.IsPreClosing,
-        IsPreClosingOnly: true,                    // ← tells API: only save preclosing fields
-        PreClosingDate:   raw.IsPreClosing ? raw.PreClosingDate : null,
-        PreClosingAmount: raw.IsPreClosing ? (raw.PreClosingAmount ? +raw.PreClosingAmount : null) : null,
-        LastUpdatedBy:    this.currentUser,
-        LastUpdatedDate:  new Date(),
-        // Required fields — carry existing values
-        Name:      raw.Name,
-        AssetType: raw.AssetType
-      };
-      this.service.saveAssetRecord(preClosingPayload).subscribe({
-        next: (res: any) => {
-          this.showMessage(res?.message || 'Preclosing status updated.', 'success', 'Success Message');
-          this.hideLoadingSpinner();
-        },
-        error: (err: any) => {
-          this.showMessage(this.extractErrorMessage(err, 'Unable to save. Please try again.'), 'error', 'Error Message');
-          this.hideLoadingSpinner();
-        }
-      });
-      return;
-    }
 
     const raw = this.frm.getRawValue();
     const isMonthlySelected = raw.PaymentTermType === 'MONTHLY';
@@ -405,9 +383,23 @@ export class NewAssetComponent implements OnInit {
 
   hideLoadingSpinner(): void { this.showLoadingSpinner = false; }
 
+  /**
+   * User edited an installment row's Amount directly in the table.
+   * Updates that row's amount in-place; recalcs preclosing if ON.
+   */
+  onInstallmentAmountChange(row: any, value: string): void {
+    const newAmt = parseFloat(value);
+    if (isNaN(newAmt) || newAmt < 0) return;
+    row.amount = +newAmt.toFixed(2);
+    // Recalc preclosing if toggled ON
+    this.recalcPreClosing();
+  }
+
   // ── Searchable dropdown helpers ──────────────────────────────────────────
   onSupplierOpen(opened: boolean) { if (opened) { this.supplierSearch = ''; this.filteredSuppliers = [...this.supplierList]; } }
   onBranchOpen(opened: boolean)   { if (opened) { this.branchSearch   = ''; this.filteredBranches  = [...this.branchList];   } }
+  onCategoryOpen(opened: boolean) { if (opened) { this.categorySearch = ''; this.filteredCategories = [...this.categoryList]; } }
   onSupplierSearch(q: string) { this.supplierSearch = q; const s = q.toLowerCase(); this.filteredSuppliers = this.supplierList.filter(x => x.Name?.toLowerCase().includes(s) || x.Code?.toLowerCase().includes(s)); }
   onBranchSearch(q: string)   { this.branchSearch   = q; const s = q.toLowerCase(); this.filteredBranches  = this.branchList.filter(x  => x.Name?.toLowerCase().includes(s) || x.Code?.toLowerCase().includes(s)); }
+  onCategorySearch(q: string) { this.categorySearch = q; const s = q.toLowerCase(); this.filteredCategories = this.categoryList.filter(x => x.Name?.toLowerCase().includes(s)); }
 }

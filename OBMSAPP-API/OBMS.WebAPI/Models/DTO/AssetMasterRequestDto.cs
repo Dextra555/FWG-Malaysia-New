@@ -23,6 +23,9 @@
         public string? BrandName { get; set; }
         public int? SupplierID { get; set; }
 
+        /// <summary>FK to AssetCategory table (nullable)</summary>
+        public int? CategoryID { get; set; }
+
         /// <summary>Branch code (free text — existing field)</summary>
         public string? Branch { get; set; }
 
@@ -66,6 +69,13 @@
         /// Used when asset is payment-locked but user enables preclosing.
         /// </summary>
         public bool IsPreClosingOnly { get; set; } = false;
+
+        // ── Vehicle-specific fields ───────────────────────────────────────────
+        public DateTime? RoadTaxRenewalDate { get; set; }
+        public DateTime? InsuranceRenewalDate { get; set; }
+
+        // ── Office-specific fields ────────────────────────────────────────────
+        public DateTime? ServiceLastDate { get; set; }
 
         public DateTime? LastUpdatedDate { get; set; }
         public string? LastUpdatedBy { get; set; }

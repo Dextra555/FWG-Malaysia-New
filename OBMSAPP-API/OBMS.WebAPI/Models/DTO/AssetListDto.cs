@@ -13,6 +13,8 @@ namespace OBMS.WebAPI.Models.DTO
         public string? BrandName { get; set; }
         public int? SupplierID { get; set; }
         public string? SupplierName { get; set; }
+        public int? CategoryID { get; set; }
+        public string? CategoryName { get; set; }
         public string? Branch { get; set; }
         public double? PurchaseAmount { get; set; }
         public DateTime? PurchaseDate { get; set; }
@@ -46,6 +48,13 @@ namespace OBMS.WebAPI.Models.DTO
         public bool IsPreClosing { get; set; } = false;
         public DateTime? PreClosingDate { get; set; }
         public decimal? PreClosingAmount { get; set; }
+
+        // ── Vehicle-specific ──────────────────────────────────────────────────
+        public DateTime? RoadTaxRenewalDate { get; set; }
+        public DateTime? InsuranceRenewalDate { get; set; }
+
+        // ── Office-specific ───────────────────────────────────────────────────
+        public DateTime? ServiceLastDate { get; set; }
 
         // Installment summary (loaded separately)
         public int? PaidInstallments { get; set; }

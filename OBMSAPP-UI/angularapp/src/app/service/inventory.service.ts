@@ -998,6 +998,10 @@ export class InventoryService {
 
   // ── Part 6: Asset Master ───────────────────────────────────────────────────
 
+  getAssetCategories(): Observable<any[]> {
+    return this.getCategoryByCat('P');
+  }
+
   getAssetList(): Observable<any[]> {
     return this.httpClient.get<any[]>(this.apiUrl + 'Inventory/GetAssetList')
       .pipe(catchError(this.errorHandle));

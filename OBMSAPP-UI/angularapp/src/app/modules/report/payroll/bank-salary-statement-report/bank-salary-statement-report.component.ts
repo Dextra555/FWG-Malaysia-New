@@ -225,6 +225,22 @@ export class BankSalaryStatementReportComponent implements OnInit {
       localURL += "&Bank=" + this.frm.get("BankCode")?.value
       localURL += "&PaymentMode=" + this.frm.get("PaymentMode")?.value
       this.urlSafe = this.sanitizer.bypassSecurityTrustResourceUrl(this.url + this.reportPageName + localURL);
+    } else if (this.reportType == 7) {
+      localURL += "Branch=" + this.frm.get("Branch")?.value
+      localURL += "&LoginID=" + this.currentUser
+      localURL += "&Period=" + this.dtAdvanceDate
+      localURL += "&EmployeeType=" + this.frm.get("EmployeeType")?.value
+      localURL += "&Bank=" + this.frm.get("BankCode")?.value
+      localURL += "&PaymentMode=" + this.frm.get("PaymentMode")?.value
+      this.urlSafe = this.sanitizer.bypassSecurityTrustResourceUrl(this.url + this.reportPageName + localURL);
+    } else if (this.reportType == 8) {
+      localURL += "Branch=" + this.frm.get("Branch")?.value
+      localURL += "&LoginID=" + this.currentUser
+      localURL += "&Period=" + this.dtAdvanceDate
+      localURL += "&EmployeeType=" + this.frm.get("EmployeeType")?.value
+      localURL += "&Bank=" + this.frm.get("BankCode")?.value
+      localURL += "&PaymentMode=" + this.frm.get("PaymentMode")?.value
+      this.urlSafe = this.sanitizer.bypassSecurityTrustResourceUrl(this.url + this.reportPageName + localURL);
     } else if (this.reportType == undefined) {
 
     }
@@ -234,10 +250,10 @@ export class BankSalaryStatementReportComponent implements OnInit {
   }
 
   clkBtn(number: number) {
-    this.reportType = number === 1 ? 1 : number === 2 ? 2 : number === 3 ? 3 :
+    this.reportType = number === 1 ? 1 : number === 2 ? 2 : number === 3 ? 3 : number === 7 ? 7 : number === 8 ? 8 :
       number === 4 ? 'StandardSalary' : number === 5 ? 'SalaryGuard1' : 'SalaryGuard2';
     this.reportPageName = number == 1 ? "BankSalaryReport.aspx?" : number == 2 ? 'BankSalaryReportGuard1.aspx?' :
-      number == 3 ? 'BankSalaryReportGuard2.aspx?' : '';
+      number == 3 ? 'BankSalaryReportGuard2.aspx?' : number == 7 ? 'Bank1SalaryReport.aspx?' : number == 8 ? 'Bank2SalaryReport.aspx?' :  '';
   }
 
   generateDataToTextFile(source: string): void {

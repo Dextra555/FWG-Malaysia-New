@@ -160,6 +160,31 @@ export class NetpayReportsComponent implements OnInit {
     this.urlSafe = this.sanitizer.bypassSecurityTrustResourceUrl(this.url);
   }
 
+  
+    getReportShowClick1(): void {
+    this.url = environment.baseReportUrl;
+    this.url += 'Payroll/NetPayReportshiftwith.aspx?';
+    this.url += "LoginID=" + this.currentUser;
+    this.url += "&Branch=" + this.salaryForm.get("BranchCode")?.value
+    this.url += "&Period=" + this.dtAdvanceDate
+    this.url += "&EmployeeType=" + this.salaryForm.get("EmployeeType")?.value
+    this.url += "&PaymentType=" + this.salaryForm.get("PaymentType")?.value
+    this.urlSafe = this.sanitizer.bypassSecurityTrustResourceUrl(this.url);
+  }
+
+         getReportShowClick2(): void {
+    this.url = environment.baseReportUrl;
+    this.url += 'Payroll/NetPayReportshiftwithin.aspx?';
+    this.url += "LoginID=" + this.currentUser;
+    this.url += "&Branch=" + this.salaryForm.get("BranchCode")?.value
+    this.url += "&Period=" + this.dtAdvanceDate
+    this.url += "&EmployeeType=" + this.salaryForm.get("EmployeeType")?.value
+    this.url += "&PaymentType=" + this.salaryForm.get("PaymentType")?.value
+    this.urlSafe = this.sanitizer.bypassSecurityTrustResourceUrl(this.url);
+  }
+
+
+
   getReportGuard1Click(): void {
     this.url = environment.baseReportUrl;
     this.url += 'Payroll/NetPayReportGuard1.aspx?';

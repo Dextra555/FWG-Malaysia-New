@@ -724,6 +724,84 @@ namespace OBMS.WebAPI.BusinessObjects
 
                         strSQL = strSQL + " ORDER BY EMP_NAME ";
                     }
+                    else if (Type == "1ShiftSalary")
+                    {
+                        strSQL  = "SELECT ";
+                        strSQL += "SUM( ";
+                        strSQL += "  (ps.BasicSalary+ps.OverTimeSalary+ps.OffDaySalary+ps.OffDayOverTimeSalary+ps.HolidaySalary+ ";
+                        strSQL += "   ps.HolidayOverTimeSalary+ps.Shift2Salary+ps.AttendanceAllowance+ps.ReAllowance+ps.MiscAmount+ps.SpecialAllowance+ps.Bonus) ";
+                        strSQL += "  - (ps.EPFDeductionAmount+ps.SOCSODeductionAmount+ps.DailyAdvanceRecovery+ps.SIPEmployeeContribution+ ";
+                        strSQL += "     ps.MonthlyAdvanceRecovery+ps.SpecialAdvanceRecovery+ps.UniformIssueRecovery+ps.LoanRecovery+ps.MiscDeduction+ps.IncomeTaxDeduction";
+                        if (includeSKBBK) strSQL += "+ps.SKBBKContribution";
+                        strSQL += ") ";
+                        strSQL += "  - (CASE WHEN ISNULL(ps.SplitSalaryPayment,0)=1 THEN ps.Shift2Salary ELSE 0 END) ";
+                        strSQL += ") AS AMOUNT, ";
+
+                        if (BankCode.ToString().ToUpper() == "CIMB" || BankCode.ToString().ToUpper() == "RHB")
+                            strSQL += "SUBSTRING(e.EMP_NAME,1,40) AS EmployeeName, ";
+                        else if (BankCode.ToString().ToUpper() == "BSN")
+                            strSQL += "SUBSTRING(e.EMP_NAME,1,30) AS EmployeeName, ";
+                        else
+                            strSQL += "e.EMP_NAME AS EmployeeName, ";
+
+                        strSQL += "(CASE WHEN e.EMP_IC_NEW IS NULL OR e.EMP_IC_NEW = '' THEN ";
+                        strSQL += "   CASE WHEN e.EMP_IC_OLD IS NULL OR e.EMP_IC_OLD = '' ";
+                        strSQL += "   THEN REPLACE(e.EMP_PASSPORT_NO,'-','') ELSE REPLACE(e.EMP_IC_OLD,'-','') END ";
+                        strSQL += " ELSE REPLACE(e.EMP_IC_NEW,'-','') END) AS EMP_SecurityNo, ";
+                        strSQL += "e.EMP_IC_OLD, e.EMP_IC_NEW, e.EMP_PASSPORT_NO, ";
+                        strSQL += "REPLACE(ISNULL(sd.EMPFL_BK_ACCNO,''),'-','') AS EMP_BK_ACCNO ";
+                        strSQL += "FROM PaySlip ps ";
+                        strSQL += "INNER JOIN Employee e ON e.EMP_ID = ps.EmployeeID ";
+                        strSQL += "INNER JOIN EmployeeSalaryDetails sd ON sd.EMPFL_CODE = e.EMP_CODE ";
+                        strSQL += "WHERE ps.SalaryPayMode = 'BANK' ";
+                        strSQL += "AND Month(ps.Period) = @Month AND Year(ps.Period) = @Year ";
+                        strSQL += "AND e.EMP_ROLE = @EmployeeType ";
+                        if (BankCode != "0" && BankCode != "")
+                            strSQL += "AND sd.EMPFL_BANK = @BankCode ";
+                        strSQL += "GROUP BY e.EMP_NAME, e.EMP_IC_OLD, e.EMP_IC_NEW, e.EMP_PASSPORT_NO, sd.EMPFL_BK_ACCNO ";
+                        strSQL += "HAVING SUM( ";
+                        strSQL += "  (ps.BasicSalary+ps.OverTimeSalary+ps.OffDaySalary+ps.OffDayOverTimeSalary+ps.HolidaySalary+ ";
+                        strSQL += "   ps.HolidayOverTimeSalary+ps.Shift2Salary+ps.AttendanceAllowance+ps.ReAllowance+ps.MiscAmount+ps.SpecialAllowance+ps.Bonus) ";
+                        strSQL += "  - (ps.EPFDeductionAmount+ps.SOCSODeductionAmount+ps.DailyAdvanceRecovery+ps.SIPEmployeeContribution+ ";
+                        strSQL += "     ps.MonthlyAdvanceRecovery+ps.SpecialAdvanceRecovery+ps.UniformIssueRecovery+ps.LoanRecovery+ps.MiscDeduction+ps.IncomeTaxDeduction";
+                        if (includeSKBBK) strSQL += "+ps.SKBBKContribution";
+                        strSQL += ") ";
+                        strSQL += "  - (CASE WHEN ISNULL(ps.SplitSalaryPayment,0)=1 THEN ps.Shift2Salary ELSE 0 END) ";
+                        strSQL += ") > 0 ";
+                        strSQL += "ORDER BY e.EMP_NAME ";
+                    }
+                    else if (Type == "2ShiftSalary")
+                    {
+                        // 2ShiftSalary: SplitSalaryPayment=1 employees only, Shift2Salary amount, 2nd bank account
+                        strSQL  = "SELECT ";
+                        strSQL += "SUM(ps.Shift2Salary) AS AMOUNT, ";
+
+                        if (BankCode.ToString().ToUpper() == "CIMB" || BankCode.ToString().ToUpper() == "RHB")
+                            strSQL += "SUBSTRING(e.EMP_NAME,1,40) AS EmployeeName, ";
+                        else if (BankCode.ToString().ToUpper() == "BSN")
+                            strSQL += "SUBSTRING(e.EMP_NAME,1,30) AS EmployeeName, ";
+                        else
+                            strSQL += "e.EMP_NAME AS EmployeeName, ";
+
+                        strSQL += "(CASE WHEN e.EMP_IC_NEW IS NULL OR e.EMP_IC_NEW = '' THEN ";
+                        strSQL += "   CASE WHEN e.EMP_IC_OLD IS NULL OR e.EMP_IC_OLD = '' ";
+                        strSQL += "   THEN REPLACE(e.EMP_PASSPORT_NO,'-','') ELSE REPLACE(e.EMP_IC_OLD,'-','') END ";
+                        strSQL += " ELSE REPLACE(e.EMP_IC_NEW,'-','') END) AS EMP_SecurityNo, ";
+                        strSQL += "e.EMP_IC_OLD, e.EMP_IC_NEW, e.EMP_PASSPORT_NO, ";
+                        strSQL += "REPLACE(ISNULL(sd.EMPFL_2ndBK_ACCNO,''),'-','') AS EMP_BK_ACCNO ";
+                        strSQL += "FROM PaySlip ps ";
+                        strSQL += "INNER JOIN Employee e ON e.EMP_ID = ps.EmployeeID ";
+                        strSQL += "INNER JOIN EmployeeSalaryDetails sd ON sd.EMPFL_CODE = e.EMP_CODE ";
+                        strSQL += "WHERE ISNULL(ps.SplitSalaryPayment,0) = 1 ";
+                        strSQL += "AND ps.SalaryPayMode = 'BANK' ";
+                        strSQL += "AND Month(ps.Period) = @Month AND Year(ps.Period) = @Year ";
+                        strSQL += "AND e.EMP_ROLE = @EmployeeType ";
+                        if (BankCode != "0" && BankCode != "")
+                            strSQL += "AND sd.EMPFL_BANK = @BankCode ";
+                        strSQL += "GROUP BY e.EMP_NAME, e.EMP_IC_OLD, e.EMP_IC_NEW, e.EMP_PASSPORT_NO, sd.EMPFL_2ndBK_ACCNO ";
+                        strSQL += "HAVING SUM(ps.Shift2Salary) > 0 ";
+                        strSQL += "ORDER BY e.EMP_NAME ";
+                    }
 
                     cmd.CommandText = strSQL;
                     cmd.Parameters.AddWithValue("@EmployeeType", EmployeeType);
@@ -1004,7 +1082,91 @@ namespace OBMS.WebAPI.BusinessObjects
                         strSQL = strSQL + " ORDER BY EMP_NAME ";
 
                     }
+                    else if (Type == "1ShiftSalary")
+                    {
+                        // 1ShiftSalary: SplitSalaryPayment=1 → subtract Shift2Salary; SplitSalaryPayment=0 → full salary
+                        string payMode = "BANK";
+                        strSQL = "SELECT ";
+                        strSQL += "SUM( ";
+                        strSQL += "  (ps.BasicSalary+ps.OverTimeSalary+ps.OffDaySalary+ps.OffDayOverTimeSalary+ps.HolidaySalary+ ";
+                        strSQL += "   ps.HolidayOverTimeSalary+ps.Shift2Salary+ps.AttendanceAllowance+ps.ReAllowance+ps.MiscAmount+ps.SpecialAllowance+ps.Bonus) ";
+                        strSQL += "  - (ps.EPFDeductionAmount+ps.SOCSODeductionAmount+ps.DailyAdvanceRecovery+ps.SIPEmployeeContribution+ ";
+                        strSQL += "     ps.MonthlyAdvanceRecovery+ps.SpecialAdvanceRecovery+ps.UniformIssueRecovery+ps.LoanRecovery+ps.MiscDeduction+ps.IncomeTaxDeduction";
+                        if (includeSKBBK) strSQL += "+ps.SKBBKContribution";
+                        strSQL += ") ";
+                        strSQL += "  - (CASE WHEN ISNULL(ps.SplitSalaryPayment,0)=1 THEN ps.Shift2Salary ELSE 0 END) ";
+                        strSQL += ") AS AMOUNT, ";
 
+                        if (BankCode.ToString().ToUpper() == "CIMB" || BankCode.ToString().ToUpper() == "RHB")
+                            strSQL += "SUBSTRING(e.EMP_NAME,1,40) AS EmployeeName, ";
+                        else if (BankCode.ToString().ToUpper() == "BSN")
+                            strSQL += "SUBSTRING(e.EMP_NAME,1,30) AS EmployeeName, ";
+                        else
+                            strSQL += "e.EMP_NAME AS EmployeeName, ";
+
+                        strSQL += "(CASE WHEN e.EMP_IC_NEW IS NULL OR e.EMP_IC_NEW = '' THEN ";
+                        strSQL += "   CASE WHEN e.EMP_IC_OLD IS NULL OR e.EMP_IC_OLD = '' ";
+                        strSQL += "   THEN REPLACE(e.EMP_PASSPORT_NO,'-','') ELSE REPLACE(e.EMP_IC_OLD,'-','') END ";
+                        strSQL += " ELSE REPLACE(e.EMP_IC_NEW,'-','') END) AS EMP_SecurityNo, ";
+                        strSQL += "e.EMP_IC_OLD, e.EMP_IC_NEW, e.EMP_PASSPORT_NO, ";
+                        strSQL += "REPLACE(ISNULL(sd.EMPFL_BK_ACCNO,''),'-','') AS EMP_BK_ACCNO ";
+                        strSQL += "FROM PaySlip ps ";
+                        strSQL += "INNER JOIN Employee e ON e.EMP_ID = ps.EmployeeID ";
+                        strSQL += "INNER JOIN EmployeeSalaryDetails sd ON sd.EMPFL_CODE = e.EMP_CODE ";
+                        strSQL += "WHERE ps.SalaryPayMode = '" + payMode + "' ";
+                        strSQL += "AND Month(ps.Period) = @Month ";
+                        strSQL += "AND Year(ps.Period) = @Year ";
+                        strSQL += "AND e.EMP_ROLE = @EmployeeType ";
+                        if (BankCode != "0" && BankCode != "")
+                            strSQL += "AND sd.EMPFL_BANK = @BankCode ";
+                        if (Branch != "0" && Branch != "")
+                            strSQL += "AND e.EMP_BRANCH_CODE = @Branch ";
+                        strSQL += "GROUP BY e.EMP_NAME, e.EMP_IC_OLD, e.EMP_IC_NEW, e.EMP_PASSPORT_NO, sd.EMPFL_BK_ACCNO ";
+                        strSQL += "HAVING SUM( ";
+                        strSQL += "  (ps.BasicSalary+ps.OverTimeSalary+ps.OffDaySalary+ps.OffDayOverTimeSalary+ps.HolidaySalary+ ";
+                        strSQL += "   ps.HolidayOverTimeSalary+ps.Shift2Salary+ps.AttendanceAllowance+ps.ReAllowance+ps.MiscAmount+ps.SpecialAllowance+ps.Bonus) ";
+                        strSQL += "  - (ps.EPFDeductionAmount+ps.SOCSODeductionAmount+ps.DailyAdvanceRecovery+ps.SIPEmployeeContribution+ ";
+                        strSQL += "     ps.MonthlyAdvanceRecovery+ps.SpecialAdvanceRecovery+ps.UniformIssueRecovery+ps.LoanRecovery+ps.MiscDeduction+ps.IncomeTaxDeduction";
+                        if (includeSKBBK) strSQL += "+ps.SKBBKContribution";
+                        strSQL += ") ";
+                        strSQL += "  - (CASE WHEN ISNULL(ps.SplitSalaryPayment,0)=1 THEN ps.Shift2Salary ELSE 0 END) ";
+                        strSQL += ") > 0 ";
+                        strSQL += "ORDER BY e.EMP_NAME ";
+                    }
+                    else if (Type == "2ShiftSalary")
+                    {
+                        // 2ShiftSalary: SplitSalaryPayment=1 employees only, Shift2Salary amount, 2nd bank account
+                        strSQL  = "SELECT ";
+                        strSQL += "SUM(ps.Shift2Salary) AS AMOUNT, ";
+
+                        if (BankCode.ToString().ToUpper() == "CIMB" || BankCode.ToString().ToUpper() == "RHB")
+                            strSQL += "SUBSTRING(e.EMP_NAME,1,40) AS EmployeeName, ";
+                        else if (BankCode.ToString().ToUpper() == "BSN")
+                            strSQL += "SUBSTRING(e.EMP_NAME,1,30) AS EmployeeName, ";
+                        else
+                            strSQL += "e.EMP_NAME AS EmployeeName, ";
+
+                        strSQL += "(CASE WHEN e.EMP_IC_NEW IS NULL OR e.EMP_IC_NEW = '' THEN ";
+                        strSQL += "   CASE WHEN e.EMP_IC_OLD IS NULL OR e.EMP_IC_OLD = '' ";
+                        strSQL += "   THEN REPLACE(e.EMP_PASSPORT_NO,'-','') ELSE REPLACE(e.EMP_IC_OLD,'-','') END ";
+                        strSQL += " ELSE REPLACE(e.EMP_IC_NEW,'-','') END) AS EMP_SecurityNo, ";
+                        strSQL += "e.EMP_IC_OLD, e.EMP_IC_NEW, e.EMP_PASSPORT_NO, ";
+                        strSQL += "REPLACE(ISNULL(sd.EMPFL_2ndBK_ACCNO,''),'-','') AS EMP_BK_ACCNO ";
+                        strSQL += "FROM PaySlip ps ";
+                        strSQL += "INNER JOIN Employee e ON e.EMP_ID = ps.EmployeeID ";
+                        strSQL += "INNER JOIN EmployeeSalaryDetails sd ON sd.EMPFL_CODE = e.EMP_CODE ";
+                        strSQL += "WHERE ISNULL(ps.SplitSalaryPayment,0) = 1 ";
+                        strSQL += "AND ps.SalaryPayMode = 'BANK' ";
+                        strSQL += "AND Month(ps.Period) = @Month AND Year(ps.Period) = @Year ";
+                        strSQL += "AND e.EMP_ROLE = @EmployeeType ";
+                        if (BankCode != "0" && BankCode != "")
+                            strSQL += "AND sd.EMPFL_BANK = @BankCode ";
+                        if (Branch != "0" && Branch != "")
+                            strSQL += "AND e.EMP_BRANCH_CODE = @Branch ";
+                        strSQL += "GROUP BY e.EMP_NAME, e.EMP_IC_OLD, e.EMP_IC_NEW, e.EMP_PASSPORT_NO, sd.EMPFL_2ndBK_ACCNO ";
+                        strSQL += "HAVING SUM(ps.Shift2Salary) > 0 ";
+                        strSQL += "ORDER BY e.EMP_NAME ";
+                    }
 
                     cmd.CommandText = strSQL;
                     cmd.Parameters.AddWithValue("@EmployeeType", EmployeeType);
@@ -1029,7 +1191,7 @@ namespace OBMS.WebAPI.BusinessObjects
                                 strEmpSecurityNo = (dr[2] == DBNull.Value) ? string.Empty : dr.GetString(2);
                                 strEmpBankAccNo  = (dr[6] == DBNull.Value) ? string.Empty : dr.GetString(6);
 
-                                // Strip special characters from name � keep only letters, digits, spaces
+                                // Strip special characters from name — keep only letters, digits, spaces� keep only letters, digits, spaces
                                 strEmpName = System.Text.RegularExpressions.Regex.Replace(strEmpName, @"[^A-Za-z0-9 ]", "");
 
                                 if (BankCode.ToString().ToUpper() == "CIMB")
@@ -1256,7 +1418,52 @@ namespace OBMS.WebAPI.BusinessObjects
                         strSQL = strSQL + " ) > 0 ";
                         strSQL = strSQL + ")TOTAL ";
                     }
-
+                    else if (Type == "1ShiftSalary")
+                    {
+                        strSQL  = " SELECT ISNULL(COUNT(*),0) AS TOTALRECORD, ISNULL(SUM(NETAMOUNT),0) AS TOTALAMOUNT FROM ( ";
+                        strSQL += "   SELECT SUM( ";
+                        strSQL += "     (ps.BasicSalary+ps.OverTimeSalary+ps.OffDaySalary+ps.OffDayOverTimeSalary+ps.HolidaySalary+ ";
+                        strSQL += "      ps.HolidayOverTimeSalary+ps.Shift2Salary+ps.AttendanceAllowance+ps.ReAllowance+ps.MiscAmount+ps.SpecialAllowance+ps.Bonus) ";
+                        strSQL += "     - (ps.EPFDeductionAmount+ps.SOCSODeductionAmount+ps.DailyAdvanceRecovery+ps.SIPEmployeeContribution+ ";
+                        strSQL += "        ps.MonthlyAdvanceRecovery+ps.SpecialAdvanceRecovery+ps.UniformIssueRecovery+ps.LoanRecovery+ps.MiscDeduction+ps.IncomeTaxDeduction";
+                        if (includeSKBBK) strSQL += "+ps.SKBBKContribution";
+                        strSQL += ") ";
+                        strSQL += "     - (CASE WHEN ISNULL(ps.SplitSalaryPayment,0)=1 THEN ps.Shift2Salary ELSE 0 END) ";
+                        strSQL += "   ) AS NETAMOUNT ";
+                        strSQL += "   FROM PaySlip ps ";
+                        strSQL += "   INNER JOIN Employee e ON e.EMP_ID = ps.EmployeeID ";
+                        strSQL += "   INNER JOIN EmployeeSalaryDetails sd ON sd.EMPFL_CODE = e.EMP_CODE ";
+                        strSQL += "   WHERE ps.SalaryPayMode = 'BANK' ";
+                        strSQL += "   AND Month(ps.Period) = @Month AND Year(ps.Period) = @Year ";
+                        strSQL += "   AND e.EMP_ROLE = @EmployeeType ";
+                        if (BankCode != "0" && BankCode != "")
+                            strSQL += "AND sd.EMPFL_BANK = @BankCode ";
+                        strSQL += "   GROUP BY e.EMP_NAME, e.EMP_IC_OLD, e.EMP_IC_NEW, e.EMP_PASSPORT_NO, sd.EMPFL_BK_ACCNO ";
+                        strSQL += "   HAVING SUM( ";
+                        strSQL += "     (ps.BasicSalary+ps.OverTimeSalary+ps.OffDaySalary+ps.OffDayOverTimeSalary+ps.HolidaySalary+ ";
+                        strSQL += "      ps.HolidayOverTimeSalary+ps.Shift2Salary+ps.AttendanceAllowance+ps.ReAllowance+ps.MiscAmount+ps.SpecialAllowance+ps.Bonus) ";
+                        strSQL += "     - (ps.EPFDeductionAmount+ps.SOCSODeductionAmount+ps.DailyAdvanceRecovery+ps.SIPEmployeeContribution+ ";
+                        strSQL += "        ps.MonthlyAdvanceRecovery+ps.SpecialAdvanceRecovery+ps.UniformIssueRecovery+ps.LoanRecovery+ps.MiscDeduction+ps.IncomeTaxDeduction";
+                        if (includeSKBBK) strSQL += "+ps.SKBBKContribution";
+                        strSQL += ") ";
+                        strSQL += "     - (CASE WHEN ISNULL(ps.SplitSalaryPayment,0)=1 THEN ps.Shift2Salary ELSE 0 END) ";
+                        strSQL += "   ) > 0 ";
+                        strSQL += " ) TOTAL ";
+                    }
+                    else if (Type == "2ShiftSalary")
+                    {
+                        strSQL  = " SELECT ISNULL(COUNT(*),0) AS TOTALRECORD, ISNULL(SUM(ps.Shift2Salary),0) AS TOTALAMOUNT ";
+                        strSQL += " FROM PaySlip ps ";
+                        strSQL += " INNER JOIN Employee e ON e.EMP_ID = ps.EmployeeID ";
+                        strSQL += " INNER JOIN EmployeeSalaryDetails sd ON sd.EMPFL_CODE = e.EMP_CODE ";
+                        strSQL += " WHERE ISNULL(ps.SplitSalaryPayment,0) = 1 ";
+                        strSQL += " AND ps.SalaryPayMode = 'BANK' ";
+                        strSQL += " AND Month(ps.Period) = @Month AND Year(ps.Period) = @Year ";
+                        strSQL += " AND e.EMP_ROLE = @EmployeeType ";
+                        if (BankCode != "0" && BankCode != "")
+                            strSQL += " AND sd.EMPFL_BANK = @BankCode ";
+                        strSQL += " AND ps.Shift2Salary > 0 ";
+                    }
 
                     cmd.CommandText = strSQL;
                     cmd.Parameters.AddWithValue("@EmployeeType", EmployeeType);
@@ -1455,6 +1662,56 @@ namespace OBMS.WebAPI.BusinessObjects
                         }
 
                         strSQL = strSQL + ")TOTAL ";
+                    }
+                    else if (Type == "1ShiftSalary")
+                    {
+                        strSQL  = " SELECT ISNULL(COUNT(*),0) AS TOTALRECORD, ISNULL(SUM(NETAMOUNT),0) AS TOTALAMOUNT FROM ( ";
+                        strSQL += "   SELECT SUM( ";
+                        strSQL += "     (ps.BasicSalary+ps.OverTimeSalary+ps.OffDaySalary+ps.OffDayOverTimeSalary+ps.HolidaySalary+ ";
+                        strSQL += "      ps.HolidayOverTimeSalary+ps.Shift2Salary+ps.AttendanceAllowance+ps.ReAllowance+ps.MiscAmount+ps.SpecialAllowance+ps.Bonus) ";
+                        strSQL += "     - (ps.EPFDeductionAmount+ps.SOCSODeductionAmount+ps.DailyAdvanceRecovery+ps.SIPEmployeeContribution+ ";
+                        strSQL += "        ps.MonthlyAdvanceRecovery+ps.SpecialAdvanceRecovery+ps.UniformIssueRecovery+ps.LoanRecovery+ps.MiscDeduction+ps.IncomeTaxDeduction";
+                        if (includeSKBBK) strSQL += "+ps.SKBBKContribution";
+                        strSQL += ") ";
+                        strSQL += "     - (CASE WHEN ISNULL(ps.SplitSalaryPayment,0)=1 THEN ps.Shift2Salary ELSE 0 END) ";
+                        strSQL += "   ) AS NETAMOUNT ";
+                        strSQL += "   FROM PaySlip ps ";
+                        strSQL += "   INNER JOIN Employee e ON e.EMP_ID = ps.EmployeeID ";
+                        strSQL += "   INNER JOIN EmployeeSalaryDetails sd ON sd.EMPFL_CODE = e.EMP_CODE ";
+                        strSQL += "   WHERE ps.SalaryPayMode = 'BANK' ";
+                        strSQL += "   AND Month(ps.Period) = @Month AND Year(ps.Period) = @Year ";
+                        strSQL += "   AND e.EMP_ROLE = @EmployeeType ";
+                        if (BankCode != "0" && BankCode != "")
+                            strSQL += "AND sd.EMPFL_BANK = @BankCode ";
+                        if (Branch != "0" && Branch != "")
+                            strSQL += "AND e.EMP_BRANCH_CODE = @Branch ";
+                        strSQL += "   GROUP BY e.EMP_NAME, e.EMP_IC_OLD, e.EMP_IC_NEW, e.EMP_PASSPORT_NO, sd.EMPFL_BK_ACCNO ";
+                        strSQL += "   HAVING SUM( ";
+                        strSQL += "     (ps.BasicSalary+ps.OverTimeSalary+ps.OffDaySalary+ps.OffDayOverTimeSalary+ps.HolidaySalary+ ";
+                        strSQL += "      ps.HolidayOverTimeSalary+ps.Shift2Salary+ps.AttendanceAllowance+ps.ReAllowance+ps.MiscAmount+ps.SpecialAllowance+ps.Bonus) ";
+                        strSQL += "     - (ps.EPFDeductionAmount+ps.SOCSODeductionAmount+ps.DailyAdvanceRecovery+ps.SIPEmployeeContribution+ ";
+                        strSQL += "        ps.MonthlyAdvanceRecovery+ps.SpecialAdvanceRecovery+ps.UniformIssueRecovery+ps.LoanRecovery+ps.MiscDeduction+ps.IncomeTaxDeduction";
+                        if (includeSKBBK) strSQL += "+ps.SKBBKContribution";
+                        strSQL += ") ";
+                        strSQL += "     - (CASE WHEN ISNULL(ps.SplitSalaryPayment,0)=1 THEN ps.Shift2Salary ELSE 0 END) ";
+                        strSQL += "   ) > 0 ";
+                        strSQL += " ) TOTAL ";
+                    }
+                    else if (Type == "2ShiftSalary")
+                    {
+                        strSQL  = " SELECT ISNULL(COUNT(*),0) AS TOTALRECORD, ISNULL(SUM(ps.Shift2Salary),0) AS TOTALAMOUNT ";
+                        strSQL += " FROM PaySlip ps ";
+                        strSQL += " INNER JOIN Employee e ON e.EMP_ID = ps.EmployeeID ";
+                        strSQL += " INNER JOIN EmployeeSalaryDetails sd ON sd.EMPFL_CODE = e.EMP_CODE ";
+                        strSQL += " WHERE ISNULL(ps.SplitSalaryPayment,0) = 1 ";
+                        strSQL += " AND ps.SalaryPayMode = 'BANK' ";
+                        strSQL += " AND Month(ps.Period) = @Month AND Year(ps.Period) = @Year ";
+                        strSQL += " AND e.EMP_ROLE = @EmployeeType ";
+                        if (BankCode != "0" && BankCode != "")
+                            strSQL += " AND sd.EMPFL_BANK = @BankCode ";
+                        if (Branch != "0" && Branch != "")
+                            strSQL += " AND e.EMP_BRANCH_CODE = @Branch ";
+                        strSQL += " AND ps.Shift2Salary > 0 ";
                     }
 
                     cmd.CommandText = strSQL;
@@ -1657,6 +1914,32 @@ namespace OBMS.WebAPI.BusinessObjects
                         strSQL = strSQL + ") > 0 ";
                         strSQL = strSQL + ")TOTAL ";
                     }
+                    else if (Type == "1ShiftSalary")
+                    {
+                        strSQL  = " SELECT ISNULL(RIGHT(RTRIM(SUM(ISNULL(TRY_CONVERT(INT,RIGHT(RTRIM(REPLACE(sd.EMPFL_BK_ACCNO,'-','')),4)),0))),4),0) AS HashTotal ";
+                        strSQL += " FROM PaySlip ps ";
+                        strSQL += " INNER JOIN Employee e ON e.EMP_ID = ps.EmployeeID ";
+                        strSQL += " INNER JOIN EmployeeSalaryDetails sd ON sd.EMPFL_CODE = e.EMP_CODE ";
+                        strSQL += " WHERE ps.SalaryPayMode = 'BANK' ";
+                        strSQL += " AND Month(ps.Period) = @Month AND Year(ps.Period) = @Year ";
+                        strSQL += " AND e.EMP_ROLE = @EmployeeType ";
+                        if (BankCode != "0" && BankCode != "")
+                            strSQL += " AND sd.EMPFL_BANK = @BankCode ";
+                    }
+                    else if (Type == "2ShiftSalary")
+                    {
+                        // 2ShiftSalary hash: last 4 digits of 2nd bank account
+                        strSQL  = " SELECT ISNULL(RIGHT(RTRIM(SUM(ISNULL(TRY_CONVERT(INT,RIGHT(RTRIM(REPLACE(sd.EMPFL_2ndBK_ACCNO,'-','')),4)),0))),4),0) AS HashTotal ";
+                        strSQL += " FROM PaySlip ps ";
+                        strSQL += " INNER JOIN Employee e ON e.EMP_ID = ps.EmployeeID ";
+                        strSQL += " INNER JOIN EmployeeSalaryDetails sd ON sd.EMPFL_CODE = e.EMP_CODE ";
+                        strSQL += " WHERE ISNULL(ps.SplitSalaryPayment,0) = 1 ";
+                        strSQL += " AND ps.SalaryPayMode = 'BANK' ";
+                        strSQL += " AND Month(ps.Period) = @Month AND Year(ps.Period) = @Year ";
+                        strSQL += " AND e.EMP_ROLE = @EmployeeType ";
+                        if (BankCode != "0" && BankCode != "")
+                            strSQL += " AND sd.EMPFL_BANK = @BankCode ";
+                    }
 
                     cmd.CommandText = strSQL;
                     cmd.Parameters.AddWithValue("@EmployeeType", EmployeeType);
@@ -1843,6 +2126,36 @@ namespace OBMS.WebAPI.BusinessObjects
 
                         strSQL = strSQL + ") > 0 ";
                         strSQL = strSQL + ")TOTAL ";
+                    }
+                    else if (Type == "1ShiftSalary")
+                    {
+                        strSQL  = " SELECT ISNULL(RIGHT(RTRIM(SUM(ISNULL(TRY_CONVERT(INT,RIGHT(RTRIM(REPLACE(sd.EMPFL_BK_ACCNO,'-','')),4)),0))),4),0) AS HashTotal ";
+                        strSQL += " FROM PaySlip ps ";
+                        strSQL += " INNER JOIN Employee e ON e.EMP_ID = ps.EmployeeID ";
+                        strSQL += " INNER JOIN EmployeeSalaryDetails sd ON sd.EMPFL_CODE = e.EMP_CODE ";
+                        strSQL += " WHERE ps.SalaryPayMode = 'BANK' ";
+                        strSQL += " AND Month(ps.Period) = @Month AND Year(ps.Period) = @Year ";
+                        strSQL += " AND e.EMP_ROLE = @EmployeeType ";
+                        if (BankCode != "0" && BankCode != "")
+                            strSQL += " AND sd.EMPFL_BANK = @BankCode ";
+                        if (Branch != "0" && Branch != "")
+                            strSQL += " AND e.EMP_BRANCH_CODE = @Branch ";
+                    }
+                    else if (Type == "2ShiftSalary")
+                    {
+                        // 2ShiftSalary hash: last 4 digits of 2nd bank account
+                        strSQL  = " SELECT ISNULL(RIGHT(RTRIM(SUM(ISNULL(TRY_CONVERT(INT,RIGHT(RTRIM(REPLACE(sd.EMPFL_2ndBK_ACCNO,'-','')),4)),0))),4),0) AS HashTotal ";
+                        strSQL += " FROM PaySlip ps ";
+                        strSQL += " INNER JOIN Employee e ON e.EMP_ID = ps.EmployeeID ";
+                        strSQL += " INNER JOIN EmployeeSalaryDetails sd ON sd.EMPFL_CODE = e.EMP_CODE ";
+                        strSQL += " WHERE ISNULL(ps.SplitSalaryPayment,0) = 1 ";
+                        strSQL += " AND ps.SalaryPayMode = 'BANK' ";
+                        strSQL += " AND Month(ps.Period) = @Month AND Year(ps.Period) = @Year ";
+                        strSQL += " AND e.EMP_ROLE = @EmployeeType ";
+                        if (BankCode != "0" && BankCode != "")
+                            strSQL += " AND sd.EMPFL_BANK = @BankCode ";
+                        if (Branch != "0" && Branch != "")
+                            strSQL += " AND e.EMP_BRANCH_CODE = @Branch ";
                     }
 
                     cmd.CommandText = strSQL;
@@ -2283,6 +2596,92 @@ namespace OBMS.WebAPI.BusinessObjects
 
                         commandText += ") > 0 ";
                         commandText += " ORDER BY EMP_NAME ";
+                    }
+                    else if (PaymentType == "1ShiftSalary")
+                    {
+                        // 1ShiftSalary logic:
+                        // SplitSalaryPayment = 1  → Full salary MINUS Shift2Salary  (1st shift only)
+                        // SplitSalaryPayment = 0  → Full salary as-is
+                        // Uses PaySlip + Employee + EmployeeSalaryDetails directly (avoids VWBankSalaryStatement dependency on SplitSalaryPayment).
+                        commandText = "SELECT ";
+                        commandText += "SUM( ";
+                        commandText += "  (ps.BasicSalary+ps.OverTimeSalary+ps.OffDaySalary+ps.OffDayOverTimeSalary+ps.HolidaySalary+ ";
+                        commandText += "   ps.HolidayOverTimeSalary+ps.Shift2Salary+ps.AttendanceAllowance+ps.ReAllowance+ps.MiscAmount+ps.SpecialAllowance+ps.Bonus) ";
+                        commandText += "  - (ps.EPFDeductionAmount+ps.SOCSODeductionAmount+ps.DailyAdvanceRecovery+ps.SIPEmployeeContribution+ ";
+                        commandText += "     ps.MonthlyAdvanceRecovery+ps.SpecialAdvanceRecovery+ps.UniformIssueRecovery+ps.LoanRecovery+ps.MiscDeduction+ps.IncomeTaxDeduction";
+                        if (includeSKBBK) commandText += "+ps.SKBBKContribution";
+                        commandText += ") ";
+                        commandText += "  - (CASE WHEN ISNULL(ps.SplitSalaryPayment,0)=1 THEN ps.Shift2Salary ELSE 0 END) ";
+                        commandText += ") AS AMOUNT, ";
+                        commandText += "e.EMP_NAME AS EmployeeName, ";
+                        commandText += "(CASE WHEN e.EMP_IC_NEW IS NULL OR e.EMP_IC_NEW = '' THEN ";
+                        commandText += "   CASE WHEN e.EMP_IC_OLD IS NULL OR e.EMP_IC_OLD = '' ";
+                        commandText += "   THEN REPLACE(e.EMP_PASSPORT_NO,'-','') ELSE REPLACE(e.EMP_IC_OLD,'-','') END ";
+                        commandText += " ELSE REPLACE(e.EMP_IC_NEW,'-','') END) AS EMP_SecurityNo, ";
+                        commandText += "REPLACE(ISNULL(sd.EMPFL_BK_ACCNO,''),'-','') AS EMP_BK_ACCNO, ";
+                        commandText += "(CASE WHEN e.EMP_IC_NEW IS NOT NULL AND e.EMP_IC_NEW <> '' THEN '01' ";
+                        commandText += " WHEN e.EMP_IC_OLD IS NOT NULL AND e.EMP_IC_OLD <> '' THEN '02' ";
+                        commandText += " ELSE '03' END) AS IcType ";
+                        commandText += "FROM PaySlip ps ";
+                        commandText += "INNER JOIN Employee e ON e.EMP_ID = ps.EmployeeID ";
+                        commandText += "INNER JOIN EmployeeSalaryDetails sd ON sd.EMPFL_CODE = e.EMP_CODE ";
+                        commandText += "WHERE ps.SalaryPayMode = '" + (PaymentMode.Equals("Cash", StringComparison.OrdinalIgnoreCase) ? "CASH" : "BANK") + "' ";
+                        commandText += "AND Month(ps.Period) = @Month ";
+                        commandText += "AND Year(ps.Period) = @Year ";
+                        commandText += "AND e.EMP_ROLE = @EmployeeType ";
+                        if (!(Bank == "0") && !(Bank == ""))
+                        {
+                            commandText += "AND sd.EMPFL_BANK = @BankCode ";
+                        }
+                        if (!(Branch == "0") && !(Branch == ""))
+                        {
+                            commandText += "AND e.EMP_BRANCH_CODE = @Branch ";
+                        }
+                        commandText += "GROUP BY e.EMP_NAME, e.EMP_IC_OLD, e.EMP_IC_NEW, e.EMP_PASSPORT_NO, sd.EMPFL_BK_ACCNO ";
+                        commandText += "HAVING SUM( ";
+                        commandText += "  (ps.BasicSalary+ps.OverTimeSalary+ps.OffDaySalary+ps.OffDayOverTimeSalary+ps.HolidaySalary+ ";
+                        commandText += "   ps.HolidayOverTimeSalary+ps.Shift2Salary+ps.AttendanceAllowance+ps.ReAllowance+ps.MiscAmount+ps.SpecialAllowance+ps.Bonus) ";
+                        commandText += "  - (ps.EPFDeductionAmount+ps.SOCSODeductionAmount+ps.DailyAdvanceRecovery+ps.SIPEmployeeContribution+ ";
+                        commandText += "     ps.MonthlyAdvanceRecovery+ps.SpecialAdvanceRecovery+ps.UniformIssueRecovery+ps.LoanRecovery+ps.MiscDeduction+ps.IncomeTaxDeduction";
+                        if (includeSKBBK) commandText += "+ps.SKBBKContribution";
+                        commandText += ") ";
+                        commandText += "  - (CASE WHEN ISNULL(ps.SplitSalaryPayment,0)=1 THEN ps.Shift2Salary ELSE 0 END) ";
+                        commandText += ") > 0 ";
+                        commandText += "ORDER BY e.EMP_NAME ";
+                    }
+                    else if (PaymentType == "2ShiftSalary")
+                    {
+                        // 2ShiftSalary: SplitSalaryPayment=1 employees only, Shift2Salary amount, 2nd bank account
+                        commandText = "SELECT ";
+                        commandText += "SUM(ps.Shift2Salary) AS AMOUNT, ";
+                        commandText += "e.EMP_NAME AS EmployeeName, ";
+                        commandText += "(CASE WHEN e.EMP_IC_NEW IS NULL OR e.EMP_IC_NEW = '' THEN ";
+                        commandText += "   CASE WHEN e.EMP_IC_OLD IS NULL OR e.EMP_IC_OLD = '' ";
+                        commandText += "   THEN REPLACE(e.EMP_PASSPORT_NO,'-','') ELSE REPLACE(e.EMP_IC_OLD,'-','') END ";
+                        commandText += " ELSE REPLACE(e.EMP_IC_NEW,'-','') END) AS EMP_SecurityNo, ";
+                        commandText += "REPLACE(ISNULL(sd.EMPFL_2ndBK_ACCNO,''),'-','') AS EMP_BK_ACCNO, ";
+                        commandText += "(CASE WHEN e.EMP_IC_NEW IS NOT NULL AND e.EMP_IC_NEW <> '' THEN '01' ";
+                        commandText += " WHEN e.EMP_IC_OLD IS NOT NULL AND e.EMP_IC_OLD <> '' THEN '02' ";
+                        commandText += " ELSE '03' END) AS IcType ";
+                        commandText += "FROM PaySlip ps ";
+                        commandText += "INNER JOIN Employee e ON e.EMP_ID = ps.EmployeeID ";
+                        commandText += "INNER JOIN EmployeeSalaryDetails sd ON sd.EMPFL_CODE = e.EMP_CODE ";
+                        commandText += "WHERE ISNULL(ps.SplitSalaryPayment,0) = 1 ";
+                        commandText += "AND ps.SalaryPayMode = '" + (PaymentMode.Equals("Cash", StringComparison.OrdinalIgnoreCase) ? "CASH" : "BANK") + "' ";
+                        commandText += "AND Month(ps.Period) = @Month ";
+                        commandText += "AND Year(ps.Period) = @Year ";
+                        commandText += "AND e.EMP_ROLE = @EmployeeType ";
+                        if (!(Bank == "0") && !(Bank == ""))
+                        {
+                            commandText += "AND sd.EMPFL_BANK = @BankCode ";
+                        }
+                        if (!(Branch == "0") && !(Branch == ""))
+                        {
+                            commandText += "AND e.EMP_BRANCH_CODE = @Branch ";
+                        }
+                        commandText += "GROUP BY e.EMP_NAME, e.EMP_IC_OLD, e.EMP_IC_NEW, e.EMP_PASSPORT_NO, sd.EMPFL_2ndBK_ACCNO ";
+                        commandText += "HAVING SUM(ps.Shift2Salary) > 0 ";
+                        commandText += "ORDER BY e.EMP_NAME ";
                     }
 
                     sqlCommand.CommandText = commandText;

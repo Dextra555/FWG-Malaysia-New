@@ -72,8 +72,13 @@
                 <div class="col-12 col-sm-12 col-md-4 col-lg-6">
                     <div class="text-left">
                         <div class="btn-group" role="group">
-                            <button class="btn wlt-c-furg-btn-primary mx-1" [disabled]="salaryForm.invalid"
-                                (click)="getReportShowClick()">Show </button>&nbsp;
+                                             <button class="btn wlt-c-furg-btn-primary mx-1" [disabled]="salaryForm.invalid"
+                                (click)="getReportShowClick()">Overall </button>&nbsp;
+                    <button class="btn wlt-c-furg-btn-primary mx-1" [disabled]="salaryForm.invalid"
+                                (click)="getReportShowClick1()">1 Shift Salary  </button>&nbsp;
+                                                    <button class="btn wlt-c-furg-btn-primary mx-1" [disabled]="salaryForm.invalid"
+                                (click)="getReportShowClick2()">2 Shift Salary  </button>&nbsp;
+
                             <button class="btn wlt-c-furg-btn-primary mx-1" [disabled]="salaryForm.invalid"
                                 (click)="getReportGuard1Click()" hidden>Show Guard 1 </button>&nbsp;
                             <button class="btn wlt-c-furg-btn-primary mx-1" [disabled]="salaryForm.invalid"
