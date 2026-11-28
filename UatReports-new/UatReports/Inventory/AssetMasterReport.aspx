@@ -1,4 +1,4 @@
-<%@ Page Language="C#" AutoEventWireup="true" %>
+﻿<%@ Page Language="C#" AutoEventWireup="true" %>
 <%@ Import Namespace="System.Configuration" %>
 <%@ Import Namespace="System.Data" %>
 <%@ Import Namespace="System.Data.SqlClient" %>
@@ -20,17 +20,34 @@ protected void Page_Load(object sender, EventArgs e)
     int id = 0;
     if (!int.TryParse(idStr, out id) || id <= 0) { SendError("Invalid or missing Asset ID."); return; }
 
-    var dt = RunSP("sp_Report_AssetMaster", "@AssetID", id);
+    // RS1: asset detail, RS2: installment schedule
+    DataTable dt = null; DataTable dtInst = null;
+    using (var conn = new SqlConnection(ConnStr()))
+    using (var cmd  = new SqlCommand("sp_Report_AssetMaster", conn))
+    {
+        cmd.CommandType = CommandType.StoredProcedure;
+        cmd.CommandTimeout = 30;
+        cmd.Parameters.AddWithValue("@AssetID", id);
+        conn.Open();
+        using (var da = new System.Data.SqlClient.SqlDataAdapter(cmd))
+        {
+            var ds = new System.Data.DataSet();
+            da.Fill(ds);
+            if (ds.Tables.Count > 0) dt     = ds.Tables[0];
+            if (ds.Tables.Count > 1) dtInst = ds.Tables[1];
+        }
+    }
+
     if (dt == null || dt.Rows.Count == 0) { SendError("Asset record not found or has been deleted."); return; }
 
     byte[] pdf;
-    try { pdf = BuildPdf(loginID, dt.Rows[0]); }
+    try { pdf = BuildPdf(loginID, dt.Rows[0], dtInst); }
     catch (Exception ex) { LogErr("BuildPdf_AssetMaster", ex.Message); SendError("Unable to generate PDF. Please try again."); return; }
 
     StreamPdf(pdf, "AssetMaster_" + dt.Rows[0]["AssetCode"] + ".pdf");
 }
 
-private byte[] BuildPdf(string loginID, DataRow dr)
+private byte[] BuildPdf(string loginID, DataRow dr, DataTable dtInst)
 {
     BaseColor navy = Navy(); BaseColor gold = Gold(); BaseColor border = Border();
     Font fCoName=FCoName(); Font fCoReg=FCoReg(); Font fCoSub=FCoSub();
@@ -71,6 +88,96 @@ private byte[] BuildPdf(string loginID, DataRow dr)
         if (!string.IsNullOrWhiteSpace(desc)) {
             P(doc, "Description", new Font(Font.FontFamily.HELVETICA,9f,Font.BOLD,navy), Element.ALIGN_LEFT, 2f);
             doc.Add(new Paragraph(desc, fValue) { SpacingAfter = 8f });
+        }
+
+        // ── Payment Terms section ─────────────────────────────────────────
+        string payType = Safe(dr, "PaymentTermType");
+        if (!string.IsNullOrWhiteSpace(payType) && payType != "FULL")
+        {
+            P(doc, "Payment Terms", new Font(Font.FontFamily.HELVETICA,9f,Font.BOLD,navy), Element.ALIGN_LEFT, 2f);
+            var ptbl = InfoTbl();
+            AddIR(ptbl, "Payment Type",       payType,                                  fLabel, fValue);
+            AddIR(ptbl, "Purchase Amount",    "RM " + SafeD(dr,"PurchaseAmount"),        fLabel, fValue);
+            AddIR(ptbl, "Deposit Amount",     "RM " + SafeD(dr,"DepositAmount"),        fLabel, fValue);
+            AddIR(ptbl, "Monthly Amount",     "RM " + SafeD(dr,"MonthlyInstallmentAmount"), fLabel, fValue);
+            AddIR(ptbl, "No. of Months",      SafeD(dr,"InstallmentMonths"),             fLabel, fValue);
+            AddIR(ptbl, "Start Month",        SafeD(dr,"InstallmentStartDate"),          fLabel, fValue);
+            doc.Add(ptbl);
+        }
+
+        // ── Installment Schedule table ────────────────────────────────────
+        if (dtInst != null && dtInst.Rows.Count > 0)
+        {
+            doc.Add(Spacer(6f));
+            P(doc, "Installment Schedule", new Font(Font.FontFamily.HELVETICA,9f,Font.BOLD,navy), Element.ALIGN_LEFT, 4f);
+
+            BaseColor headerBg = new BaseColor(0x1a, 0x3a, 0x5c);
+            BaseColor rowAlt   = new BaseColor(0xf4, 0xf7, 0xfb);
+            BaseColor paidBg   = new BaseColor(0xe8, 0xf5, 0xe9);
+            BaseColor pendBg   = new BaseColor(0xfff9c4);
+            BaseColor totalBg  = new BaseColor(0xe8, 0xf0, 0xfe);
+            BaseColor brd      = new BaseColor(0xcc, 0xcc, 0xcc);
+
+            Font fTH  = new Font(Font.FontFamily.HELVETICA, 8f, Font.BOLD,   BaseColor.WHITE);
+            Font fTD  = new Font(Font.FontFamily.HELVETICA, 8f, Font.NORMAL, BaseColor.BLACK);
+            Font fTot = new Font(Font.FontFamily.HELVETICA, 8f, Font.BOLD,   navy);
+
+            var itbl = new PdfPTable(6) { WidthPercentage = 70f, SpacingAfter = 8f };
+            itbl.SetWidths(new float[] { 0.8f, 2.0f, 2.0f, 1.5f, 2.0f, 1.5f });
+
+            string[] hdrs = { "No.", "Due Date", "Amount (RM)", "Paid (RM)", "Balance (RM)", "Status" };
+            foreach (var h in hdrs)
+                itbl.AddCell(new PdfPCell(new Phrase(h, fTH)) {
+                    BackgroundColor = headerBg, Padding = 4f,
+                    HorizontalAlignment = Element.ALIGN_CENTER,
+                    Border = Rectangle.BOX, BorderColor = brd
+                });
+
+            decimal totAmt = 0, totPaid = 0, totBal = 0;
+            int ri = 0;
+            foreach (DataRow ir in dtInst.Rows)
+            {
+                ri++;
+                string status  = (ir["Status"]  ?? "Pending").ToString();
+                decimal amt    = ir["Amount"]        != DBNull.Value ? Convert.ToDecimal(ir["Amount"])        : 0;
+                decimal paid   = ir["PaidAmount"]    != DBNull.Value ? Convert.ToDecimal(ir["PaidAmount"])    : 0;
+                decimal bal    = ir["BalanceAmount"] != DBNull.Value ? Convert.ToDecimal(ir["BalanceAmount"]) : 0;
+                totAmt += amt; totPaid += paid; totBal += bal;
+
+                BaseColor rowBg = status == "Paid" ? paidBg : (ri % 2 == 0 ? rowAlt : BaseColor.WHITE);
+
+                Action<string, bool> addCell = (txt, isNum) =>
+                    itbl.AddCell(new PdfPCell(new Phrase(txt, fTD)) {
+                        BackgroundColor = rowBg, Padding = 3.5f,
+                        HorizontalAlignment = isNum ? Element.ALIGN_RIGHT : Element.ALIGN_CENTER,
+                        Border = Rectangle.BOX, BorderColor = brd
+                    });
+
+                addCell(ri.ToString(),              false);
+                addCell((ir["DueDate"] ?? "").ToString(), false);
+                addCell(amt.ToString("N2"),          true);
+                addCell(paid.ToString("N2"),         true);
+                addCell(bal.ToString("N2"),          true);
+                addCell(status,                     false);
+            }
+
+            // Totals row
+            itbl.AddCell(new PdfPCell(new Phrase("TOTAL", fTot)) {
+                Colspan = 2, BackgroundColor = totalBg, Padding = 4f,
+                HorizontalAlignment = Element.ALIGN_RIGHT,
+                Border = Rectangle.BOX, BorderColor = navy, BorderWidth = 1.5f
+            });
+            foreach (var tv in new decimal[] { totAmt, totPaid, totBal })
+                itbl.AddCell(new PdfPCell(new Phrase(tv.ToString("N2"), fTot)) {
+                    BackgroundColor = totalBg, Padding = 4f,
+                    HorizontalAlignment = Element.ALIGN_RIGHT,
+                    Border = Rectangle.BOX, BorderColor = navy, BorderWidth = 1.5f
+                });
+            itbl.AddCell(new PdfPCell(new Phrase("", fTot)) {
+                BackgroundColor = totalBg, Padding = 4f,
+                Border = Rectangle.BOX, BorderColor = navy, BorderWidth = 1.5f
+            });
+            doc.Add(itbl);
         }
 
         AddSig(doc, fSig, "Prepared By", "", "Verified By", "");

@@ -38,9 +38,11 @@ export class BranchAssetReportComponent implements OnInit {
   ];
 
   assetTypeOptions = [
-    { value: 'ALL',            label: 'All Types'          },
-    { value: 'Fixed Asset',    label: 'Fixed Asset'        },
-    { value: 'Liquid Assets',  label: 'Liquid Assets'      },
+    { value: 'ALL',                label: 'All Types'          },
+    { value: 'Fixed Asset',        label: 'Fixed Asset'        },
+    { value: 'Liquid Assets',      label: 'Liquid Assets'      },
+    { value: 'Asset Maintenance',  label: 'Asset Maintenance'  },
+    { value: 'Asset Due List',     label: 'Asset Due List'     },
   ];
 
   constructor(

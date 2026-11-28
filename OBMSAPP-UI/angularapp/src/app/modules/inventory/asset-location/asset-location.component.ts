@@ -204,7 +204,7 @@ export class AssetLocationComponent implements OnInit, AfterViewInit {
     });
   }
 
-  locationStatusLabel(s: string): string { return s?.replace(/_/g, ' ') || 'â€”'; }
+  locationStatusLabel(s: string): string { return s?.replace(/_/g, ' ') || '-'; }
 
   locationStatusBadge(s: string): string {
     switch (s) {
@@ -217,7 +217,7 @@ export class AssetLocationComponent implements OnInit, AfterViewInit {
   }
 
   formatDate(v: any): string {
-    if (!v) return 'â€”';
+    if (!v) return '-';
     return new Date(v).toLocaleString('en-MY', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   }
 

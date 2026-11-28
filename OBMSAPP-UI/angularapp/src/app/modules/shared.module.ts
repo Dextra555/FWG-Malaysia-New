@@ -266,6 +266,7 @@ import { PendingApprovalsComponent } from './administration/pending-approvals/pe
 import { ApprovalHistoryComponent } from './administration/approval-history/approval-history.component';
 import { ApprovalHistoryDialogComponent } from './administration/approval-history-dialog/approval-history-dialog.component';
 import { NotificationListComponent } from './administration/notification-list/notification-list.component';
+import { ActiveUsersComponent } from './administration/active-users/active-users.component';
 
 // Part 9: Branch Stock Request
 import { BranchStockRequestComponent } from './inventory/branch-stock-request/branch-stock-request.component';
@@ -510,6 +511,7 @@ import { SumFieldPipe } from '../shared/sum-field.pipe';
     ApprovalHistoryComponent,
     ApprovalHistoryDialogComponent,
     NotificationListComponent,
+    ActiveUsersComponent,
 
     // Part 9: Branch Stock Request
     BranchStockRequestComponent,
@@ -607,3 +609,4 @@ export class SharedModule {
     };
   }
 }
+

@@ -1,0 +1,33 @@
+/* Online badge — matches the system's status indicator style */
+.au-online-badge {
+  display: inline-flex;
+  align-items: center;
+  background-color: #eaf7ee;
+  color: #1a7a3a;
+  border: 1px solid #a8d8b6;
+  border-radius: 20px;
+  padding: 3px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+/* Green dot icon used for "online" indicator */
+.au-dot-icon {
+  color: #27ae60;
+  font-size: 14px !important;
+  width: 14px !important;
+  height: 14px !important;
+  line-height: 14px !important;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+
+/* Make mat-icon inside buttons sit inline like the rest of the system */
+button.wlt-c-furg-btn-primary mat-icon,
+button.wlt-c-furg-btn-secondary mat-icon {
+  font-size: 18px;
+  float: left;
+  margin-right: 5px;
+  margin-top: 2px;
+}

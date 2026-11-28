@@ -237,12 +237,12 @@ export class NewStockAdjustmentComponent implements OnInit {
 
   get viewWarehouseName(): string {
     const id = this.frm.get('WarehouseID')?.value;
-    return this.warehouses.find((w: any) => w.ID === id)?.Name || 'â€”';
+    return this.warehouses.find((w: any) => w.ID === id)?.Name || '-';
   }
   get viewItemName(): string {
     const id = this.frm.get('ItemID')?.value;
     const item = this.items.find((i: any) => i.ID === id);
-    return item ? `${item.Code} â€” ${item.Name}` : 'â€”';
+    return item ? `${item.Code} - ${item.Name}` : '-';
   }
 
   canSubmit(): boolean {
@@ -262,7 +262,7 @@ export class NewStockAdjustmentComponent implements OnInit {
 
   // â”€â”€ Actions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  // Save Draft only â€” no submit
+  // Save Draft only - no submit
   onSave(): void {
     if (this.frm.invalid) { this.frm.markAllAsTouched(); return; }
     const raw = this.frm.getRawValue();
@@ -286,7 +286,7 @@ export class NewStockAdjustmentComponent implements OnInit {
     });
   }
 
-  // Submit = save (if new) then submit â€” mirrors PR onSubmitDirect
+  // Submit = save (if new) then submit - mirrors PR onSubmitDirect
   onSubmit(): void {
     if (this.frm.invalid) { this.frm.markAllAsTouched(); return; }
     const raw   = this.frm.getRawValue();
@@ -299,7 +299,7 @@ export class NewStockAdjustmentComponent implements OnInit {
       this.showLoadingSpinner = true;
 
       if (this.isEdit) {
-        // Already a saved Draft â€” just submit
+        // Already a saved Draft - just submit
         this.service.submitSA(+raw.ID).subscribe({
           next: (res: any) => {
             this.showMessage(res?.message || 'Submitted for approval.', 'success', 'Success Message');
@@ -311,7 +311,7 @@ export class NewStockAdjustmentComponent implements OnInit {
           }
         });
       } else {
-        // New form â€” save as Draft first, then immediately submit
+        // New form - save as Draft first, then immediately submit
         const payload = this.buildPayload(raw);
         this.service.saveStockAdjustment(payload).subscribe({
           next: (saveRes: any) => {
@@ -393,7 +393,7 @@ export class NewStockAdjustmentComponent implements OnInit {
   onCancelClick(): void { this.route.navigate(['/inventory/stock-adjustment']); }
 
   /** Open the Stock Adjustment PDF in a new browser tab for printing or downloading.
-   *  Only callable when isEdit=true (existing saved document). Read-only â€” does not
+   *  Only callable when isEdit=true (existing saved document). Read-only - does not
    *  modify any record, stock ledger, ADJ_PLUS/ADJ_MINUS entries, or balances. */
   onPrintPDF(): void {
     const docID = this.ID || this.frm.get('ID')?.value;

@@ -88,7 +88,7 @@ export class NewStockTransferComponent implements OnInit {
       this.isViewMode = true;
       this.loadWarehousesAndItems(() => this.loadExisting());
     } else {
-      // New transfer â€” check if we arrived from a BSR "Create Stock Transfer" action
+      // New transfer - check if we arrived from a BSR "Create Stock Transfer" action
       if (this.fromBSR) {
         this.service.getStockTransferCode().subscribe({ next: (d: any) => this.frm.get('TransferNo')?.setValue(d.Code), error: () => {} });
         this.loadWarehousesAndItems(() => this.prefillFromBSR(this.fromBSR!));
@@ -232,7 +232,7 @@ export class NewStockTransferComponent implements OnInit {
       //   â€¢ SourceWarehouseID is not yet selected (0)
       // BSR-originated transfers already have SourceWarehouseID set from
       // prefillFromBSR(), so the currentWH===0 guard naturally protects them.
-      // Destination warehouse is NEVER auto-filled â€” user always picks it.
+      // Destination warehouse is NEVER auto-filled - user always picks it.
       if (!this.isViewMode) {
         const currentWH = +this.frm.get('SourceWarehouseID')?.value;
         if (currentWH === 0 && selected.WarehouseID) {
@@ -240,7 +240,7 @@ export class NewStockTransferComponent implements OnInit {
           if (whExists) {
             this.frm.get('SourceWarehouseID')?.setValue(selected.WarehouseID);
           } else {
-            // Default warehouse is inactive â€” warn user, leave field empty
+            // Default warehouse is inactive - warn user, leave field empty
             this.errorMessage =
               'The default warehouse for this item is inactive. Please select another warehouse.';
           }
@@ -284,11 +284,11 @@ export class NewStockTransferComponent implements OnInit {
 
   get viewSrcWarehouseName(): string {
     const id = this.frm.get('SourceWarehouseID')?.value;
-    return this.warehouses.find((w: any) => w.ID === id)?.Name || 'â€”';
+    return this.warehouses.find((w: any) => w.ID === id)?.Name || '-';
   }
   get viewDestWarehouseName(): string {
     const id = this.frm.get('DestWarehouseID')?.value;
-    return this.warehouses.find((w: any) => w.ID === id)?.Name || 'â€”';
+    return this.warehouses.find((w: any) => w.ID === id)?.Name || '-';
   }
 
   onSubmit(): void {
@@ -341,7 +341,7 @@ export class NewStockTransferComponent implements OnInit {
                 .then(() => this.route.navigate(['/inventory/branch-stock-request/new-bsr', this.fromBSR]));
             },
             error: () => {
-              // Transfer saved successfully â€” link failed silently.
+              // Transfer saved successfully - link failed silently.
               // User can still see the transfer; they can re-link manually if needed.
               this.showMessage(
                 (res?.message || 'Stock transfer saved.') +
@@ -353,7 +353,7 @@ export class NewStockTransferComponent implements OnInit {
             }
           });
         } else {
-          // Normal (non-BSR) transfer â€” navigate to list as before
+          // Normal (non-BSR) transfer - navigate to list as before
           this.showMessage(res?.message || 'Stock transfer saved successfully.', 'success', 'Success Message');
           this.route.navigateByUrl('/dummy', { skipLocationChange: true }).then(() => this.route.navigate(['/inventory/stock-transfer']));
         }
@@ -368,7 +368,7 @@ export class NewStockTransferComponent implements OnInit {
   onCancelClick(): void { this.route.navigate(['/inventory/stock-transfer']); }
 
   /** Open the Stock Transfer PDF in a new browser tab for printing or downloading.
-   *  Only callable in view mode (existing saved document). Read-only â€” does not
+   *  Only callable in view mode (existing saved document). Read-only - does not
    *  modify any record, stock ledger, TRANSFER_OUT/IN entries, or balances. */
   onPrintPDF(): void {
     const docID = this.ID || this.frm.get('ID')?.value;

@@ -9,7 +9,6 @@ import Swal from 'sweetalert2';
 import * as CryptoJS from 'crypto-js';
 import { AuthService } from 'src/app/service/auth.service';
 import { SignalrNotificationService } from 'src/app/service/signalr-notification.service';
-
 @Component({
   selector: 'app-login',
   templateUrl: './login.component.html',
@@ -119,16 +118,9 @@ export class LoginComponent implements OnInit {
     this.userName = response.Users.Name;
     this._dataSharingService.setUsername(response.Users.Name);
     // Clear ALL previous session data before setting new user's data.
-    // This prevents stale tokens/usernames from a previous login (same tab
-    // or same browser window) from leaking into the new session.
     sessionStorage.clear();
     this.authService.clearToken();
     sessionStorage.setItem('username', response.Users.Name);
-    // BUG-A FIX: always stamp 'userrole' here so the value is set regardless
-    // of whether checkPasswordExpiration() was the caller or successLogin() was
-    // called directly (e.g. after the password-expiry warning "No" path).
-    // All approval components read sessionStorage.getItem('userrole') to derive
-    // SuperAdmin status — if this is missing, the entire approval UI is broken.
     sessionStorage.setItem('userrole', response.Users.IsAdmin ?? '0');
     this.register = response.Users;
     let data = this.register
@@ -136,9 +128,10 @@ export class LoginComponent implements OnInit {
     sessionStorage.setItem('currentUser', JSON.stringify(data));
     this.authService.setToken(response.token);
 
+    // Record this login in DB (fire-and-forget — don't block navigation)
+    this._commonService.recordLogin(response.Users.Name).subscribe();
+
     // Request browser desktop notification permission once at login.
-    // The browser shows a native permission prompt only the first time —
-    // subsequent calls return the already-granted/denied state immediately.
     this.signalrNotifService.requestDesktopPermission();
 
     this._router.navigate(['/dashboard']);

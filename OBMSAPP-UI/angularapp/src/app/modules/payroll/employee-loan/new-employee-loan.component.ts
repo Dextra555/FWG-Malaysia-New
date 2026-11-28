@@ -238,6 +238,14 @@ export class NewEmployeeLoanComponent implements OnInit {
   changeAdvanceDate(type: string, event: MatDatepickerInputEvent<Date>) {
     this.employeeLoanForm.value.AdvanceDate = this.formatDate(`${type}: ${event.value}`);
   }
+  radioButtonTypeSelectionChange(event: any) {
+    const advanceDate = this.formatDate(this.employeeLoanForm.get('AdvanceDate')?.value);
+    const branchCode = this.employeeLoanForm.get('BranchCode')?.value;
+    if (advanceDate != null && advanceDate != 'NaN-NaN-NaN' && branchCode) {
+      this.getEmployeeListByEmployeeType(advanceDate, branchCode, event.value, 3, 0, 'All');
+    }
+  }
+
   onBranchSelectionChange(event: any) {
     if (event.value != '' && event.value != undefined) {
       const advanceDate = this.formatDate(this.employeeLoanForm.get('AdvanceDate')?.value);

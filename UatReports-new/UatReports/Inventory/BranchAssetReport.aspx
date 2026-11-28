@@ -56,10 +56,15 @@
         string asOf      = DateTime.Now.ToString("dd MMM yyyy");
 
         // ── 4. Build PDF or Excel ─────────────────────────────────────────
+        bool isMaintMode = (assetType == "Asset Maintenance");
+        bool isDueMode   = (assetType == "Asset Due List");
+
         if (format == "excel")
         {
             byte[] xlsx;
-            try   { xlsx = BuildExcel(brName, stLabel, typeLabel, asOf, dt); }
+            try   { xlsx = isDueMode   ? BuildDueListExcel(brName, stLabel, asOf, dt)
+                         : isMaintMode ? BuildMaintenanceExcel(brName, stLabel, asOf, dt)
+                                       : BuildExcel(brName, stLabel, typeLabel, asOf, dt); }
             catch (Exception ex)
             {
                 LogErr("BuildExcel", ex.Message);
@@ -81,7 +86,9 @@
 
         // ── 4b. Build PDF ─────────────────────────────────────────────────
         byte[] pdf;
-        try   { pdf = BuildPdf(loginID, brName, stLabel, typeLabel, asOf, dt); }
+        try   { pdf = isDueMode   ? BuildDueListPdf(loginID, brName, stLabel, asOf, dt)
+                    : isMaintMode ? BuildMaintenancePdf(loginID, brName, stLabel, asOf, dt)
+                                  : BuildPdf(loginID, brName, stLabel, typeLabel, asOf, dt); }
         catch (Exception ex)
         {
             LogErr("BuildPdf", ex.Message);
@@ -599,6 +606,485 @@
     }
 
     // ════════════════════════════════════════════════════════════════════════
+    // MAINTENANCE PDF BUILDER
+    // ════════════════════════════════════════════════════════════════════════
+    private byte[] BuildMaintenancePdf(string loginID, string brName, string stLabel,
+                                       string asOf, DataTable dt)
+    {
+        BaseColor navy    = new BaseColor(0x1a, 0x3a, 0x5c);
+        BaseColor amber   = new BaseColor(0xff, 0xa0, 0x00);
+        BaseColor headerBg= new BaseColor(0x1a, 0x3a, 0x5c);
+        BaseColor brHdrBg = new BaseColor(0x2e, 0x5c, 0x99);
+        BaseColor rowAlt  = new BaseColor(0xf4, 0xf7, 0xfb);
+        BaseColor totalBg = new BaseColor(0xe8, 0xf0, 0xfe);
+        BaseColor border  = new BaseColor(0xcc, 0xcc, 0xcc);
+        BaseColor gold    = new BaseColor(0xD4, 0xA0, 0x17);
+
+        Font fTitle   = new Font(Font.FontFamily.HELVETICA, 11f, Font.BOLD,   navy);
+        Font fFilterB = new Font(Font.FontFamily.HELVETICA,  8f, Font.BOLD,   new BaseColor(0x44,0x44,0x44));
+        Font fFilter  = new Font(Font.FontFamily.HELVETICA,  8f, Font.NORMAL, new BaseColor(0x44,0x44,0x44));
+        Font fTH      = new Font(Font.FontFamily.HELVETICA,  8f, Font.BOLD,   BaseColor.WHITE);
+        Font fBrHdr   = new Font(Font.FontFamily.HELVETICA,  9f, Font.BOLD,   BaseColor.WHITE);
+        Font fTD      = new Font(Font.FontFamily.HELVETICA, 7f,  Font.NORMAL, BaseColor.BLACK);
+        Font fTotal   = new Font(Font.FontFamily.HELVETICA,  8f, Font.BOLD,   navy);
+        Font fFoot    = new Font(Font.FontFamily.HELVETICA,  7f, Font.NORMAL, BaseColor.GRAY);
+
+        var cols = new object[][] {
+            new object[]{ "S.NO.",            "#",                   0.8f, true  },
+            new object[]{ "Asset Code",       "AssetCode",           1.5f, false },
+            new object[]{ "Asset Name",       "AssetName",           2.8f, false },
+            new object[]{ "Asset Type",       "AssetType",           1.5f, false },
+            new object[]{ "Maint. No",        "MaintenanceNo",       1.6f, false },
+            new object[]{ "Maint. Type",      "MaintenanceType",     1.6f, false },
+            new object[]{ "Start Date",       "StartDate",           1.4f, false },
+            new object[]{ "Completion Date",  "CompletionDate",      1.4f, false },
+            new object[]{ "Status",           "MaintenanceStatus",   1.4f, false },
+            new object[]{ "Vendor",           "VendorName",          2.0f, false },
+            new object[]{ "Cost (RM)",        "MaintenanceCost",     1.5f, true  },
+            new object[]{ "Problem",          "ProblemDescription",  2.5f, false },
+        };
+
+        float[] widths = new float[cols.Length];
+        for (int i = 0; i < cols.Length; i++) widths[i] = (float)cols[i][2];
+
+        using (var ms = new MemoryStream())
+        {
+            var doc    = new Document(PageSize.A4.Rotate(), 20f, 20f, 28f, 28f);
+            var writer = PdfWriter.GetInstance(doc, ms);
+            writer.PageEvent = new FooterEvent(loginID, fFoot, navy);
+            doc.Open();
+
+            // Company header
+            string logoPath = Server.MapPath("~/images/logo-white.png");
+            Font fCoName = new Font(Font.FontFamily.HELVETICA, 11f, Font.BOLD, navy);
+            Font fCoReg  = new Font(Font.FontFamily.HELVETICA,  8f, Font.BOLD, navy);
+            Font fCoSub  = new Font(Font.FontFamily.HELVETICA,  8f, Font.NORMAL, BaseColor.DARK_GRAY);
+
+            var hdrTable = new PdfPTable(2) { WidthPercentage = 100f, SpacingAfter = 0f };
+            hdrTable.SetWidths(new float[] { 1.2f, 8.8f });
+            hdrTable.DefaultCell.Border = Rectangle.NO_BORDER;
+            PdfPCell logoCell;
+            if (System.IO.File.Exists(logoPath)) {
+                var logo = iTextSharp.text.Image.GetInstance(logoPath); logo.ScaleToFit(55f, 55f);
+                logoCell = new PdfPCell(logo) { Border = Rectangle.NO_BORDER, VerticalAlignment = Element.ALIGN_MIDDLE, Padding = 2f };
+            } else logoCell = new PdfPCell(new Phrase("")) { Border = Rectangle.NO_BORDER };
+            hdrTable.AddCell(logoCell);
+            var tp = new Phrase();
+            tp.Add(new Chunk(AppSettings("CompanyName") + " ", fCoName));
+            tp.Add(new Chunk(AppSettings("Registration") + "\n", fCoReg));
+            tp.Add(new Chunk(AppSettings("Address1") + "\n", fCoSub));
+            tp.Add(new Chunk(AppSettings("Address2") + "\n", fCoSub));
+            tp.Add(new Chunk(AppSettings("PostCode") + " " + AppSettings("City") + "\n", fCoSub));
+            tp.Add(new Chunk(AppSettings("Phone"), fCoSub));
+            hdrTable.AddCell(new PdfPCell(tp) { Border = Rectangle.NO_BORDER, VerticalAlignment = Element.ALIGN_MIDDLE, Padding = 4f, PaddingLeft = 8f });
+            doc.Add(hdrTable);
+            doc.Add(new Chunk(new iTextSharp.text.pdf.draw.LineSeparator(2.5f, 100f, gold, Element.ALIGN_CENTER, -2f)));
+            doc.Add(Spacer(6f));
+            P(doc, "ASSET MAINTENANCE DUE DETAILS REPORT", fTitle, Element.ALIGN_CENTER, 6f);
+
+            // Filter summary
+            var ft = new PdfPTable(4) { WidthPercentage = 100f, SpacingAfter = 8f };
+            ft.DefaultCell.Border = Rectangle.NO_BORDER;
+            string[][] fp = {
+                new[]{ "Branch:",     brName  },
+                new[]{ "Status:",     stLabel },
+                new[]{ "As Of:",      asOf    },
+                new[]{ "Print Date:", DateTime.Now.ToString("dd MMM yyyy hh:mm tt") }
+            };
+            foreach (var f in fp) {
+                var ph = new Phrase(); ph.Add(new Chunk(f[0] + " ", fFilterB)); ph.Add(new Chunk(f[1], fFilter));
+                ft.AddCell(new PdfPCell(ph) { Border = Rectangle.NO_BORDER, Padding = 2f });
+            }
+            doc.Add(ft);
+
+            // Group by BranchName
+            string curBranch = null;
+            int ri = 0; decimal totCost = 0;
+            PdfPTable tbl = null;
+
+            foreach (DataRow dr in dt.Rows)
+            {
+                string branch = (dr["BranchName"] ?? "").ToString();
+                if (string.IsNullOrWhiteSpace(branch)) branch = "Unallocated";
+                if (branch != curBranch)
+                {
+                    if (tbl != null) doc.Add(tbl);
+                    curBranch = branch;
+                    ri = 0;
+
+                    tbl = new PdfPTable(cols.Length) { WidthPercentage = 100f, HeaderRows = 1, SpacingBefore = 6f };
+                    tbl.SetWidths(widths);
+
+                    // Branch header row
+                    tbl.AddCell(new PdfPCell(new Phrase(branch, fBrHdr)) {
+                        Colspan = cols.Length, BackgroundColor = brHdrBg,
+                        HorizontalAlignment = Element.ALIGN_LEFT, Padding = 5f,
+                        Border = Rectangle.BOX, BorderColor = border
+                    });
+                    // Column headers
+                    foreach (var c in cols)
+                        tbl.AddCell(new PdfPCell(new Phrase((string)c[0], fTH)) {
+                            BackgroundColor = headerBg,
+                            HorizontalAlignment = (bool)c[3] ? Element.ALIGN_RIGHT : Element.ALIGN_LEFT,
+                            Padding = 4f, Border = Rectangle.BOX, BorderColor = border
+                        });
+                }
+
+                ri++;
+                BaseColor rowBg = (ri % 2 == 0) ? rowAlt : BaseColor.WHITE;
+                foreach (var c in cols)
+                {
+                    string field = (string)c[1]; bool isNum = (bool)c[3];
+                    string txt;
+                    if (field == "#") { txt = ri.ToString(); }
+                    else {
+                        object raw = dt.Columns.Contains(field) ? dr[field] : null;
+                        txt = FmtCell(raw, isNum);
+                        if (field == "MaintenanceCost" && raw != null && raw != DBNull.Value) {
+                            decimal v; if (decimal.TryParse(raw.ToString(), out v)) totCost += v;
+                        }
+                    }
+                    tbl.AddCell(new PdfPCell(new Phrase(txt, fTD)) {
+                        BackgroundColor = rowBg,
+                        HorizontalAlignment = (isNum || field == "#") ? Element.ALIGN_RIGHT : Element.ALIGN_LEFT,
+                        Padding = 3.5f, Border = Rectangle.BOX, BorderColor = border
+                    });
+                }
+            }
+            if (tbl != null) {
+                // Grand total row
+                tbl.AddCell(new PdfPCell(new Phrase("TOTAL", fTotal)) {
+                    Colspan = cols.Length - 1, BackgroundColor = totalBg,
+                    HorizontalAlignment = Element.ALIGN_LEFT,
+                    Padding = 4f, Border = Rectangle.BOX, BorderColor = navy, BorderWidth = 1.5f
+                });
+                tbl.AddCell(new PdfPCell(new Phrase(totCost.ToString("N2"), fTotal)) {
+                    BackgroundColor = totalBg, HorizontalAlignment = Element.ALIGN_RIGHT,
+                    Padding = 4f, Border = Rectangle.BOX, BorderColor = navy, BorderWidth = 1.5f
+                });
+                doc.Add(tbl);
+            }
+
+            doc.Close();
+            return ms.ToArray();
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // ASSET DUE LIST PDF BUILDER
+    // ════════════════════════════════════════════════════════════════════════
+    private byte[] BuildDueListPdf(string loginID, string brName, string stLabel,
+                                   string asOf, DataTable dt)
+    {
+        BaseColor navy    = new BaseColor(0x1a, 0x3a, 0x5c);
+        BaseColor headerBg= new BaseColor(0x1a, 0x3a, 0x5c);
+        BaseColor brHdrBg = new BaseColor(0x2e, 0x5c, 0x99);
+        BaseColor rowAlt  = new BaseColor(0xf4, 0xf7, 0xfb);
+        BaseColor overdue = new BaseColor(0xff, 0xe5, 0xe5);   // red — overdue
+        BaseColor due30   = new BaseColor(0xff, 0xf3, 0xcd);   // amber — due <= 30 days
+        BaseColor border  = new BaseColor(0xcc, 0xcc, 0xcc);
+        BaseColor gold    = new BaseColor(0xD4, 0xA0, 0x17);
+
+        Font fTitle   = new Font(Font.FontFamily.HELVETICA, 11f, Font.BOLD,   navy);
+        Font fFilterB = new Font(Font.FontFamily.HELVETICA,  8f, Font.BOLD,   new BaseColor(0x44,0x44,0x44));
+        Font fFilter  = new Font(Font.FontFamily.HELVETICA,  8f, Font.NORMAL, new BaseColor(0x44,0x44,0x44));
+        Font fTH      = new Font(Font.FontFamily.HELVETICA,  7.5f, Font.BOLD,   BaseColor.WHITE);
+        Font fBrHdr   = new Font(Font.FontFamily.HELVETICA,  9f, Font.BOLD,   BaseColor.WHITE);
+        Font fTD      = new Font(Font.FontFamily.HELVETICA,  7f, Font.NORMAL, BaseColor.BLACK);
+        Font fTDRed   = new Font(Font.FontFamily.HELVETICA,  7f, Font.BOLD,   new BaseColor(0xc6,0x28,0x28));
+        Font fFoot    = new Font(Font.FontFamily.HELVETICA,  7f, Font.NORMAL, BaseColor.GRAY);
+
+        // Columns: Asset Code | Asset Name | Type | Status |
+        //          Road Tax Date | RT Days | Insurance Date | Ins Days |
+        //          Service Due | Svc Days | Warranty | War Days
+        var cols = new object[][] {
+            new object[]{ "Asset Code",    "AssetCode",          1.4f, false },
+            new object[]{ "Asset Name",    "AssetName",          2.6f, false },
+            new object[]{ "Type",          "AssetType",          1.3f, false },
+            new object[]{ "Status",        "AssetStatus",        1.3f, false },
+            new object[]{ "Road Tax Date", "RoadTaxRenewalDate", 1.5f, false },
+            new object[]{ "RT Days",       "RoadTaxDaysLeft",    1.0f, true  },
+            new object[]{ "Insurance Date","InsuranceRenewalDate",1.5f, false },
+            new object[]{ "Ins Days",      "InsuranceDaysLeft",  1.0f, true  },
+            new object[]{ "Service Due",   "ServiceDueDate",     1.5f, false },
+            new object[]{ "Svc Days",      "ServiceDaysLeft",    1.0f, true  },
+            new object[]{ "Warranty Date", "WarrantyExpiryDate", 1.5f, false },
+            new object[]{ "War Days",      "WarrantyDaysLeft",   1.0f, true  },
+        };
+
+        float[] widths = new float[cols.Length];
+        for (int i = 0; i < cols.Length; i++) widths[i] = (float)cols[i][2];
+
+        using (var ms = new MemoryStream())
+        {
+            var doc    = new Document(PageSize.A4.Rotate(), 18f, 18f, 28f, 28f);
+            var writer = PdfWriter.GetInstance(doc, ms);
+            writer.PageEvent = new FooterEvent(loginID, fFoot, navy);
+            doc.Open();
+
+            // Company header
+            string logoPath = Server.MapPath("~/images/logo-white.png");
+            Font fCoName = new Font(Font.FontFamily.HELVETICA, 11f, Font.BOLD, navy);
+            Font fCoReg  = new Font(Font.FontFamily.HELVETICA,  8f, Font.BOLD, navy);
+            Font fCoSub  = new Font(Font.FontFamily.HELVETICA,  8f, Font.NORMAL, BaseColor.DARK_GRAY);
+
+            var hdrTable = new PdfPTable(2) { WidthPercentage = 100f, SpacingAfter = 0f };
+            hdrTable.SetWidths(new float[] { 1.2f, 8.8f });
+            hdrTable.DefaultCell.Border = Rectangle.NO_BORDER;
+            PdfPCell logoCell;
+            if (System.IO.File.Exists(logoPath)) {
+                var logo = iTextSharp.text.Image.GetInstance(logoPath); logo.ScaleToFit(55f, 55f);
+                logoCell = new PdfPCell(logo) { Border = Rectangle.NO_BORDER, VerticalAlignment = Element.ALIGN_MIDDLE, Padding = 2f };
+            } else logoCell = new PdfPCell(new Phrase("")) { Border = Rectangle.NO_BORDER };
+            hdrTable.AddCell(logoCell);
+            var tp = new Phrase();
+            tp.Add(new Chunk(AppSettings("CompanyName") + " ", fCoName));
+            tp.Add(new Chunk(AppSettings("Registration") + "\n", fCoReg));
+            tp.Add(new Chunk(AppSettings("Address1") + "\n", fCoSub));
+            tp.Add(new Chunk(AppSettings("Address2") + "\n", fCoSub));
+            tp.Add(new Chunk(AppSettings("PostCode") + " " + AppSettings("City") + "\n", fCoSub));
+            tp.Add(new Chunk(AppSettings("Phone"), fCoSub));
+            hdrTable.AddCell(new PdfPCell(tp) { Border = Rectangle.NO_BORDER, VerticalAlignment = Element.ALIGN_MIDDLE, Padding = 4f, PaddingLeft = 8f });
+            doc.Add(hdrTable);
+            doc.Add(new Chunk(new iTextSharp.text.pdf.draw.LineSeparator(2.5f, 100f, gold, Element.ALIGN_CENTER, -2f)));
+            doc.Add(Spacer(6f));
+            P(doc, "ASSET DUE LIST REPORT", fTitle, Element.ALIGN_CENTER, 6f);
+
+            // Filter summary
+            var ft = new PdfPTable(4) { WidthPercentage = 100f, SpacingAfter = 8f };
+            ft.DefaultCell.Border = Rectangle.NO_BORDER;
+            string[][] fp = {
+                new[]{ "Branch:",     brName  },
+                new[]{ "As Of:",      asOf    },
+                new[]{ "Print Date:", DateTime.Now.ToString("dd MMM yyyy hh:mm tt") },
+                new[]{ "", "" }
+            };
+            foreach (var f in fp) {
+                var ph = new Phrase(); ph.Add(new Chunk(f[0] + " ", fFilterB)); ph.Add(new Chunk(f[1], fFilter));
+                ft.AddCell(new PdfPCell(ph) { Border = Rectangle.NO_BORDER, Padding = 2f });
+            }
+            doc.Add(ft);
+
+            // Legend
+            var leg = new PdfPTable(3) { WidthPercentage = 60f, SpacingAfter = 6f };
+            leg.DefaultCell.Border = Rectangle.NO_BORDER;
+            Action<string, BaseColor> addLeg = (txt, bg) => leg.AddCell(new PdfPCell(new Phrase(txt, fFilter)) {
+                BackgroundColor = bg, Padding = 3f, Border = Rectangle.BOX, BorderColor = border
+            });
+            addLeg("Overdue (< 0 days)", overdue);
+            addLeg("Due within 30 days", due30);
+            addLeg("OK (> 30 days)", BaseColor.WHITE);
+            doc.Add(leg);
+
+            // Group by Branch
+            string curBranch = null;
+            int ri = 0;
+            PdfPTable tbl = null;
+
+            foreach (DataRow dr in dt.Rows)
+            {
+                string branch = (dr["BranchName"] ?? "").ToString();
+                if (string.IsNullOrWhiteSpace(branch)) branch = "Unallocated";
+
+                if (branch != curBranch)
+                {
+                    if (tbl != null) doc.Add(tbl);
+                    curBranch = branch; ri = 0;
+
+                    tbl = new PdfPTable(cols.Length) { WidthPercentage = 100f, HeaderRows = 1, SpacingBefore = 6f };
+                    tbl.SetWidths(widths);
+
+                    tbl.AddCell(new PdfPCell(new Phrase(branch, fBrHdr)) {
+                        Colspan = cols.Length, BackgroundColor = brHdrBg,
+                        HorizontalAlignment = Element.ALIGN_LEFT, Padding = 5f,
+                        Border = Rectangle.BOX, BorderColor = border
+                    });
+                    foreach (var c in cols)
+                        tbl.AddCell(new PdfPCell(new Phrase((string)c[0], fTH)) {
+                            BackgroundColor = headerBg,
+                            HorizontalAlignment = (bool)c[3] ? Element.ALIGN_RIGHT : Element.ALIGN_LEFT,
+                            Padding = 4f, Border = Rectangle.BOX, BorderColor = border
+                        });
+                }
+
+                ri++;
+                // Row background = worst due status
+                int?[] daysArr = new int?[] {
+                    GetNullInt(dr, "RoadTaxDaysLeft"), GetNullInt(dr, "InsuranceDaysLeft"),
+                    GetNullInt(dr, "ServiceDaysLeft"), GetNullInt(dr, "WarrantyDaysLeft")
+                };
+                int? minDays = null;
+                foreach (var d in daysArr) if (d.HasValue && (!minDays.HasValue || d.Value < minDays.Value)) minDays = d;
+                BaseColor rowBg = minDays.HasValue
+                    ? (minDays.Value < 0 ? overdue : (minDays.Value <= 30 ? due30 : (ri % 2 == 0 ? rowAlt : BaseColor.WHITE)))
+                    : (ri % 2 == 0 ? rowAlt : BaseColor.WHITE);
+
+                foreach (var c in cols)
+                {
+                    string field = (string)c[1]; bool isNum = (bool)c[3];
+                    object raw = dt.Columns.Contains(field) ? dr[field] : null;
+                    string txt;
+                    Font cf = fTD;
+                    if (isNum) {
+                        if (raw == null || raw == DBNull.Value) { txt = "-"; }
+                        else {
+                            int days = Convert.ToInt32(raw);
+                            txt = days < 0 ? "OVERDUE (" + days + "d)" : days + " day(s)";
+                            if (days < 0) cf = fTDRed;
+                        }
+                    } else {
+                        txt = (raw != null && raw != DBNull.Value) ? raw.ToString() : "-";
+                    }
+                    tbl.AddCell(new PdfPCell(new Phrase(txt, cf)) {
+                        BackgroundColor = rowBg,
+                        HorizontalAlignment = isNum ? Element.ALIGN_RIGHT : Element.ALIGN_LEFT,
+                        Padding = 3.5f, Border = Rectangle.BOX, BorderColor = border
+                    });
+                }
+            }
+            if (tbl != null) doc.Add(tbl);
+
+            doc.Close();
+            return ms.ToArray();
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // ASSET DUE LIST EXCEL BUILDER
+    // ════════════════════════════════════════════════════════════════════════
+    private byte[] BuildDueListExcel(string brName, string stLabel, string asOf, DataTable dt)
+    {
+        string[] headers = { "Branch", "Asset Code", "Asset Name", "Asset Type", "Status",
+                             "Road Tax Date", "RT Days Left",
+                             "Insurance Date", "Ins Days Left",
+                             "Service Due Date", "Svc Days Left",
+                             "Warranty Date", "War Days Left" };
+        int span = headers.Length;
+        var sb = new System.Text.StringBuilder();
+
+        sb.AppendLine("<html xmlns:o=\"urn:schemas-microsoft-com:office:office\" xmlns:x=\"urn:schemas-microsoft-com:office:excel\" xmlns=\"http://www.w3.org/TR/REC-html40\">");
+        sb.AppendLine("<head><meta charset=\"UTF-8\"/><style>");
+        sb.AppendLine("body,td,th{font-family:Arial;font-size:10pt;} .co{font-size:13pt;font-weight:bold;color:#1a3a5c;} .sub{font-size:9pt;color:#555;}");
+        sb.AppendLine(".ttl{font-size:12pt;font-weight:bold;color:#1a3a5c;text-align:center;} .fl{font-weight:bold;font-size:9pt;} .fv{font-size:9pt;}");
+        sb.AppendLine(".th{background:#1a3a5c;color:#fff;font-weight:bold;padding:5px;border:1px solid #ccc;}");
+        sb.AppendLine(".td{padding:4px;border:1px solid #ddd;} .tn{padding:4px;border:1px solid #ddd;text-align:right;}");
+        sb.AppendLine(".alt{background:#f4f7fb;} .ov{background:#ffe5e5;} .d30{background:#fff3cd;} .gold{border-bottom:2px solid #D4A017;}");
+        sb.AppendLine("</style></head><body><table style=\"width:100%;border-collapse:collapse;\">");
+
+        sb.AppendFormat("<tr><td colspan=\"{0}\" class=\"co\">{1} <span style=\"font-size:9pt\">{2}</span></td></tr>\n", span, H(AppSettings("CompanyName")), H(AppSettings("Registration")));
+        sb.AppendFormat("<tr><td colspan=\"{0}\" class=\"sub\">{1} {2}, {3} {4}</td></tr>\n", span, H(AppSettings("Address1")), H(AppSettings("Address2")), H(AppSettings("PostCode")), H(AppSettings("City")));
+        sb.AppendFormat("<tr><td colspan=\"{0}\" class=\"gold\" style=\"padding:2px;\"></td></tr>\n", span);
+        sb.AppendFormat("<tr><td colspan=\"{0}\" class=\"ttl\">ASSET DUE LIST REPORT</td></tr>\n", span);
+        sb.AppendFormat("<tr><td colspan=\"{0}\" style=\"padding:2px;\"></td></tr>\n", span);
+        sb.AppendFormat("<tr><td colspan=\"{0}\"><span class=\"fl\">Branch:</span> <span class=\"fv\">{1}</span>&nbsp;&nbsp;&nbsp;<span class=\"fl\">As Of:</span> <span class=\"fv\">{2}</span>&nbsp;&nbsp;&nbsp;<span class=\"fl\">Print Date:</span> <span class=\"fv\">{3}</span></td></tr>\n",
+            span, H(brName), H(asOf), DateTime.Now.ToString("dd MMM yyyy hh:mm tt"));
+        sb.AppendFormat("<tr><td colspan=\"{0}\" style=\"padding:3px;\"></td></tr>\n", span);
+
+        sb.AppendLine("<tr>"); foreach (var h in headers) sb.AppendFormat("<td class=\"th\">{0}</td>", H(h)); sb.AppendLine("</tr>");
+
+        int ri = 0;
+        foreach (DataRow dr in dt.Rows)
+        {
+            ri++;
+            int?[] daysArr = new int?[] {
+                GetNullInt(dr,"RoadTaxDaysLeft"), GetNullInt(dr,"InsuranceDaysLeft"),
+                GetNullInt(dr,"ServiceDaysLeft"), GetNullInt(dr,"WarrantyDaysLeft")
+            };
+            int? minDays = null;
+            foreach (var d in daysArr) if (d.HasValue && (!minDays.HasValue || d.Value < minDays.Value)) minDays = d;
+            string rowCls = minDays.HasValue
+                ? (minDays.Value < 0 ? "ov" : (minDays.Value <= 30 ? "d30" : (ri % 2 == 1 ? "" : "alt")))
+                : (ri % 2 == 1 ? "" : "alt");
+
+            sb.AppendLine("<tr>");
+            sb.AppendFormat("<td class=\"td {0}\">{1}</td>", rowCls, H(GetStr(dr,"BranchName")));
+            sb.AppendFormat("<td class=\"td {0}\">{1}</td>", rowCls, H(GetStr(dr,"AssetCode")));
+            sb.AppendFormat("<td class=\"td {0}\">{1}</td>", rowCls, H(GetStr(dr,"AssetName")));
+            sb.AppendFormat("<td class=\"td {0}\">{1}</td>", rowCls, H(GetStr(dr,"AssetType")));
+            sb.AppendFormat("<td class=\"td {0}\">{1}</td>", rowCls, H(GetStr(dr,"AssetStatus")));
+            sb.AppendFormat("<td class=\"td {0}\">{1}</td>", rowCls, H(GetStr(dr,"RoadTaxRenewalDate")));
+            sb.AppendFormat("<td class=\"tn {0}\">{1}</td>", rowCls, FmtDays(GetNullInt(dr,"RoadTaxDaysLeft")));
+            sb.AppendFormat("<td class=\"td {0}\">{1}</td>", rowCls, H(GetStr(dr,"InsuranceRenewalDate")));
+            sb.AppendFormat("<td class=\"tn {0}\">{1}</td>", rowCls, FmtDays(GetNullInt(dr,"InsuranceDaysLeft")));
+            sb.AppendFormat("<td class=\"td {0}\">{1}</td>", rowCls, H(GetStr(dr,"ServiceDueDate")));
+            sb.AppendFormat("<td class=\"tn {0}\">{1}</td>", rowCls, FmtDays(GetNullInt(dr,"ServiceDaysLeft")));
+            sb.AppendFormat("<td class=\"td {0}\">{1}</td>", rowCls, H(GetStr(dr,"WarrantyExpiryDate")));
+            sb.AppendFormat("<td class=\"tn {0}\">{1}</td>", rowCls, FmtDays(GetNullInt(dr,"WarrantyDaysLeft")));
+            sb.AppendLine("</tr>");
+        }
+
+        sb.AppendFormat("<tr><td colspan=\"{0}\" style=\"padding:4px;\"></td></tr>\n", span);
+        sb.AppendFormat("<tr><td colspan=\"{0}\" style=\"font-size:8pt;color:#888;\">Generated: {1}</td></tr>\n", span, DateTime.Now.ToString("dd MMM yyyy hh:mm tt"));
+        sb.AppendLine("</table></body></html>");
+        return System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // MAINTENANCE EXCEL BUILDER
+    // ════════════════════════════════════════════════════════════════════════
+    private byte[] BuildMaintenanceExcel(string brName, string stLabel, string asOf, DataTable dt)
+    {
+        string[] headers = { "S.NO.", "Branch", "Asset Code", "Asset Name", "Asset Type",
+                             "Maint. No", "Maint. Type", "Start Date", "Completion Date",
+                             "Status", "Vendor", "Cost (RM)", "Problem Description" };
+        int span = headers.Length;
+        var sb = new System.Text.StringBuilder();
+
+        sb.AppendLine("<html xmlns:o=\"urn:schemas-microsoft-com:office:office\" xmlns:x=\"urn:schemas-microsoft-com:office:excel\" xmlns=\"http://www.w3.org/TR/REC-html40\">");
+        sb.AppendLine("<head><meta charset=\"UTF-8\"/><style>");
+        sb.AppendLine("body,td,th{font-family:Arial;font-size:10pt;} .co{font-size:13pt;font-weight:bold;color:#1a3a5c;} .sub{font-size:9pt;color:#555;}");
+        sb.AppendLine(".ttl{font-size:12pt;font-weight:bold;color:#1a3a5c;text-align:center;} .fl{font-weight:bold;font-size:9pt;} .fv{font-size:9pt;}");
+        sb.AppendLine(".th{background:#1a3a5c;color:#fff;font-weight:bold;padding:5px;border:1px solid #ccc;}");
+        sb.AppendLine(".td{padding:4px;border:1px solid #ddd;} .tn{padding:4px;border:1px solid #ddd;text-align:right;}");
+        sb.AppendLine(".alt{background:#f4f7fb;} .tot{background:#e8f0fe;font-weight:bold;border-top:2px solid #1a3a5c;} .gold{border-bottom:2px solid #D4A017;}");
+        sb.AppendLine("</style></head><body><table style=\"width:100%;border-collapse:collapse;\">");
+
+        sb.AppendFormat("<tr><td colspan=\"{0}\" class=\"co\">{1} <span style=\"font-size:9pt\">{2}</span></td></tr>\n", span, H(AppSettings("CompanyName")), H(AppSettings("Registration")));
+        sb.AppendFormat("<tr><td colspan=\"{0}\" class=\"sub\">{1} {2}, {3} {4}</td></tr>\n", span, H(AppSettings("Address1")), H(AppSettings("Address2")), H(AppSettings("PostCode")), H(AppSettings("City")));
+        sb.AppendFormat("<tr><td colspan=\"{0}\" class=\"gold\" style=\"padding:2px;\"></td></tr>\n", span);
+        sb.AppendFormat("<tr><td colspan=\"{0}\" class=\"ttl\">ASSET MAINTENANCE DUE DETAILS REPORT</td></tr>\n", span);
+        sb.AppendFormat("<tr><td colspan=\"{0}\" style=\"padding:2px;\"></td></tr>\n", span);
+        sb.AppendFormat("<tr><td colspan=\"{0}\"><span class=\"fl\">Branch:</span> <span class=\"fv\">{1}</span>&nbsp;&nbsp;&nbsp;<span class=\"fl\">Status:</span> <span class=\"fv\">{2}</span>&nbsp;&nbsp;&nbsp;<span class=\"fl\">As Of:</span> <span class=\"fv\">{3}</span>&nbsp;&nbsp;&nbsp;<span class=\"fl\">Print Date:</span> <span class=\"fv\">{4}</span></td></tr>\n",
+            span, H(brName), H(stLabel), H(asOf), DateTime.Now.ToString("dd MMM yyyy hh:mm tt"));
+        sb.AppendFormat("<tr><td colspan=\"{0}\" style=\"padding:3px;\"></td></tr>\n", span);
+
+        sb.AppendLine("<tr>"); foreach (var h in headers) sb.AppendFormat("<td class=\"th\">{0}</td>", H(h)); sb.AppendLine("</tr>");
+
+        decimal totCost = 0; int ri = 0;
+        foreach (DataRow dr in dt.Rows)
+        {
+            ri++;
+            string alt = ri % 2 == 1 ? "" : " alt";
+            decimal cost = GetDec(dr, "MaintenanceCost"); totCost += cost;
+
+            sb.AppendLine("<tr>");
+            sb.AppendFormat("<td class=\"tn{0}\">{1}</td>",  alt, ri);
+            sb.AppendFormat("<td class=\"td{0}\">{1}</td>",  alt, H(GetStr(dr, "BranchName")));
+            sb.AppendFormat("<td class=\"td{0}\">{1}</td>",  alt, H(GetStr(dr, "AssetCode")));
+            sb.AppendFormat("<td class=\"td{0}\">{1}</td>",  alt, H(GetStr(dr, "AssetName")));
+            sb.AppendFormat("<td class=\"td{0}\">{1}</td>",  alt, H(GetStr(dr, "AssetType")));
+            sb.AppendFormat("<td class=\"td{0}\">{1}</td>",  alt, H(GetStr(dr, "MaintenanceNo")));
+            sb.AppendFormat("<td class=\"td{0}\">{1}</td>",  alt, H(GetStr(dr, "MaintenanceType")));
+            sb.AppendFormat("<td class=\"td{0}\">{1}</td>",  alt, H(GetStr(dr, "StartDate")));
+            sb.AppendFormat("<td class=\"td{0}\">{1}</td>",  alt, H(GetStr(dr, "CompletionDate")));
+            sb.AppendFormat("<td class=\"td{0}\">{1}</td>",  alt, H(GetStr(dr, "MaintenanceStatus")));
+            sb.AppendFormat("<td class=\"td{0}\">{1}</td>",  alt, H(GetStr(dr, "VendorName")));
+            sb.AppendFormat("<td class=\"tn{0}\">{1}</td>",  alt, cost.ToString("N2"));
+            sb.AppendFormat("<td class=\"td{0}\">{1}</td>",  alt, H(GetStr(dr, "ProblemDescription")));
+            sb.AppendLine("</tr>");
+        }
+
+        sb.AppendLine("<tr>");
+        sb.AppendFormat("<td class=\"tot td\" colspan=\"{0}\"><b>TOTAL</b></td>", span - 1);
+        sb.AppendFormat("<td class=\"tot tn\"><b>{0}</b></td>", totCost.ToString("N2"));
+        sb.AppendLine("</tr>");
+
+        sb.AppendFormat("<tr><td colspan=\"{0}\" class=\"ftr\">Generated: {1}</td></tr>\n", span, DateTime.Now.ToString("dd MMM yyyy hh:mm tt"));
+        sb.AppendLine("</table></body></html>");
+        return System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
     // DATA ACCESS
     // ════════════════════════════════════════════════════════════════════════
 
@@ -656,6 +1142,31 @@
     {
         if (string.IsNullOrEmpty(s)) return "";
         return s.Replace("&","&amp;").Replace("<","&lt;").Replace(">","&gt;").Replace("\"","&quot;");
+    }
+
+    private static decimal GetDec(DataRow dr, string col)
+    {
+        try { return dr.Table.Columns.Contains(col) && dr[col] != DBNull.Value ? Convert.ToDecimal(dr[col]) : 0; }
+        catch { return 0; }
+    }
+
+    private static string GetStr(DataRow dr, string col)
+    {
+        try { return dr.Table.Columns.Contains(col) && dr[col] != DBNull.Value ? dr[col].ToString() : ""; }
+        catch { return ""; }
+    }
+
+    private static int? GetNullInt(DataRow dr, string col)
+    {
+        try { return dr.Table.Columns.Contains(col) && dr[col] != DBNull.Value ? (int?)Convert.ToInt32(dr[col]) : null; }
+        catch { return null; }
+    }
+
+    private static string FmtDays(int? days)
+    {
+        if (!days.HasValue) return "-";
+        if (days.Value < 0) return "OVERDUE (" + days.Value + "d)";
+        return days.Value + " day(s)";
     }
 
     private void SendError(string msg)

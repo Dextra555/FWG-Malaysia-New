@@ -68,14 +68,13 @@
         string itemName = itemID > 0
             ? (Lookup("SELECT Name FROM ItemMaster WHERE ID=@p", itemID.ToString()) ?? itemIDStr)
             : "All Items";
-        string clientLbl = string.IsNullOrEmpty(clientName) ? "All Clients" : clientName;
         string period   = startDate.ToString("dd MMM yyyy") + " to "+ endDate.ToString("dd MMM yyyy");
 
         // ── 5. Build PDF or Excel ─────────────────────────────────────────
         if (format == "excel")
         {
             byte[] xlsx;
-            try   { xlsx = BuildExcel(whName, itemName, clientLbl, period, dt); }
+            try   { xlsx = BuildExcel(whName, itemName, period, dt); }
             catch (Exception ex)
             {
                 LogErr("BuildExcel", ex.Message);
@@ -98,7 +97,7 @@
 
         // ── 5b. Build PDF (default) ───────────────────────────────────────
         byte[] pdf;
-        try   { pdf = BuildPdf(loginID, whName, itemName, clientLbl, period, dt); }
+        try   { pdf = BuildPdf(loginID, whName, itemName, period, dt); }
         catch (Exception ex)
         {
             LogErr("BuildPdf", ex.Message);
@@ -123,7 +122,7 @@
     // ════════════════════════════════════════════════════════════════════════
 
     private byte[] BuildPdf(string loginID, string whName, string itemName,
-                            string clientLbl, string period, DataTable dt)
+                            string period, DataTable dt)
     {
         // ── Colours (same palette as CurrentStockReport) ──────────────────
         BaseColor navy     = new BaseColor(0x1a, 0x3a, 0x5c);
@@ -218,30 +217,24 @@
             // ── Report title ──────────────────────────────────────────────
             P(doc, "STOCK MOVEMENT REPORT", fTitle, Element.ALIGN_CENTER, 6f);
 
-            // ── Filter summary ────────────────────────────────────────────
-            var ft = new PdfPTable(3) { WidthPercentage = 100f, SpacingAfter = 8f };
-            ft.SetWidths(new float[] { 1.5f, 3.5f, 5.0f });
+            // ── Filter summary (3 pairs → 6 cells) ───────────────────────
+            var ft = new PdfPTable(6) { WidthPercentage = 100f, SpacingAfter = 8f };
+            ft.SetWidths(new float[] { 1f, 2f, 1f, 2f, 1f, 2f });
             ft.DefaultCell.Border = Rectangle.NO_BORDER;
             string[][] filters = new string[][]
             {
-                new[]{ "Warehouse:",   whName    },
-                new[]{ "Item:",        itemName  },
-                new[]{ "Client:",      clientLbl },
-                new[]{ "Period:",      period    }
+                new[]{ "Warehouse:", whName   },
+                new[]{ "Item:",      itemName },
+                new[]{ "Period:",    period   }
             };
             foreach (var f in filters)
             {
                 var ph = new Phrase();
                 ph.Add(new Chunk(f[0] + " ", fFilterB));
                 ph.Add(new Chunk(f[1], fFilter));
-                ft.AddCell(new PdfPCell(ph) { Border = Rectangle.NO_BORDER, Padding = 2f, NoWrap = true });
-                // add a blank cell for the 3-column layout to pair correctly
-            }
-            // If odd number of filter pairs, pad remaining cells
-            int filterCount = filters.Length;
-            int rem = filterCount % 3;
-            for (int p = 0; p < (rem == 0 ? 0 : 3 - rem); p++)
+                ft.AddCell(new PdfPCell(ph) { Border = Rectangle.NO_BORDER, Padding = 2f });
                 ft.AddCell(new PdfPCell(new Phrase("")) { Border = Rectangle.NO_BORDER });
+            }
             doc.Add(ft);
 
             // ── Data table ────────────────────────────────────────────────
@@ -392,8 +385,7 @@
     // EXCEL BUILDER
     // ════════════════════════════════════════════════════════════════════════
 
-    private byte[] BuildExcel(string whName, string itemName,
-                              string clientLbl, string period, DataTable dt)
+    private byte[] BuildExcel(string whName, string itemName, string period, DataTable dt)
     {
         var cols = new string[][]
         {
@@ -465,7 +457,6 @@
         sb.AppendFormat("<tr><td colspan=\"{0}\">", span);
         sb.AppendFormat("<span class=\"fl\">Warehouse: </span><span class=\"fv\">{0}</span>&nbsp;&nbsp;&nbsp;", H(whName));
         sb.AppendFormat("<span class=\"fl\">Item: </span><span class=\"fv\">{0}</span>&nbsp;&nbsp;&nbsp;", H(itemName));
-        sb.AppendFormat("<span class=\"fl\">Client: </span><span class=\"fv\">{0}</span>&nbsp;&nbsp;&nbsp;", H(clientLbl));
         sb.AppendFormat("<span class=\"fl\">Period: </span><span class=\"fv\">{0}</span>", H(period));
         sb.AppendLine("</td></tr>");
         sb.AppendFormat("<tr><td colspan=\"{0}\" style=\"padding:3px;\"></td></tr>\n", span);
@@ -559,7 +550,7 @@
     // DATA ACCESS
     // ════════════════════════════════════════════════════════════════════════
 
-    private DataTable RunSP(int whID, int itemID, DateTime from, DateTime to, string clientName)
+    private DataTable RunSP(int whID, int itemID, DateTime from, DateTime to, string clientName = "")
     {
         var dt = new DataTable();
         using (var conn = new SqlConnection(ConnStr()))
@@ -571,8 +562,7 @@
             cmd.Parameters.AddWithValue("@ItemID",      itemID);
             cmd.Parameters.AddWithValue("@FromDate",    from.Date);
             cmd.Parameters.AddWithValue("@ToDate",      to.Date);
-            cmd.Parameters.AddWithValue("@ClientName",
-                string.IsNullOrWhiteSpace(clientName) ? "" : clientName.Trim());
+            cmd.Parameters.AddWithValue("@ClientName",  string.IsNullOrWhiteSpace(clientName) ? (object)DBNull.Value : clientName);
             conn.Open();
             new SqlDataAdapter(cmd).Fill(dt);
         }

@@ -155,8 +155,13 @@
           </div>
         </div>
 
-        <!-- Export Excel — right side of totals row -->
+        <!-- Buttons — right side of totals row -->
         <div class="col-12 col-md-12 text-right mt-2">
+          <button class="btn btn-outline-danger mr-2" (click)="onPrintPdf('pdf')"
+                  [disabled]="dataSource.data.length === 0"
+                  title="Open PDF report in new tab">
+            <mat-icon style="font-size:16px; vertical-align:middle">picture_as_pdf</mat-icon> Print PDF
+          </button>
           <button class="btn btn-success" (click)="exportExcel()">
             <mat-icon style="font-size:16px; vertical-align:middle">table_view</mat-icon> Export Excel
           </button>

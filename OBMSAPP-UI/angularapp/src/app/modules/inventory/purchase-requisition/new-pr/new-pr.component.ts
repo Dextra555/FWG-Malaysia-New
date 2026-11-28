@@ -40,7 +40,7 @@ export class NewPRComponent implements OnInit {
   currentStatus   = 'Draft';
   approvalRemarks = '';
   approvedBy      = '';
-  submittedBy     = '';   // who submitted â€” used to check approver routing
+  submittedBy     = '';   // who submitted - used to check approver routing
   sstTotal        = 0;
   grandTotal      = 0;
 
@@ -49,7 +49,7 @@ export class NewPRComponent implements OnInit {
   // false = current user is the requester / other   â†’ hide Approve / Reject
   isApprover        = false;
   approverCheckDone = false;   // prevents flicker before API responds
-  approverName      = '';      // configured approver username â€” shown in the pending banner
+  approverName      = '';      // configured approver username - shown in the pending banner
 
   // â”€â”€ Reference-field inline edit (view mode) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   isEditingRef    = false;   // toggles the edit inputs in view mode
@@ -106,7 +106,7 @@ export class NewPRComponent implements OnInit {
       Remarks:        [''],
       _index:         [-1],
       _WarehouseID:   [0],    // default warehouse of the selected item
-      _WarehouseName: [''],   // default warehouse name â€” shown in the table
+      _WarehouseName: [''],   // default warehouse name - shown in the table
       _CurrentStock:  [null], // current stock in that warehouse
       _BSRPendingQty: [null]  // total pending BSR qty across Submitted + Approved requests
     });
@@ -218,7 +218,7 @@ export class NewPRComponent implements OnInit {
 
         // Once we know the status and submitter, check whether current user is the approver
         if (d.Status === 'Submitted') {
-          // Part 7 fix: use this.submittedBy (already set above) â€” not d.LastUpdatedBy directly
+          // Part 7 fix: use this.submittedBy (already set above) - not d.LastUpdatedBy directly
           this.checkIsApprover(this.submittedBy);
         } else {
           this.approverCheckDone = true;
@@ -253,7 +253,7 @@ export class NewPRComponent implements OnInit {
     this.service.isCurrentUserApprover('PURCHASE_REQUISITION', requesterUser || '').subscribe({
       next: (res: any) => {
         console.log('[checkIsApprover] response=', res);
-        // Only update if not already confirmed â€” prevents false override from
+        // Only update if not already confirmed - prevents false override from
         // a racing second call that arrives after the first true result.
         if (!this.isApprover) {
           this.isApprover   = res?.IsApprover === true;
@@ -282,7 +282,7 @@ export class NewPRComponent implements OnInit {
     return false;
   }
   // Submit is available on a new (unsaved) form with at least one line,
-  // OR on an existing Draft â€” Draft is no longer a mandatory pre-step.
+  // OR on an existing Draft - Draft is no longer a mandatory pre-step.
   canSubmit(): boolean {
     return this.lines.length > 0 &&
       (!this.isEdit || this.currentStatus === 'Draft' ||
@@ -294,7 +294,7 @@ export class NewPRComponent implements OnInit {
   canApproveAction(): boolean {
     if (!this.isEdit || this.currentStatus !== 'Submitted') return false;
 
-    // SuperAdmin (IsAdmin='2') has global approval authority â€” including their own submissions.
+    // SuperAdmin (IsAdmin='2') has global approval authority - including their own submissions.
     if (this.userRole === 'superadmin') return true;
 
     // Normal users: configured approver only, self-approval blocked
@@ -413,7 +413,7 @@ export class NewPRComponent implements OnInit {
     this.grandTotal = sub + sst;
   }
 
-  /** Sub-Total (ex-SST) of all displayed lines â€” used by template */
+  /** Sub-Total (ex-SST) of all displayed lines - used by template */
   get subTotal(): number {
     return this.lines.reduce((s, l) => {
       const qty = parseFloat(l.RequiredQty) || 0;
@@ -469,7 +469,7 @@ export class NewPRComponent implements OnInit {
     }).afterClosed().subscribe((result: any) => {
       if (result?.confirmDialog) {
         this.showLoadingSpinner = true;
-        // The controller reads identity from JWT â€” currentUser param is redundant but kept for compat
+        // The controller reads identity from JWT - currentUser param is redundant but kept for compat
         this.service.submitPR(this.ID, this.currentUser).subscribe({
           next: (res: any) => {
             this.showMsg(res?.message || 'Submitted for approval.', 'success', 'Success Message');
@@ -509,7 +509,7 @@ export class NewPRComponent implements OnInit {
       this.showLoadingSpinner = true;
 
       if (this.isEdit) {
-        // Already a saved Draft â€” just submit
+        // Already a saved Draft - just submit
         this.service.submitPR(this.ID, this.currentUser).subscribe({
           next: (res: any) => {
             this.showMsg(res?.message || 'Submitted for approval.', 'success', 'Success Message');
@@ -521,7 +521,7 @@ export class NewPRComponent implements OnInit {
           }
         });
       } else {
-        // New form â€” save as Draft first, then immediately submit
+        // New form - save as Draft first, then immediately submit
         const raw = this.frm.getRawValue();
         const payload = {
           ID: 0, PRNumber: raw.PRNumber,
@@ -545,7 +545,7 @@ export class NewPRComponent implements OnInit {
               this.hideSpinner();
               return;
             }
-            // Draft saved â€” now submit
+            // Draft saved - now submit
             this.service.submitPR(newID, this.currentUser).subscribe({
               next: (submitRes: any) => {
                 this.showMsg(submitRes?.message || 'Submitted for approval.', 'success', 'Success Message');
@@ -554,7 +554,7 @@ export class NewPRComponent implements OnInit {
                   .then(() => this.route.navigate(['/inventory/purchase-requisition/new-pr', newID]));
               },
               error: (err: any) => {
-                // Save succeeded but submit failed â€” navigate to draft so user can retry submit
+                // Save succeeded but submit failed - navigate to draft so user can retry submit
                 this.showMsg(this.extractMsg(err, 'Saved as Draft, but submit failed. Please open the draft and try submitting again.'), 'error', 'Error Message');
                 this.route.navigateByUrl('/dummy', { skipLocationChange: true })
                   .then(() => this.route.navigate(['/inventory/purchase-requisition/new-pr', newID]));
@@ -576,7 +576,7 @@ export class NewPRComponent implements OnInit {
     }).afterClosed().subscribe((result: any) => {
       if (result?.confirmDialog) {
         this.showLoadingSpinner = true;
-        // Backend reads approver identity from JWT â€” ApprovedBy body is overridden server-side
+        // Backend reads approver identity from JWT - ApprovedBy body is overridden server-side
         this.service.approvePR(this.ID, { ApprovedBy: this.currentUser, ApprovalRemarks: '' }).subscribe({
           next: (res: any) => {
             this.showMsg(res?.message || 'Approved successfully.', 'success', 'Success Message');
@@ -642,14 +642,14 @@ export class NewPRComponent implements OnInit {
   private loadProcessingTask(prid: number): void {
     this.service.getPRProcessingTaskByPR(prid).subscribe({
       next:  (task: any) => { this.processingTask = task ?? null; },
-      // 404 = no task yet (PR approved but task not created â€” treat as Pending-like)
+      // 404 = no task yet (PR approved but task not created - treat as Pending-like)
       error: ()          => { this.processingTask = null; }
     });
   }
 
   /**
    * Sends a ClaimPR request to the backend.
-   * The backend enforces atomic ownership â€” only one user can claim per PR.
+   * The backend enforces atomic ownership - only one user can claim per PR.
    * On success: processingTask is refreshed from the server response.
    * On conflict (409): a clear message is shown; processingTask is reloaded.
    */
@@ -666,7 +666,7 @@ export class NewPRComponent implements OnInit {
       },
       error: (err: any) => {
         this.claimLoading = false;
-        // 409 Conflict = someone else already claimed it â€” reload task to show who
+        // 409 Conflict = someone else already claimed it - reload task to show who
         this.loadProcessingTask(+this.ID);
         this.showMsg(this.extractMsg(err, 'Unable to claim this PR right now. Please try again.'), 'error', 'Error Message');
       }

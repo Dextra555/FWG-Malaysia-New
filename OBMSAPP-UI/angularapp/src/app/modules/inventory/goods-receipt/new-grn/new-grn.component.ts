@@ -111,6 +111,8 @@ export class NewGRNComponent implements OnInit {
     if (po) {
       this.poInfo = po;
       this.frm.get('WarehouseID')?.setValue(po.WarehouseID);
+      // Carry PO Remarks into GRN Remarks field
+      if (po.Remarks) { this.frm.get('Remarks')?.setValue(po.Remarks); }
     } else {
       // Fallback: fetch PO details directly from API to get warehouse
       this.service.getPOByID(+poID).subscribe({
@@ -118,6 +120,8 @@ export class NewGRNComponent implements OnInit {
           if (poData) {
             this.poInfo = poData;
             this.frm.get('WarehouseID')?.setValue(poData.WarehouseID);
+            // Carry PO Remarks into GRN Remarks field
+            if (poData.Remarks) { this.frm.get('Remarks')?.setValue(poData.Remarks); }
           }
         },
         error: () => {}
@@ -357,4 +361,5 @@ export class NewGRNComponent implements OnInit {
   onPOOpen(opened: boolean) { if (opened) { this.poSearch = ''; this.filteredPOs = [...this.approvedPOs]; } }
   onPOSearch(q: string) { this.poSearch = q; const s = q.toLowerCase(); this.filteredPOs = this.approvedPOs.filter(p => p.PONumber?.toLowerCase().includes(s) || p.SupplierName?.toLowerCase().includes(s)); }
 }
+
 

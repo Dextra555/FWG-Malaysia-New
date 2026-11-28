@@ -217,6 +217,7 @@ import { CreditNoteReportComponent } from 'src/app/modules/report/finance/credit
 import { DebitNoteReportComponent } from 'src/app/modules/report/finance/debit-note-report/debit-note-report.component';
 import { EmployeeExpiryReminderComponent } from 'src/app/modules/report/master/employee-expiry-reminder/employee-expiry-reminder.component';
 import { EmployeeVisaPassportListComponent } from 'src/app/modules/report/master/employee-visa-passport-list/employee-visa-passport-list.component';
+import { ActiveUsersComponent } from 'src/app/modules/administration/active-users/active-users.component';
 
 const routes: Routes = [
   // { path: '', component: AdminLayoutComponent },
@@ -499,6 +500,7 @@ const routes: Routes = [
   { path: 'administration/pending-approvals', component: PendingApprovalsComponent, canActivate: [AuthGuard] },
   { path: 'administration/approval-history',  component: ApprovalHistoryComponent,  canActivate: [AuthGuard] },
   { path: 'administration/notifications',     component: NotificationListComponent,  canActivate: [AuthGuard] },
+  { path: 'administration/active-users',      component: ActiveUsersComponent,       canActivate: [AuthGuard] },
 
   { path: '**', redirectTo: 'login' }
 ];

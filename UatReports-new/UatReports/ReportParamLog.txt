@@ -33,3 +33,36 @@
 30-06-2026 20:22:04: Branch='FWG002-PCH' | MasterClient='FwgC000025' | Client='FwgC000015' | Start='2026-01-01' | End='2026-06-30'
 30-06-2026 20:22:59: Table='command' SelectionFormula='{command.Client} IN ['FwgC000014', 'FwgC000015', 'FwgC000016', 'FwgC000017', 'FwgC000018', 'FwgC000019', 'FwgC000020', 'FwgC000021', 'FwgC000022', 'FwgC000023', 'FwgC000024', 'FwgC000025', 'FwgC000026', 'FwgC000027', 'FwgC000028', 'FwgC000029', 'FwgC000030', 'FwgC000064', 'FwgC000233', 'FwgC000240', 'FwgC000246'] AND {command.Client} = 'FwgC000025''
 30-06-2026 20:22:59: Branch='FWG002-PCH' | MasterClient='FwgC000025' | Client='FwgC000025' | Start='2026-01-01' | End='2026-06-30'
+[2026-11-26 17:11:55] ERROR in sp_StockMovementReport: Procedure or function sp_StockMovementReport has too many arguments specified.
+[2026-11-26 17:11:58] ERROR in sp_StockMovementReport: Procedure or function sp_StockMovementReport has too many arguments specified.
+[2026-11-26 17:12:03] ERROR in sp_StockMovementReport: Procedure or function sp_StockMovementReport has too many arguments specified.
+[2026-11-26 17:12:04] ERROR in sp_StockMovementReport: Procedure or function sp_StockMovementReport has too many arguments specified.
+[2026-11-26 17:14:08] ERROR in sp_StockMovementReport: Procedure or function sp_StockMovementReport has too many arguments specified.
+[2026-11-26 17:14:08] ERROR in sp_StockMovementReport: Procedure or function sp_StockMovementReport has too many arguments specified.
+[2026-11-26 17:14:08] ERROR in sp_StockMovementReport: Procedure or function sp_StockMovementReport has too many arguments specified.
+[2026-11-26 17:14:08] ERROR in sp_StockMovementReport: Procedure or function sp_StockMovementReport has too many arguments specified.
+[2026-11-26 17:15:08] ERROR in sp_StockMovementReport: Procedure or function sp_StockMovementReport has too many arguments specified.
+[2026-11-26 17:15:09] ERROR in sp_StockMovementReport: Procedure or function sp_StockMovementReport has too many arguments specified.
+[2026-11-26 17:15:09] ERROR in sp_StockMovementReport: Procedure or function sp_StockMovementReport has too many arguments specified.
+[2026-11-26 17:15:11] ERROR in sp_StockMovementReport: Procedure or function sp_StockMovementReport has too many arguments specified.
+[2026-11-26 17:15:15] ERROR in sp_StockMovementReport: Procedure or function sp_StockMovementReport has too many arguments specified.
+[2026-11-26 17:15:16] ERROR in sp_StockMovementReport: Procedure or function sp_StockMovementReport has too many arguments specified.
+[2026-11-26 17:15:16] ERROR in sp_StockMovementReport: Procedure or function sp_StockMovementReport has too many arguments specified.
+[2026-11-26 17:15:46] ERROR in sp_StockMovementReport: Procedure or function sp_StockMovementReport has too many arguments specified.
+[2026-11-27 16:18:04] ERROR in RunQuery: Invalid object name 'StockIssueDocs'.
+[2026-11-27 16:18:17] ERROR in RunQuery: Invalid object name 'StockIssueDocs'.
+[2026-11-27 16:21:28] ERROR in RunQuery: Invalid object name 'StockIssueDocs'.
+[2026-11-27 16:21:31] ERROR in RunQuery: Invalid object name 'StockIssueDocs'.
+[2026-11-27 16:25:31] ERROR in RunQuery: Invalid object name 'StockIssueDocs'.
+[2026-11-27 16:26:50] ERROR in RunQuery: Invalid object name 'StockIssueDocs'.
+[2026-11-27 16:26:53] ERROR in RunQuery: Invalid object name 'StockIssueDocs'.
+[2026-11-27 16:27:03] ERROR in RunQuery: Invalid object name 'StockIssueDocs'.
+[2026-11-27 16:27:06] ERROR in RunQuery: Invalid object name 'StockIssueDocs'.
+[2026-11-27 16:27:09] ERROR in RunQuery: Invalid object name 'StockIssueDocs'.
+[2026-11-27 16:27:29] ERROR in RunQuery: Invalid object name 'StockIssueDocs'.
+[2026-11-27 16:28:40] ERROR in RunQuery: Invalid object name 'StockIssueDocs'.
+[2026-11-27 16:28:53] ERROR in RunQuery: Invalid object name 'StockIssueDocs'.
+[2026-11-27 16:35:33] ERROR in RunQuery: Invalid object name 'StockIssueDocs'.
+[2026-11-27 16:36:45] ERROR in RunQuery: Invalid object name 'StockIssueDocs'.
+[2026-11-27 16:45:52] ERROR in RunQuery: Invalid object name 'StockIssueDocs'.
+[2026-11-27 16:45:53] ERROR in RunQuery: Invalid object name 'StockIssueDocs'.

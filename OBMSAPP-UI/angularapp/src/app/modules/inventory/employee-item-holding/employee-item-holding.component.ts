@@ -3,6 +3,7 @@ import { Title } from '@angular/platform-browser';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
 import { MatSort, Sort } from '@angular/material/sort';
+import { environment } from '../../../../environments/environment';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { Router } from '@angular/router';
 import Swal from 'sweetalert2';
@@ -175,7 +176,7 @@ export class EmployeeItemHoldingComponent implements OnInit, AfterViewInit {
   }
 
   formatDate(val: any): string {
-    if (!val) return 'â€”';
+    if (!val) return '-';
     return new Date(val).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
@@ -185,6 +186,29 @@ export class EmployeeItemHoldingComponent implements OnInit, AfterViewInit {
 
   formatInt(val: number): string {
     return (val ?? 0).toLocaleString('en-MY', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  }
+
+  onPrintPdf(format: string = 'pdf', employeeID?: number, issueToType?: string): void {
+    const params = new URLSearchParams();
+    params.set('LoginID',     this.currentUser || '');
+    params.set('IssueToType', issueToType || this.issueToTypeFilter || 'ALL');
+    if (employeeID && employeeID > 0) params.set('EmployeeID', String(employeeID));
+
+    // Pass current month's date range as period label
+    const today = new Date();
+    const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    params.set('StartDate', this.toDateStr(firstOfMonth));
+    params.set('EndDate',   this.toDateStr(today));
+
+    if (format === 'excel') params.set('format', 'excel');
+    window.open(
+      environment.baseReportUrl + 'Inventory/StaffItemHoldingReport.aspx?' + params.toString(),
+      '_blank'
+    );
+  }
+
+  private toDateStr(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   }
 
   hideLoadingSpinner(): void { this.showLoadingSpinner = false; }

@@ -116,7 +116,7 @@ export class AssetTransferComponent implements OnInit, AfterViewInit {
 
   onToTypeChange(): void { this.frm.get('ToID')?.setValue(null); this.frm.get('ToName')?.setValue(''); this.toSearch = ''; this.filteredToList = this.employeeList; }
   onToSearch(val: string): void { this.toSearch = val; const l = val.toLowerCase(); this.filteredToList = l ? this.employeeList.filter((e: any) => (e.EMP_NAME || '').toLowerCase().includes(l)) : this.employeeList; }
-  onToBranchSelect(b: any): void { this.frm.get('ToID')?.setValue(null); this.frm.get('ToName')?.setValue(`${b.Code} â€” ${b.Name}`); }
+  onToBranchSelect(b: any): void { this.frm.get('ToID')?.setValue(null); this.frm.get('ToName')?.setValue(`${b.Code} - ${b.Name}`); }
   onToEmployeeSelect(e: any): void { this.frm.get('ToID')?.setValue(e.EMP_ID); this.frm.get('ToName')?.setValue(e.EMP_NAME); }
 
   get toType(): string { return this.frm.get('ToType')?.value || ''; }
@@ -147,7 +147,7 @@ export class AssetTransferComponent implements OnInit, AfterViewInit {
     });
   }
 
-  formatDate(v: any): string { if (!v) return 'â€”'; return new Date(v).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' }); }
+  formatDate(v: any): string { if (!v) return '-'; return new Date(v).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' }); }
   private extractMsg(e: any, fb: string): string { return typeof e === 'string' ? e : e?.error?.message || e?.message || fb; }
   private showMessage(msg: string, icon: 'success'|'error'|'warning'|'info', title: 'Success Message'|'Error Message'|'Warning Message'): void {
     Swal.fire({ toast: true, position: 'top', showConfirmButton: false, title, text: msg, icon, timer: 5000, width: '600px', customClass: { popup: 'swal-top-offset' } });

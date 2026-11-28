@@ -38,4 +38,10 @@ export class SidebarComponent implements OnInit {
   isSubmenuOpen(menu: string): boolean {
     return this.activeMenu === menu;
   }
+
+  isSuperAdmin(): boolean {
+    const role = sessionStorage.getItem('userrole') ?? '0';
+    const user = sessionStorage.getItem('username') ?? '';
+    return role === '2' || user.toLowerCase() === 'superadmin';
+  }
 }

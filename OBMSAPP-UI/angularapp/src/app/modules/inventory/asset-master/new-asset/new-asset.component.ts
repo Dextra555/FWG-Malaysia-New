@@ -1,5 +1,6 @@
 ﻿import { Component, OnInit } from '@angular/core';
 import { AbstractControl, FormBuilder, FormGroup, ValidatorFn, Validators } from '@angular/forms';
+import { debounceTime } from 'rxjs/operators';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router } from '@angular/router';
 import Swal from 'sweetalert2';
@@ -64,7 +65,7 @@ export class NewAssetComponent implements OnInit {
       BrandName:                [''],
       SupplierID:               [null],
       CategoryID:               [null],
-      Branch:                   [''],
+      Branch:                   ['', Validators.required],
       PurchaseAmount:           [''],
       PurchaseDate:             [null],
       WarrantyExpiryDate:       [null],
@@ -89,9 +90,11 @@ export class NewAssetComponent implements OnInit {
     });
 
     // Recalculate installments whenever relevant fields change
+    // debounceTime(400) — wait 400ms after user stops typing before recalculating
+    // prevents browser hang when user is mid-way typing a number like "2500"
     ['PurchaseAmount', 'DepositAmount', 'MonthlyInstallmentAmount',
      'InstallmentStartDate', 'PaymentTermType'].forEach(f => {
-      this.frm.get(f)?.valueChanges.subscribe(() => this.recalcInstallments());
+      this.frm.get(f)?.valueChanges.pipe(debounceTime(400)).subscribe(() => this.recalcInstallments());
     });
 
     // Recalc preclosing amount when toggle changes
@@ -198,6 +201,15 @@ export class NewAssetComponent implements OnInit {
 
     const balance = Math.max(purchase - deposit, 0);
     const months  = Math.ceil(balance / monthly);
+
+    // Guard: monthly amount too small causes thousands of rows → browser hang
+    const MAX_MONTHS = 600; // 50 years max
+    if (months > MAX_MONTHS) {
+      this.frm.get('InstallmentMonths')?.setValue(null, { emitEvent: false });
+      this.installmentPreview = [];
+      return;
+    }
+
     this.frm.get('InstallmentMonths')?.setValue(months, { emitEvent: false });
 
     // Build preview rows
@@ -333,6 +345,9 @@ export class NewAssetComponent implements OnInit {
       DepositAmount:            raw.DepositAmount ? +raw.DepositAmount : null,
       MonthlyInstallmentAmount: raw.MonthlyInstallmentAmount ? +raw.MonthlyInstallmentAmount : null,
       InstallmentMonths:        raw.InstallmentMonths ? +raw.InstallmentMonths : null,
+      InstallmentStartDate:     raw.InstallmentStartDate
+                                  ? (() => { const d = new Date(raw.InstallmentStartDate); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,'0')}-01`; })()
+                                  : null,
       PaymentTermType:          raw.PaymentTermType || 'FULL',
       IsPreClosing:             raw.IsPreClosing || false,
       PreClosingDate:           raw.IsPreClosing ? raw.PreClosingDate : null,
@@ -393,6 +408,16 @@ export class NewAssetComponent implements OnInit {
     row.amount = +newAmt.toFixed(2);
     // Recalc preclosing if toggled ON
     this.recalcPreClosing();
+  }
+
+  /**
+   * Called when user picks a month from the Start Month datepicker.
+   * Forces day=1 to prevent month-rollback (e.g. Oct 31 → Nov has no day 31).
+   */
+  onStartMonthSelected(normalizedMonth: Date, picker: any): void {
+    const d = new Date(normalizedMonth.getFullYear(), normalizedMonth.getMonth(), 1);
+    this.frm.get('InstallmentStartDate')?.setValue(d);
+    picker.close();
   }
 
   // ── Searchable dropdown helpers ──────────────────────────────────────────

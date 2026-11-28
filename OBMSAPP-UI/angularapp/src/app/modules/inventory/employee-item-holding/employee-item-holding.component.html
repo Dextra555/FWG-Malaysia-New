@@ -45,6 +45,18 @@
             <input matInput (keyup)="applyFilter($event)" placeholder="Name, type…">
           </mat-form-field>
         </div>
+        <div class="col-12 col-md-5 text-right mb-3">
+          <button class="btn btn-outline-danger mr-2" (click)="onPrintPdf('pdf')"
+                  [disabled]="dataSource.data.length === 0"
+                  title="Open PDF report in new tab">
+            <mat-icon style="font-size:16px; vertical-align:middle">picture_as_pdf</mat-icon> Print PDF
+          </button>
+          <button class="btn btn-outline-secondary" (click)="onPrintPdf('excel')"
+                  [disabled]="dataSource.data.length === 0"
+                  title="Download Excel report">
+            <mat-icon style="font-size:16px; vertical-align:middle">table_view</mat-icon> Export Excel
+          </button>
+        </div>
       </div>
 
       <!-- Summary table -->
@@ -136,6 +148,18 @@
             <mat-label>Search items</mat-label>
             <input matInput (keyup)="applyDetailFilter($event)" placeholder="Item name, code…">
           </mat-form-field>
+        </div>
+        <div class="col-12 text-right mb-2">
+          <button class="btn btn-outline-danger mr-2"
+                  (click)="onPrintPdf('pdf', selectedEmployee?.EmployeeID, selectedEmployee?.IssueToType)"
+                  title="Print PDF for this employee">
+            <mat-icon style="font-size:16px; vertical-align:middle">picture_as_pdf</mat-icon> Print PDF
+          </button>
+          <button class="btn btn-outline-secondary"
+                  (click)="onPrintPdf('excel', selectedEmployee?.EmployeeID, selectedEmployee?.IssueToType)"
+                  title="Export Excel for this employee">
+            <mat-icon style="font-size:16px; vertical-align:middle">table_view</mat-icon> Export Excel
+          </button>
         </div>
       </div>
 

@@ -1,6 +1,7 @@
 ﻿import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from 'src/app/service/auth.service';
+import { CommonService } from 'src/app/service/common.service';
 import { DatasharingService } from 'src/app/service/datasharing.service';
 import { SidebarService } from 'src/app/service/sidebar.service';
 
@@ -15,7 +16,7 @@ export class HeaderComponent implements OnInit {
   userRole: string = '';
 
   constructor(private _dataService: DatasharingService, private sidebarService: SidebarService,
-    private _router: Router, private authService: AuthService
+    private _router: Router, private authService: AuthService, private _commonService: CommonService
   ) { }
   dateTime: Date | undefined
   time = new Date();
@@ -61,10 +62,13 @@ export class HeaderComponent implements OnInit {
     }
   }
   logout() {
-    // Clear ALL session data so the next user gets a completely fresh session.
-    // Without this, localStorage token from the previous user persists and the
-    // JWT sent to the API identifies the wrong user (causing IsApprover=false,
-    // wrong CurrentUser in approval checks, etc.).
+    const userName = sessionStorage.getItem('username');
+    if (userName) {
+      this._commonService.recordLogout(userName).subscribe({
+        complete: () => {},
+        error: () => {}
+      });
+    }
     this.authService.getManulLogout();
     this.authService.clearToken();   // remove auth_token from localStorage
     sessionStorage.clear();          // remove username, userrole, currentUser

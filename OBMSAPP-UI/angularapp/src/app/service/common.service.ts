@@ -236,4 +236,32 @@ export class CommonService {
     }
     return throwError(errorMessage);
   }
+
+  // ── Login / Logout tracking ──────────────────────────────────────
+  recordLogin(userName: string): Observable<any> {
+    return this.httpClient.post<any>(
+      this.apiUrl + 'Register/RecordLogin',
+      JSON.stringify(userName),
+      { headers: new HttpHeaders({ 'Content-type': 'application/json; charset=UTF-8' }) }
+    ).pipe(catchError(this.errorHandle));
+  }
+
+  recordLogout(userName: string): Observable<any> {
+    return this.httpClient.post<any>(
+      this.apiUrl + 'Register/RecordLogout',
+      JSON.stringify(userName),
+      { headers: new HttpHeaders({ 'Content-type': 'application/json; charset=UTF-8' }) }
+    ).pipe(catchError(this.errorHandle));
+  }
+
+  getActiveLoggedInUsers(): Observable<any[]> {
+    return this.httpClient.get<any[]>(this.apiUrl + 'Register/GetActiveLoggedInUsers')
+      .pipe(catchError(this.errorHandle));
+  }
+
+  getLoginHistory(fromDate: string, toDate: string): Observable<any[]> {
+    const params = new HttpParams().set('fromDate', fromDate).set('toDate', toDate);
+    return this.httpClient.get<any[]>(this.apiUrl + 'Register/GetLoginHistory', { params })
+      .pipe(catchError(this.errorHandle));
+  }
 }

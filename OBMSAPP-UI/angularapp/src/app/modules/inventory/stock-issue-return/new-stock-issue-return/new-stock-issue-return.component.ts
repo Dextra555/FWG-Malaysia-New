@@ -199,13 +199,13 @@ export class NewStockIssueReturnComponent implements OnInit {
 
   get viewWarehouseName(): string {
     const id = this.frm.get('WarehouseID')?.value;
-    return this.warehouses.find((w: any) => w.ID === id)?.Name || 'â€”';
+    return this.warehouses.find((w: any) => w.ID === id)?.Name || '-';
   }
   get viewIssueDocLabel(): string {
     const id = this.frm.get('OriginalIssueDocID')?.value;
     const doc = this.issueDocs.find((d: any) => d.ID === id);
-    if (!doc) return 'â€”';
-    return `${doc.IssueNo} â€” ${doc.IssueToName || doc.IssueToType}`;
+    if (!doc) return '-';
+    return `${doc.IssueNo} - ${doc.IssueToName || doc.IssueToType}`;
   }
 
   onSubmit(): void {
@@ -266,7 +266,7 @@ export class NewStockIssueReturnComponent implements OnInit {
   onCancelClick(): void { this.route.navigate(['/inventory/stock-issue-return']); }
 
   /** Open the Issue Return PDF in a new browser tab for printing or downloading.
-   *  Only callable in view mode (existing saved document). Read-only â€” does not
+   *  Only callable in view mode (existing saved document). Read-only - does not
    *  modify any record, stock ledger, balance, or salary deduction. */
   onPrintPDF(): void {
     const docID = this.ID || this.frm.get('ID')?.value;

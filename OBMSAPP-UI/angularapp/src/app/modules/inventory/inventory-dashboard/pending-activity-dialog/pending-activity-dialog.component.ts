@@ -96,7 +96,7 @@ export class PendingActivityDialogComponent implements OnInit {
         ];
         break;
       case 'APPROVAL':
-        // Uses getPendingApprovals() â€” fields from VW_PendingApprovals
+        // Uses getPendingApprovals() - fields from VW_PendingApprovals
         this.columns = [
           { key: 'DocumentTypeDisplay', label: 'Document Type' },
           { key: 'DocumentNumber',      label: 'Doc No'        },
@@ -193,7 +193,7 @@ export class PendingActivityDialogComponent implements OnInit {
     );
   }
 
-  // â”€â”€ Navigation â€” document number link â†’ view page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // â”€â”€ Navigation - document number link â†’ view page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   navigateToDoc(row: any): void {
     this.dialogRef.close();
@@ -220,7 +220,7 @@ export class PendingActivityDialogComponent implements OnInit {
     }
   }
 
-  // â”€â”€ Navigation â€” Action button â†’ action/create page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // â”€â”€ Navigation - Action button â†’ action/create page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   navigateTo(row: any): void {
     this.dialogRef.close();
@@ -307,20 +307,20 @@ export class PendingActivityDialogComponent implements OnInit {
   }
 
   formatDate(v: any): string {
-    if (!v) return 'â€”';
+    if (!v) return '-';
     return new Date(v).toLocaleDateString('en-MY',
       { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
   formatAmount(v: any): string {
     const n = parseFloat(v);
-    if (isNaN(n)) return 'â€”';
+    if (isNaN(n)) return '-';
     return n.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
   cellValue(row: any, col: { key: string; label: string; align?: string }): string {
     const v = row[col.key];
-    if (v == null || v === '') return 'â€”';
+    if (v == null || v === '') return '-';
     if (col.key.toLowerCase().endsWith('date')) return this.formatDate(v);
     if (col.key === 'TotalAmount' || col.key === 'GrandTotal') return this.formatAmount(v);
     return String(v);

@@ -10,13 +10,13 @@
 <!-- New Maintenance Form -->
 <mat-card *ngIf="showForm" class="mb-3">
   <mat-card-content>
-    <div class="row mb-2"><div class="col-12"><h6 class="wlt-c-section-label"><strong>New Maintenance Record — {{maintNo}}</strong></h6><hr class="mt-0"></div></div>
+    <div class="row mb-2"><div class="col-12"><h6 class="wlt-c-section-label"><strong>{{ editMaintID > 0 ? 'Edit Maintenance Record — ' + maintNo : 'New Maintenance Record — ' + maintNo }}</strong></h6><hr class="mt-0"></div></div>
     <form [formGroup]="frm" (ngSubmit)="onSubmit()">
       <div class="row">
         <div class="col-12 col-md-5">
           <mat-form-field appearance="outline">
             <mat-label>Asset <span style="color:red">*</span></mat-label>
-            <mat-select formControlName="AssetID" (openedChange)="onAssetOpen($event)">
+            <mat-select formControlName="AssetID" (openedChange)="onAssetOpen($event)" [disabled]="editMaintID > 0">
               <mat-option disabled style="position:sticky;top:0;background:#fff;z-index:1;padding:0">
                 <div style="padding:4px 10px">
                   <input type="text" placeholder="Search asset…" [value]="assetSearch"
@@ -49,19 +49,34 @@
         </div>
         <div class="col-12 col-md-2">
           <mat-form-field appearance="outline">
-            <mat-label>Est. Cost (RM)</mat-label>
+            <mat-label>{{ editMaintID > 0 && selectedMaint?.Status === 'Completed' ? 'Actual Cost (RM)' : 'Est. Cost (RM)' }}</mat-label>
             <input matInput type="number" formControlName="MaintenanceCost" min="0" step="0.01" placeholder="0.00">
+            <mat-hint *ngIf="editIsPaid" style="color:#c62828">Already paid — cannot change</mat-hint>
           </mat-form-field>
         </div>
       </div>
       <div class="row">
         <div class="col-12 col-md-4">
           <mat-form-field appearance="outline">
-            <mat-label>Vendor / Service Provider</mat-label>
-            <input matInput formControlName="VendorName" placeholder="e.g. ABC Service Center">
+            <mat-label>Vendor / Service Provider <span style="color:red">*</span></mat-label>
+            <mat-select formControlName="VendorName">
+              <mat-option value="">-- Select Supplier --</mat-option>
+              <mat-option *ngFor="let s of supplierList" [value]="s.Name">{{s.Name}}</mat-option>
+            </mat-select>
+            <mat-error *ngIf="frm.get('VendorName')?.hasError('required')">Vendor is required</mat-error>
           </mat-form-field>
         </div>
-        <div class="col-12 col-md-8">
+        <div class="col-12 col-md-3">
+          <mat-form-field appearance="outline">
+            <mat-label>Branch <span style="color:red">*</span></mat-label>
+            <mat-select formControlName="BranchName">
+              <mat-option value="">-- Select Branch --</mat-option>
+              <mat-option *ngFor="let b of branchList" [value]="b.Code">{{b.Code}}</mat-option>
+            </mat-select>
+            <mat-error *ngIf="frm.get('BranchName')?.hasError('required')">Branch is required</mat-error>
+          </mat-form-field>
+        </div>
+        <div class="col-12 col-md-5">
           <mat-form-field appearance="outline">
             <mat-label>Problem Description</mat-label>
             <input matInput formControlName="ProblemDescription" placeholder="Describe the issue">
@@ -71,7 +86,7 @@
       <div class="row"><div class="col-12 col-md-8"><mat-form-field appearance="outline"><mat-label>Remarks</mat-label><input matInput formControlName="Remarks" placeholder="Optional"></mat-form-field></div></div>
       <div class="row mt-2"><div class="col-12 text-right">
         <button type="button" class="btn wlt-c-furg-btn-gray mr-3" (click)="cancelForm()">Cancel</button>
-        <button type="submit" class="btn wlt-c-furg-btn-primary" [disabled]="showLoadingSpinner">Send for Maintenance</button>
+        <button type="submit" class="btn wlt-c-furg-btn-primary" [disabled]="showLoadingSpinner">{{ editMaintID > 0 ? 'Update' : 'Send for Maintenance' }}</button>
       </div></div>
     </form>
   </mat-card-content>
@@ -143,14 +158,19 @@
           <td mat-cell *matCellDef="let r"><span class="badge" [ngClass]="statusBadge(r.Status)">{{r.Status?.replace('_',' ')}}</span></td>
         </ng-container>
         <ng-container matColumnDef="MaintenanceCost"><th mat-header-cell *matHeaderCellDef style="text-align:right">Cost (RM)</th><td mat-cell *matCellDef="let r" style="text-align:right">{{formatNumber(r.MaintenanceCost)}}</td></ng-container>
-        <ng-container matColumnDef="action" stickyEnd><th mat-header-cell *matHeaderCellDef style="text-align:center;width:100px">Action</th>
+        <ng-container matColumnDef="action" stickyEnd><th mat-header-cell *matHeaderCellDef style="text-align:center;width:130px">Action</th>
           <td mat-cell *matCellDef="let r" style="text-align:center">
+            <!-- Edit: for non-Completed AND Completed-but-unpaid records -->
+            <a *ngIf="userAccessModel.updateAccess || currentUser === 'superadmin'"
+               style="cursor:pointer" class="wlt-c-furg-text-primary mr-2" matTooltip="Edit" (click)="openEditForm(r)">
+              <mat-icon>edit</mat-icon>
+            </a>
             <a *ngIf="r.Status === 'In_Progress' && (userAccessModel.updateAccess || currentUser === 'superadmin')"
                style="cursor:pointer" class="wlt-c-furg-text-success mr-2" matTooltip="Mark as Completed" (click)="openCompleteForm(r)">
               <mat-icon>check_circle</mat-icon>
             </a>
             <a style="cursor:pointer" class="wlt-c-furg-text-gray mr-2" matTooltip="Print PDF" (click)="onPrintPDF(r)"><mat-icon>print</mat-icon></a>
-            <a style="cursor:pointer" class="wlt-c-furg-text-primary" matTooltip="View History" [routerLink]="['/inventory/asset-movement-history', r.AssetID]"><mat-icon>history</mat-icon></a>
+            <a style="cursor:pointer" class="wlt-c-furg-text-primary" matTooltip="View History" [routerLink]="['/inventory/asset-movement-history', r.AssetID]" [queryParams]="{from: 'asset-maintenance'}"><mat-icon>history</mat-icon></a>
           </td>
         </ng-container>
         <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>

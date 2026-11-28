@@ -78,6 +78,23 @@ export interface IAssetInstallmentPaymentRow {
   Status: string;
 }
 
+/** Shape returned by Inventory/GetMaintenanceForPayment */
+export interface IMaintenancePaymentRow {
+  MaintenanceID: number;
+  PaymentDetailID: number;
+  PaymentID: number;
+  MaintenanceRef: string;
+  AssetID: number;
+  AssetCode: string;
+  AssetName: string;
+  VendorName: string;
+  StartDate: string;
+  TotalAmount: number;
+  PaidAmount: number;
+  Balance: number;
+  Amount: number;
+}
+
 
 @Component({
   selector: 'app-payments',
@@ -101,12 +118,13 @@ export class PaymentsComponent implements AfterViewInit {
   dataSource!: MatTableDataSource<IBranchAmount>;
   displayedColumnsSupplier: string[] = ['InvoiceNo', 'PaidAmount', 'CurrentPayment', 'Balance', 'BranchName', 'Action'];
   // GRN mode adds a dedicated Supplier Invoice No column after GRN No
-  displayedColumnsSupplierGRN: string[] = ['InvoiceNo', 'SupplierInvoiceNo', 'PaidAmount', 'CurrentPayment', 'Balance', 'BranchName', 'Action'];
+  displayedColumnsSupplierGRN: string[] = ['InvoiceNo', 'SupplierInvoiceNo', 'PaidAmount', 'CurrentPayment', 'Balance', 'BranchName', 'BranchCode', 'Action'];
   dataSourceSupplier!: MatTableDataSource<ISupplierInvoice>;
   rows: FormArray = this.fb.array([]);
   supplierRows: FormArray = this.fb.array([]);
   supplierInvoiceDataSource = new BehaviorSubject<AbstractControl[]>([]);
   otherList: any = [];
+  branchList: any = [];
   isSupplierEnable = false;
   paymentTypeDisplay = "Cheque No.";
   checklistItems = [
@@ -166,6 +184,7 @@ export class PaymentsComponent implements AfterViewInit {
         this.categoryList = d['categories'];
         this.supplierList = d['suppliers'];
         this.otherList = d['other'];
+        this.branchList = d['branches'] || [];
 
         d['other'].forEach((x: IBranchAmount) => {
           x.Amount = 0;
@@ -195,6 +214,16 @@ export class PaymentsComponent implements AfterViewInit {
         this.showLoadingSpinner = true;
         this.paymentID = params['id'];
         this.getPaymentData(this.paymentID);
+
+      } else if (params['maintID']) {
+        // Navigate from Asset Maintenance → pre-fill payment for this maintenance record
+        this.paymentID = 0;
+        if (this.bankList?.length) {
+          const defaultBankId = this.bankList[0].BankId;
+          this.frm.get('BankID')?.setValue(defaultBankId);
+          this.bankSelectionChange(defaultBankId);
+        }
+        this.prefillFromMaintenance(+params['maintID']);
 
       } else {
         this.paymentID = 0;
@@ -269,6 +298,7 @@ export class PaymentsComponent implements AfterViewInit {
                 // GRN payment → Purchase / GRN mode
                 this.paymentRefType = 'G';
                 this.frm.get('category_type')?.setValue('P');
+                this.loadCategoryList('P');
                 this.supplierChange(branchPayment.Supplier);
               } else {
                 // Check asset installments
@@ -279,8 +309,10 @@ export class PaymentsComponent implements AfterViewInit {
                       // Asset installment payment → Purchase / GRN mode
                       this.paymentRefType = 'G';
                       this.frm.get('category_type')?.setValue('P');
+                      this.loadCategoryList('P');
                     } else {
                       this.paymentRefType = 'I';
+                      this.loadCategoryList('U');
                     }
                     this.supplierChange(branchPayment.Supplier);
                   });
@@ -425,6 +457,40 @@ export class PaymentsComponent implements AfterViewInit {
     this.supplierInvoiceDataSource.next(this.supplierRows.controls);
   }
 
+  /** Adds an Asset Maintenance row to the supplier invoice FormArray. */
+  addMaintenanceRow(r: IMaintenancePaymentRow): void {
+    const total   = Number(r.TotalAmount.toFixed(2));
+    const paid    = Number(r.PaidAmount.toFixed(2));
+    const balance = Number((total - paid).toFixed(2));
+    const amount  = this.paymentID === 0 ? null : Number(r.Amount.toFixed(2));
+
+    const row = this.fb.group({
+      ID:              [r.PaymentDetailID],
+      PaymentID:       [r.PaymentID],
+      Code:            [r.AssetCode],
+      Name:            [r.AssetName ?? null],
+      InvoiceID:       [null],
+      InvoiceNo:       [r.MaintenanceRef],
+      Total:           [total],
+      Amount:          [amount],
+      PaidAmount:      [paid],
+      BranchUserName:  [null],
+      Balance:         [balance],
+      Supplier:        [null],
+      GRNID:           [null],
+      GRNDate:         [r.StartDate],
+      PONumber:        [null],
+      SupplierInvoiceNo: [null],
+      InstallmentID:   [null],
+      InstallmentRef:  [null],
+      MaintenanceID:   [r.MaintenanceID],
+      RowType:         ['MAINTENANCE']
+    });
+
+    this.supplierRows.push(row);
+    this.supplierInvoiceDataSource.next(this.supplierRows.controls);
+  }
+
   searchPayment() {
     const dialogRef = this.dialog.open(SearchPaymentsComponent, {
       disableClose: true,
@@ -552,6 +618,7 @@ export class PaymentsComponent implements AfterViewInit {
               ID: d['ID'] ? Number(d['ID']) : 0,
               PaymentID: d['PaymentID'] ? Number(d['PaymentID']) : 0,
               GRNID: d['GRNID'] ? Number(d['GRNID']) : null,   // carry GRN reference
+              MaintenanceID: d['MaintenanceID'] ? Number(d['MaintenanceID']) : null, // carry Maintenance reference
             });
             totalAmount = totalAmount + Number(d['Amount']);
           }
@@ -651,6 +718,54 @@ export class PaymentsComponent implements AfterViewInit {
     this.route.navigate(['/finance/payments']);
   }
 
+  /** Pre-fill Payments form from a completed Asset Maintenance record. */
+  private prefillFromMaintenance(maintID: number): void {
+    this._financeService.getMaintenanceForPayment('', 0).pipe().subscribe(); // warm-up (optional)
+
+    // Load maintenance details via GetAssetMaintenanceByID (reuse inventory service)
+    // We call GetMaintenanceForPayment with empty vendor to find this record by ID via a direct API call.
+    // Use the inventory service's getAssetMaintenanceByID.
+    // We need to import InventoryService — instead use the existing finance service maintenance endpoint:
+    // GET Inventory/GetAssetMaintenanceByID?ID=maintID
+    this._financeService.getMaintenanceByIDForPayment(maintID).subscribe({
+      next: (maint: any) => {
+        if (!maint) return;
+
+        const vendorName: string = maint.VendorName || '';
+        const actualCost: number = maint.MaintenanceCost || 0;
+
+        // Find supplier by name
+        const supplier = this.supplierList.find((s: any) =>
+          s.Name?.toLowerCase() === vendorName.toLowerCase()
+        );
+
+        // Set Category Type = Purchase (P) → triggers GRN/Maintenance mode
+        this.frm.get('category_type')?.setValue('P');
+        this.categoryChange('P');
+
+        // Set Particulars
+        this.frm.get('Particulars')?.setValue(
+          `Maintenance: ${maint.MaintenanceNo} — ${maint.AssetCode || ''} ${maint.AssetName || ''}`
+        );
+
+        if (supplier) {
+          this.frm.get('CreditorType')?.setValue('1');
+          this.creditorChange('1');
+          this.frm.get('Supplier')?.enable({ onlySelf: true });
+          this.frm.get('Supplier')?.setValue(supplier.Id);
+          this.supplierChange(supplier.Id);
+        } else if (vendorName) {
+          // Vendor not in supplier list — set PaymentTo manually
+          this.frm.get('CreditorType')?.setValue('2');
+          this.creditorChange('2');
+          this.frm.get('PaymentToD')?.setValue(vendorName);
+          this.frm.get('PaymentTo')?.setValue(vendorName);
+        }
+      },
+      error: () => {}
+    });
+  }
+
   returnDate(date?: any) {
     let currentDate = new Date();
     if (date) {
@@ -671,17 +786,20 @@ export class PaymentsComponent implements AfterViewInit {
     });
 
     // Category Type = Purchase (P) → switch to GRN mode automatically
-    //   AND force CreditorType = Suppliers so the GRN table section becomes visible.
-    // Category Type = Expenses (U) → switch back to Invoice mode (leave CreditorType as-is).
     if (value === 'P') {
-      // Automatically switch to "Suppliers" creditor type so the supplier dropdown
-      // and GRN table are shown (isSupplierEnable = true).
       this.frm.get('CreditorType')?.setValue('1');
       this.creditorChange('1');
       this.refTypeChange('G');
     } else {
       this.refTypeChange('I');
     }
+  }
+
+  /** Load category list only — used in edit mode to avoid re-triggering supplier/GRN load */
+  private loadCategoryList(value: string) {
+    this._financeService.GetPaymentMasterCategoryType(value).subscribe((d: any) => {
+      this.categoryList = d;
+    });
   }
 
   GetPaymentMasterCategoryTypeChangePayTo(value: any) {
@@ -872,19 +990,30 @@ export class PaymentsComponent implements AfterViewInit {
         ? this.returnDate(paymentDateRaw)
         : this.returnDate(new Date());
 
-      // Load GRNs and Asset Installments in parallel
+      // Resolve vendor name from supplier list (needed for maintenance lookup)
+      const selectedSupplier = this.supplierList.find((x: any) => x.Id == value);
+      const vendorName = selectedSupplier ? selectedSupplier.Name : '';
+
+      // Maintenance rows: only load when Category Type = Purchase ('P')
+      const categoryType = this.frm.getRawValue()['category_type'];
+      const loadMaintenance = categoryType === 'P' && vendorName;
+
+      // Load GRNs, Asset Installments, and Maintenance records in parallel
       forkJoin({
-        grns:  this._financeService.getGRNsForPayment(value, paymentId),
-        insts: this._financeService.getAssetInstallmentsForPayment(value, paymentId, paymentDateStr)
-      }).subscribe(({ grns, insts }) => {
-        (grns  || []).forEach((g: IGRNPaymentRow)                => this.addGRNPaymentRow(g));
-        (insts || []).forEach((r: IAssetInstallmentPaymentRow)   => this.addAssetInstallmentRow(r));
-        this.showDataSourceTable = (grns?.length > 0 || insts?.length > 0);
+        grns:         this._financeService.getGRNsForPayment(value, paymentId),
+        insts:        this._financeService.getAssetInstallmentsForPayment(value, paymentId, paymentDateStr),
+        maintenance:  loadMaintenance
+                        ? this._financeService.getMaintenanceForPayment(vendorName, paymentId)
+                        : Promise.resolve([])
+      }).subscribe(({ grns, insts, maintenance }) => {
+        (grns        || []).forEach((g: IGRNPaymentRow)                => this.addGRNPaymentRow(g));
+        (insts       || []).forEach((r: IAssetInstallmentPaymentRow)   => this.addAssetInstallmentRow(r));
+        (maintenance || []).forEach((m: IMaintenancePaymentRow)        => this.addMaintenanceRow(m));
+        this.showDataSourceTable = (grns?.length > 0 || insts?.length > 0 || maintenance?.length > 0);
         this.showAddInvoiceBtn   = paymentId > 0;
-        const sel = this.supplierList.find((x: any) => x.Id == value);
-        if (sel) {
-          this.frm.get("PaymentTo")?.setValue(sel.Name);
-          this.frm.get("PaymentToD")?.setValue(sel.Name);
+        if (selectedSupplier) {
+          this.frm.get("PaymentTo")?.setValue(selectedSupplier.Name);
+          this.frm.get("PaymentToD")?.setValue(selectedSupplier.Name);
           this.frm.get("PaymentToD")?.disable({ onlySelf: true });
         }
       });
@@ -961,7 +1090,7 @@ export class PaymentsComponent implements AfterViewInit {
 
     // ── GRN mode: load all pending GRNs and merge new ones ────────────────
     if (this.paymentRefType === 'G') {
-      // Collect GRNID values already shown in the table
+      // Collect already-shown IDs to avoid duplicates
       const existingGrnIds = new Set<number>(
         this.supplierRows.controls
           .map((ctrl) => ctrl.get('GRNID')?.value)
@@ -970,14 +1099,35 @@ export class PaymentsComponent implements AfterViewInit {
       const existingInstIds = new Set<number>(
         this.supplierRows.controls
           .map((ctrl) => ctrl.get('InstallmentID')?.value)
+          .filter((id) => id != null && id !== 0)
+      );
+      // Full Payment rows have InstallmentID=0 but a unique CreditorInvoiceID — track those too
+      const existingInstCiIds = new Set<number>(
+        this.supplierRows.controls
+          .map((ctrl) => ctrl.get('InvoiceID')?.value)
+          .filter((id) => !!id)
+      );
+      const existingMaintIds = new Set<number>(
+        this.supplierRows.controls
+          .map((ctrl) => ctrl.get('MaintenanceID')?.value)
           .filter((id) => !!id)
       );
 
+      // Resolve vendor name for maintenance lookup
+      const selectedSupplier = this.supplierList.find((x: any) => x.Id == supplierValue);
+      const vendorName = selectedSupplier ? selectedSupplier.Name : '';
+      const categoryType = this.frm.getRawValue()['category_type'];
+      const loadMaintenance = categoryType === 'P' && vendorName;
+
       forkJoin({
-        grns:  this._financeService.getGRNsForPayment(supplierValue, 0),
-        insts: this._financeService.getAssetInstallmentsForPayment(supplierValue, 0, paymentDateStr)
-      }).subscribe(({ grns, insts }) => {
+        grns:        this._financeService.getGRNsForPayment(supplierValue, 0),
+        insts:       this._financeService.getAssetInstallmentsForPayment(supplierValue, 0, paymentDateStr),
+        maintenance: loadMaintenance
+                       ? this._financeService.getMaintenanceForPayment(vendorName, 0)
+                       : Promise.resolve([])
+      }).subscribe(({ grns, insts, maintenance }) => {
         let addedCount = 0;
+
         (grns || []).forEach((g: IGRNPaymentRow) => {
           if (!existingGrnIds.has(g.GRNID)) {
             g.Amount = 0; g.PaymentDetailID = 0; g.PaymentID = 0;
@@ -987,17 +1137,30 @@ export class PaymentsComponent implements AfterViewInit {
           }
         });
         (insts || []).forEach((r: IAssetInstallmentPaymentRow) => {
-          if (!existingInstIds.has(r.InstallmentID)) {
+          const ciId = r.CreditorInvoiceID;
+          const alreadyExists = existingInstIds.has(r.InstallmentID)
+            || (ciId != null && existingInstCiIds.has(ciId));
+          if (!alreadyExists) {
             r.Amount = 0; r.PaymentDetailID = 0; r.PaymentID = 0;
             this.addAssetInstallmentRow(r);
-            existingInstIds.add(r.InstallmentID);
+            if (r.InstallmentID) existingInstIds.add(r.InstallmentID);
+            if (ciId) existingInstCiIds.add(ciId);
             addedCount++;
           }
         });
+        (maintenance || []).forEach((m: IMaintenancePaymentRow) => {
+          if (!existingMaintIds.has(m.MaintenanceID)) {
+            m.Amount = 0; m.PaymentDetailID = 0; m.PaymentID = 0;
+            this.addMaintenanceRow(m);
+            existingMaintIds.add(m.MaintenanceID);
+            addedCount++;
+          }
+        });
+
         if (addedCount > 0) {
           this.showDataSourceTable = true;
         } else {
-          this.showMessage('No additional outstanding GRNs or asset installments found for this supplier.', 'info', 'Warning Message');
+          this.showMessage('No additional outstanding GRNs, asset installments or maintenance records found for this supplier.', 'info', 'Warning Message');
         }
       });
       return;

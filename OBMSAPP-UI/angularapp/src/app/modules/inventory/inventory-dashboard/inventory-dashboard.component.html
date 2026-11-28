@@ -121,7 +121,65 @@
 
 
   <!-- ╔══════════════════════════════════════════════════╗
-       ║  ROW 2 — Charts + Stock Summary                 ║
+       ║  ROW 2 — Asset Expiry Alerts (next 30 days)     ║
+       ╚══════════════════════════════════════════════════╝ -->
+  <div class="row mb-2" *ngIf="assetExpiryAlerts.length > 0">
+    <div class="col-12">
+      <div class="inv-panel" style="border-left:4px solid #e65100">
+        <div class="inv-panel-head d-flex justify-content-between align-items-center">
+          <span class="inv-panel-title">
+            <mat-icon class="inv-warn-icon" style="color:#e65100">event_busy</mat-icon>
+            Asset Expiry Alerts — Next 30 Days
+            <span class="inv-badge-low" style="background:#e65100;color:#fff;margin-left:6px;padding:2px 8px;border-radius:10px;font-size:11px">
+              {{assetExpiryAlerts.length}}
+            </span>
+          </span>
+          <a routerLink="/inventory/asset-master" class="inv-view-more" style="margin:0">
+            View Asset Master →
+          </a>
+        </div>
+        <div class="inv-panel-body inv-panel-body--notop">
+          <div class="table-responsive">
+            <table class="inv-tbl">
+              <thead>
+                <tr>
+                  <th>Asset Code</th>
+                  <th>Asset Name</th>
+                  <th>Expiry Type</th>
+                  <th>Expiry Date</th>
+                  <th class="text-center">Days Left</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let a of assetExpiryAlerts"
+                    [style.background]="a.DaysLeft <= 7 ? '#fce4ec' : a.DaysLeft <= 15 ? '#fff3e0' : '#fffde7'">
+                  <td><a [routerLink]="['/inventory/asset-master/new-asset', a.AssetID]" style="cursor:pointer; color:#1565c0; text-decoration:underline; font-weight:600">{{a.AssetCode}}</a></td>
+                  <td><strong>{{a.AssetName}}</strong></td>
+                  <td>
+                    <span class="inv-badge-low"
+                      [style.background]="a.ExpiryType === 'Road Tax' ? '#1565c0' : a.ExpiryType === 'Insurance' ? '#6a1b9a' : '#e65100'"
+                      style="color:#fff; padding:2px 8px; border-radius:10px; font-size:11px">
+                      {{a.ExpiryType}}
+                    </span>
+                  </td>
+                  <td>{{formatDate(a.ExpiryDate)}}</td>
+                  <td class="text-center">
+                    <strong [style.color]="a.DaysLeft <= 7 ? '#c62828' : a.DaysLeft <= 15 ? '#e65100' : '#f9a825'">
+                      {{a.DaysLeft === 0 ? 'Today!' : a.DaysLeft + ' day(s)'}}
+                    </strong>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /row 2 asset expiry alerts -->
+
+
+  <!-- ╔══════════════════════════════════════════════════╗
+       ║  ROW 3 — Charts + Stock Summary                 ║
        ╚══════════════════════════════════════════════════╝ -->
   <div class="row mb-2 align-items-stretch">
 

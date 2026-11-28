@@ -62,12 +62,16 @@
           </mat-form-field>
         </div>
 
-        <!-- Info badge -->
+        <!-- Info badge — dynamic based on Asset Type -->
         <div class="col-12 col-sm-6 col-md-3 col-lg-3">
           <span style="font-size:12px; background-color:#1a3a5c; color:#fff;
                        border-radius:4px; padding:6px 10px; display:inline-block;">
             <mat-icon style="vertical-align:middle; font-size:16px; margin-right:4px;">info</mat-icon>
-            Shows current asset allocation status
+            <ng-container [ngSwitch]="frm.get('AssetType')?.value">
+              <span *ngSwitchCase="'Asset Maintenance'">Shows asset maintenance records</span>
+              <span *ngSwitchCase="'Asset Due List'">Shows Road Tax, Insurance, Service &amp; Warranty due dates</span>
+              <span *ngSwitchDefault>Shows current asset allocation status</span>
+            </ng-container>
           </span>
         </div>
 

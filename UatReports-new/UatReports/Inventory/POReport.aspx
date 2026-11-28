@@ -1,4 +1,4 @@
-<%@ Page Language="C#" AutoEventWireup="true" %>
+﻿<%@ Page Language="C#" AutoEventWireup="true" %>
 <%@ Import Namespace="System.Configuration" %>
 <%@ Import Namespace="System.Data" %>
 <%@ Import Namespace="System.Data.SqlClient" %>
@@ -7,11 +7,11 @@
 <%@ Import Namespace="System.IO" %>
 <script runat="server">
 
-    // ════════════════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // OBMS Purchase Order PDF Report
     // URL: POReport.aspx?LoginID=<user>&POID=<id>
-    // A4 Landscape — more columns (item + price columns need the width).
-    // ════════════════════════════════════════════════════════════════════════
+    // A4 Landscape â€” more columns (item + price columns need the width).
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     protected void Page_Load(object sender, EventArgs e)
     {
@@ -73,9 +73,9 @@
         Response.End();
     }
 
-    // ════════════════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // PDF BUILDER
-    // ════════════════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     private byte[] BuildPdf(string loginID, DataRow hdr, DataTable dtDetails)
     {
@@ -101,7 +101,7 @@
 
         using (var ms = new MemoryStream())
         {
-            // Landscape — more room for price columns
+            // Landscape â€” more room for price columns
             var doc    = new Document(PageSize.A4.Rotate(), 30f, 30f, 35f, 35f);
             var writer = PdfWriter.GetInstance(doc, ms);
             writer.PageEvent = new FooterEvent(loginID, fFoot, navy);
@@ -115,30 +115,49 @@
 
             P(doc, "PURCHASE ORDER", fTitle, Element.ALIGN_CENTER, 8f);
 
-            // ── Document header info ──────────────────────────────────────
-            var infoTbl = new PdfPTable(4) { WidthPercentage = 100f, SpacingAfter = 10f };
-            infoTbl.SetWidths(new float[] { 2f, 4f, 2f, 4f });
+            // â”€â”€ Document header info: Supplier (left) | PO Details (right) â”€â”€â”€â”€â”€â”€
+            var infoTbl = new PdfPTable(2) { WidthPercentage = 100f, SpacingAfter = 10f };
+            infoTbl.SetWidths(new float[] { 1f, 1f });
             infoTbl.DefaultCell.Border = Rectangle.NO_BORDER;
 
-            AddInfoRow(infoTbl, "PO Number",      Safe(hdr, "PONumber"),       fLabel, fValue);
-            AddInfoRow(infoTbl, "Status",         Safe(hdr, "Status"),          fLabel, fStatus);
-            AddInfoRow(infoTbl, "PO Date",        Safe(hdr, "PODate"),          fLabel, fValue);
-            AddInfoRow(infoTbl, "Expected Date",  Safe(hdr, "ExpectedDate"),    fLabel, fValue);
-            AddInfoRow(infoTbl, "Supplier",       Safe(hdr, "SupplierName"),    fLabel, fValue);
-            AddInfoRow(infoTbl, "Warehouse",      Safe(hdr, "WarehouseName"),   fLabel, fValue);
+            // â”€â”€ LEFT: Supplier block â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            var leftTbl = new PdfPTable(2) { WidthPercentage = 100f };
+            leftTbl.SetWidths(new float[] { 2.5f, 4.5f });
+            leftTbl.DefaultCell.Border = Rectangle.NO_BORDER;
 
-            string linkedPR = Safe(hdr, "LinkedPRNumber");
-            AddInfoRow(infoTbl, "Linked PR",      string.IsNullOrWhiteSpace(linkedPR) ? "—" : linkedPR, fLabel, fValue);
-            AddInfoRow(infoTbl, "Approved By",    SafeOrDash(hdr, "ApprovedBy"),    fLabel, fValue);
-            AddInfoRow(infoTbl, "Prepared By",    SafeOrDash(hdr, "RequestedBy"),   fLabel, fValue);
-            AddInfoRow(infoTbl, "Approved Date",  SafeOrDash(hdr, "ApprovedDate"),  fLabel, fValue);
+            var supplierBlockTitle = new Phrase("SUPPLIER DETAILS", new Font(Font.FontFamily.HELVETICA, 8f, Font.BOLD, navy));
+            leftTbl.AddCell(new PdfPCell(supplierBlockTitle) { Colspan = 2, Border = Rectangle.NO_BORDER, Padding = 2f, PaddingBottom = 4f });
 
+            AddInfoRow(leftTbl, "Supplier",         Safe(hdr, "SupplierName"),    fLabel, fValue);
+            AddInfoRow(leftTbl, "Address",          Safe(hdr, "SupplierAddress"), fLabel, fValue);
+            string supplierPhone = Safe(hdr, "SupplierPhone");
+            if (!string.IsNullOrWhiteSpace(supplierPhone))
+                AddInfoRow(leftTbl, "Phone", supplierPhone, fLabel, fValue);
             string remarks = Safe(hdr, "Remarks");
             if (!string.IsNullOrWhiteSpace(remarks))
-            {
-                var ph = new Phrase(); ph.Add(new Chunk("Remarks: ", fLabel)); ph.Add(new Chunk(remarks, fValue));
-                infoTbl.AddCell(new PdfPCell(ph) { Colspan = 4, Border = Rectangle.NO_BORDER, Padding = 2f, PaddingTop = 4f });
-            }
+                AddInfoRow(leftTbl, "Remarks", remarks, fLabel, fValue);
+
+            infoTbl.AddCell(new PdfPCell(leftTbl) { Border = Rectangle.NO_BORDER, Padding = 2f });
+
+            // â”€â”€ RIGHT: PO Details block â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            var rightTbl = new PdfPTable(2) { WidthPercentage = 100f };
+            rightTbl.SetWidths(new float[] { 2.5f, 4.5f });
+            rightTbl.DefaultCell.Border = Rectangle.NO_BORDER;
+
+            var poBlockTitle = new Phrase("PO DETAILS", new Font(Font.FontFamily.HELVETICA, 8f, Font.BOLD, navy));
+            rightTbl.AddCell(new PdfPCell(poBlockTitle) { Colspan = 2, Border = Rectangle.NO_BORDER, Padding = 2f, PaddingBottom = 4f });
+
+            AddInfoRow(rightTbl, "PO Number",     Safe(hdr, "PONumber"),                             fLabel, fValue);
+            AddInfoRow(rightTbl, "Status",        Safe(hdr, "Status"),                               fLabel, fStatus);
+            AddInfoRow(rightTbl, "PO Date",       Safe(hdr, "PODate"),                               fLabel, fValue);
+            AddInfoRow(rightTbl, "Expected Date", Safe(hdr, "ExpectedDate"),                         fLabel, fValue);
+            AddInfoRow(rightTbl, "Warehouse",     Safe(hdr, "WarehouseName"),                        fLabel, fValue);
+            string linkedPR = Safe(hdr, "LinkedPRNumber");
+            AddInfoRow(rightTbl, "Linked PR",     string.IsNullOrWhiteSpace(linkedPR) ? "â€”" : linkedPR, fLabel, fValue);
+
+
+            infoTbl.AddCell(new PdfPCell(rightTbl) { Border = Rectangle.NO_BORDER, Padding = 2f });
+
             doc.Add(infoTbl);
 
             // Reject reason
@@ -149,15 +168,15 @@
                 doc.Add(new Paragraph(ph) { SpacingAfter = 6f });
             }
 
-            // ── Items table ───────────────────────────────────────────────
+            // â”€â”€ Items table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             P(doc, "Order Items", new Font(Font.FontFamily.HELVETICA, 9f, Font.BOLD, navy), Element.ALIGN_LEFT, 4f);
 
-            // 12 columns: #, Code, Name, Category, UOM, Ordered, Received, Pending, Unit Price, Sub-Total, SST%, SST Amt
-            var tbl = new PdfPTable(12) { WidthPercentage = 100f, HeaderRows = 1, SpacingAfter = 8f };
-            tbl.SetWidths(new float[] { 0.4f, 1.5f, 3.0f, 1.8f, 1.0f, 1.3f, 1.3f, 1.3f, 1.8f, 1.8f, 0.9f, 1.6f });
+            // 10 columns: #, Code, Name, Category, UOM, Ordered, Received, Pending, Unit Price, Total
+            var tbl = new PdfPTable(10) { WidthPercentage = 100f, HeaderRows = 1, SpacingAfter = 16f };
+            tbl.SetWidths(new float[] { 0.5f, 1.8f, 3.5f, 2f, 1.2f, 1.5f, 1.5f, 1.5f, 2f, 2f });
 
-            string[] hdrs   = { "#", "Code", "Item Name", "Category", "UOM", "Ordered", "Received", "Pending", "Unit Price (RM)", "Sub-Total (RM)", "SST %", "SST (RM)" };
-            bool[]   numCol = { false, false, false, false, false, true, true, true, true, true, true, true };
+            string[] hdrs   = { "#", "Code", "Item Name", "Category", "UOM", "Ordered", "Received", "Pending", "Unit Price (RM)", "Total (RM)" };
+            bool[]   numCol = { false, false, false, false, false, true, true, true, true, true };
             for (int i = 0; i < hdrs.Length; i++)
             {
                 tbl.AddCell(new PdfPCell(new Phrase(hdrs[i], fTH))
@@ -169,91 +188,63 @@
             }
 
             int rowNo = 0;
-            decimal subTotal    = 0;
-            decimal sstTotalPdf = 0;
+            decimal grandTotal = 0;
             foreach (DataRow dr in dtDetails.Rows)
             {
                 var bg = (rowNo % 2 == 0) ? BaseColor.WHITE : rowAlt;
                 rowNo++;
 
-                decimal ordQty    = ParseDecimal(dr, "OrderedQty");
-                decimal recQty    = ParseDecimal(dr, "ReceivedQty");
-                decimal pending   = ParseDecimal(dr, "PendingQty");
-                decimal price     = ParseDecimal(dr, "UnitPrice");
-                decimal lineTotal = ParseDecimal(dr, "LineTotal");
-                decimal sstPct    = ParseDecimal(dr, "SSTPercent");
-                decimal sstAmt    = ParseDecimal(dr, "SSTAmount");
-                subTotal    += lineTotal;
-                sstTotalPdf += sstAmt;
+                decimal ordQty  = ParseDecimal(dr, "OrderedQty");
+                decimal recQty  = ParseDecimal(dr, "ReceivedQty");
+                decimal pending = ParseDecimal(dr, "PendingQty");
+                decimal price   = ParseDecimal(dr, "UnitPrice");
+                decimal total   = ParseDecimal(dr, "LineTotal");
+                grandTotal += total;
 
-                AddCell(tbl, rowNo.ToString(),                     fTD, Element.ALIGN_CENTER, bg, border);
-                AddCell(tbl, Safe(dr, "ItemCode"),                  fTD, Element.ALIGN_LEFT,   bg, border);
-                AddCell(tbl, Safe(dr, "ItemName"),                  fTD, Element.ALIGN_LEFT,   bg, border);
-                AddCell(tbl, Safe(dr, "CategoryName"),              fTD, Element.ALIGN_LEFT,   bg, border);
-                AddCell(tbl, Safe(dr, "UOMName"),                   fTD, Element.ALIGN_LEFT,   bg, border);
-                AddCell(tbl, ordQty.ToString("N2"),                 fTD, Element.ALIGN_RIGHT,  bg, border);
-                AddCell(tbl, recQty.ToString("N2"),                 fTD, Element.ALIGN_RIGHT,  bg, border);
-                AddCell(tbl, pending.ToString("N2"),                fTD, Element.ALIGN_RIGHT,  bg, border);
-                AddCell(tbl, price.ToString("N2"),                  fTD, Element.ALIGN_RIGHT,  bg, border);
-                AddCell(tbl, lineTotal.ToString("N2"),              fTD, Element.ALIGN_RIGHT,  bg, border);
-                AddCell(tbl, sstPct > 0 ? sstPct.ToString("N2") + "%" : "—", fTD, Element.ALIGN_RIGHT, bg, border);
-                AddCell(tbl, sstAmt > 0 ? sstAmt.ToString("N2") : "—",       fTD, Element.ALIGN_RIGHT, bg, border);
+                AddCell(tbl, rowNo.ToString(),          fTD, Element.ALIGN_CENTER, bg, border);
+                AddCell(tbl, Safe(dr, "ItemCode"),       fTD, Element.ALIGN_LEFT,   bg, border);
+                AddCell(tbl, Safe(dr, "ItemName"),       fTD, Element.ALIGN_LEFT,   bg, border);
+                AddCell(tbl, Safe(dr, "CategoryName"),   fTD, Element.ALIGN_LEFT,   bg, border);
+                AddCell(tbl, Safe(dr, "UOMName"),        fTD, Element.ALIGN_LEFT,   bg, border);
+                AddCell(tbl, ordQty.ToString("N2"),      fTD, Element.ALIGN_RIGHT,  bg, border);
+                AddCell(tbl, recQty.ToString("N2"),      fTD, Element.ALIGN_RIGHT,  bg, border);
+                AddCell(tbl, pending.ToString("N2"),     fTD, Element.ALIGN_RIGHT,  bg, border);
+                AddCell(tbl, price.ToString("N2"),       fTD, Element.ALIGN_RIGHT,  bg, border);
+                AddCell(tbl, total.ToString("N2"),       fTD, Element.ALIGN_RIGHT,  bg, border);
             }
 
             if (dtDetails.Rows.Count == 0)
             {
                 tbl.AddCell(new PdfPCell(new Phrase("No items found.", fTD))
-                { Colspan = 12, HorizontalAlignment = Element.ALIGN_CENTER, Padding = 8f, Border = Rectangle.BOX, BorderColor = border });
+                { Colspan = 10, HorizontalAlignment = Element.ALIGN_CENTER, Padding = 8f, Border = Rectangle.BOX, BorderColor = border });
             }
             else
             {
-                // ── Sub-Total row ─────────────────────────────────────────
+                // Grand total row
                 for (int i = 0; i < 9; i++)
-                    tbl.AddCell(new PdfPCell(new Phrase(i == 8 ? "Sub-Total (RM)" : "", i == 8 ? fTot : fTD))
-                    { HorizontalAlignment = Element.ALIGN_RIGHT, BackgroundColor = rowAlt, Padding = 5f, Border = Rectangle.BOX, BorderColor = border });
-                tbl.AddCell(new PdfPCell(new Phrase(subTotal.ToString("N2"), fTot))
-                { HorizontalAlignment = Element.ALIGN_RIGHT, BackgroundColor = rowAlt, Padding = 5f, Border = Rectangle.BOX, BorderColor = border });
-                tbl.AddCell(new PdfPCell(new Phrase("", fTD)) { BackgroundColor = rowAlt, Padding = 5f, Border = Rectangle.BOX, BorderColor = border });
-                tbl.AddCell(new PdfPCell(new Phrase("", fTD)) { BackgroundColor = rowAlt, Padding = 5f, Border = Rectangle.BOX, BorderColor = border });
-
-                // ── SST Total row (only when any SST exists) ──────────────
-                if (sstTotalPdf > 0)
                 {
-                    for (int i = 0; i < 9; i++)
-                        tbl.AddCell(new PdfPCell(new Phrase(i == 8 ? "SST Total (RM)" : "", i == 8 ? fTot : fTD))
-                        { HorizontalAlignment = Element.ALIGN_RIGHT, BackgroundColor = rowAlt, Padding = 5f, Border = Rectangle.BOX, BorderColor = border });
-                    tbl.AddCell(new PdfPCell(new Phrase("", fTD)) { BackgroundColor = rowAlt, Padding = 5f, Border = Rectangle.BOX, BorderColor = border });
-                    tbl.AddCell(new PdfPCell(new Phrase("", fTD)) { BackgroundColor = rowAlt, Padding = 5f, Border = Rectangle.BOX, BorderColor = border });
-                    tbl.AddCell(new PdfPCell(new Phrase(sstTotalPdf.ToString("N2"), fTot))
-                    { HorizontalAlignment = Element.ALIGN_RIGHT, BackgroundColor = rowAlt, Padding = 5f, Border = Rectangle.BOX, BorderColor = border });
+                    string txt = (i == 4) ? "Grand Total (RM)" : "";
+                    int align  = (i == 4) ? Element.ALIGN_RIGHT : Element.ALIGN_LEFT;
+                    tbl.AddCell(new PdfPCell(new Phrase(txt, fTot))
+                    { HorizontalAlignment = align, BackgroundColor = totalBg, Padding = 5f, Border = Rectangle.BOX, BorderColor = border });
                 }
-
-                // ── Grand Total row ───────────────────────────────────────
-                decimal grandTotalPdf = subTotal + sstTotalPdf;
-                Font fGrand = new Font(Font.FontFamily.HELVETICA, 9f, Font.BOLD, new BaseColor(0x1a, 0x3a, 0x5c));
-                for (int i = 0; i < 9; i++)
-                    tbl.AddCell(new PdfPCell(new Phrase(i == 8 ? "Grand Total (RM)" : "", i == 8 ? fGrand : fTD))
-                    { HorizontalAlignment = Element.ALIGN_RIGHT, BackgroundColor = totalBg, Padding = 6f, Border = Rectangle.BOX, BorderColor = navy });
-                tbl.AddCell(new PdfPCell(new Phrase(grandTotalPdf.ToString("N2"), fGrand))
-                { HorizontalAlignment = Element.ALIGN_RIGHT, BackgroundColor = totalBg, Padding = 6f, Border = Rectangle.BOX, BorderColor = navy });
-                tbl.AddCell(new PdfPCell(new Phrase("", fTD)) { BackgroundColor = totalBg, Padding = 6f, Border = Rectangle.BOX, BorderColor = navy });
-                tbl.AddCell(new PdfPCell(new Phrase("", fTD)) { BackgroundColor = totalBg, Padding = 6f, Border = Rectangle.BOX, BorderColor = navy });
+                tbl.AddCell(new PdfPCell(new Phrase(grandTotal.ToString("N2"), fTot))
+                { HorizontalAlignment = Element.ALIGN_RIGHT, BackgroundColor = totalBg, Padding = 5f, Border = Rectangle.BOX, BorderColor = border });
             }
             doc.Add(tbl);
 
-            // Signature row
+            // Signature row â€” Prepared By only
             AddSignatureRow(doc, fSigLbl, border,
-                "Prepared By",  SafeOrDash(hdr, "RequestedBy"),
-                "Approved By",  SafeOrDash(hdr, "ApprovedBy"));
+                "Prepared By",  SafeOrDash(hdr, "RequestedBy"));
 
             doc.Close();
             return ms.ToArray();
         }
     }
 
-    // ════════════════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // SHARED HELPERS
-    // ════════════════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     private void AddCompanyHeader(Document doc, BaseColor navy, Font fCoName, Font fCoReg, Font fCoSub)
     {
@@ -295,18 +286,14 @@
     }
 
     private static void AddSignatureRow(Document doc, Font fLbl, BaseColor border,
-        string lLabel, string lName, string rLabel, string rName)
+        string lLabel, string lName)
     {
-        var sigTbl = new PdfPTable(2) { WidthPercentage = 80f, HorizontalAlignment = Element.ALIGN_LEFT, SpacingBefore = 10f };
-        sigTbl.SetWidths(new float[] { 1f, 1f });
-        foreach (var pair in new[] { new[]{lLabel, lName}, new[]{rLabel, rName} })
-        {
-            var ph = new Phrase();
-            ph.Add(new Chunk(pair[0] + "\n\n\n", fLbl));
-            ph.Add(new Chunk("_______________________\n", fLbl));
-            ph.Add(new Chunk(pair[1], fLbl));
-            sigTbl.AddCell(new PdfPCell(ph) { Border = Rectangle.NO_BORDER, Padding = 6f });
-        }
+        var sigTbl = new PdfPTable(1) { WidthPercentage = 40f, HorizontalAlignment = Element.ALIGN_LEFT, SpacingBefore = 10f };
+        var ph = new Phrase();
+        ph.Add(new Chunk(lLabel + "\n\n\n", fLbl));
+        ph.Add(new Chunk("_______________________\n", fLbl));
+        ph.Add(new Chunk(lName, fLbl));
+        sigTbl.AddCell(new PdfPCell(ph) { Border = Rectangle.NO_BORDER, Padding = 6f });
         doc.Add(sigTbl);
     }
 
@@ -331,7 +318,7 @@
         return dr[col] == DBNull.Value ? "" : (dr[col] ?? "").ToString().Trim();
     }
     private static string SafeOrDash(DataRow dr, string col)
-    { string v = Safe(dr, col); return string.IsNullOrWhiteSpace(v) ? "—" : v; }
+    { string v = Safe(dr, col); return string.IsNullOrWhiteSpace(v) ? "â€”" : v; }
     private static void P(Document doc, string text, Font font, int align, float spacingAfter)
     { doc.Add(new Paragraph(text, font) { Alignment = align, SpacingAfter = spacingAfter }); }
     private static Paragraph Spacer(float h) { return new Paragraph(" ") { SpacingAfter = h }; }

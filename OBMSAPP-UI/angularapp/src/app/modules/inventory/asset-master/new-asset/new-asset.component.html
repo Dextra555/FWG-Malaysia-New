@@ -218,7 +218,7 @@
                 placeholder="MM/YYYY" autocomplete="off">
               <mat-datepicker-toggle matSuffix [for]="pickerStart"></mat-datepicker-toggle>
               <mat-datepicker #pickerStart startView="year"
-                (monthSelected)="frm.get('InstallmentStartDate')?.setValue($event); pickerStart.close()">
+                (monthSelected)="onStartMonthSelected($event, pickerStart)">
               </mat-datepicker>
               <mat-hint>First installment month</mat-hint>
             </mat-form-field>
@@ -420,7 +420,7 @@
       <div class="row">
         <div class="col-12 col-md-4">
           <mat-form-field appearance="outline">
-            <mat-label>Branch</mat-label>
+            <mat-label>Branch <span style="color:red">*</span></mat-label>
             <mat-select formControlName="Branch" (openedChange)="onBranchOpen($event)">
               <mat-option disabled style="position:sticky;top:0;background:#fff;z-index:1;padding:0">
                 <div style="padding:4px 10px">
@@ -434,6 +434,9 @@
               <mat-option *ngFor="let b of filteredBranches" [value]="b.Code">{{b.Code}}</mat-option>
               <mat-option disabled *ngIf="filteredBranches.length === 0 && branchSearch.length > 0">No results found.</mat-option>
             </mat-select>
+            <mat-error *ngIf="frm.get('Branch')?.invalid && frm.get('Branch')?.touched">
+              Branch is required.
+            </mat-error>
           </mat-form-field>
         </div>
         <div class="col-12 col-md-4">

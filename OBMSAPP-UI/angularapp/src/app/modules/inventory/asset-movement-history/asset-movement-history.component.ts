@@ -20,6 +20,7 @@ export class AssetMovementHistoryComponent implements OnInit {
   assetID: number = 0;
   asset: any = null;
   history: any[] = [];
+  fromPage: string = 'asset-master'; // default back destination
 
   constructor(
     private activatedRoute: ActivatedRoute,
@@ -35,6 +36,8 @@ export class AssetMovementHistoryComponent implements OnInit {
   ngOnInit(): void {
     this.titleService.setTitle('Asset Movement History');
     this.assetID = +this.activatedRoute.snapshot.params['assetID'];
+    // Read optional 'from' query param to know where to go back
+    this.fromPage = this.activatedRoute.snapshot.queryParams['from'] || 'asset-master';
     this.currentUser = sessionStorage.getItem('username')!;
     if (!this.currentUser || this.currentUser === 'null') this._dataService.getUsername().subscribe(u => { this.currentUser = u; });
     this.getUserAccessRights(this.currentUser, 'Asset Movement History');
@@ -101,11 +104,22 @@ export class AssetMovementHistoryComponent implements OnInit {
   }
 
   formatDate(v: any): string {
-    if (!v) return 'â€”';
+    if (!v) return '-';
     return new Date(v).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   }
 
-  goBack(): void { this.route.navigate(['/inventory/asset-master']); }
+  goBack(): void {
+    const routeMap: { [key: string]: string } = {
+      'asset-master':      '/inventory/asset-master',
+      'asset-maintenance': '/inventory/asset-maintenance',
+      'asset-allocation':  '/inventory/asset-allocation',
+      'asset-transfer':    '/inventory/asset-transfer',
+      'asset-return':      '/inventory/asset-return',
+      'asset-damage':      '/inventory/asset-damage',
+      'asset-disposal':    '/inventory/asset-disposal',
+    };
+    this.route.navigate([routeMap[this.fromPage] || '/inventory/asset-master']);
+  }
   hideLoadingSpinner(): void { this.showLoadingSpinner = false; }
 }
 

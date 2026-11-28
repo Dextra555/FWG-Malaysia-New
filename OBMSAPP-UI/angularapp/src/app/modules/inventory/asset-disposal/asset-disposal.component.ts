@@ -193,13 +193,13 @@ export class AssetDisposalComponent implements OnInit, AfterViewInit {
       this.showLoadingSpinner = true;
 
       if (!isNew) {
-        // Already saved Draft â€” just submit
+        // Already saved Draft - just submit
         this.service.submitAD(+raw.ID).subscribe({
           next: (res: any) => { this.showMsg(res?.message || 'Submitted.', 'success', 'Success Message'); this.showForm = false; this.loadList(); },
           error: err => { this.showMsg(this.extractMsg(err, 'Unable to submit.'), 'error', 'Error Message'); this.hideLoadingSpinner(); }
         });
       } else {
-        // New form â€” save then submit
+        // New form - save then submit
         const payload = { ...raw, AssetID: +raw.AssetID, LastUpdatedBy: this.currentUser };
         this.service.saveAssetDisposal(payload).subscribe({
           next: (saveRes: any) => {
@@ -318,7 +318,7 @@ export class AssetDisposalComponent implements OnInit, AfterViewInit {
 
   applyFilter(e: Event): void { this.filterValue = (e.target as HTMLInputElement).value; this.dataSource.filter = this.filterValue.trim().toLowerCase(); }
   announceSortChange(s: Sort): void { this._liveAnnouncer.announce(s.direction ? `Sorted ${s.direction}ending` : 'Sorting cleared'); }
-  formatDate(v: any): string { if (!v) return 'â€”'; return new Date(v).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' }); }
+  formatDate(v: any): string { if (!v) return '-'; return new Date(v).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' }); }
   formatNumber(v: number): string { return (v ?? 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   private extractMsg(e: any, fb: string): string { return (e && typeof e === 'string') ? e : e?.error?.message || e?.message || fb; }
   private showMsg(msg: string, icon: 'success'|'error'|'warning'|'info', title: 'Success Message'|'Error Message'|'Warning Message'): void {

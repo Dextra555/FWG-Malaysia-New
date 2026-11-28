@@ -3,6 +3,7 @@ import { Title } from '@angular/platform-browser';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
 import { MatSort, Sort } from '@angular/material/sort';
+import { environment } from '../../../../environments/environment';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
 import Swal from 'sweetalert2';
 
@@ -42,7 +43,7 @@ export class EmployeeIssueRegisterComponent implements OnInit, AfterViewInit {
   selectedClientID: number = 0;
   filterValue: string = '';
 
-  // Raw unfiltered data â€” kept to rebuild dropdowns after type/filter changes
+  // Raw unfiltered data - kept to rebuild dropdowns after type/filter changes
   private allData: any[] = [];
 
   // Employee list for filter dropdown
@@ -96,7 +97,7 @@ export class EmployeeIssueRegisterComponent implements OnInit, AfterViewInit {
   }
 
   loadClientList(): void {
-    // Client list is built from the loaded register data â€” not from master
+    // Client list is built from the loaded register data - not from master
     // See buildClientListFromData() called after loadRegister()
   }
 
@@ -106,7 +107,7 @@ export class EmployeeIssueRegisterComponent implements OnInit, AfterViewInit {
     for (const row of data) {
       if (row.ClientID && row.ClientID > 0 && !seen.has(row.ClientID)) {
         seen.add(row.ClientID);
-        this.clientList.push({ ID: row.ClientID, Name: row.ClientName || 'â€”' });
+        this.clientList.push({ ID: row.ClientID, Name: row.ClientName || '-' });
       }
     }
     this.clientList.sort((a, b) => a.Name.localeCompare(b.Name));
@@ -121,7 +122,7 @@ export class EmployeeIssueRegisterComponent implements OnInit, AfterViewInit {
       const empID = row.EmployeeID;
       if (empID && empID > 0 && !seen.has(empID)) {
         seen.add(empID);
-        this.employeeList.push({ EMP_ID: empID, EMP_NAME: row.EmployeeName || 'â€”' });
+        this.employeeList.push({ EMP_ID: empID, EMP_NAME: row.EmployeeName || '-' });
       }
     }
     this.employeeList.sort((a, b) => a.EMP_NAME.localeCompare(b.EMP_NAME));
@@ -139,7 +140,7 @@ export class EmployeeIssueRegisterComponent implements OnInit, AfterViewInit {
 
   onClientFilterChange(): void {
     if (this.selectedClientID === 0) {
-      // Show all â€” re-run search with current params
+      // Show all - re-run search with current params
       this.loadRegister();
     } else {
       this.loadRegister();
@@ -351,6 +352,21 @@ export class EmployeeIssueRegisterComponent implements OnInit, AfterViewInit {
     a.download = `StaffGuardIssueRegister_${this.toDateString(new Date())}.xls`;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  onPrintPdf(format: string = 'pdf'): void {
+    const params = new URLSearchParams();
+    params.set('LoginID',     this.currentUser           || '');
+    params.set('StartDate',   this.toDateString(this.dateFrom!));
+    params.set('EndDate',     this.toDateString(this.dateTo!));
+    params.set('IssueToType', this.issueToTypeFilter      || 'ALL');
+    params.set('IsDeduction', this.isDeductionFilter      || 'ALL');
+    params.set('EmployeeID',  String(this.selectedEmployeeID || 0));
+    if (format === 'excel') params.set('format', 'excel');
+    window.open(
+      environment.baseReportUrl + 'Inventory/StaffIssueRegisterReport.aspx?' + params.toString(),
+      '_blank'
+    );
   }
 }
 

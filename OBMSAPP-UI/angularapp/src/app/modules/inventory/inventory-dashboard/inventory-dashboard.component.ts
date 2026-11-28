@@ -106,6 +106,7 @@ export class InventoryDashboardComponent implements OnInit {
 
   // â”€â”€ Low Stock Alerts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   lowStockAlerts: any[] = [];
+  assetExpiryAlerts: any[] = [];
 
   // â”€â”€ Pending Activities â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   pendingActivities: any = {};
@@ -210,6 +211,7 @@ export class InventoryDashboardComponent implements OnInit {
 
         // Item/warehouse pivot
         this.buildWhQtyPivot(data.ItemWarehouseQty ?? []);
+        this.assetExpiryAlerts = data.AssetExpiryAlerts ?? [];
       },
       () => {
         this.showLoadingSpinner = false;

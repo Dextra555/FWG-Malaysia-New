@@ -143,7 +143,7 @@ export class NewStockDamageLossComponent implements OnInit {
           if (whExists) {
             this.frm.get('WarehouseID')?.setValue(selected.WarehouseID);
           } else {
-            // Default warehouse is inactive â€” warn user, leave field empty
+            // Default warehouse is inactive - warn user, leave field empty
             this.warningMessage =
               'The default warehouse for this item is inactive. Please select another warehouse.';
           }
@@ -195,12 +195,12 @@ export class NewStockDamageLossComponent implements OnInit {
 
   get viewWarehouseName(): string {
     const id = this.frm.get('WarehouseID')?.value;
-    return this.warehouses.find((w: any) => w.ID === id)?.Name || 'â€”';
+    return this.warehouses.find((w: any) => w.ID === id)?.Name || '-';
   }
   get viewItemName(): string {
     const id = this.frm.get('ItemID')?.value;
     const item = this.items.find((i: any) => i.ID === id);
-    return item ? `${item.Code} â€” ${item.Name}` : 'â€”';
+    return item ? `${item.Code} - ${item.Name}` : '-';
   }
 
   onSubmit(): void {

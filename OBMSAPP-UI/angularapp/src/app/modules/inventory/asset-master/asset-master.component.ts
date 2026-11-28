@@ -114,7 +114,7 @@ export class AssetMasterComponent implements OnInit, AfterViewInit {
 
   deleteClickButton(row: any): void {
     this.dialog.open(DialogConfirmationComponent, {
-      data: `Are you sure you want to delete asset <b>${row.AssetCode} â€” ${row.Name}</b>?`
+      data: `Are you sure you want to delete asset <b>${row.AssetCode} - ${row.Name}</b>?`
     }).afterClosed().subscribe((result: { confirmDialog: boolean }) => {
       if (result?.confirmDialog) {
         this.showLoadingSpinner = true;

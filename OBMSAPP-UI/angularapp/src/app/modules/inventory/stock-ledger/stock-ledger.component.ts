@@ -7,6 +7,7 @@ import { MatSort, Sort } from '@angular/material/sort';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { Router } from '@angular/router';
 
+import { environment } from '../../../../environments/environment';
 import { InventoryService } from '../../../service/inventory.service';
 import { MastermoduleService } from '../../../service/mastermodule.service';
 import { DatasharingService } from '../../../service/datasharing.service';
@@ -359,16 +360,21 @@ export class StockLedgerComponent implements OnInit, AfterViewInit {
 
   hideLoadingSpinner(): void { this.showLoadingSpinner = false; }
 
-  /** Print / Save as PDF â€” uses browser's native print dialog.
-   *  @media print CSS in the component stylesheet hides everything
-   *  except #printSection, producing a clean A4 printout. */
+  /** Print / Save as PDF -- opens the proper ASPX iTextSharp report in a new tab. */
   onPrint(): void {
-    this.printGeneratedOn = new Date().toLocaleString('en-MY', {
-      day: '2-digit', month: 'short', year: 'numeric',
-      hour: '2-digit', minute: '2-digit', hour12: true
-    });
-    // Let Angular render the print section first, then open the dialog
-    setTimeout(() => window.print(), 150);
+    const raw = this.filterForm.value;
+
+    const params = new URLSearchParams();
+    params.set('LoginID',         this.currentUser                || '');
+    params.set('StartDate',       this.toDateString(raw.DateFrom));
+    params.set('EndDate',         this.toDateString(raw.DateTo));
+    params.set('WarehouseID',     String(raw.WarehouseID          || 0));
+    params.set('ItemID',          String(raw.ItemID > 0 ? raw.ItemID : 0));
+    params.set('TransactionType', raw.TransactionType             || 'ALL');
+
+    window.open(
+      environment.baseReportUrl + 'Inventory/StockLedgerReport.aspx?' + params.toString(),
+      '_blank'
+    );
   }
 }
-

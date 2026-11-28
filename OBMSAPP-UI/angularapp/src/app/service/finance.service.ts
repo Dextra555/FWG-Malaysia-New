@@ -420,6 +420,24 @@ export class FinanceService {
       { params }
     ).pipe(catchError(this.errorHandle));
   }
+
+  getMaintenanceForPayment(vendorName: string, paymentId: number = 0): Observable<any[]> {
+    const params = new HttpParams()
+      .set('vendorName', vendorName)
+      .set('paymentId', paymentId.toString());
+    return this.httpClient.get<any[]>(
+      `${this.apiUrl}Inventory/GetMaintenanceForPayment`,
+      { params }
+    ).pipe(catchError(this.errorHandle));
+  }
+
+  getMaintenanceByIDForPayment(id: number): Observable<any> {
+    const params = new HttpParams().set('ID', id.toString());
+    return this.httpClient.get<any>(
+      `${this.apiUrl}Inventory/GetAssetMaintenanceByID`,
+      { params }
+    ).pipe(catchError(this.errorHandle));
+  }
   generateClientStatement(payload: any) {
     return this.httpClient.post(`${this.apiUrl}Finance/client-statement`, payload);
   }
