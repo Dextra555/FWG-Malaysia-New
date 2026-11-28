@@ -384,7 +384,6 @@ export class PayHistoryComponent implements OnInit {
     this.urlSafe = this.sanitizer.bypassSecurityTrustResourceUrl(shift2URL);
   }
 
-<<<<<<< HEAD
 
 
   onSubmitShift3() {
@@ -401,8 +400,7 @@ export class PayHistoryComponent implements OnInit {
     shift2URL += "&Branch=" + this.frm.get("Branch")?.value;
     this.urlSafe = this.sanitizer.bypassSecurityTrustResourceUrl(shift2URL);
   }
-=======
->>>>>>> dadc643 (Updated payslip changes)
+
   changeData() {
     this.empList = this.empListDummy.filter((d: any) => { return d.EMP_ROLE === this.frm.get("EmployeeType")?.value });
   }

@@ -85,15 +85,6 @@
         </div>
         <!-- <div class="col-12 col-md-3">
           <mat-form-field appearance="outline">
-<<<<<<< HEAD
-=======
-            <mat-label>Purchase Amount (RM)</mat-label>
-            <input matInput type="number" formControlName="PurchaseAmount" min="0" step="0.01" placeholder="0.00" autocomplete="off">
-          </mat-form-field>
-        </div> -->
-        <div class="col-12 col-md-3">
-          <mat-form-field appearance="outline">
->>>>>>> dadc643 (Updated payslip changes)
             <mat-label>Warranty Expiry</mat-label>
             <input matInput [matDatepicker]="picker2" formControlName="WarrantyExpiryDate" autocomplete="off">
             <mat-datepicker-toggle matSuffix [for]="picker2"></mat-datepicker-toggle>
@@ -127,7 +118,6 @@
         </div>
       </div>
 
-<<<<<<< HEAD
       <!-- Purchase Information row 2: Category + conditional Vehicle/Office fields -->
       <div class="row">
         <div class="col-12 col-md-3">
@@ -188,8 +178,6 @@
         </ng-container>
       </div>
 
-=======
->>>>>>> dadc643 (Updated payslip changes)
       <!-- ── DEPOSIT & PAYMENT TERMS ─────────────────────────────────────── -->
       <div class="row mt-2">
         <div class="col-12"><h6 class="wlt-c-section-label"><strong>Payment Terms</strong></h6><hr class="mt-0"></div>
@@ -340,7 +328,6 @@
                       [style.background]="row.no % 2 === 0 ? '#f9fbff' : '#fff'">
                       <td style="padding:5px 10px">{{row.no}}</td>
                       <td style="padding:5px 10px">{{row.dueDate | date:'dd MMM yyyy'}}</td>
-<<<<<<< HEAD
                       <!-- Editable Amount cell for pending rows -->
                       <td style="padding:3px 6px;text-align:right">
                         <input type="number"
@@ -350,9 +337,6 @@
                           style="width:90px;text-align:right;border:1px solid #90caf9;border-radius:4px;padding:3px 6px;font-size:12px;background:#fff;outline:none"
                           (focus)="$any($event.target).select()">
                       </td>
-=======
-                      <td style="padding:5px 10px;text-align:right">{{row.amount | number:'1.2-2'}}</td>
->>>>>>> dadc643 (Updated payslip changes)
                       <td style="padding:5px 10px;text-align:center">
                         {{row.paidAmount > 0 ? (row.paidAmount | number:'1.2-2') : '-'}}
                       </td>
@@ -508,11 +492,7 @@
               (click)="onPrintPDF()">
               <mat-icon style="vertical-align:middle;font-size:18px">print</mat-icon> Print PDF
             </button>
-<<<<<<< HEAD
-            <button *ngIf="(userAccessModel.createAccess || userAccessModel.updateAccess || userRole == 'superadmin')"
-=======
             <button *ngIf="(userAccessModel.createAccess || userAccessModel.updateAccess || userRole == 'superadmin') && !isPaymentLocked"
->>>>>>> dadc643 (Updated payslip changes)
               type="submit" class="btn wlt-c-furg-btn-primary" [disabled]="showLoadingSpinner">
               {{isEdit ? 'Update Asset' : 'Save Asset'}}
             </button>

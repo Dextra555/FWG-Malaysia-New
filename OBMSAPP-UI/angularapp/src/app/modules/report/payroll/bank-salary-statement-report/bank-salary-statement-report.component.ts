@@ -224,7 +224,6 @@ export class BankSalaryStatementReportComponent implements OnInit {
       localURL += "&EmployeeType=" + this.frm.get("EmployeeType")?.value
       localURL += "&Bank=" + this.frm.get("BankCode")?.value
       localURL += "&PaymentMode=" + this.frm.get("PaymentMode")?.value
-<<<<<<< HEAD
       this.urlSafe = this.sanitizer.bypassSecurityTrustResourceUrl(this.url + this.reportPageName + localURL);
     } else if (this.reportType == 7) {
       localURL += "Branch=" + this.frm.get("Branch")?.value
@@ -241,8 +240,6 @@ export class BankSalaryStatementReportComponent implements OnInit {
       localURL += "&EmployeeType=" + this.frm.get("EmployeeType")?.value
       localURL += "&Bank=" + this.frm.get("BankCode")?.value
       localURL += "&PaymentMode=" + this.frm.get("PaymentMode")?.value
-=======
->>>>>>> dadc643 (Updated payslip changes)
       this.urlSafe = this.sanitizer.bypassSecurityTrustResourceUrl(this.url + this.reportPageName + localURL);
     } else if (this.reportType == undefined) {
 

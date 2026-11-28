@@ -114,13 +114,8 @@ export class StockLedgerComponent implements OnInit, AfterViewInit {
     private _liveAnnouncer: LiveAnnouncer,
     private service: InventoryService,
     private _dataService: DatasharingService,
-<<<<<<< HEAD
     private _masterService: MastermoduleService,
     private router: Router,
-=======
-    private _masterService: MastermoduleService
-  ,
->>>>>>> dadc643 (Updated payslip changes)
     private titleService: Title) {
     this.userAccessModel = { readAccess: false, updateAccess: false, deleteAccess: false, createAccess: false };
 
