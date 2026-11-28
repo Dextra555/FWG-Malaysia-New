@@ -8,6 +8,11 @@ using OBMS.WebAPI.BusinessObjects;
 using OBMS.WebAPI.Hubs;
 using System.Text;
 
+// Fix: synchronous EF Core calls on ASP.NET Core thread pool can cause
+// thread starvation / deadlock.  Raise the minimum worker + IO thread count
+// so the pool always has threads available for DB-bound synchronous work.
+System.Threading.ThreadPool.SetMinThreads(50, 50);
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Environment Configuration
@@ -25,7 +30,14 @@ var key = Encoding.ASCII.GetBytes("obms-authentication");
 builder.Services.AddDbContext<OBMSDbContext>(options =>
     options.UseSqlServer(
         builder.Configuration.GetConnectionString("obms"),
-        sqlOptions => sqlOptions.EnableRetryOnFailure()
+        sqlOptions => {
+            sqlOptions.CommandTimeout(15);         // 15s max per query — prevents infinite hang
+            sqlOptions.EnableRetryOnFailure(
+                maxRetryCount: 2,                  // only 2 retries (not unlimited)
+                maxRetryDelay: TimeSpan.FromSeconds(3),
+                errorNumbersToAdd: null
+            );
+        }
     ));
 
 // Controllers

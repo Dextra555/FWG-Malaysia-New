@@ -56,6 +56,7 @@ namespace OBMS.WebAPI.Models.DTO
         // ── Office-specific ───────────────────────────────────────────────────
         public DateTime? ServiceLastDate { get; set; }
 
+
         // Installment summary (loaded separately)
         public int? PaidInstallments { get; set; }
         public int? PendingInstallments { get; set; }

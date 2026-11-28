@@ -77,6 +77,7 @@
         // ── Office-specific fields ────────────────────────────────────────────
         public DateTime? ServiceLastDate { get; set; }
 
+
         public DateTime? LastUpdatedDate { get; set; }
         public string? LastUpdatedBy { get; set; }
     }

@@ -32,9 +32,9 @@ export class StockLedgerReportComponent implements OnInit {
   loadingSizes: boolean = false;
   userAccessModel!: UserAccessModel;
 
-  /** Parent categories that have sub-categories — shown as optgroups */
+  /** Parent categories that have sub-categories â€” shown as optgroups */
   categoryGroups: { parent: any; children: any[] }[] = [];
-  /** Standalone categories (no parent, no children) — shown flat */
+  /** Standalone categories (no parent, no children) â€” shown flat */
   categoryFlat: any[] = [];
 
   transactionTypeOptions = [
