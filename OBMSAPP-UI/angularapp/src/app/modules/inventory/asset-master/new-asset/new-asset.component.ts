@@ -36,10 +36,6 @@ export class NewAssetComponent implements OnInit {
   // Installment schedule preview rows
   installmentPreview: { no: number; dueDate: Date; amount: number; paidAmount: number; status: string }[] = [];
 
-  // Payment lock — true when a payment has been recorded against this asset
-  isPaymentLocked: boolean = false;
-  paymentLockMessage: string = '';
-
   userAccessModel!: UserAccessModel;
   currentUser:    string  = '';
   userRole:       string  = '';
@@ -296,23 +292,6 @@ export class NewAssetComponent implements OnInit {
           ServiceLastDate:          d.ServiceLastDate       ? new Date(d.ServiceLastDate)       : null
         });
 
-        // Check payment lock
-        this.service.getAssetPaymentLockStatus(d.ID).subscribe({
-          next: (lock: any) => {
-            if (lock?.isLocked) {
-              this.isPaymentLocked = true;
-              this.paymentLockMessage = lock.message || 'This asset is locked — a payment has been recorded.';
-              // Disable entire form except preclosing fields
-              this.frm.disable();
-              // Re-enable only preclosing toggle and date
-              // so user can still initiate early settlement
-              this.frm.get('IsPreClosing')?.enable();
-              this.frm.get('PreClosingDate')?.enable();
-            }
-          },
-          error: () => {}
-        });
-
         // Load existing installment schedule for display
         if (d.PaymentTermType === 'MONTHLY') {
           this.service.getAssetInstallments(d.ID).subscribe({
@@ -338,39 +317,6 @@ export class NewAssetComponent implements OnInit {
 
   onSubmit(): void {
     if (this.frm.invalid) { this.frm.markAllAsTouched(); return; }
-    if (this.isPaymentLocked) {
-      // Locked asset — only allow preclosing toggle save
-      const raw = this.frm.getRawValue();
-      if (!raw.IsPreClosing && !this.frm.get('IsPreClosing')?.dirty) {
-        this.showMessage('This asset is locked for editing because a payment has been recorded against it.', 'warning', 'Warning Message');
-        return;
-      }
-      // Allow saving preclosing state only
-      this.showLoadingSpinner = true;
-      const preClosingPayload = {
-        ID:               raw.ID,
-        IsPreClosing:     raw.IsPreClosing,
-        IsPreClosingOnly: true,                    // ← tells API: only save preclosing fields
-        PreClosingDate:   raw.IsPreClosing ? raw.PreClosingDate : null,
-        PreClosingAmount: raw.IsPreClosing ? (raw.PreClosingAmount ? +raw.PreClosingAmount : null) : null,
-        LastUpdatedBy:    this.currentUser,
-        LastUpdatedDate:  new Date(),
-        // Required fields — carry existing values
-        Name:      raw.Name,
-        AssetType: raw.AssetType
-      };
-      this.service.saveAssetRecord(preClosingPayload).subscribe({
-        next: (res: any) => {
-          this.showMessage(res?.message || 'Preclosing status updated.', 'success', 'Success Message');
-          this.hideLoadingSpinner();
-        },
-        error: (err: any) => {
-          this.showMessage(this.extractErrorMessage(err, 'Unable to save. Please try again.'), 'error', 'Error Message');
-          this.hideLoadingSpinner();
-        }
-      });
-      return;
-    }
 
     const raw = this.frm.getRawValue();
     const isMonthlySelected = raw.PaymentTermType === 'MONTHLY';
