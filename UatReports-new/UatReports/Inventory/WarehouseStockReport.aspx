@@ -391,8 +391,7 @@
         }
         if (lSpan < 1) lSpan = 1;
 
-        tbl.AddCell(new PdfPCell(new Phrase(whLabel + " — Subtotal", fTotal))
-        {
+        tbl.AddCell(new PdfPCell(new Phrase(whLabel + " - Subtotal", fTotal))        {
             Colspan             = lSpan,
             BackgroundColor     = bg,
             HorizontalAlignment = Element.ALIGN_LEFT,

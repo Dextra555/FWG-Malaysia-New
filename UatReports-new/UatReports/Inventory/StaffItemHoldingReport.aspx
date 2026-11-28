@@ -483,7 +483,7 @@
             tbl.SetWidths(new float[] { 3f, 4f, 3f });
             Action<string, int> addCell = (txt, align) => tbl.AddCell(new PdfPCell(new Phrase(txt, _font)) { Border = Rectangle.NO_BORDER, HorizontalAlignment = align, Padding = 2f });
             addCell("Printed by: " + (_user ?? ""), Element.ALIGN_LEFT);
-            addCell("OBMS — Staff / Guard Item Holding", Element.ALIGN_CENTER);
+            addCell("OBMS - Staff / Guard Item Holding", Element.ALIGN_CENTER);
             addCell("Page " + writer.PageNumber, Element.ALIGN_RIGHT);
             tbl.WriteSelectedRows(0, -1, doc.Left, doc.Bottom - 7f, cb);
         }

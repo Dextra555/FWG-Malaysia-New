@@ -1,4 +1,4 @@
-<%@ Page Language="C#" AutoEventWireup="true" %>
+﻿<%@ Page Language="C#" AutoEventWireup="true" %>
 <%@ Import Namespace="System.Configuration" %>
 <%@ Import Namespace="System.Data" %>
 <%@ Import Namespace="System.Data.SqlClient" %>
@@ -38,7 +38,7 @@ private byte[] BuildPdf(string loginID, DataRow dr) {
         AddIR(tbl,"Asset Type",    SafeD(dr,"AssetType"),     fLabel,fValue);
         AddIR(tbl,"Serial No",     SafeD(dr,"SerialNumber"),  fLabel,fValue);
         AddIR(tbl,"Allocation No", SafeD(dr,"AllocationNo"),  fLabel,fValue);
-        AddIR(tbl,"Returned By",   Safe(dr,"ReturnedByType")+" — "+SafeD(dr,"ReturnedByName"),fLabel,fValue);
+        AddIR(tbl,"Returned By",   Safe(dr,"ReturnedByType")+" - "+SafeD(dr,"ReturnedByName"),fLabel,fValue);
         AddIR(tbl,"Condition",     SafeD(dr,"ReturnCondition"),fLabel,fValue);
         AddIR(tbl,"Received By",   SafeD(dr,"ReceivedBy"),    fLabel,fValue);
         AddIR(tbl,"Prepared By",   SafeD(dr,"PreparedBy"),    fLabel,fValue);
@@ -60,7 +60,8 @@ private static void AddSig(Document doc,Font fSig,string lLbl,string lName,strin
 private static void P(Document doc,string t,Font f,int a,float sp){doc.Add(new Paragraph(t,f){Alignment=a,SpacingAfter=sp});}
 private static Paragraph Spacer(float h){return new Paragraph(" "){SpacingAfter=h};}
 private static string Safe(DataRow dr,string c){if(dr==null||!dr.Table.Columns.Contains(c))return "";return dr[c]==DBNull.Value?"":(dr[c]??"").ToString().Trim();}
-private static string SafeD(DataRow dr,string c){string v=Safe(dr,c);return string.IsNullOrWhiteSpace(v)?"—":v;}
+private static string SafeD(DataRow dr,string c){string v=Safe(dr,c);return string.IsNullOrWhiteSpace(v)?"-":v;}
+private static string CleanUnicode(string s){if(string.IsNullOrEmpty(s))return s;return s.Replace("\u2013","-").Replace("\u2014","-").Replace("\u2018","'").Replace("\u2019","'").Replace("\u201C","\"").Replace("\u201D","\"").Replace("\u2026","...").Replace("\u00A0"," ");}
 private static string ConnStr(){return string.Format("Server={0};Database={1};User Id={2};Password={3};",AppS("Server"),AppS("Database"),AppS("UserID"),AppS("Password"));}
 private static string AppS(string k){return ConfigurationManager.AppSettings[k]??"";}
 private static BaseColor Navy(){return new BaseColor(0x1a,0x3a,0x5c);}

@@ -1,4 +1,4 @@
-<%@ Page Language="C#" AutoEventWireup="true" %>
+﻿<%@ Page Language="C#" AutoEventWireup="true" %>
 <%@ Import Namespace="System.Configuration" %>
 <%@ Import Namespace="System.Data" %>
 <%@ Import Namespace="System.Data.SqlClient" %>
@@ -369,6 +369,7 @@
     }
 
     private static string Safe(DataRow dr, string col)
+private static string CleanUnicode(string s){if(string.IsNullOrEmpty(s))return s;return s.Replace("\u2013","-").Replace("\u2014","-").Replace("\u2018","'").Replace("\u2019","'").Replace("\u201C","\"").Replace("\u201D","\"").Replace("\u2026","...").Replace("\u00A0"," ");}
     {
         if (dr == null || !dr.Table.Columns.Contains(col)) return "";
         return dr[col] == DBNull.Value ? "" : (dr[col] ?? "").ToString().Trim();
@@ -377,7 +378,7 @@
     private static string SafeOrDash(DataRow dr, string col)
     {
         string v = Safe(dr, col);
-        return string.IsNullOrWhiteSpace(v) ? "—" : v;
+        return string.IsNullOrWhiteSpace(v) ? "-" : v;
     }
 
     private static decimal ParseDec(DataRow dr, string col)
