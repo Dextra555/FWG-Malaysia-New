@@ -523,7 +523,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 .ToListAsync();
 
             var categoryList = _oBMSDbContext.InventoryCategories
-    .Where(category => category.Cat == invCat || category.Cat == "O")
+    .Where(category => category.Cat == invCat || category.Cat == "O" || category.Cat == "P")
     .OrderBy(category => category.Name)
     .Select(category => new
     {
@@ -1427,14 +1427,14 @@ namespace OBMS.WebAPI.Repositories.Implementation
                 SubmittedBy     = pr.SubmittedBy ?? pr.LastUpdatedBy,
                 SubmittedDate   = pr.SubmittedDate,
                 LASTUPDATE      = pr.LASTUPDATE,
-                LastUpdatedBy   = pr.LastUpdatedBy
+                LastUpdatedBy   = pr.LastUpdatedBy,
+                CreatedBy       = pr.CreatedBy ?? pr.LastUpdatedBy
             };
 
         public async Task<List<PRListDto>> GetPRList(string userName)
         {
             var query = PRListQuery();
-            if (!IsSuperAdmin(userName))
-                query = query.Where(r => r.SubmittedBy == userName || r.LastUpdatedBy == userName);
+            // All users see all PRs — no user-based filter.
             var list = await query.ToListAsync();
             foreach (var pr in list)
             {
@@ -1569,6 +1569,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                             Status         = "Draft",
                             Remarks        = dto.Remarks,
                             IsActive       = true,
+                            CreatedBy      = dto.LastUpdatedBy,
                             LASTUPDATE     = DateTime.Now,
                             LastUpdatedBy  = dto.LastUpdatedBy
                         };
@@ -6164,6 +6165,72 @@ namespace OBMS.WebAPI.Repositories.Implementation
         // B. ASSET ALLOCATION
         // ────────────────────────────────────────────────────────────────────
 
+        public async Task<List<MaintenancePaymentRowDto>> GetMaintenanceForPayment(string vendorName, int paymentId)
+        {
+            // Load only COMPLETED maintenance records for this vendor that are unpaid or linked to this payment
+            var allRows = await (
+                from am in _oBMSDbContext.AssetMaintenances
+                join a  in _oBMSDbContext.AssetMasters on am.AssetID equals a.ID
+                where am.IsActive
+                   && am.VendorName == vendorName
+                   && (am.MaintenanceCost ?? 0) > 0
+                   && am.Status == "Completed"          // ← Only completed maintenance
+                select new
+                {
+                    am.ID,
+                    am.MaintenanceNo,
+                    am.AssetID,
+                    AssetCode  = a.AssetCode ?? "",
+                    AssetName  = a.Name ?? "",
+                    am.VendorName,
+                    am.StartDate,
+                    TotalAmount = am.MaintenanceCost ?? 0m
+                }
+            ).OrderBy(x => x.StartDate).ToListAsync();
+
+            var result = new List<MaintenancePaymentRowDto>();
+
+            foreach (var row in allRows)
+            {
+                // Sum all non-deleted payments against this maintenance record
+                var paidAmount = await _oBMSDbContext.BranchPaymentDetails
+                    .Where(d => d.MaintenanceID == row.ID && d.IsDeleted != true)
+                    .SumAsync(d => (decimal?)d.Amount) ?? 0m;
+
+                // Find if this payment already has a detail row for this maintenance
+                var existingDetail = await _oBMSDbContext.BranchPaymentDetails
+                    .FirstOrDefaultAsync(d => d.MaintenanceID == row.ID
+                                           && d.PaymentID == paymentId
+                                           && d.IsDeleted != true);
+
+                bool linkedToThisPayment = existingDetail != null;
+                bool hasBalance = paidAmount < row.TotalAmount;
+
+                // Edit mode (paymentId > 0): show ONLY rows linked to this payment
+                // New mode  (paymentId = 0): show all rows that still have a balance
+                if (paymentId > 0 && !linkedToThisPayment) continue;
+                if (paymentId == 0 && !hasBalance) continue;
+
+                result.Add(new MaintenancePaymentRowDto
+                {
+                    MaintenanceID   = row.ID,
+                    PaymentDetailID = existingDetail?.ID ?? 0,
+                    PaymentID       = paymentId,
+                    MaintenanceRef  = row.MaintenanceNo,
+                    AssetID         = row.AssetID,
+                    AssetCode       = row.AssetCode,
+                    AssetName       = row.AssetName,
+                    VendorName      = row.VendorName ?? "",
+                    StartDate       = row.StartDate,
+                    TotalAmount     = row.TotalAmount,
+                    PaidAmount      = paidAmount,
+                    Amount          = existingDetail != null ? existingDetail.Amount : 0m
+                });
+            }
+
+            return result;
+        }
+
         public async Task<List<AssetAllocationListDto>> GetAssetAllocationList(bool activeOnly, string userName)
         {
             var allowedBranches = await GetAllowedAssetBranchCodesAsync(userName);
@@ -6625,10 +6692,12 @@ namespace OBMS.WebAPI.Repositories.Implementation
                         ID = am.ID, MaintenanceNo = am.MaintenanceNo,
                         AssetID = am.AssetID, AssetCode = a.AssetCode ?? "", AssetName = a.Name,
                         MaintenanceType = am.MaintenanceType, ProblemDescription = am.ProblemDescription,
-                        VendorName = am.VendorName, StartDate = am.StartDate,
+                        VendorName = am.VendorName, BranchName = am.BranchName, StartDate = am.StartDate,
                         CompletionDate = am.CompletionDate, MaintenanceCost = am.MaintenanceCost,
                         Status = am.Status, CompletionRemarks = am.CompletionRemarks,
-                        Remarks = am.Remarks, LASTUPDATE = am.LASTUPDATE, LastUpdatedBy = am.LastUpdatedBy
+                        Remarks = am.Remarks, LASTUPDATE = am.LASTUPDATE, LastUpdatedBy = am.LastUpdatedBy,
+                        IsPaid = _oBMSDbContext.BranchPaymentDetails
+                                    .Any(d => d.MaintenanceID == am.ID && d.IsDeleted != true)
                     };
             return await q.ToListAsync();
         }
@@ -6646,10 +6715,12 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     ID = am.ID, MaintenanceNo = am.MaintenanceNo,
                     AssetID = am.AssetID, AssetCode = a.AssetCode ?? "", AssetName = a.Name,
                     MaintenanceType = am.MaintenanceType, ProblemDescription = am.ProblemDescription,
-                    VendorName = am.VendorName, StartDate = am.StartDate,
+                    VendorName = am.VendorName, BranchName = am.BranchName, StartDate = am.StartDate,
                     CompletionDate = am.CompletionDate, MaintenanceCost = am.MaintenanceCost,
                     Status = am.Status, CompletionRemarks = am.CompletionRemarks,
-                    Remarks = am.Remarks, LASTUPDATE = am.LASTUPDATE, LastUpdatedBy = am.LastUpdatedBy
+                    Remarks = am.Remarks, LASTUPDATE = am.LASTUPDATE, LastUpdatedBy = am.LastUpdatedBy,
+                    IsPaid = _oBMSDbContext.BranchPaymentDetails
+                                .Any(d => d.MaintenanceID == am.ID && d.IsDeleted != true)
                 }
             ).FirstOrDefaultAsync();
         }
@@ -6686,6 +6757,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                         MaintenanceType    = dto.MaintenanceType,
                         ProblemDescription = dto.ProblemDescription,
                         VendorName         = dto.VendorName,
+                        BranchName         = dto.BranchName,
                         StartDate          = dto.StartDate,
                         CompletionDate     = dto.CompletionDate,
                         MaintenanceCost    = dto.MaintenanceCost ?? 0,
@@ -6718,6 +6790,33 @@ namespace OBMS.WebAPI.Repositories.Implementation
             });
 
             return (true, $"Maintenance record {maintNo} created. Asset status set to Under Maintenance.", saved);
+        }
+
+        public async Task<(bool Success, string Message)> UpdateAssetMaintenance(AssetMaintenanceRequestDto dto)
+        {
+            var maint = await _oBMSDbContext.AssetMaintenances.FindAsync(dto.ID);
+            if (maint == null) return (false, "Maintenance record not found.");
+
+            // Block edit if already paid via Payments page
+            bool isPaid = await _oBMSDbContext.BranchPaymentDetails
+                .AnyAsync(d => d.MaintenanceID == dto.ID && d.IsDeleted != true);
+            if (isPaid)
+                return (false, "This maintenance record has already been paid. Amount cannot be changed.");
+
+            maint.MaintenanceType    = dto.MaintenanceType;
+            maint.ProblemDescription = dto.ProblemDescription;
+            maint.VendorName         = dto.VendorName;
+            maint.BranchName         = dto.BranchName;
+            maint.StartDate          = dto.StartDate;
+            maint.MaintenanceCost    = dto.MaintenanceCost ?? 0;
+            maint.Remarks            = dto.Remarks;
+            maint.LASTUPDATE         = DateTime.Now;
+            maint.LastUpdatedBy      = dto.LastUpdatedBy;
+
+            _oBMSDbContext.AssetMaintenances.Update(maint);
+            await _oBMSDbContext.SaveChangesAsync();
+
+            return (true, $"Maintenance record {maint.MaintenanceNo} updated successfully.");
         }
 
         public async Task<(bool Success, string Message)> CompleteAssetMaintenance(
@@ -6758,6 +6857,39 @@ namespace OBMS.WebAPI.Repositories.Implementation
                         maint.MaintenanceNo, "Maintenance", maint.ID,
                         prevStatus, newStatus,
                         remarks, currentUser);
+
+                    // ── Auto-create CreditorInvoice (InvoiceType='M') on completion ──
+                    bool ciExists = await _oBMSDbContext.CreditorInvoices
+                        .AnyAsync(ci => ci.RecID == maint.ID && ci.InvoiceType == "M" && ci.IsDeleted == false);
+                    if (!ciExists)
+                    {
+                        // Resolve supplier from VendorName if AssetMaster.SupplierID is null
+                        int resolvedSupplier = asset.SupplierID ?? 0;
+                        if (resolvedSupplier == 0 && !string.IsNullOrWhiteSpace(maint.VendorName))
+                        {
+                            var matchSup = await _oBMSDbContext.Suppliers
+                                .FirstOrDefaultAsync(s => s.Name == maint.VendorName);
+                            resolvedSupplier = matchSup?.Id ?? 0;
+                        }
+
+                        var newCI = new CreditorInvoice
+                        {
+                            Branch        = !string.IsNullOrWhiteSpace(maint.BranchName)
+                                                ? maint.BranchName
+                                                : (string.IsNullOrWhiteSpace(asset.Branch) ? null : asset.Branch),
+                            Supplier      = resolvedSupplier,
+                            RecID         = maint.ID,
+                            InvoiceNo     = maint.MaintenanceNo,
+                            InvoiceType   = "M",
+                            InvoiceDate   = maint.StartDate,
+                            Total         = cost,
+                            PaymentDate   = null,
+                            LASTUPDATE    = DateTime.Now,
+                            LastUpdatedBy = currentUser,
+                            IsDeleted     = false
+                        };
+                        _oBMSDbContext.CreditorInvoices.Add(newCI);
+                    }
 
                     await _oBMSDbContext.SaveChangesAsync();
                     await tx.CommitAsync();
@@ -8347,6 +8479,23 @@ namespace OBMS.WebAPI.Repositories.Implementation
                         WarehouseName = reader.GetString(reader.GetOrdinal("WarehouseName")),
                         Qty           = reader.IsDBNull(reader.GetOrdinal("Qty"))      ? 0 : reader.GetDecimal(reader.GetOrdinal("Qty")),
                         TotalQty      = reader.IsDBNull(reader.GetOrdinal("TotalQty")) ? 0 : reader.GetDecimal(reader.GetOrdinal("TotalQty"))
+                    });
+                }
+            }
+
+            // ── RS9 : Asset Expiry Alerts (next 30 days) ─────────────────────
+            if (await reader.NextResultAsync())
+            {
+                while (await reader.ReadAsync())
+                {
+                    dto.AssetExpiryAlerts.Add(new AssetExpiryAlertDto
+                    {
+                        AssetID    = reader.GetInt32(reader.GetOrdinal("AssetID")),
+                        AssetCode  = reader.IsDBNull(reader.GetOrdinal("AssetCode"))  ? "" : reader.GetString(reader.GetOrdinal("AssetCode")),
+                        AssetName  = reader.IsDBNull(reader.GetOrdinal("AssetName"))  ? "" : reader.GetString(reader.GetOrdinal("AssetName")),
+                        ExpiryType = reader.IsDBNull(reader.GetOrdinal("ExpiryType")) ? "" : reader.GetString(reader.GetOrdinal("ExpiryType")),
+                        ExpiryDate = reader.GetDateTime(reader.GetOrdinal("ExpiryDate")),
+                        DaysLeft   = reader.IsDBNull(reader.GetOrdinal("DaysLeft"))   ? 0  : reader.GetInt32(reader.GetOrdinal("DaysLeft"))
                     });
                 }
             }

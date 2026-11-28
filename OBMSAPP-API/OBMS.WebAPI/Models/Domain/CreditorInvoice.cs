@@ -8,7 +8,7 @@ namespace OBMS.WebAPI.Models.Domain
     {
         [Key]
         public int ID { get; set; }
-        public string Branch { get; set; }
+        public string? Branch { get; set; }
         public int Supplier { get; set; }
         public int? RecID { get; set; }
         public string InvoiceNo { get; set; }

@@ -1,4 +1,4 @@
-﻿using BoldReports.Processing.ObjectModels;
+using BoldReports.Processing.ObjectModels;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -686,6 +686,59 @@ namespace OBMS.WebAPI.Repositories.Implementation
             }
         }
 
+        #endregion
+
+        #region UserLoginLog
+        public async Task RecordUserLogin(string userName)
+        {
+            // Close any stale open sessions for this user first (browser crash / power loss)
+            var openSessions = _dbContext.UserLoginLogs
+                .Where(x => x.UserName == userName && x.IsActive);
+            foreach (var s in openSessions)
+            {
+                s.IsActive = false;
+                s.LogoutTime = DateTime.Now;
+            }
+
+            _dbContext.UserLoginLogs.Add(new UserLoginLog
+            {
+                UserName = userName,
+                LoginTime = DateTime.Now,
+                LogoutTime = null,
+                IsActive = true
+            });
+            await _dbContext.SaveChangesAsync();
+        }
+
+        public async Task RecordUserLogout(string userName)
+        {
+            var openSessions = _dbContext.UserLoginLogs
+                .Where(x => x.UserName == userName && x.IsActive);
+            foreach (var s in openSessions)
+            {
+                s.IsActive = false;
+                s.LogoutTime = DateTime.Now;
+            }
+            await _dbContext.SaveChangesAsync();
+        }
+
+        public List<UserLoginLog> GetActiveLoggedInUsers()
+        {
+            return _dbContext.UserLoginLogs
+                .Where(x => x.IsActive)
+                .OrderByDescending(x => x.LoginTime)
+                .ToList();
+        }
+
+        public List<UserLoginLog> GetLoginHistory(DateTime? fromDate, DateTime? toDate)
+        {
+            var query = _dbContext.UserLoginLogs.AsQueryable();
+            if (fromDate.HasValue)
+                query = query.Where(x => x.LoginTime >= fromDate.Value);
+            if (toDate.HasValue)
+                query = query.Where(x => x.LoginTime < toDate.Value.AddDays(1));
+            return query.OrderByDescending(x => x.LoginTime).ToList();
+        }
         #endregion
     }
 }

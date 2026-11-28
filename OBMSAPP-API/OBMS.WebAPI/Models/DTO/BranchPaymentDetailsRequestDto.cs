@@ -11,6 +11,8 @@
         /// against a Goods Receipt Note (not a CreditorInvoice).
         /// </summary>
         public int? GRNID { get; set; }
+        /// <summary>Optional Maintenance reference — set when paying an Asset Maintenance cost.</summary>
+        public int? MaintenanceID { get; set; }
         public decimal Amount { get; set; }
         public DateTime LastUpdate { get; set; }
         public string? LastUpdatedBy { get; set; }

@@ -11,6 +11,7 @@ namespace OBMS.WebAPI.Models.DTO
 
         public string? ProblemDescription { get; set; }
         public string? VendorName { get; set; }
+        public string? BranchName { get; set; }
         public DateTime StartDate { get; set; }
         public DateTime? CompletionDate { get; set; }
         public decimal? MaintenanceCost { get; set; }
@@ -29,6 +30,7 @@ namespace OBMS.WebAPI.Models.DTO
         public string MaintenanceType { get; set; } = string.Empty;
         public string? ProblemDescription { get; set; }
         public string? VendorName { get; set; }
+        public string? BranchName { get; set; }
         public DateTime StartDate { get; set; }
         public DateTime? CompletionDate { get; set; }
         public decimal? MaintenanceCost { get; set; }
@@ -37,5 +39,7 @@ namespace OBMS.WebAPI.Models.DTO
         public string? Remarks { get; set; }
         public DateTime LASTUPDATE { get; set; }
         public string? LastUpdatedBy { get; set; }
+        /// <summary>True if at least one non-deleted payment detail row exists for this maintenance.</summary>
+        public bool IsPaid { get; set; }
     }
 }

@@ -57,5 +57,4 @@ namespace OBMS.WebAPI.Models.Domain
         public decimal? SKBBKContribution { get; set; }
         public bool? SplitSalaryPayment { get; set; }
     }
-        public bool? SplitSalaryPayment { get; set; }    }
 }

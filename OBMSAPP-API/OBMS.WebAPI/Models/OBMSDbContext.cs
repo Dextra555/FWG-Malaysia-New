@@ -95,6 +95,7 @@ public partial class OBMSDbContext : DbContext
     public virtual DbSet<DebitNote> DebitNotes { get; set; }
     public DbSet<AttendanceDisplayResult> AttendanceDisplayResults { get; set; }
     public DbSet<EmployeeVisaPassportListView> EmployeeVisaPassportListViews { get; set; }
+    public DbSet<UserLoginLog> UserLoginLogs { get; set; }
 
     // Part 2: Opening Stock + Stock Ledger
     public DbSet<OpeningStock> OpeningStocks { get; set; }

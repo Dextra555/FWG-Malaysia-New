@@ -310,6 +310,7 @@ namespace OBMS.WebAPI.Repositories.Interface
         /// Used by Finance → Payment → Purchase category.
         /// </summary>
         Task<List<AssetInstallmentPaymentRowDto>> GetAssetInstallmentsForPayment(int supplierID, int paymentId, DateTime? paymentDate = null);
+        Task<List<MaintenancePaymentRowDto>> GetMaintenanceForPayment(string vendorName, int paymentId);
 
         // ── Part 6: Asset Allocation ──────────────────────────────────────────────
 
@@ -336,6 +337,7 @@ namespace OBMS.WebAPI.Repositories.Interface
         Task<List<AssetMaintenanceListDto>> GetAssetMaintenanceList(int? assetID, string userName);
         Task<AssetMaintenanceListDto?> GetAssetMaintenanceByID(int id, string userName);
         Task<(bool Success, string Message, AssetMaintenance? Record)> SaveAssetMaintenance(AssetMaintenanceRequestDto dto);
+        Task<(bool Success, string Message)> UpdateAssetMaintenance(AssetMaintenanceRequestDto dto);
         Task<(bool Success, string Message)> CompleteAssetMaintenance(int id, DateTime completionDate, decimal cost, string remarks, string currentUser);
 
         // ── Part 6: Asset Damage ──────────────────────────────────────────────────

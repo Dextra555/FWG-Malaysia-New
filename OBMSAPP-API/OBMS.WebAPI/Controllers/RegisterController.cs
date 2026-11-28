@@ -760,8 +760,40 @@ namespace OBMS.WebAPI.Controllers
             {
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
+        }
+        #endregion
 
+        #region UserLoginLog
+        [HttpPost]
+        [Route("RecordLogin")]
+        public async Task<IActionResult> RecordLogin([FromBody] string userName)
+        {
+            await _registerRepository.RecordUserLogin(userName);
+            return Ok(new { Success = "Success" });
+        }
 
+        [HttpPost]
+        [Route("RecordLogout")]
+        public async Task<IActionResult> RecordLogout([FromBody] string userName)
+        {
+            await _registerRepository.RecordUserLogout(userName);
+            return Ok(new { Success = "Success" });
+        }
+
+        [HttpGet]
+        [Route("GetActiveLoggedInUsers")]
+        public IActionResult GetActiveLoggedInUsers()
+        {
+            var users = _registerRepository.GetActiveLoggedInUsers();
+            return Ok(users);
+        }
+
+        [HttpGet]
+        [Route("GetLoginHistory")]
+        public IActionResult GetLoginHistory(DateTime? fromDate, DateTime? toDate)
+        {
+            var history = _registerRepository.GetLoginHistory(fromDate, toDate);
+            return Ok(history);
         }
         #endregion
     }

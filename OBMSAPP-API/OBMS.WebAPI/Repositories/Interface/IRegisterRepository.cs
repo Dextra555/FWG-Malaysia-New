@@ -45,5 +45,12 @@ namespace OBMS.WebAPI.Repositories.Interface
         OBMSPermissions GetUserAccessRights(string userName, string screenName);
 
         #endregion
+
+        #region UserLoginLog
+        Task RecordUserLogin(string userName);
+        Task RecordUserLogout(string userName);
+        List<UserLoginLog> GetActiveLoggedInUsers();
+        List<UserLoginLog> GetLoginHistory(DateTime? fromDate, DateTime? toDate);
+        #endregion
     }
 }

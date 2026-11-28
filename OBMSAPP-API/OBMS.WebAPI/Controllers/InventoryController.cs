@@ -1100,9 +1100,8 @@ namespace OBMS.WebAPI.Controllers
             try
             {
 
-                var result = from IM in _oBMSDbContext.ItemMasters
+                var result = (from IM in _oBMSDbContext.ItemMasters
                              join IC in _oBMSDbContext.InventoryCategories on IM.CategoryID equals IC.ID
-                          
                              select new
                              {
                                 IM.ID,
@@ -1110,7 +1109,9 @@ namespace OBMS.WebAPI.Controllers
                                 IM.CategoryID,
                                 IM.Name,
                                 IM.Price
-                             };
+                             })
+                             .OrderBy(x => x.Name)
+                             .ToList();
 
 
                 return Ok(result);
@@ -1926,7 +1927,7 @@ namespace OBMS.WebAPI.Controllers
         }
 
         /// <summary>
-        /// Returns distinct client (Branch) names from StockIssues.
+        /// Returns distinct client (IssueToName) names from StockIssueDoc.
         /// Used to populate the Client Name filter on the Stock Movement Report.
         /// </summary>
         [HttpGet("GetStockIssueClients")]
@@ -1935,9 +1936,9 @@ namespace OBMS.WebAPI.Controllers
             try
             {
                 var clients = await (
-                    from si in _oBMSDbContext.StockIssues
-                    where !string.IsNullOrEmpty(si.Branch)
-                    select si.Branch
+                    from sid in _oBMSDbContext.StockIssueDocs
+                    where sid.IsActive && !string.IsNullOrEmpty(sid.IssueToName)
+                    select sid.IssueToName
                 )
                 .Distinct()
                 .OrderBy(b => b)
@@ -3696,6 +3697,21 @@ namespace OBMS.WebAPI.Controllers
             }
         }
 
+        [HttpGet("GetMaintenanceForPayment")]
+        public async Task<IActionResult> GetMaintenanceForPayment(string vendorName, int paymentId = 0)
+        {
+            try
+            {
+                var rows = await _inventoryRepository.GetMaintenanceForPayment(vendorName, paymentId);
+                return Ok(rows);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[GetMaintenanceForPayment] {ex}");
+                return StatusCode(500, new { success = false, message = "Unable to load maintenance records for payment. Please try again." });
+            }
+        }
+
         // ── Asset Allocation ──────────────────────────────────────────────────
 
         [HttpGet("GetAssetAllocationList")]
@@ -3998,13 +4014,25 @@ namespace OBMS.WebAPI.Controllers
                 return BadRequest(new { success = false, message = "Please select an asset." });
             if (string.IsNullOrWhiteSpace(dto.MaintenanceType))
                 return BadRequest(new { success = false, message = "Please select the maintenance type." });
+            if (string.IsNullOrWhiteSpace(dto.VendorName))
+                return BadRequest(new { success = false, message = "Please select a vendor / service provider." });
+            if (string.IsNullOrWhiteSpace(dto.BranchName))
+                return BadRequest(new { success = false, message = "Please select a branch." });
             if (dto.StartDate == default)
                 return BadRequest(new { success = false, message = "Please enter the start date." });
             try
             {
-                var (success, message, record) = await _inventoryRepository.SaveAssetMaintenance(dto);
-                if (!success) return BadRequest(new { success = false, message });
-                return Ok(new { success = true, message, id = record?.ID, maintenanceNo = record?.MaintenanceNo });
+                // ID > 0 → update existing record
+                if (dto.ID > 0)
+                {
+                    var (success, message) = await _inventoryRepository.UpdateAssetMaintenance(dto);
+                    if (!success) return BadRequest(new { success = false, message });
+                    return Ok(new { success = true, message });
+                }
+                // ID == 0 → create new record
+                var (ok, msg, record) = await _inventoryRepository.SaveAssetMaintenance(dto);
+                if (!ok) return BadRequest(new { success = false, message = msg });
+                return Ok(new { success = true, message = msg, id = record?.ID, maintenanceNo = record?.MaintenanceNo });
             }
             catch (Exception ex)
             {

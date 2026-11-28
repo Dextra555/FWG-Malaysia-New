@@ -41,6 +41,9 @@ namespace OBMS.WebAPI.Models.Domain
 
         public bool IsActive { get; set; } = true;
 
+        /// <summary>The user who originally created (drafted) this PR — never overwritten after first save.</summary>
+        public string? CreatedBy { get; set; }
+
         public DateTime LASTUPDATE { get; set; }
 
         public string? LastUpdatedBy { get; set; }

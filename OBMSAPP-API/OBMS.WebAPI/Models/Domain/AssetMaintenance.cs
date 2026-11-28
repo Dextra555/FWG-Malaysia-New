@@ -25,6 +25,7 @@ namespace OBMS.WebAPI.Models.Domain
 
         public string? ProblemDescription { get; set; }
         public string? VendorName { get; set; }
+        public string? BranchName { get; set; }
 
         public DateTime StartDate { get; set; }
         public DateTime? CompletionDate { get; set; }
@@ -40,6 +41,9 @@ namespace OBMS.WebAPI.Models.Domain
         public bool IsActive { get; set; } = true;
         public DateTime LASTUPDATE { get; set; }
         public string? LastUpdatedBy { get; set; }
+
+        /// <summary>Payment ID once cost is paid via Payments screen.</summary>
+        public int? PaymentID { get; set; }
 
         [ForeignKey("AssetID")]
         public virtual AssetMaster? Asset { get; set; }

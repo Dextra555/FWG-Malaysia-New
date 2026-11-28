@@ -979,14 +979,7 @@ namespace OBMS.WebAPI.Controllers
             {
                 IQueryable<InventoryCategory> query = _oBMSDbContext.InventoryCategories;
 
-                if (cat == "U")
-                {
-                    query = query.Where(x => x.Cat != "P");
-                }
-                else
-                {
-                    query = query.Where(x => x.Cat == cat);
-                }
+                // No filter — all categories shown for both Purchase and Expenses modes
 
                 var obj = await query.OrderBy(x => x.Name).ToListAsync();
                 return obj;
@@ -1163,8 +1156,8 @@ namespace OBMS.WebAPI.Controllers
                                    && d.PaymentID == paymentId
                                    && d.IsDeleted == false)
                           .ToListAsync())
-                      .ToDictionary(d => d.GRNID!.Value, d => new { d.ID, d.Amount })
-                    : new Dictionary<int, object>().ToDictionary(k => k.Key, v => new { ID = 0, Amount = 0m });
+                      .ToDictionary(d => d.GRNID!.Value, d => new { d.ID, d.Amount, d.Branch })
+                    : new Dictionary<int, object>().ToDictionary(k => k.Key, v => new { ID = 0, Amount = 0m, Branch = (string?)null });
 
                 // 4. Build result rows
                 var rows = new List<GRNPaymentRowDto>();
@@ -1181,7 +1174,7 @@ namespace OBMS.WebAPI.Controllers
                     if (paymentId > 0 && !linkedToThisPayment) continue;
                     if (paymentId == 0 && balance <= 0) continue;
 
-                    var thisDetail = linkedToThisPayment ? thisPaymentLookup[g.ID] : new { ID = 0, Amount = 0m };
+                    var thisDetail = linkedToThisPayment ? thisPaymentLookup[g.ID] : new { ID = 0, Amount = 0m, Branch = (string?)null };
 
                     rows.Add(new GRNPaymentRowDto
                     {
@@ -1194,7 +1187,10 @@ namespace OBMS.WebAPI.Controllers
                         PONumber          = g.PONumber,
                         SupplierID        = g.SupId,
                         SupplierName      = g.SupName,
-                        WarehouseBranchCode = g.BranchCode,
+                        // Edit mode: use the branch the user saved; new mode: default to warehouse branch
+                        WarehouseBranchCode = (linkedToThisPayment && !string.IsNullOrEmpty(thisDetail.Branch))
+                                                ? thisDetail.Branch
+                                                : g.BranchCode,
                         TotalAmount       = g.GRNTotal,
                         PaidAmount        = paid,
                         Balance           = balance,
@@ -1247,7 +1243,7 @@ namespace OBMS.WebAPI.Controllers
                         ) P ON P.InvoiceID = CI.ID
                         WHERE OB.Name = @UserID
                             AND CI.IsDeleted = 0
-                            AND ISNULL(CI.InvoiceType, '') NOT IN ('G', 'A', 'P')
+                            AND ISNULL(CI.InvoiceType, '') NOT IN ('G', 'A', 'P', 'M')
                           AND (
                                 @PaymentID <> 0
                                 OR CI.Total - ISNULL(P.PaidAmount,0) > 0
@@ -1306,7 +1302,7 @@ namespace OBMS.WebAPI.Controllers
                     WHERE OB.Name = @UserID             
                       AND CI.IsDeleted = 0
                       AND CI.Supplier = @Supplier
-                      AND ISNULL(CI.InvoiceType, '') NOT IN ('G', 'A', 'P')
+                      AND ISNULL(CI.InvoiceType, '') NOT IN ('G', 'A', 'P', 'M')
                       AND (
                             @PaymentID <> 0               
                             OR CI.Total - ISNULL(P.PaidAmount,0) > 0 
@@ -1500,6 +1496,7 @@ namespace OBMS.WebAPI.Controllers
                                         x.Branch == detail.Branch &&
                                         x.InvoiceID == detail.InvoiceID &&
                                         x.GRNID == detail.GRNID &&
+                                        x.MaintenanceID == detail.MaintenanceID &&
                                         x.IsDeleted == true);
 
                                 if (existingSoftDeleted != null)
@@ -1603,13 +1600,102 @@ namespace OBMS.WebAPI.Controllers
                                     branchPaymentDetails.InvoiceID = existingCI.ID;
                                 }
                             }
+                            // ── Maintenance → CreditorInvoice link ─────────────────────────────
+                            // When paying against an Asset Maintenance record,
+                            // ensure a CreditorInvoice row exists (InvoiceType = 'M', RecID = MaintenanceID).
+                            else if (detail.MaintenanceID.HasValue && detail.MaintenanceID.Value > 0)
+                            {
+                                var existingMaintCI = await _oBMSDbContext.CreditorInvoices
+                                    .FirstOrDefaultAsync(ci =>
+                                        ci.RecID == detail.MaintenanceID.Value &&
+                                        ci.InvoiceType == "M" &&
+                                        ci.IsDeleted == false);
+
+                                if (existingMaintCI == null)
+                                {
+                                    // Fetch maintenance data for the invoice row
+                                    var maintData = await (
+                                        from am  in _oBMSDbContext.AssetMaintenances
+                                        join a   in _oBMSDbContext.AssetMasters on am.AssetID equals a.ID
+                                        join sup in _oBMSDbContext.Suppliers
+                                             on a.SupplierID equals sup.Id into supJoin
+                                        from sup in supJoin.DefaultIfEmpty()
+                                        where am.ID == detail.MaintenanceID.Value
+                                        select new
+                                        {
+                                            am.MaintenanceNo,
+                                            am.StartDate,
+                                            am.MaintenanceCost,
+                                            am.VendorName,
+                                            BranchCode  = a.Branch ?? "",
+                                            SupplierID  = a.SupplierID
+                                        }
+                                    ).FirstOrDefaultAsync();
+
+                                    if (maintData != null)
+                                    {
+                                        // Find supplier by VendorName if SupplierID is null
+                                        int? resolvedSupplierID = maintData.SupplierID;
+                                        if (!resolvedSupplierID.HasValue && !string.IsNullOrWhiteSpace(maintData.VendorName))
+                                        {
+                                            var matchedSupplier = await _oBMSDbContext.Suppliers
+                                                .FirstOrDefaultAsync(s => s.Name == maintData.VendorName);
+                                            resolvedSupplierID = matchedSupplier?.Id;
+                                        }
+
+                                        // Use asset's branch if available, otherwise null
+                                        string? maintBranch = string.IsNullOrWhiteSpace(maintData.BranchCode)
+                                            ? null
+                                            : maintData.BranchCode;
+
+                                        int finalSupplierID = resolvedSupplierID.HasValue
+                                            ? resolvedSupplierID.Value
+                                            : (branchPaymentRequestDto.Supplier.HasValue
+                                                ? (int)branchPaymentRequestDto.Supplier.Value
+                                                : 0);
+
+                                        var newMaintCI = new CreditorInvoice
+                                        {
+                                            Branch        = maintBranch,
+                                            Supplier      = finalSupplierID,
+                                            RecID         = detail.MaintenanceID.Value,
+                                            InvoiceNo     = maintData.MaintenanceNo,
+                                            InvoiceType   = "M",
+                                            InvoiceDate   = maintData.StartDate,
+                                            Total         = maintData.MaintenanceCost ?? 0m,
+                                            PaymentDate   = branchPaymentRequestDto.PaymentDate,
+                                            ItemCategory  = string.IsNullOrWhiteSpace(branchPaymentRequestDto.ItemCategory)
+                                                                ? (int?)null
+                                                                : int.TryParse(branchPaymentRequestDto.ItemCategory, out int mCatId) ? mCatId : (int?)null,
+                                            LASTUPDATE    = DateTime.Now,
+                                            LastUpdatedBy = branchPaymentRequestDto.userId ?? "",
+                                            IsDeleted     = false
+                                        };
+                                        _oBMSDbContext.CreditorInvoices.Add(newMaintCI);
+                                        await _oBMSDbContext.SaveChangesAsync();
+                                        _oBMSDbContext.ChangeTracker.Clear();
+
+                                        branchPaymentDetails.InvoiceID = newMaintCI.ID;
+                                    }
+                                    else
+                                    {
+                                        branchPaymentDetails.InvoiceID = detail.InvoiceID;
+                                    }
+                                }
+                                else
+                                {
+                                    // CreditorInvoice already exists — just link to it
+                                    branchPaymentDetails.InvoiceID = existingMaintCI.ID;
+                                }
+                            }
+                            // ────────────────────────────────────────────────────────────────────
                             else
                             {
                                 branchPaymentDetails.InvoiceID = detail.InvoiceID;
                             }
-                            // ────────────────────────────────────────────────────────────────────
 
                             branchPaymentDetails.GRNID = detail.GRNID;   // GRN reference (nullable)
+                            branchPaymentDetails.MaintenanceID = detail.MaintenanceID; // Maintenance reference (nullable)
                             branchPaymentDetails.Amount = detail.Amount;
                             branchPaymentDetails.LastUpdate = DateTime.Now;
                             branchPaymentDetails.LastUpdatedBy = branchPaymentRequestDto.userId;

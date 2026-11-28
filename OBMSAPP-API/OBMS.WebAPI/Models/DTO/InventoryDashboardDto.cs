@@ -34,6 +34,9 @@ namespace OBMS.WebAPI.Models.DTO
 
         // RS8: Stock qty by warehouse – top 5 items (flat)
         public List<ItemWarehouseQtyDto> ItemWarehouseQty { get; set; } = new();
+
+        // RS9: Asset expiry alerts – within next 30 days
+        public List<AssetExpiryAlertDto> AssetExpiryAlerts { get; set; } = new();
     }
 
     // ── RS2 ─────────────────────────────────────────────────────────────────
@@ -96,5 +99,16 @@ namespace OBMS.WebAPI.Models.DTO
         public string  WarehouseName { get; set; } = string.Empty;
         public decimal Qty           { get; set; }
         public decimal TotalQty      { get; set; }
+    }
+
+    // ── RS9 ─────────────────────────────────────────────────────────────────
+    public class AssetExpiryAlertDto
+    {
+        public int      AssetID    { get; set; }
+        public string   AssetCode  { get; set; } = string.Empty;
+        public string   AssetName  { get; set; } = string.Empty;
+        public string   ExpiryType { get; set; } = string.Empty;  // 'Road Tax' | 'Insurance' | 'Service'
+        public DateTime ExpiryDate { get; set; }
+        public int      DaysLeft   { get; set; }
     }
 }

@@ -76,6 +76,8 @@ namespace OBMS.WebAPI.Models.DTO
         public DateTime? SubmittedDate { get; set; }
         public DateTime LASTUPDATE { get; set; }
         public string? LastUpdatedBy { get; set; }
+        /// <summary>The user who originally created (drafted) this PR — never overwritten after first save.</summary>
+        public string? CreatedBy { get; set; }
         public List<PRDetailListDto> Details { get; set; } = new();
     }
 

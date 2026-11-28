@@ -390,7 +390,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                         AdvanceID = 0,
                         ItemID = im.ID,
                         Name = im.Name,
-                        Price = im.SellPrice ?? 0,
+                        Price = im.Price,
                         Quantity = 0
                     })
                     .ToList();
@@ -409,7 +409,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                             AdvanceID = employeeItemIssue != null ? employeeItemIssue.AdvanceID : 0,
                             ItemID = itemMaster.ID,
                             Name = itemMaster.Name,
-                            Price = itemMaster.SellPrice ?? 0,
+                            Price = itemMaster.Price,
                             Quantity = employeeItemIssue != null ? employeeItemIssue.Quantity : 0
                         };
 
@@ -1805,10 +1805,10 @@ namespace OBMS.WebAPI.Repositories.Implementation
                             {
                                 Employee         = e,
                                 EmploymentDetail = ed,
-                                // Branch: use history snapshot if available, else current Employee master
-                                EffectiveBranch  = eh != null ? eh.EMP_BRANCH_CODE : e.EMP_BRANCH_CODE,
-                                // Client: use history snapshot if available, else current Employee master
-                                EffectiveClient  = eh != null ? eh.EMP_CLIENT      : e.EMP_CLIENT
+                                // Branch: use history snapshot if available and non-empty, else current Employee master
+                                EffectiveBranch  = (eh != null && eh.EMP_BRANCH_CODE != null && eh.EMP_BRANCH_CODE != "") ? eh.EMP_BRANCH_CODE : e.EMP_BRANCH_CODE,
+                                // Client: use history snapshot if available and non-empty, else current Employee master
+                                EffectiveClient  = (eh != null && eh.EMP_CLIENT != null && eh.EMP_CLIENT != "") ? eh.EMP_CLIENT : e.EMP_CLIENT
                             };
 
             // Status filter
@@ -1855,7 +1855,7 @@ namespace OBMS.WebAPI.Repositories.Implementation
                     baseQuery = baseQuery.Where(q => q.Employee.EMP_ROLE == employeeType);
             }
 
-            // Client filter — use EffectiveClient from EmployeeHistory snapshot (period-aware)
+            // Client filter — use EffectiveClient (history snapshot with employee master fallback)
             if (!string.IsNullOrEmpty(empClient))
                 baseQuery = baseQuery.Where(q => q.EffectiveClient == empClient);
 

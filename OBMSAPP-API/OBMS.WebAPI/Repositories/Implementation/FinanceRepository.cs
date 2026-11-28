@@ -113,12 +113,23 @@ namespace OBMS.WebAPI.Repositories.Implementation
 
             results.Add("banks", banks);
 
-            var category = await _oBMSDbContext.InventoryCategories.Where(s => s.Cat != "P").OrderBy(c => c.Name).ToListAsync();
+            var category = await _oBMSDbContext.InventoryCategories.OrderBy(c => c.Name).ToListAsync();
             results.Add("categories", category);
 
             var obj2 = await _oBMSDbContext.BranchPaymentForBranchs.Where(x => x.BName == "superuser").OrderBy(x => x.Name).ToListAsync();
-
             results.Add("other", obj2);
+
+            var branches = await (
+                from bm in _oBMSDbContext.BranchMasters
+                join ob in _oBMSDbContext.OBMSBranches
+                    on bm.Code equals ob.BranchCode
+                where isSuperAdmin || (ob.IsAllowed == true && ob.Name == userID)
+                orderby bm.Name
+                select new { bm.ID, bm.Code, bm.Name }
+            )
+            .Distinct()
+            .ToListAsync();
+            results.Add("branches", branches);
 
 
 
